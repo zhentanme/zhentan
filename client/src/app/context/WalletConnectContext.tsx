@@ -250,16 +250,20 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     setRequestStatus("signing");
 
     try {
-      // Check screening mode before propose so queue can skip risk when off
+      // Check screening mode before propose so queue can skip risk when off (same as SendPanel)
       let screeningOn = true;
-      try {
-        const statusRes = await fetch(getBackendApiUrl("status"));
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          screeningOn = statusData.screeningMode !== false;
+      if (safeAddress) {
+        try {
+          const statusRes = await fetch(
+            `${getBackendApiUrl("status")}?safe=${encodeURIComponent(safeAddress)}`
+          );
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            screeningOn = statusData.screeningMode !== false;
+          }
+        } catch {
+          // Default to screening on if status fetch fails
         }
-      } catch {
-        // Default to screening on if status fetch fails
       }
 
       const pending = await proposeDappTransaction({
