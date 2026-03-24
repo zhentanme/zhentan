@@ -1,7 +1,7 @@
 {
-  "name": "zhentan",
+  "name": "zhentan-agent",
   "version": "0.1.0",
-  "description": "Treasury transaction monitor and auto-signer for Safe multisig",
+  "description": "OpenClaw agent skills for Zhentan transaction screening",
   "type": "module",
   "scripts": {
     "check-pending": "node check-pending.js",

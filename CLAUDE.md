@@ -12,7 +12,7 @@ Three components work together:
 
 - **`client/`** — Next.js 14 frontend. Privy authentication (Google OAuth + embedded wallets), Safe smart account creation, transaction proposal (owner signs 1 of 2). Has its own API routes for local dev; in production calls the Express server.
 - **`server/`** — Express API for queue management and execution. Required when client deploys to read-only filesystems (Vercel). Routes: `/queue`, `/execute`, `/transactions`, `/invoices`, `/health`. Reads/writes JSON queue files.
-- **`zhentan-skills/`** — OpenClaw skill pack. Agent runs on a cron (every 10s), picks up pending transactions, scores risk, and decides: APPROVE (risk < 40), REVIEW (40-70), or BLOCK (> 70). Skills: `check-pending`, `analyze-risk`, `sign-and-execute`, `mark-review`, `reject-tx`, `record-pattern`, `toggle-screening`, `queue-invoice`, `get-status`.
+- **`agent/`** — OpenClaw skill pack (`zhentan-agent`). Agent runs on a cron (every 10s), picks up pending transactions, scores risk, and decides: APPROVE (risk < 40), REVIEW (40-70), or BLOCK (> 70). Skills: `check-pending`, `analyze-risk`, `sign-and-execute`, `mark-review`, `reject-tx`, `record-pattern`, `toggle-screening`, `queue-invoice`, `get-status`.
 
 Transaction flow: User signs in client → queued to `pending-queue.json` → agent analyzes → agent co-signs (2 of 2) → submitted to Pimlico bundler → gasless execution on BNB Chain via ERC-4337.
 
@@ -20,35 +20,35 @@ State files (JSON): `pending-queue.json`, `invoice-queue.json`, `state.json` (sc
 
 ## Development Commands
 
-### Client (Next.js)
+This is a pnpm workspace. Run `pnpm install` from the root to install all packages.
+
+### From root
 ```bash
-cd client && npm install
-npm run dev          # http://localhost:3000
-npm run build        # production build
-npm run lint         # ESLint
+pnpm dev:client      # http://localhost:3000
+pnpm dev:server      # http://localhost:3001
+pnpm build           # build all packages
+pnpm lint            # lint all packages
 ```
 
-### Server (Express)
+### Per package (from root)
 ```bash
-cd server && npm install
-npm run dev          # tsx watch, http://localhost:3001
-npm run build        # tsc → dist/
-npm run lint         # TypeScript type checking
-npm run pm2:start    # production via PM2
+pnpm --filter zhentan-client dev
+pnpm --filter zhentan-server dev
+pnpm --filter zhentan-server build
+pnpm --filter zhentan-server pm2:start
+```
+
+### Agent skills
+```bash
+pnpm --filter zhentan-agent check-pending
+pnpm --filter zhentan-agent analyze-risk
+pnpm --filter zhentan-agent sign-and-execute
 ```
 
 ### Scripts (CLI tools)
 ```bash
-npm run propose      # propose-tx.js — owner proposes and signs
-npm run agent-sign   # agent-sign.js — agent co-signs and executes
-```
-
-### Zhentan Skills
-```bash
-cd zhentan-skills && npm install
-npm run check-pending
-npm run analyze-risk
-npm run sign-and-execute
+pnpm propose         # propose-tx.js — owner proposes and signs
+pnpm agent-sign      # agent-sign.js — agent co-signs and executes
 ```
 
 ## Tech Stack

@@ -2,16 +2,31 @@
   "name": "zhentan",
   "version": "0.0.1",
   "private": true,
-  "type": "module",
+  "packageManager": "pnpm@10.29.3",
   "scripts": {
-    "transfer-usdc": "node scripts/transfer-usdc.js",
-    "transfer-usdc:multisig": "node scripts/transfer-usdc-multisig.js",
+    "dev:client": "pnpm --filter zhentan-client dev",
+    "dev:server": "pnpm --filter zhentan-server dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
     "propose": "node scripts/propose-tx.js",
-    "agent-sign": "node scripts/agent-sign.js"
+    "agent-sign": "node scripts/agent-sign.js",
+    "transfer-usdc": "node scripts/transfer-usdc.js",
+    "transfer-usdc:multisig": "node scripts/transfer-usdc-multisig.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "permissionless": "^0.2.14",
     "viem": "^2.21.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@reown/appkit",
+      "bufferutil",
+      "core-js",
+      "esbuild",
+      "keccak",
+      "unrs-resolver",
+      "utf-8-validate"
+    ]
   }
 }

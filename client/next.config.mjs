@@ -15,6 +15,7 @@ const nextConfig = {
     config.resolve.alias = {
       "lucide-react": path.resolve(__dirname, "lucide-react-shim.mjs"),
       "lucide-react-real": path.resolve(__dirname, "node_modules/lucide-react"),
+      "@farcaster/mini-app-solana": false,
       ...config.resolve.alias,
     };
     return config;
