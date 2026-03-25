@@ -1,118 +1,67 @@
-# 🦞 Zhentan
+# Zhentan 🕵️
 
-Your personalized onchain detective and assistant that learns and guards your onchain behavior.
+Your personalized onchain detective agent and assistant that learns and guards your onchain behavior BNB Chain.
 
-## Documentation
+**[zhentan.me](https://zhentan.me)** · **[docs.zhentan.me](https://docs.zhentan.me)** · **[@zhentanme](https://x.com/zhentanme)**
 
-| Document | Contents |
-|----------|----------|
-| [docs/PROJECT.md](docs/PROJECT.md) | Problem, solution, business impact, limitations & roadmap |
-| [docs/TECHNICAL.md](docs/TECHNICAL.md) | Architecture, setup instructions, demo guide |
-| [docs/ONCHAIN.md](docs/ONCHAIN.md) | Live smart accounts and transactions on BNB Chain |
-| [docs/AI_BUILD_LOG.md](docs/AI_BUILD_LOG.md) | How AI tools were used to build Zhentan |
-| [docs/EXTRAS.md](docs/EXTRAS.md) | Demo video, live demo links |
-| [bsc.address](bsc.address) | Contract addresses and network info |
+## Requirements
 
-## Project structure
+- Node.js 18+
+- pnpm 10+
+- OpenClaw CLI
 
-| Directory | What it does |
-|-----------|--------------|
-| **`client/`** | Next.js app: dashboard, send/receive tokens, WalletConnect DApp connectivity, activity, invoices, settings. Proposes txs and calls queue/execute/invoices (same-origin or backend). |
-| **`server/`** | Express API: inline risk analysis on `/queue`, auto-execute for safe txs, Telegram notifications with interactive review, `/portfolio` via Zerion, `/invoices` queue. |
-| **`zhentan-skills/`** | OpenClaw skills: sign/execute, reject, deep-analyze (GoPlus + Honeypot.is), record patterns, toggle screening, queue invoices. See `SKILL.md`. |
+## Setup
 
-## Description
-
-Zhentan is a personalized wallet assistant and onchain detective built with an OpenClaw agent that learns how you transact onchain. It understands patterns—amounts, timing, recipients, assets—and rates transaction risk in real time.
-
-- **Screening ON:** The server runs instant pattern-based risk analysis on every queued transaction. Safe txs (score < 40) are auto-executed immediately. Suspicious txs are blocked, and borderline txs are sent for interactive review via Telegram with approve/reject buttons.
-- **WalletConnect:** Connect any DApp (PancakeSwap, Venus, etc.) via WalletConnect. DApp transaction requests flow through the same screening pipeline before execution.
-- **Deep analysis on demand:** The agent can run external security checks (GoPlus, Honeypot.is) on addresses and tokens when asked from Telegram.
-- **Portfolio visibility:** Live token balances, prices, and 24h change via Zerion API integration.
-- **Screening OFF:** Regular multisig—you and an auto-executed signature for the agent service. Turn it off anytime for full auto-execution.
-
-The server builds a profile of your normal activity (typical amounts, frequent recipients, time-of-day, categories) and applies it as deterministic rules for instant screening. The OpenClaw agent handles conversational support, deeper analysis, and manual intervention via Telegram. Risky flows open an interactive review where you can approve or reject; clearly malicious transactions are fully blocked. Built on an industry-standard smart account (Safe) with multisig, Privy embedded wallets for onboarding, and the agent as a designated signer. Zero gas fees (account abstraction), instant approvals for legitimate flows, and support for any ERC-20 token on BNB Chain. For individuals, DAOs, DeFi protocols, and treasuries that need speed without sacrificing security.
-
-> **Live demo:** You can try normal (non-screened) transactions at [http://zhentan.me/](http://zhentan.me/). That deployment is not wired to an OpenClaw agent—screening is personalized per user and requires your own agent setup. **Run the app locally** (client + server + OpenClaw skills) for screened mode with AI approval, review, and blocking.
-
-## Flow
-
-```
-┌─────────────┐                          ┌──────────────┐
-│    User     │  "Send $50 to Alice"     │  External    │  Swap, lend, stake …
-│  (Send UI)  │                          │  DApp        │  (PancakeSwap, etc.)
-└──────┬──────┘                          └──────┬───────┘
-       │ Creates transaction                    │ WalletConnect session_request
-       ▼                                        ▼
-┌─────────────────────────────────────────────────────┐
-│                   Zhentan App                        │
-│  User approves & signs (1 of 2) via embedded wallet  │
-└──────────────────────┬──────────────────────────────┘
-                       │ POST /queue
-                       ▼
-              ┌──────────────────┐
-              │ Static risk check│  Inline risk analysis (instant)
-              │  analyzeRisk()   │  Patterns: recipients, amounts,
-              │                  │  hours, daily limits
-              └──────┬───────────┘
-       ┌── APPROVE ──┼── BLOCK ────────┬── REVIEW ─────┐
-       │  (score<40)  │  (score>70)     │  (40-70)      │
-       ▼              ▼                 ▼               │
-┌────────────┐ ┌────────────┐ ┌──────────────────┐     │
-│ Auto-sign  │ │  Blocked   │ │  Telegram notify │     │
-│ & execute  │ │ + Telegram │ │ [Approve][Reject]│     │
-│ immediately│ │   alert    │ │  Interactive btns │     │
-└──────┬─────┘ └────────────┘ └───────┬──────────┘     │
-       │                              │ User responds   │
-       │                    ┌─────────┴────────┐        │
-       │                    │ Agent signs &    │        │
-       │                    │ executes (or     │        │
-       │                    │ rejects)         │        │
-       │                    └────────┬─────────┘        │
-       ▼                             ▼                  │
-┌──────────────────┐     ┌──────────────────┐           │
-│  AA Bundler      │ ──► │  BNB Chain       │ ✅        │
-└──────────────────┘     └──────┬───────────┘           │
-                               │ txHash returned        │
-                               ▼                        │
-                    ┌────────────────────┐  ┌───────────┴────────┐
-                    │  DApp gets result  │  │  Pattern recorded  │
-                    │  User sees confirm │  │  (learning)        │
-                    └────────────────────┘  └────────────────────┘
-
-          ┌──────────────────────────────────┐
-          │  On-demand deep analysis         │
-          │  (GoPlus + Honeypot.is)          │
-          │  Triggered by user via Telegram  │
-          └──────────────────────────────────┘
+```bash
+pnpm install
 ```
 
-## How It Is Made
+**Client** (`client/.env.local`):
 
-Zhentan is built with three tiers working together: instant server-side screening, interactive Telegram review, and on-demand deep analysis.
+```env
+NEXT_PUBLIC_PRIVY_APP_ID=
+NEXT_PUBLIC_PIMLICO_API_KEY=
+NEXT_PUBLIC_AGENT_ADDRESS=
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
+```
 
-### 1. User-facing app & smart account setup
+**Server** (`server/.env`):
 
-The frontend handles onchain interactions and transaction creation. Users onboard with Google sign-in and an embedded wallet (Privy). Each user gets a smart account with multisig support, powered by ERC-4337 for gas sponsorship and transaction bundling. The dashboard shows live token balances and portfolio value via Zerion API integration.
+```env
+AGENT_PRIVATE_KEY=
+PIMLICO_API_KEY=
+TELEGRAM_BOT_TOKEN=
+ZERION_API_KEY=
+PORT=3001
+QUEUE_PATH=./pending-queue.json
+INVOICE_QUEUE_PATH=./invoice-queue.json
+```
 
-Users can also connect external DApps (PancakeSwap, Venus, etc.) via WalletConnect. The app acts as a wallet that DApps connect to — transaction requests from DApps are presented for user approval, then flow through the same Safe 2-of-2 multisig and screening pipeline. Once executed, the transaction hash is returned to the DApp via WalletConnect.
+See `scripts/.env.example` and `server/.env.example` for full templates.
 
-### 2. Server-side inline risk analysis
+## Development
 
-When a transaction hits the `/queue` endpoint, the server runs `analyzeRisk()` instantly against learned behavioral patterns — known recipients, typical amounts, business hours, daily volume limits, and single-transaction caps. Each factor contributes to a 0-100 risk score:
+```bash
+pnpm dev:client      # http://localhost:3000
+pnpm dev:server      # http://localhost:3001
+pnpm dev:docs        # http://localhost:3002
+```
 
-- **APPROVE (< 40):** The server auto-signs (2 of 2) and executes the UserOperation immediately. No agent roundtrip needed. Patterns are recorded asynchronously.
-- **REVIEW (40-70):** A Telegram notification is sent with interactive approve/reject buttons. The user reviews and responds from Telegram.
-- **BLOCK (> 70):** The transaction is blocked outright and the user is alerted via Telegram.
+## Structure
 
-Risk scores, verdicts, and reasons are stored on each `PendingTransaction` for full auditability.
+```
+client/    Next.js 14 app
+server/    Express API
+agent/     OpenClaw skill pack
+scripts/   CLI tools
+docs/      Mintlify docs
+```
 
-### 3. OpenClaw agent & conversational support
+## Agent
 
-The OpenClaw agent (Qwen3-235B / Sonnet 4.5 via OpenRouter) handles the interactive layer rather than driving initial screening. When a user responds to a Telegram review notification, the agent signs and executes approved transactions or records rejections. The `/notify-resolve` endpoint updates the original Telegram message with the final outcome.
-
-For deeper investigation, the agent can run `deep-analyze` — calling GoPlus Security API and Honeypot.is to check recipient address reputation (scams, phishing, sanctions) and token security (honeypot detection, mintable supply, tax rates). This is triggered on-demand when the user asks from Telegram, not automatically on every transaction.
-
-### 4. Onchain execution on BNB Chain
-
-Transaction signatures are combined once final approval is available. The completed UserOperation is submitted to a Pimlico bundler for gasless execution on BNB Chain. Zhentan uses an ERC-4337 module contract deployed on BNB Chain, with Viem and Permissionless.js handling smart account interactions and execution.
+```bash
+mkdir -p ~/.openclaw/workspace/skills
+ln -sf "$(pwd)/agent" ~/.openclaw/workspace/skills/zhentan
+openclaw gateway restart
+```
