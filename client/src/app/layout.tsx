@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Kumbh_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
-const inter = Inter({ subsets: ["latin"] });
+const kumbhSans = Kumbh_Sans({
+  variable: "--font-kumbh-sans",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
   title: "Zhentan",
@@ -26,8 +29,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={inter.className}>
+    <html lang="en" className={`${kumbhSans.variable} dark`}>
+      <body className="font-sans">
         <Providers>{children}</Providers>
       </body>
     </html>

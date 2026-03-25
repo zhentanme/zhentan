@@ -584,7 +584,7 @@ export default function LandingPage() {
           className="relative w-[260px] h-[104px] sm:w-[340px] sm:h-[136px]"
         >
           <Image
-            src="/cover.png"
+            src="/brand-kit/Lockup.png"
             alt="Zhentan"
             fill
             className="object-contain drop-shadow-[0_0_32px_rgba(240,185,11,0.28)]"
@@ -600,7 +600,7 @@ export default function LandingPage() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35, type: "spring", bounce: 0.18 }}
-          className="mt-5 text-3xl sm:text-5xl font-bold tracking-tight leading-tight"
+          className="mt-5 text-3xl sm:text-5xl font-black tracking-tight leading-tight"
         >
           Your Onchain Behavior, <br />
           <span className="gradient-text">Guarded</span>
@@ -641,7 +641,7 @@ export default function LandingPage() {
           className="mt-8"
         >
           <Link href="/login">
-            <Button className="text-lg px-8 py-4">Get Started Now</Button>
+            <Button className="text-lg px-12 py-4 text-black font-bold">Get Started</Button>
           </Link>
         </motion.div>
 

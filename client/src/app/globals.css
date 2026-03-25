@@ -2,12 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light mode */
+:root {
+  --background: #fafafa;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #c9a227;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f0f0;
+  --secondary-foreground: #2e2e2e;
+  --muted: #f0f0f0;
+  --muted-foreground: #6b6b6b;
+  --accent: #f0f0f0;
+  --accent-foreground: #2e2e2e;
+  --destructive: #dc2626;
+  --border: #e0e0e0;
+  --input: #e0e0e0;
+  --ring: #c9a227;
+  --radius: 0.625rem;
+}
+
+/* Dark mode */
+.dark {
+  --background: #000000;
+  --foreground: #fafafa;
+  --card: #111111;
+  --card-foreground: #fafafa;
+  --popover: #111111;
+  --popover-foreground: #fafafa;
+  --primary: #d4a506;
+  --primary-foreground: #141414;
+  --secondary: #1c1c1c;
+  --secondary-foreground: #e0e0e0;
+  --muted: #222222;
+  --muted-foreground: #8a8a8a;
+  --accent: #222222;
+  --accent-foreground: #fafafa;
+  --destructive: #ef4444;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #d4a506;
+}
+
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
   }
+  * {
+    border-color: var(--border);
+  }
   body {
-    @apply bg-[#0a0a0f] text-slate-100 antialiased;
+    @apply bg-background text-foreground antialiased;
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }
@@ -41,7 +89,7 @@
     radial-gradient(ellipse 120% 80% at 0% 0%, rgba(60, 50, 20, 0.12) 0%, transparent 50%),
     radial-gradient(ellipse 80% 120% at 100% 100%, rgba(30, 60, 80, 0.12) 0%, transparent 50%),
     radial-gradient(circle at 50% 50%, rgba(240, 185, 11, 0.04) 0%, transparent 50%);
-  background-color: #0a0a0f;
+  background-color: var(--background);
 }
 
 .starfield {
@@ -152,4 +200,35 @@
     );
     pointer-events: none;
   }
+}
+
+/* Glass morphism utilities — adapt to light/dark */
+.glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-strong {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+:root .glass {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+:root .glass-strong {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.dark .glass {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dark .glass-strong {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
