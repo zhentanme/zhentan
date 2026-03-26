@@ -1,109 +1,36 @@
-import { Router, Request, Response } from "express";
-import { readFileSync, writeFileSync } from "fs";
+import { Router, Request, Response, type IRouter } from "express";
+import {
+  getUserSettings,
+  upsertUserSettings,
+  getGlobalLimits,
+  upsertGlobalLimits,
+  getPatternsForSafe,
+} from "../lib/supabase/index.js";
+import type { GlobalLimitsRow } from "../lib/supabase/types.js";
 
-interface UserState {
-  screeningMode: boolean;
-  lastCheck: string | null;
-  decisions: unknown[];
-  telegramChatId?: string;
-}
-
-interface StateFile {
-  users: Record<string, UserState>;
-}
-
-interface PatternsFile {
-  recipients: Record<string, unknown>;
-  dailyStats: Record<string, unknown>;
-  globalLimits: {
-    maxSingleTx: string;
-    maxDailyVolume: string;
-    allowedHoursUTC: number[];
-  };
-}
-
-const DEFAULT_USER_STATE: UserState = {
-  screeningMode: false,
-  lastCheck: null,
-  decisions: [],
-};
-
-export function readState(statePath: string): StateFile {
-  try {
-    const raw = JSON.parse(readFileSync(statePath, "utf8"));
-    // Auto-migrate: old flat format has screeningMode at top level
-    if ("screeningMode" in raw && !("users" in raw)) {
-      const migrated: StateFile = {
-        users: {
-          default: {
-            screeningMode: raw.screeningMode ?? false,
-            lastCheck: raw.lastCheck ?? null,
-            decisions: raw.decisions ?? [],
-            telegramChatId: raw.telegramChatId,
-          },
-        },
-      };
-      writeFileSync(statePath, JSON.stringify(migrated, null, 2));
-      return migrated;
-    }
-    return raw as StateFile;
-  } catch {
-    return { users: {} };
-  }
-}
-
-export function writeState(statePath: string, state: StateFile): void {
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
-}
-
-function getUserState(state: StateFile, safe: string): UserState {
-  return state.users[safe.toLowerCase()] ?? { ...DEFAULT_USER_STATE };
-}
-
-export function createStatusRouter(
-  getStatePath: () => string | undefined,
-  getPatternsPath: () => string | undefined
-) {
+export function createStatusRouter(): IRouter {
   const router = Router();
 
-  router.get("/", (req: Request, res: Response) => {
+  // GET /status?safe=0x...
+  // Returns user settings + full patterns (all dimensions)
+  router.get("/", async (req: Request, res: Response) => {
     try {
-      const statePath = getStatePath();
-      const patternsPath = getPatternsPath();
-      if (!statePath || !patternsPath) {
-        res.status(500).json({ error: "Missing STATE_PATH or PATTERNS_PATH" });
-        return;
-      }
-
       const safe = req.query.safe as string | undefined;
       if (!safe) {
         res.status(400).json({ error: "Missing required query param: safe" });
         return;
       }
 
-      const state = readState(statePath);
-      const userState = getUserState(state, safe);
-
-      let patterns: PatternsFile;
-      try {
-        patterns = JSON.parse(readFileSync(patternsPath, "utf8"));
-      } catch {
-        patterns = {
-          recipients: {},
-          dailyStats: {},
-          globalLimits: {
-            maxSingleTx: "5000",
-            maxDailyVolume: "20000",
-            allowedHoursUTC: [],
-          },
-        };
-      }
+      const [settings, patterns] = await Promise.all([
+        getUserSettings(safe),
+        getPatternsForSafe(safe),
+      ]);
 
       res.json({
-        screeningMode: userState.screeningMode,
-        lastCheck: userState.lastCheck,
-        totalDecisions: userState.decisions.length,
-        telegramChatId: userState.telegramChatId,
+        screeningMode: settings.screening_mode,
+        lastCheck: settings.last_check,
+        totalDecisions: (settings.decisions ?? []).length,
+        telegramChatId: settings.telegram_chat_id,
         patterns,
       });
     } catch (err) {
@@ -112,49 +39,127 @@ export function createStatusRouter(
     }
   });
 
+  // PATCH /status
+  // Accepts: safe (required), plus any combination of:
+  //   User settings: screeningMode, telegramChatId
+  //   Global limits: maxSingleTx, maxHourlyVolume, maxDailyVolume,
+  //     maxWeeklyVolume, maxDailyTxCount, allowedHoursUTC, allowedDaysUTC,
+  //     unknownRecipientAction, riskThresholdApprove, riskThresholdBlock,
+  //     learningEnabled
   router.patch("/", async (req: Request, res: Response) => {
     try {
-      const statePath = getStatePath();
-      if (!statePath) {
-        res.status(500).json({ error: "Missing STATE_PATH" });
-        return;
-      }
-
-      const { safe, screeningMode, telegramChatId } = req.body;
+      const {
+        safe,
+        // User settings fields
+        screeningMode,
+        telegramChatId,
+        // Global limits fields
+        maxSingleTx,
+        maxHourlyVolume,
+        maxDailyVolume,
+        maxWeeklyVolume,
+        maxDailyTxCount,
+        allowedHoursUTC,
+        allowedDaysUTC,
+        unknownRecipientAction,
+        riskThresholdApprove,
+        riskThresholdBlock,
+        learningEnabled,
+      } = req.body;
 
       if (!safe) {
         res.status(400).json({ error: "Missing required field: safe" });
         return;
       }
 
-      if (screeningMode === undefined && telegramChatId === undefined) {
+      // ── Validate and persist user settings ──────────────────
+      const settingsPatch: Parameters<typeof upsertUserSettings>[1] = {};
+      let hasSettingsUpdate = false;
+
+      if (screeningMode !== undefined) {
+        if (typeof screeningMode !== "boolean") {
+          res.status(400).json({ error: "screeningMode must be a boolean" });
+          return;
+        }
+        settingsPatch.screening_mode = screeningMode;
+        hasSettingsUpdate = true;
+      }
+      if (telegramChatId !== undefined) {
+        if (typeof telegramChatId !== "string") {
+          res.status(400).json({ error: "telegramChatId must be a string" });
+          return;
+        }
+        settingsPatch.telegram_chat_id = telegramChatId || null;
+        hasSettingsUpdate = true;
+      }
+
+      // ── Validate and persist global limits ───────────────────
+      const limitsPatch: Partial<Omit<GlobalLimitsRow, "safe_address" | "updated_at">> = {};
+      let hasLimitsUpdate = false;
+
+      if (maxSingleTx !== undefined)        { limitsPatch.max_single_tx        = String(maxSingleTx); hasLimitsUpdate = true; }
+      if (maxHourlyVolume !== undefined)     { limitsPatch.max_hourly_volume    = String(maxHourlyVolume); hasLimitsUpdate = true; }
+      if (maxDailyVolume !== undefined)      { limitsPatch.max_daily_volume     = String(maxDailyVolume); hasLimitsUpdate = true; }
+      if (maxWeeklyVolume !== undefined)     { limitsPatch.max_weekly_volume    = String(maxWeeklyVolume); hasLimitsUpdate = true; }
+      if (maxDailyTxCount !== undefined)     { limitsPatch.max_daily_tx_count   = Number(maxDailyTxCount); hasLimitsUpdate = true; }
+      if (allowedHoursUTC !== undefined)     { limitsPatch.allowed_hours_utc    = allowedHoursUTC; hasLimitsUpdate = true; }
+      if (allowedDaysUTC !== undefined)      { limitsPatch.allowed_days_utc     = allowedDaysUTC; hasLimitsUpdate = true; }
+      if (learningEnabled !== undefined)     { limitsPatch.learning_enabled     = Boolean(learningEnabled); hasLimitsUpdate = true; }
+
+      if (unknownRecipientAction !== undefined) {
+        if (!["approve", "review", "block"].includes(unknownRecipientAction)) {
+          res.status(400).json({ error: "unknownRecipientAction must be 'approve', 'review', or 'block'" });
+          return;
+        }
+        limitsPatch.unknown_recipient_action = unknownRecipientAction;
+        hasLimitsUpdate = true;
+      }
+      if (riskThresholdApprove !== undefined) {
+        const val = Number(riskThresholdApprove);
+        if (isNaN(val) || val < 0 || val > 100) {
+          res.status(400).json({ error: "riskThresholdApprove must be 0–100" });
+          return;
+        }
+        limitsPatch.risk_threshold_approve = val;
+        hasLimitsUpdate = true;
+      }
+      if (riskThresholdBlock !== undefined) {
+        const val = Number(riskThresholdBlock);
+        if (isNaN(val) || val < 0 || val > 100) {
+          res.status(400).json({ error: "riskThresholdBlock must be 0–100" });
+          return;
+        }
+        limitsPatch.risk_threshold_block = val;
+        hasLimitsUpdate = true;
+      }
+
+      if (!hasSettingsUpdate && !hasLimitsUpdate) {
         res.status(400).json({ error: "No valid fields to update" });
         return;
       }
 
-      if (screeningMode !== undefined && typeof screeningMode !== "boolean") {
-        res.status(400).json({ error: "screeningMode must be a boolean" });
-        return;
-      }
-
-      if (telegramChatId !== undefined && typeof telegramChatId !== "string") {
-        res.status(400).json({ error: "telegramChatId must be a string" });
-        return;
-      }
-
-      const state = readState(statePath);
-      const key = safe.toLowerCase();
-      if (!state.users[key]) {
-        state.users[key] = { ...DEFAULT_USER_STATE };
-      }
-
-      if (screeningMode !== undefined) state.users[key].screeningMode = screeningMode;
-      if (telegramChatId !== undefined) state.users[key].telegramChatId = telegramChatId || undefined;
-      writeState(statePath, state);
+      // Run updates in parallel
+      const [updatedSettings, updatedLimits] = await Promise.all([
+        hasSettingsUpdate ? upsertUserSettings(safe, settingsPatch) : getUserSettings(safe),
+        hasLimitsUpdate ? upsertGlobalLimits(safe, limitsPatch) : getGlobalLimits(safe),
+      ]);
 
       res.json({
-        screeningMode: state.users[key].screeningMode,
-        telegramChatId: state.users[key].telegramChatId,
+        screeningMode: updatedSettings.screening_mode,
+        telegramChatId: updatedSettings.telegram_chat_id,
+        limits: {
+          maxSingleTx:             updatedLimits.max_single_tx,
+          maxHourlyVolume:         updatedLimits.max_hourly_volume,
+          maxDailyVolume:          updatedLimits.max_daily_volume,
+          maxWeeklyVolume:         updatedLimits.max_weekly_volume,
+          maxDailyTxCount:         updatedLimits.max_daily_tx_count,
+          allowedHoursUTC:         updatedLimits.allowed_hours_utc,
+          allowedDaysUTC:          updatedLimits.allowed_days_utc,
+          unknownRecipientAction:  updatedLimits.unknown_recipient_action,
+          riskThresholdApprove:    updatedLimits.risk_threshold_approve,
+          riskThresholdBlock:      updatedLimits.risk_threshold_block,
+          learningEnabled:         updatedLimits.learning_enabled,
+        },
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -163,4 +168,11 @@ export function createStatusRouter(
   });
 
   return router;
+}
+
+export async function getTelegramChatIdForSafe(
+  safeAddress: string
+): Promise<string | undefined> {
+  const settings = await getUserSettings(safeAddress);
+  return settings.telegram_chat_id ?? undefined;
 }

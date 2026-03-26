@@ -14,6 +14,7 @@
     "pm2:logs": "pm2 logs zhentan-server"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.100.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",

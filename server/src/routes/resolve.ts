@@ -1,9 +1,9 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, type IRouter } from "express";
 import { createPublicClient, http, isAddress } from "viem";
 import { mainnet } from "viem/chains";
 import { normalize } from "viem/ens";
 
-export function createResolveRouter() {
+export function createResolveRouter(): IRouter {
   const router = Router();
 
   router.get("/", async (req: Request, res: Response) => {

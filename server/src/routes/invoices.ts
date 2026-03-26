@@ -1,6 +1,7 @@
-import { Router, Request, Response } from "express";
-import { readFileSync, writeFileSync } from "fs";
-import type { InvoiceQueueFile, InvoiceStatus } from "../types.js";
+import { Router, Request, Response, type IRouter } from "express";
+import type { InvoiceStatus, QueuedInvoice } from "../types.js";
+import { getInvoices, getInvoice, createInvoice, updateInvoice } from "../lib/supabase/index.js";
+import { randomUUID } from "crypto";
 
 const VALID_STATUSES: InvoiceStatus[] = [
   "queued",
@@ -9,33 +10,49 @@ const VALID_STATUSES: InvoiceStatus[] = [
   "rejected",
 ];
 
-function readQueue(path: string): InvoiceQueueFile {
-  try {
-    return JSON.parse(readFileSync(path, "utf8"));
-  } catch {
-    return { invoices: [] };
-  }
-}
-
-export function createInvoicesRouter(
-  getInvoiceQueuePath: () => string | undefined
-) {
+export function createInvoicesRouter(): IRouter {
   const router = Router();
 
-  router.get("/", (_req: Request, res: Response) => {
+  // POST /invoices — queue a new invoice
+  router.post("/", async (req: Request, res: Response) => {
     try {
-      const queuePath = getInvoiceQueuePath();
-      if (!queuePath) {
-        res.status(500).json({ error: "Missing INVOICE_QUEUE_PATH" });
+      const body = req.body ?? {};
+      const { to, amount, token, invoiceNumber, issueDate, dueDate, billedFrom, billedTo, services, riskScore, riskNotes, sourceChannel } = body;
+
+      if (!to || !amount || !token) {
+        res.status(400).json({ error: "Missing required fields: to, amount, token" });
         return;
       }
 
-      const queue = readQueue(queuePath);
-      const invoices = queue.invoices.sort(
-        (a, b) =>
-          new Date(b.queuedAt).getTime() - new Date(a.queuedAt).getTime()
-      );
+      const invoice: QueuedInvoice = {
+        id: `inv-${randomUUID().slice(0, 8)}`,
+        to,
+        amount: String(amount),
+        token,
+        invoiceNumber: invoiceNumber ?? undefined,
+        issueDate: issueDate ?? undefined,
+        dueDate: dueDate ?? undefined,
+        billedFrom: billedFrom ?? undefined,
+        billedTo: billedTo ?? undefined,
+        services: services ?? [],
+        riskScore: riskScore ?? undefined,
+        riskNotes: riskNotes ?? undefined,
+        sourceChannel: sourceChannel ?? "unknown",
+        queuedAt: new Date().toISOString(),
+        status: "queued",
+      };
 
+      await createInvoice(invoice);
+      res.status(201).json({ status: "queued", id: invoice.id, to: invoice.to, amount: invoice.amount, token: invoice.token });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  router.get("/", async (_req: Request, res: Response) => {
+    try {
+      const invoices = await getInvoices();
       res.json({ invoices });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -43,14 +60,8 @@ export function createInvoicesRouter(
     }
   });
 
-  router.patch("/", (req: Request, res: Response) => {
+  router.patch("/", async (req: Request, res: Response) => {
     try {
-      const queuePath = getInvoiceQueuePath();
-      if (!queuePath) {
-        res.status(500).json({ error: "Missing INVOICE_QUEUE_PATH" });
-        return;
-      }
-
       const body = req.body ?? {};
       const { id, status, rejectReason, txId, txHash } = body;
 
@@ -64,32 +75,21 @@ export function createInvoicesRouter(
         return;
       }
 
-      const queue = readQueue(queuePath);
-      const invoice = queue.invoices.find((inv) => inv.id === id);
-
-      if (!invoice) {
+      const existing = await getInvoice(id);
+      if (!existing) {
         res.status(404).json({ error: `Invoice not found: ${id}` });
         return;
       }
 
-      invoice.status = status;
+      const patch: Parameters<typeof updateInvoice>[1] = { status };
 
-      if (status === "approved" && txId) {
-        invoice.txId = txId;
-      }
+      if (status === "approved" && txId)   patch.txId        = txId;
+      if (status === "executed")           patch.executedAt  = new Date().toISOString();
+      if (status === "executed" && txHash) patch.txHash      = txHash;
+      if (status === "rejected")           patch.rejectedAt  = new Date().toISOString();
+      if (status === "rejected" && rejectReason) patch.rejectReason = rejectReason;
 
-      if (status === "executed") {
-        invoice.executedAt = new Date().toISOString();
-        if (txHash) invoice.txHash = txHash;
-      }
-
-      if (status === "rejected") {
-        invoice.rejectedAt = new Date().toISOString();
-        if (rejectReason) invoice.rejectReason = rejectReason;
-      }
-
-      writeFileSync(queuePath, JSON.stringify(queue, null, 2));
-
+      const invoice = await updateInvoice(id, patch);
       res.json({ invoice });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";

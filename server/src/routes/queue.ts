@@ -1,34 +1,20 @@
-import { Router, Request, Response } from "express";
-import { readFileSync, writeFileSync, mkdirSync } from "fs";
-import { execFile } from "child_process";
-import { dirname, join } from "path";
-import type { QueueFile } from "../types.js";
-import { analyzeRisk, loadPatterns } from "../risk.js";
+import { Router, Request, Response, type IRouter } from "express";
+import { analyzeRisk } from "../risk.js";
 import { notifyTelegram } from "../notify.js";
-import { readState } from "./status.js";
+import {
+  createTransaction,
+  updateTransaction,
+  getPatternsForSafe,
+  getTelegramChatId,
+  recordTxOutcome,
+  incrementDailyStatsReview,
+} from "../lib/supabase/index.js";
 
-function getTelegramChatId(safeAddress?: string): string | undefined {
-  const statePath = process.env.STATE_PATH;
-  if (!statePath || !safeAddress) return undefined;
-  try {
-    const state = readState(statePath);
-    return state.users[safeAddress.toLowerCase()]?.telegramChatId;
-  } catch {
-    return undefined;
-  }
-}
-
-export function createQueueRouter(getQueuePath: () => string | undefined) {
+export function createQueueRouter(): IRouter {
   const router = Router();
 
   router.post("/", async (req: Request, res: Response) => {
     try {
-      const queuePath = getQueuePath();
-      if (!queuePath) {
-        res.status(500).json({ error: "Missing QUEUE_PATH" });
-        return;
-      }
-
       const pendingTx = req.body;
 
       if (!pendingTx?.id || !pendingTx?.to || !pendingTx?.amount) {
@@ -38,35 +24,18 @@ export function createQueueRouter(getQueuePath: () => string | undefined) {
         return;
       }
 
-      mkdirSync(dirname(queuePath), { recursive: true });
+      await createTransaction(pendingTx);
 
-      let queue: QueueFile;
-      try {
-        queue = JSON.parse(readFileSync(queuePath, "utf8"));
-      } catch {
-        queue = { pending: [] };
-      }
-
-      queue.pending.push(pendingTx);
-      writeFileSync(queuePath, JSON.stringify(queue, null, 2));
-
-      // When screening is disabled, only queue; client will call execute. Skip risk analysis.
+      // When screening is disabled, only queue; client will call execute.
       if (pendingTx.screeningDisabled) {
         res.json({ success: true, id: pendingTx.id });
         return;
       }
 
-      // --- Risk analysis ---
-      const patternsPath = process.env.PATTERNS_PATH;
-      if (!patternsPath) {
-        console.warn("PATTERNS_PATH not set, skipping risk analysis");
-        res.json({ success: true, id: pendingTx.id });
-        return;
-      }
-
+      // ── Risk analysis ────────────────────────────────────────
       let risk;
       try {
-        const patterns = loadPatterns(patternsPath);
+        const patterns = await getPatternsForSafe(pendingTx.safeAddress ?? "");
         risk = analyzeRisk(pendingTx, patterns);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
@@ -75,45 +44,35 @@ export function createQueueRouter(getQueuePath: () => string | undefined) {
         return;
       }
 
-      // Write risk result back onto the tx in the queue
-      const txIndex = queue.pending.findIndex((t) => t.id === pendingTx.id);
-      if (txIndex !== -1) {
-        queue.pending[txIndex].riskScore = risk.riskScore;
-        queue.pending[txIndex].riskVerdict = risk.verdict;
-        queue.pending[txIndex].riskReasons = risk.reasons;
-      }
+      // Persist risk result onto the transaction
+      await updateTransaction(pendingTx.id, {
+        riskScore: risk.riskScore,
+        riskVerdict: risk.verdict,
+        riskReasons: risk.reasons,
+      });
 
       const shortTo = `${pendingTx.to.slice(0, 6)}...${pendingTx.to.slice(-4)}`;
-      const chatId = getTelegramChatId(pendingTx.safeAddress);
+      const chatId = await getTelegramChatId(pendingTx.safeAddress ?? "");
+      const txWithRisk = {
+        ...pendingTx,
+        riskScore: risk.riskScore,
+        riskVerdict: risk.verdict,
+        riskReasons: risk.reasons,
+      };
 
+      // ── APPROVE: auto-execute ────────────────────────────────
       if (risk.verdict === "APPROVE") {
-        // Auto-execute: call local /execute endpoint
         const port = Number(process.env.PORT) || 3001;
-        writeFileSync(queuePath, JSON.stringify(queue, null, 2));
 
         try {
-          const execRes = await fetch(
-            `http://localhost:${port}/execute`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ txId: pendingTx.id }),
-            }
-          );
+          const execRes = await fetch(`http://localhost:${port}/execute`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ txId: pendingTx.id }),
+          });
           const execResult = (await execRes.json()) as Record<string, unknown>;
 
           if (execResult.status === "executed") {
-            // Record pattern
-            const skillsDir = dirname(patternsPath);
-            execFile(
-              "node",
-              [join(skillsDir, "record-pattern.js"), pendingTx.id],
-              (err) => {
-                if (err)
-                  console.error("record-pattern failed:", err.message);
-              }
-            );
-
             notifyTelegram(
               `✅ Auto-approved and executed ${pendingTx.id}:\n` +
                 `${pendingTx.amount} ${pendingTx.token || "USDC"} → ${shortTo}\n` +
@@ -123,7 +82,6 @@ export function createQueueRouter(getQueuePath: () => string | undefined) {
               undefined,
               chatId
             );
-
             res.json({
               success: true,
               id: pendingTx.id,
@@ -134,7 +92,7 @@ export function createQueueRouter(getQueuePath: () => string | undefined) {
             return;
           }
 
-          // Execute call didn't succeed — fall through to notify as APPROVE pending
+          // Execute call didn't succeed — fall through, respond without auto-execute
           console.error("Auto-execute returned:", execResult);
           notifyTelegram(
             `⚠️ Auto-approve attempted but execution failed for ${pendingTx.id}:\n` +
@@ -165,18 +123,29 @@ export function createQueueRouter(getQueuePath: () => string | undefined) {
         return;
       }
 
-      // REVIEW or BLOCK — mark inReview
-      if (txIndex !== -1) {
-        queue.pending[txIndex].inReview = true;
-        queue.pending[txIndex].reviewedAt = new Date().toISOString();
-        queue.pending[txIndex].reviewReason = risk.reasons.join("; ");
-      }
-      writeFileSync(queuePath, JSON.stringify(queue, null, 2));
+      // ── REVIEW or BLOCK ──────────────────────────────────────
+      await updateTransaction(pendingTx.id, {
+        inReview: true,
+        reviewedAt: new Date().toISOString(),
+        reviewReason: risk.reasons.join("; "),
+      });
+
+      // Record behavioral event + update daily stats (fire-and-forget)
+      const outcome = risk.verdict === "REVIEW" ? "sent_for_review" : "auto_blocked";
+      Promise.all([
+        recordTxOutcome(txWithRisk, outcome, {
+          riskScore: risk.riskScore,
+          riskVerdict: risk.verdict,
+          riskReasons: risk.reasons,
+          triggeredRules: risk.triggeredRules,
+        }),
+        incrementDailyStatsReview(pendingTx.safeAddress ?? ""),
+      ]).catch((err) => console.error("Pattern record failed:", err));
 
       const reviewButtons = [
         [
           { text: "✅ Approve", callback_data: `approve ${pendingTx.id}` },
-          { text: "❌ Reject", callback_data: `reject ${pendingTx.id}` },
+          { text: "❌ Reject",  callback_data: `reject ${pendingTx.id}` },
         ],
         [
           { text: "🔎 Deep Analyze", callback_data: `deep-analyze ${pendingTx.id}` },

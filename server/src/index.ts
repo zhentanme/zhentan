@@ -6,10 +6,11 @@ import { createQueueRouter } from "./routes/queue.js";
 import { createExecuteRouter } from "./routes/execute.js";
 import { createInvoicesRouter } from "./routes/invoices.js";
 import { createPortfolioRouter } from "./routes/portfolio.js";
-import { createStatusRouter } from "./routes/status.js";
+import { createStatusRouter, getTelegramChatIdForSafe } from "./routes/status.js";
 import { createResolveRouter } from "./routes/resolve.js";
+import { createRulesRouter } from "./routes/rules.js";
+import { createEventsRouter } from "./routes/events.js";
 import { editNotification } from "./notify.js";
-import { readState } from "./routes/status.js";
 
 const app = express();
 
@@ -21,20 +22,17 @@ app.use(
 );
 app.use(express.json());
 
-const getQueuePath = () => process.env.QUEUE_PATH;
-const getInvoiceQueuePath = () => process.env.INVOICE_QUEUE_PATH;
-const getStatePath = () => process.env.STATE_PATH;
-const getPatternsPath = () => process.env.PATTERNS_PATH;
-
-app.use("/transactions", createTransactionsRouter(getQueuePath));
-app.use("/queue", createQueueRouter(getQueuePath));
-app.use("/execute", createExecuteRouter(getQueuePath));
-app.use("/invoices", createInvoicesRouter(getInvoiceQueuePath));
+app.use("/transactions", createTransactionsRouter());
+app.use("/queue", createQueueRouter());
+app.use("/execute", createExecuteRouter());
+app.use("/invoices", createInvoicesRouter());
 app.use("/portfolio", createPortfolioRouter());
-app.use("/status", createStatusRouter(getStatePath, getPatternsPath));
+app.use("/status", createStatusRouter());
+app.use("/rules", createRulesRouter());
+app.use("/events", createEventsRouter());
 app.use("/resolve", createResolveRouter());
 
-app.post("/notify-resolve", (req, res) => {
+app.post("/notify-resolve", async (req, res) => {
   const { txId, action, txHash, safeAddress } = req.body ?? {};
   if (!txId || !action) {
     res.status(400).json({ error: "Missing txId or action" });
@@ -53,16 +51,8 @@ app.post("/notify-resolve", (req, res) => {
 
   let chatId: string | undefined;
   try {
-    const statePath = process.env.STATE_PATH;
-    if (statePath) {
-      const state = readState(statePath);
-      if (safeAddress) {
-        chatId = state.users[safeAddress.toLowerCase()]?.telegramChatId;
-      } else {
-        // Fallback: use the first user's chatId
-        const firstUser = Object.values(state.users)[0];
-        chatId = firstUser?.telegramChatId;
-      }
+    if (safeAddress) {
+      chatId = await getTelegramChatIdForSafe(safeAddress);
     }
   } catch { /* ignore */ }
 

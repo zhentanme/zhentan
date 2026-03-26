@@ -1,5 +1,4 @@
-import { Router, Request, Response } from "express";
-import { readFileSync, writeFileSync } from "fs";
+import { Router, Request, Response, type IRouter } from "express";
 import { createPublicClient, http } from "viem";
 import { bsc } from "viem/chains";
 import { privateKeyToAccount, toAccount } from "viem/accounts";
@@ -16,9 +15,14 @@ import {
   getPimlicoRpcUrl,
 } from "../lib/constants.js";
 import { deserializeUserOp } from "../lib/serialize.js";
-import type { QueueFile } from "../types.js";
+import {
+  getTransaction,
+  updateTransaction,
+  updatePatternsAfterExecution,
+  recordTxOutcome,
+} from "../lib/supabase/index.js";
 
-export function createExecuteRouter(getQueuePath: () => string | undefined) {
+export function createExecuteRouter(): IRouter {
   const router = Router();
 
   router.post("/", async (req: Request, res: Response) => {
@@ -29,14 +33,9 @@ export function createExecuteRouter(getQueuePath: () => string | undefined) {
         return;
       }
 
-      const queuePath = getQueuePath();
       const agentPrivateKey = process.env.AGENT_PRIVATE_KEY;
       const pimlicoApiKey = process.env.PIMLICO_API_KEY;
 
-      if (!queuePath) {
-        res.status(500).json({ error: "Missing QUEUE_PATH" });
-        return;
-      }
       if (!agentPrivateKey) {
         res.status(500).json({ error: "Missing AGENT_PRIVATE_KEY" });
         return;
@@ -46,33 +45,19 @@ export function createExecuteRouter(getQueuePath: () => string | undefined) {
         return;
       }
 
-      let queue: QueueFile;
-      try {
-        queue = JSON.parse(readFileSync(queuePath, "utf8"));
-      } catch {
-        res.status(500).json({ error: "Queue file not found" });
-        return;
-      }
-
-      const txIndex = queue.pending.findIndex((t) => t.id === txId);
-      if (txIndex === -1) {
+      const tx = await getTransaction(txId);
+      if (!tx) {
         res.status(404).json({ error: `Transaction ${txId} not found` });
         return;
       }
 
-      const tx = queue.pending[txIndex];
       if (tx.executedAt) {
-        res.json({
-          status: "already_executed",
-          txHash: tx.txHash,
-        });
+        res.json({ status: "already_executed", txHash: tx.txHash });
         return;
       }
 
       if (!tx.userOp || !tx.partialSignatures) {
-        res.status(400).json({
-          error: "Missing userOp or partialSignatures",
-        });
+        res.status(400).json({ error: "Missing userOp or partialSignatures" });
         return;
       }
 
@@ -139,12 +124,30 @@ export function createExecuteRouter(getQueuePath: () => string | undefined) {
 
       const txHash = receipt.receipt?.transactionHash ?? userOpHash;
 
-      tx.executedAt = new Date().toISOString();
-      tx.executedBy = agentAccount.address;
-      tx.txHash = txHash;
-      tx.success = receipt.success;
-      queue.pending[txIndex] = tx;
-      writeFileSync(queuePath, JSON.stringify(queue, null, 2));
+      const executedTx = {
+        ...tx,
+        executedAt: new Date().toISOString(),
+        executedBy: agentAccount.address,
+        txHash,
+        success: receipt.success,
+      };
+
+      await updateTransaction(txId, {
+        executedAt: executedTx.executedAt,
+        executedBy: executedTx.executedBy,
+        txHash,
+        success: receipt.success,
+      });
+
+      // Fire-and-forget: learn from this execution (don't block the response)
+      Promise.all([
+        updatePatternsAfterExecution(executedTx),
+        recordTxOutcome(executedTx, "auto_approved", {
+          riskScore: tx.riskScore,
+          riskVerdict: tx.riskVerdict,
+          riskReasons: tx.riskReasons,
+        }),
+      ]).catch((err) => console.error("Pattern update failed:", err));
 
       res.json({
         status: "executed",

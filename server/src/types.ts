@@ -30,6 +30,7 @@ export interface PendingTransaction {
   riskScore?: number;
   riskVerdict?: "APPROVE" | "REVIEW" | "BLOCK";
   riskReasons?: string[];
+  screeningDisabled?: boolean;
 }
 
 export type TransactionStatus =
