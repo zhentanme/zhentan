@@ -1,41 +1,35 @@
-import { readFileSync, writeFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const statePath = join(__dirname, 'state.json');
-
+/**
+ * Toggle screening mode on or off for a Safe.
+ * Usage: node toggle-screening.js <on|off> <safeAddress>
+ */
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3001';
 const arg = process.argv[2];
-const safeArg = process.argv[3]?.toLowerCase();
+const safeArg = process.argv[3];
 
-if (!arg || !['on', 'off'].includes(arg.toLowerCase())) {
-  console.error('Usage: node toggle-screening.js <on|off> [safeAddress]');
+if (!arg || !['on', 'off'].includes(arg.toLowerCase()) || !safeArg) {
+  console.error(JSON.stringify({ status: 'error', message: 'Usage: node toggle-screening.js <on|off> <safeAddress>' }));
   process.exit(1);
 }
 
 try {
-  const raw = JSON.parse(readFileSync(statePath, 'utf8'));
-  const state = raw.users ? raw : { users: { default: raw } };
   const newMode = arg.toLowerCase() === 'on';
+  const res = await fetch(`${SERVER_URL}/status`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ safe: safeArg, screeningMode: newMode }),
+  });
 
-  if (safeArg) {
-    if (!state.users[safeArg]) {
-      state.users[safeArg] = { screeningMode: false, lastCheck: null, decisions: [] };
-    }
-    state.users[safeArg].screeningMode = newMode;
-  } else {
-    // Toggle for all users
-    for (const key of Object.keys(state.users)) {
-      state.users[key].screeningMode = newMode;
-    }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
   }
 
-  writeFileSync(statePath, JSON.stringify(state, null, 2));
+  const data = await res.json();
   console.log(JSON.stringify({
     status: 'ok',
-    screeningMode: newMode,
-    safe: safeArg || 'all',
-    message: `Screening mode ${newMode ? 'ON' : 'OFF'}${safeArg ? ` for ${safeArg}` : ' for all users'}.`
+    screeningMode: data.screeningMode,
+    safe: safeArg,
+    message: `Screening mode ${data.screeningMode ? 'ON' : 'OFF'} for ${safeArg}.`,
   }));
 } catch (err) {
   console.error(JSON.stringify({ status: 'error', message: err.message }));

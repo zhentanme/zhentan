@@ -8,11 +8,6 @@
  *   - GoPlus Security: address risk + token security
  *   - Honeypot.is: honeypot simulation + buy/sell tax
  */
-import { readFileSync } from "fs";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 const BSC_CHAIN_ID = "56";
 
 // Well-known stablecoins on BSC — skip honeypot check for these
@@ -23,6 +18,7 @@ const KNOWN_STABLECOINS = new Set([
   "0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3", // DAI
 ]);
 
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3001';
 const txId = process.argv[2];
 if (!txId) {
   console.error("Usage: node deep-analyze.js <tx-id>");
@@ -180,32 +176,36 @@ async function checkHoneypot(tokenAddress) {
 }
 
 async function main() {
-  // Load queue and find tx
-  const queue = JSON.parse(
-    readFileSync(join(__dirname, "pending-queue.json"), "utf8")
-  );
-  const tx = queue.pending.find((t) => t.id === txId);
-  if (!tx) {
-    console.log(
-      JSON.stringify({
-        status: "not_found",
-        message: `Transaction ${txId} not found.`,
-      })
-    );
-    process.exit(1);
+  // Fetch tx from server
+  const txRes = await fetch(`${SERVER_URL}/transactions/${txId}`);
+  if (!txRes.ok) {
+    if (txRes.status === 404) {
+      console.log(JSON.stringify({ status: "not_found", message: `Transaction ${txId} not found.` }));
+      process.exit(1);
+    }
+    const err = await txRes.json().catch(() => ({ error: txRes.statusText }));
+    throw new Error(err.error || txRes.statusText);
   }
+  const { transaction: tx } = await txRes.json();
 
-  // Load patterns for context
-  let patterns;
+  // Fetch status/patterns for recipient context
+  let recipientKnown = false;
+  let recipientLabel = null;
+  let recipientTxCount = 0;
+  let recipientAvgAmount = null;
   try {
-    patterns = JSON.parse(
-      readFileSync(join(__dirname, "patterns.json"), "utf8")
-    );
-  } catch {
-    patterns = { recipients: {} };
-  }
-
-  const recipient = patterns.recipients[tx.to.toLowerCase()];
+    const statusRes = await fetch(`${SERVER_URL}/status?safe=${tx.safeAddress}`);
+    if (statusRes.ok) {
+      const { patterns } = await statusRes.json();
+      const recipientProfile = patterns?.recipients?.[tx.to.toLowerCase()];
+      if (recipientProfile) {
+        recipientKnown = true;
+        recipientLabel = recipientProfile.label || null;
+        recipientTxCount = recipientProfile.totalTxCount || 0;
+        recipientAvgAmount = recipientProfile.avgAmount || null;
+      }
+    }
+  } catch { /* non-critical */ }
   const tokenAddr = (tx.usdcAddress || "").toLowerCase();
   const isKnownStable = KNOWN_STABLECOINS.has(tokenAddr);
 
@@ -214,9 +214,9 @@ async function main() {
   console.log(`Amount: ${tx.amount} ${tx.token || "USDC"}`);
   console.log(`To: ${tx.to}`);
   console.log(`Proposed: ${tx.proposedAt}`);
-  if (recipient) {
+  if (recipientKnown) {
     console.log(
-      `Recipient known as: ${recipient.label || "unlabeled"} (${recipient.totalTxCount} past txs, avg ${recipient.avgAmount})`
+      `Recipient known as: ${recipientLabel || "unlabeled"} (${recipientTxCount} past txs, avg ${recipientAvgAmount})`
     );
   } else {
     console.log(`Recipient: UNKNOWN (first time)`);
@@ -300,7 +300,7 @@ async function main() {
 
   const allFlags = [];
   if (addrResult.flags) allFlags.push(...addrResult.flags);
-  if (!recipient) allFlags.push("Unknown recipient (not in patterns)");
+  if (!recipientKnown) allFlags.push("Unknown recipient (not in patterns)");
 
   if (allFlags.length === 0) {
     console.log(`✅ No security risks detected. Transaction appears safe.`);
@@ -318,9 +318,9 @@ async function main() {
       amount: tx.amount,
       token: tx.token,
       addressSecurity: addrResult,
-      knownRecipient: !!recipient,
-      recipientLabel: recipient?.label || null,
-      recipientTxCount: recipient?.totalTxCount || 0,
+      knownRecipient: recipientKnown,
+      recipientLabel,
+      recipientTxCount,
       totalFlags: allFlags.length,
     })
   );

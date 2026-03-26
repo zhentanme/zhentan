@@ -1,44 +1,34 @@
 /**
  * Reject a transaction that was in review.
- * Usage: node skills/zhentan/reject-tx.js <tx-id> [reason]
+ * Usage: node reject-tx.js <tx-id> [reason]
  */
-import { readFileSync, writeFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const queuePath = join(__dirname, 'pending-queue.json');
-
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3001';
 const txId = process.argv[2];
 const reason = process.argv.slice(3).join(' ') || 'Rejected by owner';
 
 if (!txId) {
-  console.error('Usage: node reject-tx.js <tx-id> [reason]');
+  console.error(JSON.stringify({ status: 'error', message: 'Usage: node reject-tx.js <tx-id> [reason]' }));
   process.exit(1);
 }
 
 try {
-  const queue = JSON.parse(readFileSync(queuePath, 'utf8'));
-  const tx = queue.pending.find(t => t.id === txId);
+  const res = await fetch(`${SERVER_URL}/transactions/${txId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'reject', reason }),
+  });
 
-  if (!tx) {
-    console.log(JSON.stringify({ status: 'not_found', message: `${txId} not found.` }));
-    process.exit(1);
+  if (!res.ok) {
+    if (res.status === 404) {
+      console.log(JSON.stringify({ status: 'not_found', message: `${txId} not found.` }));
+      process.exit(1);
+    }
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
   }
 
-  tx.rejected = true;
-  tx.rejectedAt = new Date().toISOString();
-  tx.rejectReason = reason;
-  delete tx.inReview;
-
-  writeFileSync(queuePath, JSON.stringify(queue, null, 2));
-  console.log(JSON.stringify({
-    status: 'rejected',
-    txId,
-    to: tx.to,
-    amount: tx.amount,
-    reason,
-  }));
+  const data = await res.json();
+  console.log(JSON.stringify({ ...data, reason }));
 } catch (err) {
   console.error(JSON.stringify({ status: 'error', message: err.message }));
   process.exit(1);

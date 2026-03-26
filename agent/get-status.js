@@ -1,48 +1,23 @@
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+/**
+ * Get the current status for a Safe: screening mode, patterns, limits.
+ * Usage: node get-status.js <safeAddress>
+ */
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3001';
+const safeArg = process.argv[2];
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+if (!safeArg) {
+  console.error(JSON.stringify({ status: 'error', message: 'Usage: node get-status.js <safeAddress>' }));
+  process.exit(1);
+}
 
 try {
-  const raw = JSON.parse(readFileSync(join(__dirname, 'state.json'), 'utf8'));
-  const state = raw.users ? raw : { users: { default: raw } };
-  const patterns = JSON.parse(readFileSync(join(__dirname, 'patterns.json'), 'utf8'));
-
-  const safeArg = process.argv[2]?.toLowerCase();
-  const knownRecipients = Object.keys(patterns.recipients).length;
-
-  if (safeArg) {
-    const userState = state.users[safeArg];
-    if (!userState) {
-      console.log(JSON.stringify({ status: 'not_found', message: `No state for ${safeArg}` }));
-      process.exit(0);
-    }
-    const recentDecisions = (userState.decisions || []).slice(-10);
-    console.log(JSON.stringify({
-      safe: safeArg,
-      screeningMode: userState.screeningMode,
-      lastCheck: userState.lastCheck,
-      knownRecipients,
-      globalLimits: patterns.globalLimits,
-      recentDecisions
-    }, null, 2));
-  } else {
-    // Report all users
-    const result = {};
-    for (const [safe, userState] of Object.entries(state.users)) {
-      result[safe] = {
-        screeningMode: userState.screeningMode,
-        lastCheck: userState.lastCheck,
-        recentDecisions: (userState.decisions || []).slice(-10)
-      };
-    }
-    console.log(JSON.stringify({
-      users: result,
-      knownRecipients,
-      globalLimits: patterns.globalLimits
-    }, null, 2));
+  const res = await fetch(`${SERVER_URL}/status?safe=${safeArg}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
   }
+  const data = await res.json();
+  console.log(JSON.stringify(data, null, 2));
 } catch (err) {
   console.error(JSON.stringify({ status: 'error', message: err.message }));
   process.exit(1);

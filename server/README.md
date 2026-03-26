@@ -10,7 +10,7 @@ Express backend that handles queue and invoice file I/O. Run this server on a ho
    cd server
    npm install
    cp .env.example .env
-   # Edit .env: QUEUE_PATH, INVOICE_QUEUE_PATH, STATE_PATH, PATTERNS_PATH,
+   # Edit .env: 
    #            AGENT_PRIVATE_KEY, PIMLICO_API_KEY, ZERION_API_KEY, PORT
    ```
 

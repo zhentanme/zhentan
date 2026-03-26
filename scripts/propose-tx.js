@@ -25,7 +25,7 @@ import { randomUUID } from "crypto";
 
 const QUEUE_PATH =
   process.env.QUEUE_PATH ||
-  "/home/koshik/.openclaw/workspace/skills/zhentan/pending-queue.json";
+  "./pending-queue.json";
 
 const DEFAULT_USDC = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 const USDC_DECIMALS = 6;

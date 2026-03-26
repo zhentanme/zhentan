@@ -1,81 +1,38 @@
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
+/**
+ * Fetch risk analysis for a pending transaction.
+ * The server computes risk scores via analyzeRisk() on every transaction fetch.
+ * Usage: node analyze-risk.js <tx-id> <safeAddress>
+ */
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3001';
 const txId = process.argv[2];
-if (!txId) {
-  console.error('Usage: node analyze-risk.js <tx-id>');
+const safeArg = process.argv[3];
+
+if (!txId || !safeArg) {
+  console.error(JSON.stringify({ status: 'error', message: 'Usage: node analyze-risk.js <tx-id> <safeAddress>' }));
   process.exit(1);
 }
 
 try {
-  const queue = JSON.parse(readFileSync(join(__dirname, 'pending-queue.json'), 'utf8'));
-  const patterns = JSON.parse(readFileSync(join(__dirname, 'patterns.json'), 'utf8'));
-
-  const tx = queue.pending.find(t => t.id === txId);
-  if (!tx) {
-    console.log(JSON.stringify({ status: 'not_found', message: `Transaction ${txId} not found.` }));
-    process.exit(1);
-  }
-
-  let riskScore = 0;
-  const reasons = [];
-  const recipient = patterns.recipients[tx.to.toLowerCase()];
-
-  // 1. Unknown recipient = +40 risk
-  if (!recipient) {
-    riskScore += 40;
-    reasons.push('Unknown recipient (never seen before)');
-  } else {
-    // Known recipient but unusual amount
-    const avg = parseFloat(recipient.avgAmount || '0');
-    const txAmount = parseFloat(tx.amount);
-    if (avg > 0 && txAmount > avg * 3) {
-      riskScore += 25;
-      reasons.push(`Amount ${tx.amount} is ${(txAmount / avg).toFixed(1)}x the average (${avg})`);
+  const res = await fetch(`${SERVER_URL}/transactions/${txId}`);
+  if (!res.ok) {
+    if (res.status === 404) {
+      console.log(JSON.stringify({ status: 'not_found', message: `Transaction ${txId} not found.` }));
+      process.exit(1);
     }
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
   }
 
-  // 2. Time of day check (use current time since queue entries have no timestamp)
-  const hour = new Date().getUTCHours();
-  const allowedHours = patterns.globalLimits.allowedHoursUTC;
-  if (!allowedHours.includes(hour)) {
-    riskScore += 20;
-    reasons.push(`Current time ${hour}:00 UTC is outside business hours`);
-  }
-
-  // 3. Amount exceeds global single-tx limit
-  if (parseFloat(tx.amount) > parseFloat(patterns.globalLimits.maxSingleTx)) {
-    riskScore += 30;
-    reasons.push(`Amount ${tx.amount} exceeds single-tx limit of ${patterns.globalLimits.maxSingleTx}`);
-  }
-
-  // 4. Daily volume check
-  const today = new Date().toISOString().split('T')[0];
-  const dailyUsed = parseFloat(patterns.dailyStats[today]?.totalVolume || '0');
-  if (dailyUsed + parseFloat(tx.amount) > parseFloat(patterns.globalLimits.maxDailyVolume)) {
-    riskScore += 20;
-    reasons.push(`Would exceed daily volume limit (${dailyUsed} + ${tx.amount} > ${patterns.globalLimits.maxDailyVolume})`);
-  }
-
-  riskScore = Math.min(riskScore, 100);
-
-  if (reasons.length === 0) {
-    reasons.push('Known recipient, normal amount, within business hours');
-  }
-
-  const verdict = riskScore < 40 ? 'APPROVE' : riskScore < 70 ? 'REVIEW' : 'BLOCK';
+  const { transaction: tx } = await res.json();
 
   console.log(JSON.stringify({
     txId: tx.id,
     to: tx.to,
     amount: tx.amount,
     token: tx.token,
-    riskScore,
-    verdict,
-    reasons
+    riskScore: tx.riskScore ?? null,
+    verdict: tx.riskVerdict ?? null,
+    reasons: tx.riskReasons ?? [],
   }, null, 2));
 } catch (err) {
   console.error(JSON.stringify({ status: 'error', message: err.message }));

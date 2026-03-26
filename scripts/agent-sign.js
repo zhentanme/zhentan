@@ -21,7 +21,7 @@ import { readFileSync, writeFileSync } from "fs";
 
 const QUEUE_PATH =
   process.env.QUEUE_PATH ||
-  "/home/koshik/.openclaw/workspace/skills/zhentan/pending-queue.json";
+  "./pending-queue.json";
 
 const SAFE_VERSION = "1.4.1";
 

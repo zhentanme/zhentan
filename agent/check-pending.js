@@ -1,36 +1,38 @@
-import { readFileSync } from 'fs';
-import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+/**
+ * Check if there are pending transactions awaiting agent review.
+ * Usage: node check-pending.js [safeAddress]
+ */
+const SERVER_URL = process.env.SERVER_URL || 'http://localhost:3001';
+const safeArg = process.argv[2];
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+if (!safeArg) {
+  console.error(JSON.stringify({ status: 'error', message: 'Usage: node check-pending.js <safeAddress>' }));
+  process.exit(1);
+}
 
 try {
-  const raw = JSON.parse(readFileSync(join(__dirname, 'state.json'), 'utf8'));
-  const state = raw.users ? raw : { users: { default: raw } };
-
-  const safeArg = process.argv[2]?.toLowerCase();
-
-  // Check if any user (or a specific user) has screening on
-  let screeningOn = false;
-  if (safeArg) {
-    const userState = state.users[safeArg];
-    screeningOn = userState?.screeningMode ?? false;
-  } else {
-    screeningOn = Object.values(state.users).some(u => u.screeningMode);
+  // Check screening mode and get patterns/settings
+  const statusRes = await fetch(`${SERVER_URL}/status?safe=${safeArg}`);
+  if (!statusRes.ok) {
+    const err = await statusRes.json().catch(() => ({ error: statusRes.statusText }));
+    throw new Error(err.error || statusRes.statusText);
   }
+  const { screeningMode } = await statusRes.json();
 
-  if (!screeningOn) {
+  if (!screeningMode) {
     console.log(JSON.stringify({ status: 'screening_off', message: 'Screening mode is OFF. Skipping check.' }));
     process.exit(0);
   }
 
-  const queue = JSON.parse(readFileSync(join(__dirname, 'pending-queue.json'), 'utf8'));
-  let pending = queue.pending.filter(tx => !tx.executedAt && !tx.inReview && !tx.rejected);
-
-  // If a specific safe was requested, filter to that safe's transactions
-  if (safeArg) {
-    pending = pending.filter(tx => tx.safeAddress?.toLowerCase() === safeArg);
+  // Fetch pending transactions
+  const txRes = await fetch(`${SERVER_URL}/transactions?safeAddress=${safeArg}`);
+  if (!txRes.ok) {
+    const err = await txRes.json().catch(() => ({ error: txRes.statusText }));
+    throw new Error(err.error || txRes.statusText);
   }
+  const { transactions } = await txRes.json();
+
+  const pending = transactions.filter(tx => !tx.executedAt && !tx.inReview && !tx.rejected);
 
   if (pending.length === 0) {
     console.log(JSON.stringify({ status: 'empty', message: 'No pending transactions.' }));
@@ -38,7 +40,7 @@ try {
     console.log(JSON.stringify({
       status: 'has_pending',
       count: pending.length,
-      transactions: pending
+      transactions: pending,
     }, null, 2));
   }
 } catch (err) {
