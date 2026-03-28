@@ -150,6 +150,8 @@ export function createAnalyzeRouter(): IRouter {
   router.get("/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      const callerId = (req.query.callerId as string | undefined) || null;
+      console.log("callerId", callerId);
 
       const tx = await getTransaction(id);
       if (!tx) {
@@ -165,6 +167,8 @@ export function createAnalyzeRouter(): IRouter {
       const tokenAddr = (tx.usdcAddress || "").toLowerCase();
       const isKnownStable = KNOWN_STABLECOINS.has(tokenAddr);
 
+      console.log("tokenAddr", tokenAddr);
+      console.log("isKnownStable", isKnownStable);
       // Run external API checks in parallel
       const [addressSecurity, tokenSecurity, honeypot] = await Promise.all([
         checkAddressSecurity(tx.to),
@@ -179,6 +183,7 @@ export function createAnalyzeRouter(): IRouter {
 
       res.json({
         txId: id,
+        callerId,
         to: tx.to,
         amount: tx.amount,
         token: tx.token,

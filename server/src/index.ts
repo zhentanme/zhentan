@@ -1,6 +1,7 @@
 import "dotenv/config";
 import cors from "cors";
-import express from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
+import { verifyPrivyToken } from "./lib/privy.js";
 import { createTransactionsRouter } from "./routes/transactions.js";
 import { createQueueRouter } from "./routes/queue.js";
 import { createExecuteRouter } from "./routes/execute.js";
@@ -15,6 +16,42 @@ import { editNotification } from "./notify.js";
 
 const app = express();
 
+const AGENT_SECRET = process.env.AGENT_SECRET;
+
+declare global {
+  namespace Express {
+    interface Request {
+      callerId?: string;
+    }
+  }
+}
+
+async function auth(req: Request, res: Response, next: NextFunction) {
+  // Skip auth entirely if AGENT_SECRET is not configured (local dev fallback)
+  if (!AGENT_SECRET) return next();
+
+  const bearer = req.headers["authorization"]?.replace("Bearer ", "");
+  if (!bearer) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  // Agent call — simple secret comparison
+  if (bearer === AGENT_SECRET) {
+    req.callerId = req.body?.callerId ?? (req.query.callerId as string) ?? undefined;
+    return next();
+  }
+
+  // Client call — verify as Privy identity token
+  try {
+    const { userId } = await verifyPrivyToken(bearer);
+    req.callerId = `privy:${userId}`;
+    return next();
+  } catch {
+    res.status(401).json({ error: "Unauthorized" });
+  }
+}
+
 app.use(
   cors({
     origin: true,
@@ -23,18 +60,18 @@ app.use(
 );
 app.use(express.json());
 
-app.use("/transactions", createTransactionsRouter());
-app.use("/queue", createQueueRouter());
-app.use("/execute", createExecuteRouter());
-app.use("/invoices", createInvoicesRouter());
-app.use("/portfolio", createPortfolioRouter());
-app.use("/status", createStatusRouter());
-app.use("/rules", createRulesRouter());
-app.use("/events", createEventsRouter());
-app.use("/resolve", createResolveRouter());
-app.use("/analyze", createAnalyzeRouter());
+app.use("/portfolio", createPortfolioRouter());   // public — client reads
+app.use("/events", createEventsRouter());          // public — client SSE stream
+app.use("/transactions", auth, createTransactionsRouter());
+app.use("/queue", auth, createQueueRouter());
+app.use("/execute", auth, createExecuteRouter());
+app.use("/invoices", auth, createInvoicesRouter());
+app.use("/status", auth, createStatusRouter());
+app.use("/rules", auth, createRulesRouter());
+app.use("/resolve", auth, createResolveRouter());
+app.use("/analyze", auth, createAnalyzeRouter());
 
-app.post("/notify-resolve", async (req, res) => {
+app.post("/notify-resolve", auth, async (req, res) => {
   const { txId, action, txHash, safeAddress } = req.body ?? {};
   if (!txId || !action) {
     res.status(400).json({ error: "Missing txId or action" });

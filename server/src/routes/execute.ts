@@ -27,7 +27,8 @@ export function createExecuteRouter(): IRouter {
 
   router.post("/", async (req: Request, res: Response) => {
     try {
-      const { txId } = req.body ?? {};
+      const { txId, callerId } = req.body ?? {};
+      console.log(callerId);
       if (!txId) {
         res.status(400).json({ error: "Missing txId" });
         return;

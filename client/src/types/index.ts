@@ -146,6 +146,8 @@ export interface ProposeParams {
   tokenIconUrl?: string | null;
   /** When true, server skips risk analysis and auto-execute; client will call execute. */
   screeningDisabled?: boolean;
+  /** Privy identity token for authenticating the backend request */
+  identityToken?: string | null;
 }
 
 // Invoice types
