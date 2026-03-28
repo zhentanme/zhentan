@@ -16,7 +16,7 @@ import {
   Bot,
 } from "lucide-react";
 import { truncateAddress } from "@/lib/format";
-import { getBackendApiUrl } from "@/lib/api";
+import { useApiClient } from "@/lib/api/client";
 import { useSafeAddress } from "@/lib/useSafeAddress";
 import { toHex } from "viem";
 
@@ -47,16 +47,14 @@ function ProfilePageContent() {
   const { user, wallet, getOwnerAccount, logout } = useAuth();
   const { safeAddress: computedSafeAddress } = useSafeAddress(wallet?.address);
   const safeAddress = computedSafeAddress || "";
+  const api = useApiClient();
 
   useEffect(() => {
     if (!safeAddress) return;
-    fetch(
-      `${getBackendApiUrl("status")}?safe=${encodeURIComponent(safeAddress)}`
-    )
-      .then((res) => res.json())
+    api.status.get(safeAddress)
       .then((data) => setScreeningMode(data.screeningMode ?? true))
       .catch(() => {});
-  }, [safeAddress]);
+  }, [safeAddress, api]);
 
   const copyAddress = async () => {
     await navigator.clipboard.writeText(safeAddress);

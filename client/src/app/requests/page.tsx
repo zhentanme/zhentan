@@ -8,7 +8,7 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
 import { useSafeAddress } from "@/lib/useSafeAddress";
 import { proposeTransaction } from "@/lib/propose";
-import { getBackendApiUrl } from "@/lib/api";
+import { useApiClient } from "@/lib/api/client";
 import type { QueuedInvoice, StatusResponse } from "@/types";
 import { FileText } from "lucide-react";
 
@@ -23,8 +23,9 @@ const emptyVariants = {
 };
 
 function RequestsPageContent() {
-  const { user, wallet, getOwnerAccount } = useAuth();
+  const { user, wallet, getOwnerAccount, identityToken } = useAuth();
   const { safeAddress, loading: safeLoading } = useSafeAddress(wallet?.address);
+  const api = useApiClient();
 
   const [invoices, setInvoices] = useState<QueuedInvoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,32 +33,24 @@ function RequestsPageContent() {
 
   const fetchInvoices = useCallback(async () => {
     try {
-      const res = await fetch(getBackendApiUrl("invoices"));
-      if (res.ok) {
-        const data = await res.json();
-        setInvoices(data.invoices);
-      }
+      const data = await api.invoices.list();
+      setInvoices(data.invoices);
     } catch {
       // silent
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [api]);
 
   const fetchStatus = useCallback(async () => {
     if (!safeAddress) return;
     try {
-      const res = await fetch(
-        `${getBackendApiUrl("status")}?safe=${encodeURIComponent(safeAddress)}`
-      );
-      if (res.ok) {
-        const data: StatusResponse = await res.json();
-        setScreeningMode(data.screeningMode);
-      }
+      const data: StatusResponse = await api.status.get(safeAddress);
+      setScreeningMode(data.screeningMode);
     } catch {
       // silent
     }
-  }, [safeAddress]);
+  }, [safeAddress, api]);
 
   useEffect(() => {
     fetchInvoices();
@@ -73,52 +66,27 @@ function RequestsPageContent() {
         amount: String(invoice.amount),
         ownerAddress: wallet.address,
         getOwnerAccount,
+        identityToken,
       });
 
-      await fetch(getBackendApiUrl("invoices"), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: invoice.id,
-          status: "approved",
-          txId: pendingTx.id,
-        }),
-      });
+      await api.invoices.update({ id: invoice.id, status: "approved", txId: pendingTx.id });
 
       if (!screeningMode) {
-        const execRes = await fetch(getBackendApiUrl("execute"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ txId: pendingTx.id }),
-        });
-        if (execRes.ok) {
-          await fetch(getBackendApiUrl("invoices"), {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id: invoice.id, status: "executed" }),
-          });
-        }
+        await api.execute.run(pendingTx.id);
+        await api.invoices.update({ id: invoice.id, status: "executed" });
       }
 
       fetchInvoices();
     },
-    [user, wallet, getOwnerAccount, screeningMode, fetchInvoices]
+    [user, wallet, getOwnerAccount, screeningMode, fetchInvoices, api]
   );
 
   const handleReject = useCallback(
     async (invoice: QueuedInvoice, reason: string) => {
-      await fetch(getBackendApiUrl("invoices"), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: invoice.id,
-          status: "rejected",
-          rejectReason: reason || undefined,
-        }),
-      });
+      await api.invoices.update({ id: invoice.id, status: "rejected", rejectReason: reason || undefined });
       fetchInvoices();
     },
-    [fetchInvoices]
+    [fetchInvoices, api]
   );
 
   if (safeLoading || !safeAddress) {

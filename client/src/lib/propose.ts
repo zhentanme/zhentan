@@ -21,7 +21,7 @@ import {
   NATIVE_DECIMALS,
 } from "./constants";
 import { serializeUserOp } from "./serialize";
-import { getBackendApiUrl } from "./api";
+import { apiFetch } from "./api/client";
 import type { ProposeParams } from "@/types";
 
 // Next.js only inlines env vars when you use static access (process.env.NEXT_PUBLIC_*).
@@ -41,6 +41,7 @@ export async function proposeTransaction({
   tokenSymbol,
   tokenIconUrl,
   screeningDisabled,
+  identityToken,
 }: ProposeParams) {
   const pimlicoApiKey = requireEnv(process.env.NEXT_PUBLIC_PIMLICO_API_KEY, "NEXT_PUBLIC_PIMLICO_API_KEY");
   const ownerAddr2 = requireEnv(process.env.NEXT_PUBLIC_AGENT_ADDRESS, "NEXT_PUBLIC_AGENT_ADDRESS");
@@ -143,7 +144,7 @@ export async function proposeTransaction({
   };
 
   // 4. POST to API route or backend to save to queue
-  const res = await fetch(getBackendApiUrl("queue"), {
+  const res = await apiFetch("/queue", identityToken, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(pendingTx),

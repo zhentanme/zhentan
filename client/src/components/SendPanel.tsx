@@ -12,7 +12,7 @@ import { ThemeLoaderSpinner } from "./ThemeLoader";
 import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, MessageCircle } from "lucide-react";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
-import { getBackendApiUrl } from "@/lib/api";
+import { useApiClient } from "@/lib/api/client";
 import { Dialog } from "./ui/Dialog";
 import { TokenRow } from "./TokenRow";
 import type { TransactionWithStatus, TokenPosition } from "@/types";
@@ -27,7 +27,8 @@ interface SendPanelProps {
 }
 
 export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, screeningMode = true }: SendPanelProps) {
-  const { user, wallet, getOwnerAccount, telegramUserId } = useAuth();
+  const { user, wallet, getOwnerAccount, telegramUserId, identityToken } = useAuth();
+  const api = useApiClient();
   const router = useRouter();
   const [showTgRequiredModal, setShowTgRequiredModal] = useState(false);
   const [recipient, setRecipient] = useState("");
@@ -77,13 +78,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     setResolving(true);
     setResolveError(null);
     try {
-      const res = await fetch(`${getBackendApiUrl("resolve")}?name=${encodeURIComponent(trimmed)}`);
-      const data = await res.json();
-      if (!res.ok) {
-        setResolvedAddress(null);
-        setResolveError(data.error || "Could not resolve");
-        return;
-      }
+      const data = await api.resolve.resolve(trimmed);
       setResolvedAddress(data.address);
     } catch {
       setResolvedAddress(null);
@@ -91,7 +86,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     } finally {
       setResolving(false);
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     if (!recipient.trim()) {
@@ -148,6 +143,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         tokenSymbol: selectedToken?.symbol,
         tokenIconUrl: selectedToken?.iconUrl ?? undefined,
         screeningDisabled: !screeningMode,
+        identityToken,
       });
 
       onRefreshActivities?.();
@@ -155,16 +151,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       console.log("screeningMode", screeningMode);
       if (!screeningMode) {
         // 2. Screening OFF: execute immediately
-        const execRes = await fetch(getBackendApiUrl("execute"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ txId: pendingTx.id }),
-        });
-        if (!execRes.ok) {
-          const data = await execRes.json();
-          throw new Error(data.error || "Execution failed");
-        }
-        const data = await execRes.json();
+        const data = await api.execute.run(pendingTx.id);
         setExecutedResult({
           to: data.to ?? address,
           amount: data.amount ?? amount,

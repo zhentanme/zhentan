@@ -16,7 +16,7 @@ import {
   Server,
   ExternalLink,
 } from "lucide-react";
-import { getBackendApiUrl } from "@/lib/api";
+import { useApiClient } from "@/lib/api/client";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 40, scale: 0.98 },
@@ -56,6 +56,7 @@ function SettingsPageContent() {
   const [telegramLinked, setTelegramLinked] = useState(false);
   const [linkingTelegram, setLinkingTelegram] = useState(false);
   const { telegramUserId, privyUser, safeAddress } = useAuth();
+  const api = useApiClient();
   const { unlinkTelegram } = usePrivy();
 
   const { linkTelegram } = useLinkAccount({
@@ -68,14 +69,7 @@ function SettingsPageContent() {
           (acc?.subject as string);
         if (tgUserId) {
           setTelegramLinked(true);
-          fetch(getBackendApiUrl("status"), {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              safe: safeAddress,
-              telegramChatId: String(tgUserId),
-            }),
-          }).catch(() => {});
+          api.status.update({ safe: safeAddress!, telegramChatId: String(tgUserId) }).catch(() => {});
         }
       }
       setLinkingTelegram(false);
@@ -91,31 +85,18 @@ function SettingsPageContent() {
 
   useEffect(() => {
     if (!safeAddress) return;
-    fetch(
-      `${getBackendApiUrl("status")}?safe=${encodeURIComponent(safeAddress)}`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        setScreeningMode(data.screeningMode ?? true);
-      })
+    api.status.get(safeAddress)
+      .then((data) => setScreeningMode(data.screeningMode ?? true))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [safeAddress]);
+  }, [safeAddress, api]);
 
   const handleToggle = async () => {
     setToggling(true);
     try {
-      const res = await fetch(getBackendApiUrl("status"), {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          safe: safeAddress,
-          screeningMode: !screeningMode,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setScreeningMode(data.screeningMode);
+      const data = await api.status.update({ safe: safeAddress!, screeningMode: !screeningMode });
+      if (typeof (data as { screeningMode?: boolean }).screeningMode === "boolean") {
+        setScreeningMode((data as { screeningMode: boolean }).screeningMode);
       }
     } catch {
       // silent
@@ -340,16 +321,7 @@ function SettingsPageContent() {
                                         }
                                       }
                                       setTelegramLinked(false);
-                                      await fetch(getBackendApiUrl("status"), {
-                                        method: "PATCH",
-                                        headers: {
-                                          "Content-Type": "application/json",
-                                        },
-                                        body: JSON.stringify({
-                                          safe: safeAddress,
-                                          telegramChatId: "",
-                                        }),
-                                      });
+                                      await api.status.update({ safe: safeAddress!, telegramChatId: "" });
                                     } catch {
                                       /* ignore */
                                     }

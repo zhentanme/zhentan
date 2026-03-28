@@ -9,7 +9,7 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { usePrivy, useWallets, useCreateWallet } from "@privy-io/react-auth";
+import { usePrivy, useWallets, useCreateWallet, useIdentityToken } from "@privy-io/react-auth";
 import { createWalletClient, custom } from "viem";
 import { bsc } from "viem/chains";
 import type { Address, LocalAccount } from "viem";
@@ -42,6 +42,8 @@ export interface AuthContextType {
   telegramUserId?: string;
   /** Raw Privy user for accessing linkedAccounts */
   privyUser: ReturnType<typeof usePrivy>["user"];
+  /** Privy identity token — attach as Authorization: Bearer for backend calls */
+  identityToken: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -50,6 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { ready, authenticated, user: privyUser, login: privyLogin, logout: privyLogout } = usePrivy();
   const { wallets } = useWallets();
   const { createWallet } = useCreateWallet();
+  const { identityToken } = useIdentityToken();
+  console.log(identityToken)
   const hasAttemptedCreate = useRef(false);
 
   const primaryWallet = useMemo(
@@ -140,8 +144,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       safeLoading,
       telegramUserId,
       privyUser: privyUser ?? null,
+      identityToken: identityToken ?? null,
     }),
-    [user, wallet, loading, login, logout, getOwnerAccount, safeAddress, safeLoading, telegramUserId, privyUser]
+    [user, wallet, loading, login, logout, getOwnerAccount, safeAddress, safeLoading, telegramUserId, privyUser, identityToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

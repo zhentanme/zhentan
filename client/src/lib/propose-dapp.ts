@@ -17,7 +17,7 @@ import {
   getPimlicoRpcUrl,
 } from "./constants";
 import { serializeUserOp } from "./serialize";
-import { getBackendApiUrl } from "./api";
+import { apiFetch } from "./api/client";
 import type { DappMetadata } from "@/types";
 import type { LocalAccount } from "viem";
 
@@ -30,6 +30,8 @@ export interface ProposeDappParams {
   dappMetadata?: DappMetadata;
   /** When true, server skips risk analysis; client will call execute. */
   screeningDisabled?: boolean;
+  /** Privy identity token for authenticating the backend request */
+  identityToken?: string | null;
 }
 
 function requireEnv(val: string | undefined, name: string): string {
@@ -45,6 +47,7 @@ export async function proposeDappTransaction({
   getOwnerAccount,
   dappMetadata,
   screeningDisabled,
+  identityToken,
 }: ProposeDappParams) {
   const pimlicoApiKey = requireEnv(process.env.NEXT_PUBLIC_PIMLICO_API_KEY, "NEXT_PUBLIC_PIMLICO_API_KEY");
   const ownerAddr2 = requireEnv(process.env.NEXT_PUBLIC_AGENT_ADDRESS, "NEXT_PUBLIC_AGENT_ADDRESS");
@@ -124,7 +127,7 @@ export async function proposeDappTransaction({
   };
 
   // 4. POST to queue
-  const res = await fetch(getBackendApiUrl("queue"), {
+  const res = await apiFetch("/queue", identityToken, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(pendingTx),
