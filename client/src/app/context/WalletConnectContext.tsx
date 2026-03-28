@@ -14,7 +14,7 @@ import { WalletKit, type WalletKitTypes } from "@reown/walletkit";
 import { buildApprovedNamespaces, getSdkError } from "@walletconnect/utils";
 import { useAuth } from "./AuthContext";
 import { proposeDappTransaction } from "@/lib/propose-dapp";
-import { getBackendApiUrl } from "@/lib/api";
+import { useApiClient, apiFetch } from "@/lib/api/client";
 import type { DappMetadata, TransactionWithStatus } from "@/types";
 
 type SessionMap = Record<string, WalletKitTypes.SessionRequest["params"]>;
@@ -59,7 +59,8 @@ const SUPPORTED_METHODS = [
 const SUPPORTED_EVENTS = ["chainChanged", "accountsChanged"];
 
 export function WalletConnectProvider({ children }: { children: ReactNode }) {
-  const { wallet, getOwnerAccount, safeAddress } = useAuth();
+  const { wallet, getOwnerAccount, safeAddress, identityToken } = useAuth();
+  const api = useApiClient();
   const [walletKit, setWalletKit] = useState<InstanceType<typeof WalletKit> | null>(null);
   const [ready, setReady] = useState(false);
   const [sessions, setSessions] = useState<SessionMap>({});
@@ -254,13 +255,8 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       let screeningOn = true;
       if (safeAddress) {
         try {
-          const statusRes = await fetch(
-            `${getBackendApiUrl("status")}?safe=${encodeURIComponent(safeAddress)}`
-          );
-          if (statusRes.ok) {
-            const statusData = await statusRes.json();
-            screeningOn = statusData.screeningMode !== false;
-          }
+          const statusData = await api.status.get(safeAddress);
+          screeningOn = statusData.screeningMode !== false;
         } catch {
           // Default to screening on if status fetch fails
         }
@@ -274,6 +270,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
         getOwnerAccount,
         dappMetadata: pendingRequest.dappMetadata,
         screeningDisabled: !screeningOn,
+        identityToken,
       });
 
       let txHash: string;
@@ -281,21 +278,12 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
       if (!screeningOn) {
         // Screening OFF: execute immediately (same as SendPanel)
         setRequestStatus("queued");
-        const execRes = await fetch(getBackendApiUrl("execute"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ txId: pending.id }),
-        });
-        if (!execRes.ok) {
-          const data = await execRes.json();
-          throw new Error(data.error || "Execution failed");
-        }
-        const execData = await execRes.json();
+        const execData = await api.execute.run(pending.id);
         txHash = execData.txHash;
       } else {
         // Screening ON: poll for AI agent execution
         setRequestStatus("polling");
-        txHash = await pollForExecution(pending.id, safeAddress);
+        txHash = await pollForExecution(pending.id, safeAddress, identityToken);
       }
       setRequestStatus("success");
       setRequestTxHash(txHash);
@@ -329,7 +317,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
 
       throw err;
     }
-  }, [walletKit, pendingRequest, wallet, safeAddress, getOwnerAccount]);
+  }, [walletKit, pendingRequest, wallet, safeAddress, getOwnerAccount, identityToken, api]);
 
   const rejectRequest = useCallback(async () => {
     if (!walletKit || !pendingRequest) return;
@@ -400,16 +388,14 @@ export function useWalletConnect() {
 }
 
 /** Poll the transactions endpoint until we find an executed tx with this ID, or timeout. */
-async function pollForExecution(txId: string, safeAddress: string): Promise<string> {
+async function pollForExecution(txId: string, safeAddress: string, identityToken: string | null): Promise<string> {
   const maxAttempts = 60; // ~3 minutes at 3s intervals
   const interval = 3000;
 
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise((r) => setTimeout(r, interval));
     try {
-      const res = await fetch(
-        `${getBackendApiUrl("transactions")}?safeAddress=${encodeURIComponent(safeAddress)}`
-      );
+      const res = await apiFetch(`/transactions?safeAddress=${encodeURIComponent(safeAddress)}`, identityToken);
       if (!res.ok) continue;
       const data = await res.json();
       const tx = (data.transactions as TransactionWithStatus[])?.find(

@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getBackendApiUrl } from "@/lib/api";
+import { useApiClient } from "@/lib/api/client";
+import { useAuth } from "@/app/context/AuthContext";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, FileText, Settings, User, Bell } from "lucide-react";
@@ -22,21 +23,19 @@ interface TopBarProps {
 export function TopBar({ screeningMode }: TopBarProps) {
   const pathname = usePathname();
   const [queuedCount, setQueuedCount] = useState(0);
+  const api = useApiClient();
 
   const fetchQueuedCount = useCallback(async () => {
     try {
-      const res = await fetch(getBackendApiUrl("invoices"));
-      if (res.ok) {
-        const data = await res.json();
-        const count = (data.invoices || []).filter(
-          (inv: { status: string }) => inv.status === "queued"
-        ).length;
-        setQueuedCount(count);
-      }
+      const data = await api.invoices.list();
+      const count = (data.invoices || []).filter(
+        (inv: { status: string }) => inv.status === "queued"
+      ).length;
+      setQueuedCount(count);
     } catch {
       // silent
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     fetchQueuedCount();

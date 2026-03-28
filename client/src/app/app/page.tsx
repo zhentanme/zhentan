@@ -14,11 +14,12 @@ import { Dialog } from "@/components/ui/Dialog";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ThemeLoader } from "@/components/ThemeLoader";
 import { useAuth } from "@/app/context/AuthContext";
-import { getBackendApiUrl } from "@/lib/api";
+import { useApiClient } from "@/lib/api/client";
 import type { TransactionWithStatus, StatusResponse, TokenPosition, PortfolioResponse } from "@/types";
 
 function Dashboard() {
   const { user, safeAddress, safeLoading } = useAuth();
+  const api = useApiClient();
 
   const [portfolioTotalUsd, setPortfolioTotalUsd] = useState<number | null>(null);
   const [portfolioPercentChange24h, setPortfolioPercentChange24h] = useState<number | null>(null);
@@ -35,53 +36,38 @@ function Dashboard() {
   const fetchPortfolio = useCallback(async () => {
     if (!safeAddress) return;
     try {
-      const res = await fetch(
-        `${getBackendApiUrl("portfolio")}?safeAddress=${encodeURIComponent(safeAddress)}`
-      );
-      if (res.ok) {
-        const data: PortfolioResponse = await res.json();
-        setPortfolioTotalUsd(data.totalUsd);
-        setPortfolioPercentChange24h(data.percentChange24h ?? null);
-        setTokens(data.tokens ?? []);
-      }
+      const data: PortfolioResponse = await api.portfolio.get(safeAddress);
+      setPortfolioTotalUsd(data.totalUsd);
+      setPortfolioPercentChange24h(data.percentChange24h ?? null);
+      setTokens(data.tokens ?? []);
     } catch {
       // silent
     } finally {
       setBalanceLoading(false);
     }
-  }, [safeAddress]);
+  }, [safeAddress, api]);
 
   const fetchTransactions = useCallback(async () => {
     if (!safeAddress) return;
     try {
-      const res = await fetch(
-        `${getBackendApiUrl("transactions")}?safeAddress=${encodeURIComponent(safeAddress)}`
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setTransactions(data.transactions);
-      }
+      const data = await api.transactions.list(safeAddress);
+      setTransactions(data.transactions);
     } catch {
       // silent
     } finally {
       setTxLoading(false);
     }
-  }, [safeAddress]);
+  }, [safeAddress, api]);
 
   const fetchStatus = useCallback(async () => {
     if (!safeAddress) return;
     try {
-      const res = await fetch(
-        `${getBackendApiUrl("status")}?safe=${encodeURIComponent(safeAddress)}`
-      );
-      if (res.ok) {
-        const data: StatusResponse = await res.json();
-        setScreeningMode(data.screeningMode);
-      }
+      const data: StatusResponse = await api.status.get(safeAddress);
+      setScreeningMode(data.screeningMode);
     } catch {
       // silent
     }
-  }, [safeAddress]);
+  }, [safeAddress, api]);
 
   useEffect(() => {
     if (!safeAddress) return;
