@@ -3,14 +3,14 @@ import * as jose from "jose";
 const PRIVY_APP_ID = process.env.PRIVY_APP_ID ?? "";
 const PRIVY_JWT_VERIFICATION_KEY = process.env.PRIVY_JWT_VERIFICATION_KEY ?? "";
 
-let cachedKey: jose.KeyLike | null = null;
+let cachedKey: CryptoKey | null = null;
 
-async function getPublicKey(): Promise<jose.KeyLike> {
+async function getPublicKey(): Promise<CryptoKey> {
   if (cachedKey) return cachedKey;
   if (!PRIVY_JWT_VERIFICATION_KEY) throw new Error("PRIVY_JWT_VERIFICATION_KEY not set");
   try {
     const jwk = JSON.parse(PRIVY_JWT_VERIFICATION_KEY);
-    cachedKey = (await jose.importJWK(jwk, "ES256")) as jose.KeyLike;
+    cachedKey = (await jose.importJWK(jwk, "ES256")) as CryptoKey;
   } catch {
     cachedKey = await jose.importSPKI(PRIVY_JWT_VERIFICATION_KEY, "ES256");
   }
