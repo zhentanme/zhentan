@@ -79,7 +79,7 @@ export function BalanceCard({
 
   return (
     <motion.div
-      className="flex flex-col items-center text-center px-4 pt-2 pb-6 sm:pt-4 sm:pb-8"
+      className="flex flex-col items-center text-center px-4 pt-2 pb-6 sm:pt-4 sm:pb-8 gap-4"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, type: "spring", bounce: 0.15 }}
@@ -114,7 +114,7 @@ export function BalanceCard({
             onClick={onRefresh}
             disabled={loading}
             aria-label="Refresh"
-            className="p-2 rounded-full text-slate-500 hover:text-white hover:bg-white/[0.08] transition-colors disabled:opacity-40"
+            className="p-2 rounded-full text-slate-500 hover:text-white hover:bg-white/8 transition-colors disabled:opacity-40"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </button>
@@ -144,12 +144,12 @@ export function BalanceCard({
           <span className="text-xs text-slate-600">24h</span>
         </motion.div>
       )}
-      {(portfolioPercentChange24h == null || loading) && <div className="h-4 mb-4" />}
+      {/* {(portfolioPercentChange24h == null || loading) && <div className="h-4 mb-4" />} */}
 
       {/* Address chip */}
       <button
         onClick={copyAddress}
-        className="flex items-center gap-1.5 rounded-full bg-white/6 border border-white/6 px-3 py-1.5 mb-8 hover:bg-white/10 transition-all touch-manipulation"
+        className="flex items-center gap-1.5 rounded-full bg-white/6 border border-white/6 px-3 py-1.5 mb-6 hover:bg-white/10 transition-all touch-manipulation"
       >
         <span className="text-xs font-mono text-slate-500">
           {truncateAddress(safeAddress)}
