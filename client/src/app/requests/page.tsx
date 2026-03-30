@@ -118,7 +118,7 @@ function RequestsPageContent() {
           className="space-y-5"
         >
           {/* Page Header */}
-          <motion.div variants={staggerItem} className="flex items-center gap-3 mb-1">
+          <motion.div variants={staggerItem} className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center">
               <Bell className="h-[18px] w-[18px] text-gold" />
             </div>
