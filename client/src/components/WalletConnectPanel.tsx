@@ -62,14 +62,14 @@ export function WalletConnectPanel() {
             value={uri}
             onChange={(e) => setUri(e.target.value)}
             placeholder="Paste WalletConnect URI (wc:...)"
-            className="flex-1 rounded-xl bg-white/[0.06] border border-white/[0.08] px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-gold/50 transition-all"
+            className="flex-1 rounded-xl bg-white/6 border border-white/[0.08] px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-gold/50 transition-all"
             onKeyDown={(e) => e.key === "Enter" && handleConnect()}
           />
           <Button
             onClick={handleConnect}
             loading={pairing}
             disabled={!uri.trim()}
-            className="px-4 flex-shrink-0"
+            className="px-4 shrink-0"
           >
             <Plug className="h-4 w-4" />
           </Button>
@@ -111,16 +111,16 @@ export function WalletConnectPanel() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  className="flex items-center gap-3 rounded-xl bg-white/[0.04] border border-white/[0.06] px-4 py-3"
+                  className="flex items-center gap-3 rounded-xl bg-white/4 border border-white/6 px-4 py-3"
                 >
                   {icon ? (
                     <img
                       src={icon}
                       alt=""
-                      className="w-8 h-8 rounded-lg bg-white/10 flex-shrink-0"
+                      className="w-8 h-8 rounded-lg bg-white/10 shrink-0"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
                       <ExternalLink className="h-4 w-4 text-slate-400" />
                     </div>
                   )}
@@ -133,7 +133,7 @@ export function WalletConnectPanel() {
                   <button
                     type="button"
                     onClick={() => handleDisconnect(topic)}
-                    className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors flex-shrink-0"
+                    className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors shrink-0"
                     aria-label="Disconnect"
                   >
                     <Unplug className="h-4 w-4" />

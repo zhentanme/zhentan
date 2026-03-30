@@ -34,12 +34,12 @@ export function ActivityList({ transactions, loading, embedded }: ActivityListPr
               key={i}
               className="flex items-center gap-3 px-4 py-3.5"
             >
-              <Skeleton className="h-10 w-10 rounded-xl flex-shrink-0" />
+              <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
               <div className="flex-1 min-w-0 space-y-2">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-3 w-32" />
               </div>
-              <Skeleton className="h-6 w-16 rounded-full flex-shrink-0" />
+              <Skeleton className="h-6 w-16 rounded-full shrink-0" />
             </div>
           ))}
         </div>
@@ -50,7 +50,7 @@ export function ActivityList({ transactions, loading, embedded }: ActivityListPr
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.35 }}
         >
-          <div className="mb-4 w-12 h-12 rounded-2xl bg-white/[0.06] flex items-center justify-center text-slate-500">
+          <div className="mb-4 w-12 h-12 rounded-2xl bg-white/6 flex items-center justify-center text-slate-500">
             <Activity className="h-6 w-6" />
           </div>
           <p className="text-sm font-medium text-slate-400">No activity yet</p>

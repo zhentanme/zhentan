@@ -46,7 +46,7 @@ export function TopBar({ screeningMode }: TopBarProps) {
   return (
     <>
       {/* Mobile top bar — minimal */}
-      <header className="flex-shrink-0 z-50 w-full safe-area-top sm:hidden">
+      <header className="shrink-0 z-50 w-full safe-area-top sm:hidden">
         <div className="h-14 px-5 flex items-center justify-between">
           <Link href="/" className="flex items-center" aria-label="Zhentan">
             <Image
@@ -63,7 +63,7 @@ export function TopBar({ screeningMode }: TopBarProps) {
               "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors",
               screeningMode
                 ? "bg-gold/10 text-gold"
-                : "bg-white/[0.06] text-slate-500"
+                : "bg-white/6 text-slate-500"
             )}
           >
             {screeningMode ? (
@@ -77,9 +77,9 @@ export function TopBar({ screeningMode }: TopBarProps) {
       </header>
 
       {/* Desktop top bar — full nav */}
-      <header className="flex-shrink-0 z-50 w-full backdrop-blur-xl border-b border-white/[0.06] safe-area-top hidden sm:block">
+      <header className="shrink-0 z-50 w-full backdrop-blur-xl border-b border-white/6 safe-area-top hidden sm:block">
         <div className="h-16 px-6 lg:px-8 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center flex-shrink-0" aria-label="Zhentan">
+          <Link href="/" className="flex items-center shrink-0" aria-label="Zhentan">
             <Image
               src="/logo.png"
               alt="Zhentan"
@@ -90,7 +90,7 @@ export function TopBar({ screeningMode }: TopBarProps) {
             />
           </Link>
 
-          <nav className="flex items-center gap-1 rounded-full bg-white/[0.04] p-1 border border-white/[0.06]">
+          <nav className="flex items-center gap-1 rounded-full bg-white/4 p-1 border border-white/6">
             {navItems.map((item) => {
               const active = pathname === item.href;
               return (
@@ -101,7 +101,7 @@ export function TopBar({ screeningMode }: TopBarProps) {
                     "relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
                     active
                       ? "bg-gold/12 text-gold"
-                      : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-white/6"
                   )}
                 >
                   <item.icon className="h-4 w-4" />
@@ -121,7 +121,7 @@ export function TopBar({ screeningMode }: TopBarProps) {
               "flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition-colors",
               screeningMode
                 ? "bg-gold/10 text-gold border border-gold/15"
-                : "bg-white/[0.04] text-slate-500 border border-white/[0.06]"
+                : "bg-white/4 text-slate-500 border border-white/6"
             )}
           >
             {screeningMode ? (

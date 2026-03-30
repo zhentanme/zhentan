@@ -176,19 +176,19 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
   function TokenIcon({ token, iconUrl }: { token: string; iconUrl?: string | null }) {
     if (iconUrl) {
       return (
-        <span className="relative w-8 h-8 flex-shrink-0 rounded-full overflow-hidden bg-white/10">
+        <span className="relative w-8 h-8 shrink-0 rounded-full overflow-hidden bg-white/10">
           <Image src={iconUrl} alt="" width={32} height={32} className="object-cover" unoptimized />
         </span>
       );
     }
     if (token === "BNB") {
       return (
-        <span className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center">
+        <span className="relative w-8 h-8 shrink-0 flex items-center justify-center">
           <Image src="/bsc-yellow.png" alt="" width={32} height={32} className="object-contain" />
         </span>
       );
     }
-    return <UsdcIcon size={24} className="flex-shrink-0 opacity-90" />;
+    return <UsdcIcon size={24} className="shrink-0 opacity-90" />;
   }
 
   const canSubmit = resolvedAddress || (recipient.startsWith("0x") && recipient.length === 42);
@@ -208,7 +208,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           <p className="text-sm font-semibold text-gold">Proposing transaction</p>
           <p className="text-xs text-slate-500 uppercase tracking-widest">Awaiting your signature</p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/[0.06] p-4">
+        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
           <div className="w-10 h-10 rounded-2xl bg-white/[0.08] flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
@@ -252,7 +252,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           </motion.div>
           <span className="text-sm font-semibold text-amber-400">{statusLabel(tx.status)}</span>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/[0.06] p-4">
+        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
           <div className="w-10 h-10 rounded-2xl bg-white/[0.08] flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
@@ -306,7 +306,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           <p className="text-sm font-semibold text-gold">Processing transaction</p>
           <p className="text-xs text-slate-500 uppercase tracking-widest">Sending on chain</p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/[0.06] p-4">
+        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
           <div className="w-10 h-10 rounded-2xl bg-white/[0.08] flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
@@ -348,7 +348,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           </div>
           <span className="text-sm font-semibold text-gold">Executed</span>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/[0.06] p-4">
+        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
           <div className="w-10 h-10 rounded-2xl bg-white/[0.08] flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
@@ -372,9 +372,9 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             href={explorerTxUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-white/[0.08] text-slate-300 hover:text-white hover:bg-white/[0.12] transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-white/[0.08] text-slate-300 hover:text-white hover:bg-white/12 transition-colors text-sm font-medium"
           >
-            <span className="relative w-[18px] h-[18px] flex-shrink-0">
+            <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
             </span>
             <ExternalLink className="h-4 w-4" />
@@ -477,16 +477,16 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         <button
           type="button"
           onClick={() => setTokenSelectorOpen(true)}
-          className="w-full flex items-center gap-3 rounded-2xl bg-white/[0.06] p-4 text-left hover:bg-white/[0.08] transition-colors min-h-[2.75rem] touch-manipulation"
+          className="w-full flex items-center gap-3 rounded-2xl bg-white/6 p-4 text-left hover:bg-white/[0.08] transition-colors min-h-[2.75rem] touch-manipulation"
         >
           {selectedToken ? (
             <>
               {selectedToken.iconUrl ? (
-                <span className="relative w-8 h-8 flex-shrink-0 rounded-full overflow-hidden bg-white/10">
+                <span className="relative w-8 h-8 shrink-0 rounded-full overflow-hidden bg-white/10">
                   <Image src={selectedToken.iconUrl} alt="" width={32} height={32} className="object-cover" unoptimized />
                 </span>
               ) : (
-                <span className="w-8 h-8 flex-shrink-0 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-gold">
+                <span className="w-8 h-8 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-gold">
                   {selectedToken.symbol.slice(0, 2)}
                 </span>
               )}
@@ -497,16 +497,16 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
                   {selectedToken.usdValue != null && ` · $${selectedToken.usdValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </p>
               </div>
-              <ChevronDown className="h-5 w-5 text-slate-500 flex-shrink-0" aria-hidden />
+              <ChevronDown className="h-5 w-5 text-slate-500 shrink-0" aria-hidden />
             </>
           ) : (
             <>
-              <UsdcIcon size={32} className="flex-shrink-0" />
+              <UsdcIcon size={32} className="shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-base font-semibold text-white">Select token</p>
                 <p className="text-sm text-slate-400">{sendableTokens.length === 0 ? "No sendable tokens" : "Tap to choose"}</p>
               </div>
-              <ChevronDown className="h-5 w-5 text-slate-500 flex-shrink-0" aria-hidden />
+              <ChevronDown className="h-5 w-5 text-slate-500 shrink-0" aria-hidden />
             </>
           )}
         </button>
@@ -554,7 +554,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           placeholder="Wallet address or ENS name"
           value={recipient}
           onChange={(e) => setRecipient(e.target.value)}
-          className="w-full rounded-2xl bg-white/[0.06] px-4 py-3.5 text-base sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-white/[0.08] transition-all min-h-[2.75rem] touch-manipulation"
+          className="w-full rounded-2xl bg-white/6 px-4 py-3.5 text-base sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-white/[0.08] transition-all min-h-[2.75rem] touch-manipulation"
         />
         {resolving && (
           <p className="text-xs text-slate-500 mt-1">Resolving…</p>

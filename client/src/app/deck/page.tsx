@@ -119,7 +119,7 @@ function SlideProblem() {
           <motion.div key={p.t} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 + i * 0.1, type: "spring" }}
             className="glass-card p-4 flex gap-3 items-start">
-            <span className="text-xl flex-shrink-0">{p.icon}</span>
+            <span className="text-xl shrink-0">{p.icon}</span>
             <div>
               <div className="text-xs font-bold text-white mb-0.5">{p.t}</div>
               <div className="text-slate-500 text-[11px] leading-relaxed">{p.d}</div>
@@ -236,7 +236,7 @@ function SlideHowItWorks() {
             {i < steps.length - 1 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 transition={{ delay: 0.32 + i * 0.14 }}
-                className="text-slate-600 text-lg font-light flex-shrink-0 sm:hidden">↓</motion.div>
+                className="text-slate-600 text-lg font-light shrink-0 sm:hidden">↓</motion.div>
             )}
           </div>
         ))}
@@ -551,7 +551,7 @@ function SlideRoadmap() {
                 ? "linear-gradient(90deg, transparent, rgba(229,168,50,0.5), transparent)"
                 : "linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)" }} />
             {/* Timeline dot */}
-            <div className="flex-shrink-0 text-center w-14">
+            <div className="shrink-0 text-center w-14">
               <div className={`text-[10px] font-black ${m.done ? "gradient-text" : "text-slate-500"}`}>{m.v}</div>
               <div className="text-[9px] text-slate-600 font-mono">{m.date}</div>
             </div>
@@ -560,7 +560,7 @@ function SlideRoadmap() {
               <p className="text-slate-500 text-xs leading-relaxed">{m.desc}</p>
             </div>
             {m.done && (
-              <div className="flex-shrink-0 w-5 h-5 rounded-full bg-gold/20 flex items-center justify-center">
+              <div className="shrink-0 w-5 h-5 rounded-full bg-gold/20 flex items-center justify-center">
                 <span className="text-gold text-[10px]">✓</span>
               </div>
             )}
@@ -673,7 +673,7 @@ export default function DeckPage() {
   return (
     <div className="hero-gradient min-h-screen text-white flex flex-col overflow-hidden">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04] flex-shrink-0">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04] shrink-0">
         <Link href="/" className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors font-medium tracking-wide">
           ← zhentan.me
         </Link>
@@ -710,7 +710,7 @@ export default function DeckPage() {
       </div>
 
       {/* Bottom navigation */}
-      <div className="flex items-center justify-center gap-4 py-3 border-t border-white/[0.04] flex-shrink-0">
+      <div className="flex items-center justify-center gap-4 py-3 border-t border-white/[0.04] shrink-0">
         <button onClick={() => go(current - 1)} disabled={current === 0}
           className="w-9 h-9 rounded-full border border-white/[0.08] flex items-center justify-center text-slate-500 hover:text-white hover:border-gold/30 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
           <ChevronLeft className="w-4 h-4" />

@@ -26,14 +26,14 @@ export function TokenRow({ token, index = 0, selected, onClick }: TokenRowProps)
   const row = (
     <motion.div
       className={`flex items-center gap-3 px-4 py-3.5 transition-colors ${
-        onClick ? "cursor-pointer active:bg-white/[0.04]" : ""
-      } hover:bg-white/[0.03] ${selected ? "bg-gold/[0.06]" : ""}`}
+        onClick ? "cursor-pointer active:bg-white/4" : ""
+      } hover:bg-white/3 ${selected ? "bg-gold/[0.06]" : ""}`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.35, type: "spring", bounce: 0.1 }}
     >
       {/* Token icon */}
-      <div className="w-10 h-10 rounded-xl bg-white/[0.06] flex items-center justify-center flex-shrink-0 overflow-hidden">
+      <div className="w-10 h-10 rounded-xl bg-white/6 flex items-center justify-center shrink-0 overflow-hidden">
         {token.iconUrl ? (
           <Image
             src={token.iconUrl}
@@ -57,7 +57,7 @@ export function TokenRow({ token, index = 0, selected, onClick }: TokenRowProps)
             {token.name}
           </span>
           {token.verified && (
-            <CheckCircle2 className="h-3.5 w-3.5 text-gold flex-shrink-0" />
+            <CheckCircle2 className="h-3.5 w-3.5 text-gold shrink-0" />
           )}
         </div>
         <p className="text-xs text-slate-500 mt-0.5">
@@ -66,7 +66,7 @@ export function TokenRow({ token, index = 0, selected, onClick }: TokenRowProps)
       </div>
 
       {/* Value */}
-      <div className="flex-shrink-0 text-right flex items-center gap-2">
+      <div className="shrink-0 text-right flex items-center gap-2">
         {usdStr != null ? (
           <span className="text-sm font-semibold text-white tabular-nums">{usdStr}</span>
         ) : (
@@ -75,7 +75,7 @@ export function TokenRow({ token, index = 0, selected, onClick }: TokenRowProps)
           </span>
         )}
         {selected && (
-          <CheckCircle2 className="h-5 w-5 text-gold flex-shrink-0" />
+          <CheckCircle2 className="h-5 w-5 text-gold shrink-0" />
         )}
       </div>
     </motion.div>

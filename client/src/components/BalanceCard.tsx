@@ -149,7 +149,7 @@ export function BalanceCard({
       {/* Address chip */}
       <button
         onClick={copyAddress}
-        className="flex items-center gap-1.5 rounded-full bg-white/[0.06] border border-white/[0.06] px-3 py-1.5 mb-8 hover:bg-white/[0.1] transition-all touch-manipulation"
+        className="flex items-center gap-1.5 rounded-full bg-white/6 border border-white/6 px-3 py-1.5 mb-8 hover:bg-white/10 transition-all touch-manipulation"
       >
         <span className="text-xs font-mono text-slate-500">
           {truncateAddress(safeAddress)}
@@ -179,7 +179,7 @@ export function BalanceCard({
               className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all ${
                 action.active
                   ? "bg-gold text-black shadow-[0_4px_24px_-4px_rgba(229,168,50,0.5)]"
-                  : "bg-white/[0.07] text-slate-300 group-hover:bg-white/[0.12] group-hover:text-white border border-white/[0.06]"
+                  : "bg-white/[0.07] text-slate-300 group-hover:bg-white/12 group-hover:text-white border border-white/6"
               }`}
             >
               <action.icon className="h-6 w-6" />

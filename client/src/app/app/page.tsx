@@ -115,7 +115,7 @@ function Dashboard() {
 
       <main className="flex-1 flex flex-col min-h-0 w-full max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
         {/* Hero balance section */}
-        <div className="flex-shrink-0 hero-gradient-subtle">
+        <div className="shrink-0 hero-gradient-subtle">
           <BalanceCard
             portfolioTotalUsd={portfolioTotalUsd}
             portfolioPercentChange24h={portfolioPercentChange24h}
@@ -231,7 +231,7 @@ function Dashboard() {
           </div>
 
           {/* Content */}
-          <div className="flex-1 min-h-0 rounded-2xl bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+          <div className="flex-1 min-h-0 rounded-2xl bg-white/2 border border-white/6 overflow-hidden">
             <div className="h-full overflow-y-auto">
               {listTab === "tokens" ? (
                 <TokenList tokens={tokens} loading={balanceLoading} embedded />

@@ -109,7 +109,7 @@ function ProfilePageContent() {
           {/* User Info */}
           {user && (user.email || user.name || user.image) && (
             <motion.div variants={staggerItem}>
-              <div className="flex items-center gap-4 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+              <div className="flex items-center gap-4 p-5 rounded-2xl bg-white/2 border border-white/6">
                 {user.image ? (
                   <img
                     src={user.image}
@@ -141,9 +141,9 @@ function ProfilePageContent() {
 
           {/* Multisig Section */}
           <motion.div variants={staggerItem}>
-            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+            <div className="p-5 rounded-2xl bg-white/2 border border-white/6">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center shrink-0">
                   <Shield className="h-[18px] w-[18px] text-gold" />
                 </div>
                 <div>
@@ -157,12 +157,12 @@ function ProfilePageContent() {
               </div>
 
               {/* Safe Address */}
-              <div className="flex items-center gap-2 p-3.5 rounded-xl bg-white/[0.04] mb-4">
-                <Wallet className="h-4 w-4 text-slate-500 flex-shrink-0" />
+              <div className="flex items-center gap-2 p-3.5 rounded-xl bg-white/4 mb-4">
+                <Wallet className="h-4 w-4 text-slate-500 shrink-0" />
                 <span className="font-mono text-[13px] text-slate-300 truncate min-w-0">
                   {truncateAddress(safeAddress)}
                 </span>
-                <div className="flex items-center gap-0.5 ml-auto flex-shrink-0">
+                <div className="flex items-center gap-0.5 ml-auto shrink-0">
                   <button
                     onClick={copyAddress}
                     className="p-1.5 rounded-lg hover:bg-white/[0.08] text-slate-500 hover:text-white transition-all"
@@ -191,8 +191,8 @@ function ProfilePageContent() {
                 Signers
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.04]">
-                  <div className="w-10 h-10 rounded-xl bg-white/[0.06] flex items-center justify-center flex-shrink-0">
+                <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/4">
+                  <div className="w-10 h-10 rounded-xl bg-white/6 flex items-center justify-center shrink-0">
                     <Wallet className="h-5 w-5 text-gold" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -212,8 +212,8 @@ function ProfilePageContent() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/[0.04]">
-                  <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center flex-shrink-0">
+                <div className="flex items-center gap-3 p-3.5 rounded-xl bg-white/4">
+                  <div className="w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
                     <Bot className="h-5 w-5 text-gold" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -245,7 +245,7 @@ function ProfilePageContent() {
                 logout();
                 router.replace("/login");
               }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-sm font-medium text-slate-500 hover:text-red-400 bg-white/[0.02] border border-white/[0.06] hover:border-red-400/20 hover:bg-red-500/[0.04] transition-all"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-sm font-medium text-slate-500 hover:text-red-400 bg-white/2 border border-white/6 hover:border-red-400/20 hover:bg-red-500/[0.04] transition-all"
             >
               <LogOut className="h-4 w-4" />
               Log out

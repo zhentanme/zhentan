@@ -25,14 +25,14 @@ function TokenIcon({
 }) {
   if (iconUrl) {
     return (
-      <span className="relative flex-shrink-0 rounded-full overflow-hidden bg-white/10" style={{ width: size, height: size }}>
+      <span className="relative shrink-0 rounded-full overflow-hidden bg-white/10" style={{ width: size, height: size }}>
         <Image src={iconUrl} alt="" width={size} height={size} className="object-cover" unoptimized />
       </span>
     );
   }
   return (
     <span
-      className="flex-shrink-0 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-gold"
+      className="shrink-0 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-bold text-gold"
       style={{ width: size, height: size }}
     >
       {(symbol || "??").slice(0, 2)}
@@ -52,8 +52,8 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
-      className={`flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-white/[0.03] ${
-        onClick ? "cursor-pointer active:bg-white/[0.04]" : ""
+      className={`flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-white/3 ${
+        onClick ? "cursor-pointer active:bg-white/4" : ""
       } touch-manipulation`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
@@ -61,8 +61,8 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
     >
       {/* Direction icon */}
       <div
-        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-          isReceive ? "bg-emerald-400/10 text-emerald-400" : "bg-white/[0.06] text-slate-400"
+        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+          isReceive ? "bg-emerald-400/10 text-emerald-400" : "bg-white/6 text-slate-400"
         }`}
       >
         <DirectionIcon className="h-5 w-5" />
@@ -77,7 +77,7 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
                 <img
                   src={tx.dappMetadata.icons[0]}
                   alt=""
-                  className="w-4 h-4 rounded flex-shrink-0 bg-white/10 object-cover"
+                  className="w-4 h-4 rounded shrink-0 bg-white/10 object-cover"
                 />
               ) : null}
               <span className="truncate">

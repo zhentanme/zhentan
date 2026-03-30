@@ -37,18 +37,18 @@ function RiskDetailsSection({
         : "Risk details";
 
   return (
-    <div className="rounded-2xl bg-white/[0.06] overflow-hidden">
+    <div className="rounded-2xl bg-white/6 overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-white/[0.06] transition-colors"
+        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-white/6 transition-colors"
       >
-        <ShieldAlert className="h-4 w-4 text-amber-400/90 flex-shrink-0" />
+        <ShieldAlert className="h-4 w-4 text-amber-400/90 shrink-0" />
         <span className="text-sm font-medium text-slate-200 flex-1">{summary}</span>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-slate-500 flex-shrink-0" />
+          <ChevronUp className="h-4 w-4 text-slate-500 shrink-0" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-slate-500 flex-shrink-0" />
+          <ChevronDown className="h-4 w-4 text-slate-500 shrink-0" />
         )}
       </button>
       <AnimatePresence>
@@ -219,20 +219,20 @@ export function TransactionDetailDialog({ tx, open, onClose }: TransactionDetail
         </div>
 
         {/* Amount row */}
-        <div className="flex items-center gap-3 rounded-2xl bg-white/[0.06] p-4">
+        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
           <div className="w-10 h-10 rounded-2xl bg-white/[0.08] flex items-center justify-center text-gold">
             <DirectionIcon className="h-5 w-5" />
           </div>
           {tx.tokenIconUrl ? (
-            <span className="relative w-8 h-8 flex-shrink-0 rounded-full overflow-hidden bg-white/10">
+            <span className="relative w-8 h-8 shrink-0 rounded-full overflow-hidden bg-white/10">
               <Image src={tx.tokenIconUrl} alt="" width={32} height={32} className="object-cover" unoptimized />
             </span>
           ) : tx.token === "BNB" ? (
-            <span className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center">
+            <span className="relative w-8 h-8 shrink-0 flex items-center justify-center">
               <Image src="/bsc-yellow.png" alt="" width={32} height={32} className="object-contain" />
             </span>
           ) : (
-            <UsdcIcon size={24} className="flex-shrink-0 opacity-90" />
+            <UsdcIcon size={24} className="shrink-0 opacity-90" />
           )}
           <span className="text-lg font-semibold text-white">
             {tx.amount} {tx.token}
@@ -255,7 +255,7 @@ export function TransactionDetailDialog({ tx, open, onClose }: TransactionDetail
                   <img
                     src={tx.dappMetadata.icons[0]}
                     alt=""
-                    className="w-5 h-5 rounded-md flex-shrink-0 bg-white/10"
+                    className="w-5 h-5 rounded-md shrink-0 bg-white/10"
                   />
                 ) : null}
                 <span className="text-slate-300 truncate" title={tx.dappMetadata.url}>
@@ -304,11 +304,11 @@ export function TransactionDetailDialog({ tx, open, onClose }: TransactionDetail
             href={explorerTxUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-white/[0.08] text-slate-300 hover:text-white hover:bg-white/[0.12] transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-white/[0.08] text-slate-300 hover:text-white hover:bg-white/12 transition-colors text-sm font-medium"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
-            <span className="relative w-[18px] h-[18px] flex-shrink-0">
+            <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
             </span>
             <ExternalLink className="h-4 w-4" />

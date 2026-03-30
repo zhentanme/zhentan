@@ -130,9 +130,9 @@ function RequestsPageContent() {
 
           {!loading && invoices.length === 0 ? (
             <motion.div variants={staggerItem}>
-              <div className="py-16 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+              <div className="py-16 rounded-2xl bg-white/2 border border-white/6">
                 <div className="flex flex-col items-center justify-center text-center">
-                  <div className="mb-4 w-12 h-12 rounded-2xl bg-white/[0.06] flex items-center justify-center text-slate-500">
+                  <div className="mb-4 w-12 h-12 rounded-2xl bg-white/6 flex items-center justify-center text-slate-500">
                     <FileText className="h-6 w-6" />
                   </div>
                   <p className="text-sm font-medium text-slate-400">No requests yet</p>

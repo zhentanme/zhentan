@@ -86,7 +86,7 @@ export function ThemeLoaderSpinner({
   imageAlt?: string;
 }) {
   return (
-    <div className="relative w-14 h-14 flex items-center justify-center flex-shrink-0">
+    <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
       <div className="absolute inset-0 w-14 h-14 rounded-full border-2 border-gold/30" aria-hidden />
       <SpinnerRing />
       <div className="absolute inset-0 flex items-center justify-center">

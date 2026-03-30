@@ -21,9 +21,9 @@ export function Button({
         variant === "primary" &&
           "bg-gold hover:bg-gold-light text-black shadow-[0_4px_20px_-2px_rgba(229,168,50,0.35)]",
         variant === "secondary" &&
-          "bg-white/[0.08] hover:bg-white/[0.12] text-slate-200",
+          "bg-white/[0.08] hover:bg-white/12 text-slate-200",
         variant === "ghost" &&
-          "hover:bg-white/[0.06] text-slate-300",
+          "hover:bg-white/6 text-slate-300",
         className
       )}
       disabled={disabled || loading}

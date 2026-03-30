@@ -68,7 +68,7 @@ export function InvoiceRow({ invoice, index = 0, onClick }: InvoiceRowProps) {
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
       className={clsx(
-        "flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:bg-white/[0.06] rounded-2xl transition-all min-h-[3.5rem] touch-manipulation",
+        "flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:bg-white/6 rounded-2xl transition-all min-h-[3.5rem] touch-manipulation",
         onClick && "cursor-pointer"
       )}
       initial={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -80,14 +80,14 @@ export function InvoiceRow({ invoice, index = 0, onClick }: InvoiceRowProps) {
         bounce: 0.15,
       }}
     >
-      <div className="w-10 h-10 rounded-2xl bg-white/[0.08] flex items-center justify-center flex-shrink-0 text-gold">
+      <div className="w-10 h-10 rounded-2xl bg-white/[0.08] flex items-center justify-center shrink-0 text-gold">
         <FileText className="h-5 w-5" />
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-slate-200 truncate inline-flex items-center gap-1.5">
-            <UsdcIcon size={16} className="flex-shrink-0 opacity-90" />
+            <UsdcIcon size={16} className="shrink-0 opacity-90" />
             {invoice.amount} {invoice.token}
           </span>
           <span className="text-slate-600">←</span>
@@ -102,7 +102,7 @@ export function InvoiceRow({ invoice, index = 0, onClick }: InvoiceRowProps) {
         </div>
       </div>
 
-      <div className="flex-shrink-0">
+      <div className="shrink-0">
         <InvoiceStatusBadge status={invoice.status} />
       </div>
     </motion.div>

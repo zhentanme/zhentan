@@ -38,16 +38,16 @@ export function ReceivePanel({ safeAddress }: ReceivePanelProps) {
       <button
         type="button"
         onClick={copyAddress}
-        className="w-full rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] transition-colors px-3 py-3 text-left min-h-[2.75rem] touch-manipulation"
+        className="w-full rounded-2xl bg-white/6 hover:bg-white/10 transition-colors px-3 py-3 text-left min-h-[2.75rem] touch-manipulation"
       >
         <span className="flex items-center justify-between gap-2">
           <span className="font-mono text-xs sm:text-sm text-slate-300 break-all">
             {safeAddress}
           </span>
           {copied ? (
-            <Check className="h-4 w-4 text-gold flex-shrink-0" />
+            <Check className="h-4 w-4 text-gold shrink-0" />
           ) : (
-            <Copy className="h-4 w-4 text-slate-400 flex-shrink-0" />
+            <Copy className="h-4 w-4 text-slate-400 shrink-0" />
           )}
         </span>
       </button>

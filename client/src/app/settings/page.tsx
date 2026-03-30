@@ -120,12 +120,12 @@ function SettingsPageContent() {
 
             {/* Zhentan Mode Toggle */}
             <motion.div variants={staggerItem}>
-              <div className="flex items-center gap-4 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
+              <div className="flex items-center gap-4 p-5 rounded-2xl bg-white/2 border border-white/6">
                 <div
-                  className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300 ${
                     screeningMode
                       ? "bg-gold/10"
-                      : "bg-white/[0.06]"
+                      : "bg-white/6"
                   }`}
                 >
                   {screeningMode ? (
@@ -149,10 +149,10 @@ function SettingsPageContent() {
                 <button
                   onClick={handleToggle}
                   disabled={toggling}
-                  className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/30 flex-shrink-0 ${
+                  className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 ${
                     screeningMode
                       ? "bg-gold"
-                      : "bg-white/[0.12]"
+                      : "bg-white/12"
                   }`}
                 >
                   {toggling ? (
@@ -178,7 +178,7 @@ function SettingsPageContent() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.3, type: "spring" as const, bounce: 0.15 }}
-                  className="rounded-2xl p-4 bg-amber-400/[0.06] border border-amber-400/10"
+                  className="rounded-2xl p-4 bg-amber-400/6 border border-amber-400/10"
                 >
                   <p className="text-xs text-amber-400/90 leading-relaxed">
                     <strong className="text-amber-400">Warning:</strong>{" "}
@@ -191,11 +191,11 @@ function SettingsPageContent() {
 
             {/* Current Plan */}
             <motion.div variants={staggerItem}>
-              <div className={`p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] transition-all duration-500 ${!screeningMode ? "opacity-40" : ""}`}>
+              <div className={`p-5 rounded-2xl bg-white/2 border border-white/6 transition-all duration-500 ${!screeningMode ? "opacity-40" : ""}`}>
                 <div className="flex items-center gap-3 mb-4">
                   <div
                     className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                      screeningMode ? "bg-gold/10" : "bg-white/[0.06]"
+                      screeningMode ? "bg-gold/10" : "bg-white/6"
                     }`}
                   >
                     <Cpu
@@ -213,7 +213,7 @@ function SettingsPageContent() {
                         className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-all duration-300 ${
                           screeningMode
                             ? "bg-gold/15 text-gold"
-                            : "bg-white/[0.06] text-slate-500"
+                            : "bg-white/6 text-slate-500"
                         }`}
                       >
                         {screeningMode ? "Active" : "Inactive"}
@@ -230,8 +230,8 @@ function SettingsPageContent() {
                   <span
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all duration-300 ${
                       screeningMode
-                        ? "bg-white/[0.06] text-slate-300"
-                        : "bg-white/[0.03] text-slate-500"
+                        ? "bg-white/6 text-slate-300"
+                        : "bg-white/3 text-slate-500"
                     }`}
                   >
                     <Cpu
@@ -250,8 +250,8 @@ function SettingsPageContent() {
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.3, type: "spring" as const, bounce: 0.1 }}
                     >
-                      <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white/[0.04]">
-                        <div className="w-8 h-8 rounded-xl bg-blue-400/[0.08] flex items-center justify-center flex-shrink-0">
+                      <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white/4">
+                        <div className="w-8 h-8 rounded-xl bg-blue-400/8 flex items-center justify-center shrink-0">
                           <MessageCircle className="h-3.5 w-3.5 text-blue-400" />
                         </div>
 
@@ -288,7 +288,7 @@ function SettingsPageContent() {
                                     /* ignore */
                                   }
                                 }}
-                                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-white/[0.06] text-slate-400 hover:bg-white/[0.1] hover:text-slate-300 transition-all"
+                                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-white/6 text-slate-400 hover:bg-white/10 hover:text-slate-300 transition-all"
                               >
                                 Unlink
                               </button>
@@ -299,7 +299,7 @@ function SettingsPageContent() {
                                   linkTelegram();
                                 }}
                                 disabled={linkingTelegram}
-                                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/[0.1] text-blue-400 hover:bg-blue-400/[0.15] transition-all disabled:opacity-50"
+                                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 hover:bg-blue-400/15 transition-all disabled:opacity-50"
                               >
                                 {linkingTelegram ? (
                                   <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
@@ -350,7 +350,7 @@ function SettingsPageContent() {
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Advanced Plan */}
-                    <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] opacity-50 pointer-events-none">
+                    <div className="p-4 rounded-2xl bg-white/2 border border-white/6 opacity-50 pointer-events-none">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-9 h-9 rounded-xl bg-purple-400/[0.08] flex items-center justify-center">
@@ -373,7 +373,7 @@ function SettingsPageContent() {
                     </div>
 
                     {/* Self-hosted Plan */}
-                    <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] opacity-50 pointer-events-none">
+                    <div className="p-4 rounded-2xl bg-white/2 border border-white/6 opacity-50 pointer-events-none">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-9 h-9 rounded-xl bg-white/[0.05] flex items-center justify-center">
