@@ -10,7 +10,6 @@ import { useSafeAddress } from "@/lib/useSafeAddress";
 import { proposeTransaction } from "@/lib/propose";
 import { useApiClient } from "@/lib/api/client";
 import type { QueuedInvoice, StatusResponse } from "@/types";
-import { Card } from "@/components/ui/Card";
 import { FileText, Bell } from "lucide-react";
 
 const staggerContainer = {
@@ -99,7 +98,7 @@ function RequestsPageContent() {
 
   if (safeLoading || !safeAddress) {
     return (
-      <div className="flex flex-col min-h-screen hero-gradient">
+      <div className="flex flex-col h-screen bg-background">
         <TopBar screeningMode={false} />
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-gold border-t-transparent" />
@@ -109,9 +108,9 @@ function RequestsPageContent() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen hero-gradient">
+    <div className="flex flex-col h-screen bg-background">
       <TopBar screeningMode={screeningMode} />
-      <main className="flex-1 w-full px-4 py-5 sm:p-6 md:p-8 max-w-4xl mx-auto overflow-y-auto">
+      <main className="flex-1 w-full px-4 py-5 sm:p-6 max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
         <motion.div
           variants={staggerContainer}
           initial="hidden"
@@ -120,7 +119,7 @@ function RequestsPageContent() {
         >
           {/* Page Header */}
           <motion.div variants={staggerItem} className="flex items-center gap-3 mb-1">
-            <div className="w-10 h-10 rounded-2xl bg-gold/10 shadow-[0_0_10px_rgba(229,168,50,0.1)] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center">
               <Bell className="h-[18px] w-[18px] text-gold" />
             </div>
             <div>
@@ -131,32 +130,17 @@ function RequestsPageContent() {
 
           {!loading && invoices.length === 0 ? (
             <motion.div variants={staggerItem}>
-              <Card className="py-16">
+              <div className="py-16 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
                 <div className="flex flex-col items-center justify-center text-center">
-                  <motion.div
-                    className="mb-3 w-10 h-10 rounded-2xl bg-white/[0.08] flex items-center justify-center text-gold"
-                    animate={{
-                      y: [0, -4, 0],
-                      boxShadow: [
-                        "0 0 0 rgba(229,168,50,0)",
-                        "0 0 18px rgba(229,168,50,0.2)",
-                        "0 0 0 rgba(229,168,50,0)",
-                      ],
-                    }}
-                    transition={{
-                      duration: 2.2,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  >
-                    <FileText className="h-5 w-5" />
-                  </motion.div>
-                  <p className="text-sm font-medium text-slate-300">No requests yet</p>
-                  <p className="mt-1 text-xs text-slate-500 uppercase tracking-widest">
+                  <div className="mb-4 w-12 h-12 rounded-2xl bg-white/[0.06] flex items-center justify-center text-slate-500">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-400">No requests yet</p>
+                  <p className="mt-1 text-xs text-slate-600">
                     Invoices via Telegram or WhatsApp appear here
                   </p>
                 </div>
-              </Card>
+              </div>
             </motion.div>
           ) : (
             <motion.div variants={staggerItem}>

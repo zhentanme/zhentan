@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
 import { TopBar } from "@/components/TopBar";
 import { BalanceCard } from "@/components/BalanceCard";
 import { SendPanel } from "@/components/SendPanel";
@@ -15,14 +16,23 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { ThemeLoader } from "@/components/ThemeLoader";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
-import type { TransactionWithStatus, StatusResponse, TokenPosition, PortfolioResponse } from "@/types";
+import type {
+  TransactionWithStatus,
+  StatusResponse,
+  TokenPosition,
+  PortfolioResponse,
+} from "@/types";
 
 function Dashboard() {
   const { user, safeAddress, safeLoading } = useAuth();
   const api = useApiClient();
 
-  const [portfolioTotalUsd, setPortfolioTotalUsd] = useState<number | null>(null);
-  const [portfolioPercentChange24h, setPortfolioPercentChange24h] = useState<number | null>(null);
+  const [portfolioTotalUsd, setPortfolioTotalUsd] = useState<number | null>(
+    null
+  );
+  const [portfolioPercentChange24h, setPortfolioPercentChange24h] = useState<
+    number | null
+  >(null);
   const [tokens, setTokens] = useState<TokenPosition[]>([]);
   const [balanceLoading, setBalanceLoading] = useState(true);
   const [transactions, setTransactions] = useState<TransactionWithStatus[]>([]);
@@ -100,11 +110,12 @@ function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col h-screen min-h-0 hero-gradient">
+    <div className="flex flex-col h-screen min-h-0 bg-background">
       <TopBar screeningMode={screeningMode} />
 
-      <main className="flex-1 flex flex-col min-h-0 w-full px-4 py-5 sm:p-6 md:p-8 max-w-4xl mx-auto overflow-y-auto">
-        <div className="flex-shrink-0 mb-4 sm:mb-6">
+      <main className="flex-1 flex flex-col min-h-0 w-full max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
+        {/* Hero balance section */}
+        <div className="flex-shrink-0 hero-gradient-subtle">
           <BalanceCard
             portfolioTotalUsd={portfolioTotalUsd}
             portfolioPercentChange24h={portfolioPercentChange24h}
@@ -113,7 +124,10 @@ function Dashboard() {
             name={
               user?.name?.trim() ||
               (user?.email
-                ? user.email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+                ? user.email
+                    .split("@")[0]
+                    .replace(/[._-]/g, " ")
+                    .replace(/\b\w/g, (c) => c.toUpperCase())
                 : null)
             }
             onRefresh={handleRefresh}
@@ -138,6 +152,7 @@ function Dashboard() {
           />
         </div>
 
+        {/* Dialogs */}
         <Dialog
           open={sendOpen}
           onClose={() => setSendOpen(false)}
@@ -157,48 +172,79 @@ function Dashboard() {
           <ReceivePanel safeAddress={safeAddress} />
         </Dialog>
 
-        <Dialog open={connectOpen} onClose={() => setConnectOpen(false)} title="Connect DApp">
+        <Dialog
+          open={connectOpen}
+          onClose={() => setConnectOpen(false)}
+          title="Connect DApp"
+        >
           <WalletConnectPanel />
         </Dialog>
 
         <WCSessionProposal />
         <WCTransactionRequest />
 
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden glass-card rounded-2xl">
-          <div className="flex-shrink-0 flex items-center gap-1 p-3 sm:p-4 pb-0">
-            <div className="flex items-center gap-1 rounded-full bg-white/[0.04] p-1 border border-white/5">
-              <button
-                type="button"
-                onClick={() => setListTab("tokens")}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  listTab === "tokens"
-                    ? "bg-gold/15 text-gold"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
-                }`}
-              >
-                Tokens
-              </button>
-              <button
-                type="button"
-                onClick={() => setListTab("activity")}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  listTab === "activity"
-                    ? "bg-gold/15 text-gold"
-                    : "text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]"
-                }`}
-              >
-                Activity
-              </button>
+        {/* Tokens / Activity tabs */}
+        <motion.div
+          className="flex-1 min-h-0 flex flex-col mx-4 sm:mx-0"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.4 }}
+        >
+          {/* Tab bar */}
+          <div className="flex items-center gap-1 mb-3">
+            <button
+              type="button"
+              onClick={() => setListTab("tokens")}
+              className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                listTab === "tokens"
+                  ? "text-white"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              Tokens
+              {listTab === "tokens" && (
+                <motion.div
+                  className="absolute bottom-0 left-2 right-2 h-0.5 bg-gold rounded-full"
+                  layoutId="tab-indicator"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setListTab("activity")}
+              className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                listTab === "activity"
+                  ? "text-white"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              Activity
+              {listTab === "activity" && (
+                <motion.div
+                  className="absolute bottom-0 left-2 right-2 h-0.5 bg-gold rounded-full"
+                  layoutId="tab-indicator"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                />
+              )}
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-h-0 rounded-2xl bg-white/[0.02] border border-white/[0.06] overflow-hidden">
+            <div className="h-full overflow-y-auto">
+              {listTab === "tokens" ? (
+                <TokenList tokens={tokens} loading={balanceLoading} embedded />
+              ) : (
+                <ActivityList
+                  transactions={transactions}
+                  loading={txLoading}
+                  embedded
+                />
+              )}
             </div>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {listTab === "tokens" ? (
-              <TokenList tokens={tokens} loading={balanceLoading} embedded />
-            ) : (
-              <ActivityList transactions={transactions} loading={txLoading} embedded />
-            )}
-          </div>
-        </div>
+        </motion.div>
       </main>
     </div>
   );

@@ -240,6 +240,17 @@
     var(--background);
 }
 
+/* Subtle hero gradient — for balance section */
+.hero-gradient-subtle {
+  background:
+    radial-gradient(
+      ellipse 120% 80% at 50% 20%,
+      rgba(229, 168, 50, 0.06) 0%,
+      transparent 70%
+    ),
+    transparent;
+}
+
 /* Grid pattern overlay */
 .grid-pattern {
   background-image:
