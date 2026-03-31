@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Skeleton } from "./ui/Skeleton";
 import { TokenRow } from "./TokenRow";
+import { TokenDetailDialog } from "./TokenDetailDialog";
 import { Coins } from "lucide-react";
 import type { TokenPosition } from "@/types";
 
@@ -21,15 +23,14 @@ interface TokenListProps {
 }
 
 export function TokenList({ tokens, loading, embedded }: TokenListProps) {
+  const [selected, setSelected] = useState<TokenPosition | null>(null);
+
   const content = (
     <>
       {loading ? (
         <div className="space-y-0.5">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className="flex items-center gap-3 px-4 py-3.5"
-            >
+            <div key={i} className="flex items-center gap-3 px-4 py-3.5">
               <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
               <div className="flex-1 min-w-0 space-y-2">
                 <Skeleton className="h-4 w-20" />
@@ -65,16 +66,31 @@ export function TokenList({ tokens, loading, embedded }: TokenListProps) {
           variants={containerVariants}
         >
           {tokens.map((token, i) => (
-            <TokenRow key={token.id} token={token} index={i} />
+            <TokenRow
+              key={token.id}
+              token={token}
+              index={i}
+              onClick={token.tokenId ? () => setSelected(token) : undefined}
+            />
           ))}
         </motion.div>
       )}
     </>
   );
 
-  return embedded ? (
-    <div className="py-1">{content}</div>
-  ) : (
-    <div className="glass-card py-1">{content}</div>
+  return (
+    <>
+      {embedded ? (
+        <div className="py-1">{content}</div>
+      ) : (
+        <div className="glass-card py-1">{content}</div>
+      )}
+
+      <TokenDetailDialog
+        open={selected !== null}
+        onClose={() => setSelected(null)}
+        token={selected}
+      />
+    </>
   );
 }

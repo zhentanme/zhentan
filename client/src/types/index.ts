@@ -124,6 +124,43 @@ export interface TokenPosition {
   verified: boolean;
 }
 
+export type ChartPeriod = "day" | "week" | "month" | "year" | "max";
+
+export interface TokenChartPoint {
+  timestamp: number;
+  price: number;
+}
+
+export interface TokenChartData {
+  beginAt: string;
+  endAt: string;
+  stats: { first: number; min: number; avg: number; max: number; last: number };
+  points: TokenChartPoint[];
+}
+
+export interface TokenDetails {
+  tokenId: string;
+  name: string;
+  symbol: string;
+  description: string | null;
+  iconUrl: string | null;
+  verified: boolean;
+  externalLinks: { type: string; name: string; url: string }[];
+  marketData?: {
+    totalSupply: number | null;
+    circulatingSupply: number | null;
+    marketCap: number | null;
+    fullyDilutedValuation: number | null;
+    price: number | null;
+    changes: {
+      percent1d: number | null;
+      percent30d: number | null;
+      percent90d: number | null;
+      percent365d: number | null;
+    };
+  };
+}
+
 export interface PortfolioResponse {
   tokens: TokenPosition[];
   totalUsd: number;

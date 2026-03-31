@@ -34,7 +34,7 @@ function Dashboard() {
   const [sendOpen, setSendOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
-  const [listTab, setListTab] = useState<"tokens" | "activity">("activity");
+  const [listTab, setListTab] = useState<"tokens" | "activity">("tokens");
 
   const fetchPortfolio = useCallback(async () => {
     if (!safeAddress) return;

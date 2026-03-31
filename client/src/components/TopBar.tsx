@@ -6,11 +6,11 @@ import { useApiClient } from "@/lib/api/client";
 import { useAuth } from "@/app/context/AuthContext";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, Settings, User, Bell, Shield, ShieldOff } from "lucide-react";
+import { Home, FileText, Settings, User, Bell, Shield, ShieldOff } from "lucide-react";
 import { clsx } from "clsx";
 
 const navItems = [
-  { href: "/", label: "App", icon: LayoutDashboard },
+  { href: "/", label: "Home", icon: Home },
   { href: "/requests", label: "Requests", icon: Bell, badge: true },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/profile", label: "Profile", icon: User },

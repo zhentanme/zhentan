@@ -14,6 +14,7 @@ import { createEventsRouter } from "./routes/events.js";
 import { createAnalyzeRouter } from "./routes/analyze.js";
 import { createUsersRouter } from "./routes/users.js";
 import { createCampaignsRouter } from "./routes/campaigns.js";
+import { createTokensRouter } from "./routes/tokens.js";
 import { editNotification } from "./notify.js";
 
 const app = express();
@@ -63,6 +64,7 @@ app.use(
 app.use(express.json());
 
 app.use("/portfolio", createPortfolioRouter());   // public — client reads
+app.use("/tokens", createTokensRouter());         // public — market data
 app.use("/events", createEventsRouter());          // public — client SSE stream
 app.use("/transactions", auth, createTransactionsRouter());
 app.use("/queue", auth, createQueueRouter());

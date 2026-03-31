@@ -161,6 +161,131 @@ async function fetchWalletPortfolioChange(
   return null;
 }
 
+export interface TokenDetails {
+  tokenId: string;
+  name: string;
+  symbol: string;
+  description: string | null;
+  iconUrl: string | null;
+  verified: boolean;
+  externalLinks: { type: string; name: string; url: string }[];
+  marketData?: {
+    totalSupply: number | null;
+    circulatingSupply: number | null;
+    marketCap: number | null;
+    fullyDilutedValuation: number | null;
+    price: number | null;
+    changes: {
+      percent1d: number | null;
+      percent30d: number | null;
+      percent90d: number | null;
+      percent365d: number | null;
+    };
+  };
+}
+
+export interface TokenChartPoint {
+  timestamp: number;
+  price: number;
+}
+
+export interface TokenChartData {
+  beginAt: string;
+  endAt: string;
+  stats: { first: number; min: number; avg: number; max: number; last: number };
+  points: TokenChartPoint[];
+}
+
+export type ChartPeriod = "day" | "week" | "month" | "year" | "max";
+
+export async function fetchTokenDetails(
+  tokenId: string,
+  currency = "usd",
+  maxRetries = 3
+): Promise<TokenDetails | null> {
+  if (!ZERION_API_KEY) return null;
+  const url = `${BASE_URL}/fungibles/${tokenId}?${new URLSearchParams({ currency })}`;
+  const options: RequestInit = {
+    headers: { accept: "application/json", authorization: `Basic ${ZERION_API_KEY}` },
+  };
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.data?.attributes) return null;
+      const { id, attributes: a } = data.data;
+      return {
+        tokenId: id,
+        name: a.name,
+        symbol: a.symbol,
+        description: a.description ?? null,
+        iconUrl: a.icon?.url ?? null,
+        verified: a.flags?.verified ?? false,
+        externalLinks: (a.external_links ?? []).map((l: { type: string; name: string; url: string }) => ({
+          type: l.type, name: l.name, url: l.url,
+        })),
+        marketData: a.market_data ? {
+          totalSupply: a.market_data.total_supply ?? null,
+          circulatingSupply: a.market_data.circulating_supply ?? null,
+          marketCap: a.market_data.market_cap ?? null,
+          fullyDilutedValuation: a.market_data.fully_diluted_valuation ?? null,
+          price: a.market_data.price ?? null,
+          changes: {
+            percent1d: a.market_data.changes?.percent_1d ?? null,
+            percent30d: a.market_data.changes?.percent_30d ?? null,
+            percent90d: a.market_data.changes?.percent_90d ?? null,
+            percent365d: a.market_data.changes?.percent_365d ?? null,
+          },
+        } : undefined,
+      };
+    } catch (err) {
+      if (attempt === maxRetries - 1) { console.error("fetchTokenDetails failed:", err); return null; }
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+    }
+  }
+  return null;
+}
+
+async function fetchSinglePeriodChart(
+  tokenId: string,
+  period: ChartPeriod,
+  currency: string,
+  options: RequestInit
+): Promise<TokenChartData | null> {
+  const url = `${BASE_URL}/fungibles/${tokenId}/charts/${period}?${new URLSearchParams({ currency })}`;
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.data?.attributes) return null;
+    const a = data.data.attributes;
+    return {
+      beginAt: a.begin_at,
+      endAt: a.end_at,
+      stats: { first: a.stats.first, min: a.stats.min, avg: a.stats.avg, max: a.stats.max, last: a.stats.last },
+      points: (a.points as [number, number][]).map(([timestamp, price]) => ({ timestamp, price })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchTokenChartData(
+  tokenId: string,
+  currency = "usd"
+): Promise<Record<ChartPeriod, TokenChartData | null>> {
+  if (!ZERION_API_KEY) return { day: null, week: null, month: null, year: null, max: null };
+  const options: RequestInit = {
+    headers: { accept: "application/json", authorization: `Basic ${ZERION_API_KEY}` },
+  };
+  const periods: ChartPeriod[] = ["day", "week", "month", "year", "max"];
+  const results = await Promise.all(
+    periods.map((p) => fetchSinglePeriodChart(tokenId, p, currency, options))
+  );
+  return Object.fromEntries(periods.map((p, i) => [p, results[i]])) as Record<ChartPeriod, TokenChartData | null>;
+}
+
 export async function getPortfolioForAddress(address: string): Promise<PortfolioResponse> {
   const [positionsResult, percentChange24h] = await Promise.all([
     fetchTokenPositions(address, 100),
