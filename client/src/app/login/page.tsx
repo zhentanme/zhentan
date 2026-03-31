@@ -869,7 +869,7 @@ export default function LandingPage() {
             <motion.span
               animate={{ opacity: [1, 0.5, 1] }}
               transition={{ repeat: Infinity, duration: 3 }}
-              className="w-1.5 h-1.5 rounded-full bg-claw flex-shrink-0"
+              className="w-1.5 h-1.5 rounded-full bg-claw shrink-0"
             />
             <span className="text-[11px] text-claw/60 font-medium">
               Built for DoraHacks Good Vibes Only: OpenClaw Edition | BNBChain

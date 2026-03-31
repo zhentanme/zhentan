@@ -180,7 +180,7 @@ function ProfilePageContent() {
               />
               <div className="p-5">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-2xl bg-claw/10 shadow-[0_0_10px_rgba(240,185,11,0.1)] flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-2xl bg-claw/10 shadow-[0_0_10px_rgba(240,185,11,0.1)] flex items-center justify-center shrink-0">
                     <AtSign className="h-[18px] w-[18px] text-claw" />
                   </div>
                   <div>
@@ -223,7 +223,7 @@ function ProfilePageContent() {
                 ) : (
                   <button
                     onClick={() => setUsernameEditing(true)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06] hover:border-claw/30 transition-colors group"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/4 border border-white/[0.06] hover:border-claw/30 transition-colors group"
                   >
                     <span className={`text-sm ${username ? "text-white" : "text-white/30"}`}>
                       {username ? `@${username}` : "Set a username"}

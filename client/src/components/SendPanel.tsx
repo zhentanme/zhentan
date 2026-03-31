@@ -583,7 +583,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         </label>
         {resolvedAddress && !resolving ? (
           <div className="w-full flex items-center gap-3 rounded-2xl bg-white/[0.06] px-3.5 py-3 border border-white/[0.07]">
-            <span className="relative w-10 h-10 flex-shrink-0 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-slate-300">
+            <span className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-slate-300">
               {resolvedAvatar ? (
                 <Image
                   src={resolvedAvatar}
