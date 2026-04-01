@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
 import { TopBar } from "@/components/TopBar";
 import { BalanceCard } from "@/components/BalanceCard";
 import { SendPanel } from "@/components/SendPanel";
@@ -33,7 +34,7 @@ function Dashboard() {
   const [sendOpen, setSendOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
-  const [listTab, setListTab] = useState<"tokens" | "activity">("activity");
+  const [listTab, setListTab] = useState<"tokens" | "activity">("tokens");
 
   const fetchPortfolio = useCallback(async () => {
     if (!safeAddress) return;
@@ -103,17 +104,20 @@ function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col h-screen min-h-0 cosmic-bg starfield">
+    <div className="flex flex-col h-screen min-h-0 bg-background">
       <TopBar screeningMode={screeningMode} />
 
-      <main className="flex-1 flex flex-col min-h-0 w-full px-4 py-5 sm:p-6 md:p-8 max-w-4xl mx-auto overflow-y-auto">
+      <main className="flex-1 flex flex-col min-h-0 w-full max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
+        {/* Claim banner */}
         <ClaimBanner
           safeAddress={safeAddress}
           telegramUserId={telegramUserId}
           username={username}
           hideWhenClaimed
         />
-        <div className="flex-shrink-0 mb-4 sm:mb-6">
+
+        {/* Hero balance section */}
+        <div className="shrink-0 hero-gradient-subtle">
           <BalanceCard
             portfolioTotalUsd={portfolioTotalUsd}
             portfolioPercentChange24h={portfolioPercentChange24h}
@@ -147,6 +151,7 @@ function Dashboard() {
           />
         </div>
 
+        {/* Dialogs */}
         <Dialog
           open={sendOpen}
           onClose={() => setSendOpen(false)}
@@ -173,39 +178,64 @@ function Dashboard() {
         <WCSessionProposal />
         <WCTransactionRequest />
 
-        <div className="flex-1 min-h-0 flex flex-col overflow-hidden glass-card rounded-2xl">
-          <div className="flex-shrink-0 flex border-b border-white/[0.08] p-6 pb-0 gap-8">
+        {/* Tokens / Activity tabs */}
+        <motion.div
+          className="flex-1 min-h-0 flex flex-col mx-4 sm:mx-0"
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.4 }}
+        >
+          {/* Tab bar */}
+          <div className="flex items-center gap-1 mb-3">
             <button
               type="button"
               onClick={() => setListTab("tokens")}
-              className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                 listTab === "tokens"
-                  ? "text-claw border-claw"
-                  : "text-slate-400 border-transparent hover:text-slate-300"
+                  ? "text-white"
+                  : "text-slate-500 hover:text-slate-300"
               }`}
             >
               Tokens
+              {listTab === "tokens" && (
+                <motion.div
+                  className="absolute bottom-0 left-2 right-2 h-0.5 bg-gold rounded-full"
+                  layoutId="tab-indicator"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                />
+              )}
             </button>
             <button
               type="button"
               onClick={() => setListTab("activity")}
-              className={`pb-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                 listTab === "activity"
-                  ? "text-claw border-claw"
-                  : "text-slate-400 border-transparent hover:text-slate-300"
+                  ? "text-white"
+                  : "text-slate-500 hover:text-slate-300"
               }`}
             >
               Activity
+              {listTab === "activity" && (
+                <motion.div
+                  className="absolute bottom-0 left-2 right-2 h-0.5 bg-gold rounded-full"
+                  layoutId="tab-indicator"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                />
+              )}
             </button>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {listTab === "tokens" ? (
-              <TokenList tokens={tokens} loading={balanceLoading} embedded />
-            ) : (
-              <ActivityList transactions={transactions} loading={txLoading} embedded />
-            )}
+
+          {/* Content */}
+          <div className="flex-1 min-h-0 rounded-2xl bg-white/2 border border-white/6 overflow-hidden">
+            <div className="h-full overflow-y-auto">
+              {listTab === "tokens" ? (
+                <TokenList tokens={tokens} loading={balanceLoading} embedded />
+              ) : (
+                <ActivityList transactions={transactions} loading={txLoading} embedded />
+              )}
+            </div>
           </div>
-        </div>
+        </motion.div>
       </main>
     </div>
   );

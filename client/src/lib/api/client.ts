@@ -12,6 +12,7 @@ import { resolveApi } from "./resolve";
 import { portfolioApi } from "./portfolio";
 import { usersApi } from "./users";
 import { campaignsApi } from "./campaigns";
+import { tokensApi } from "./tokens";
 
 /** A bound fetch function with BASE prepended — passed to each API module. */
 export type ApiFetchFn = (path: string, init?: RequestInit) => Promise<Response>;
@@ -72,6 +73,7 @@ export function useApiClient() {
       portfolio: portfolioApi(req),
       users: usersApi(req),
       campaigns: campaignsApi(req),
+      tokens: tokensApi(req),
     }),
     [req]
   );

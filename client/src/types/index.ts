@@ -9,13 +9,26 @@ export interface DappMetadata {
 
 export interface PendingTransaction {
   id: string;
+  /**
+   * Data availability for this activity item:
+   * - "zhentan-only": in our DB but not yet on-chain (pending/in_review/rejected) or Zerion unavailable
+   * - "zerion-only":  on-chain transaction we didn't initiate (external receives, etc.)
+   * - "both":         executed via Zhentan and confirmed on-chain — has full risk data + Zerion op details
+   */
+  source?: "zhentan-only" | "zerion-only" | "both";
+  /** Zerion operation type: send | receive | trade | approve | execute | deposit | withdraw | … */
+  operationType?: string;
+  /** For trade operations: the token received in exchange */
+  tradeReceived?: { symbol: string; amount: string; iconUrl: string };
+  /** USD value of the primary transfer (from Zerion) */
+  valueUSD?: number;
   to: string;
   amount: string;
   token: string;
   /** If set, used in activity to show send vs receive. Defaults to "send" for proposed outbound transfers. */
   direction?: TransactionDirection;
   /** ERC20 token contract address (used for execution and display). */
-  usdcAddress: string;
+  tokenAddress: string;
   /** Token icon URL for display in activity (e.g. from Zerion). Stored when proposing. */
   tokenIconUrl?: string | null;
   /** When true, server skips risk analysis; client triggers execute. */
@@ -29,7 +42,7 @@ export interface PendingTransaction {
   partialSignatures: string;
   proposedAt: string;
   /** Transaction origin: "send_panel" for manual sends, "walletconnect" for DApp requests */
-  source?: "send_panel" | "walletconnect";
+  // source?: "send_panel" | "walletconnect";
   /** Raw hex calldata from DApp (for WalletConnect transactions) */
   calldata?: string;
   /** Native value in wei as string (for WalletConnect transactions) */
@@ -122,6 +135,43 @@ export interface TokenPosition {
   address: string | null;
   chain: { id: string; chainId: number; name: string };
   verified: boolean;
+}
+
+export type ChartPeriod = "day" | "week" | "month" | "year" | "max";
+
+export interface TokenChartPoint {
+  timestamp: number;
+  price: number;
+}
+
+export interface TokenChartData {
+  beginAt: string;
+  endAt: string;
+  stats: { first: number; min: number; avg: number; max: number; last: number };
+  points: TokenChartPoint[];
+}
+
+export interface TokenDetails {
+  tokenId: string;
+  name: string;
+  symbol: string;
+  description: string | null;
+  iconUrl: string | null;
+  verified: boolean;
+  externalLinks: { type: string; name: string; url: string }[];
+  marketData?: {
+    totalSupply: number | null;
+    circulatingSupply: number | null;
+    marketCap: number | null;
+    fullyDilutedValuation: number | null;
+    price: number | null;
+    changes: {
+      percent1d: number | null;
+      percent30d: number | null;
+      percent90d: number | null;
+      percent365d: number | null;
+    };
+  };
 }
 
 export interface PortfolioResponse {

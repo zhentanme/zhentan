@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   amount              TEXT NOT NULL,
   token               TEXT,
   direction           TEXT,
-  usdc_address        TEXT,
+  token_address       TEXT,
   token_icon_url      TEXT,
   proposed_by         TEXT,
   owner_addresses     TEXT[],

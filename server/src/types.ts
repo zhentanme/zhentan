@@ -2,11 +2,24 @@ export type TransactionDirection = "send" | "receive";
 
 export interface PendingTransaction {
   id: string;
+  /**
+   * Data availability for this activity item:
+   * - "zhentan-only": in our DB but not yet on-chain (pending/in_review/rejected) or Zerion unavailable
+   * - "zerion-only":  on-chain transaction we didn't initiate (external receives, etc.)
+   * - "both":         executed via Zhentan and confirmed on-chain — has full risk data + Zerion op details
+   */
+  source?: "zhentan-only" | "zerion-only" | "both";
+  /** Zerion operation type for on-chain items: send | receive | trade | approve | execute | deposit | withdraw | … */
+  operationType?: string;
+  /** Populated for trade operations: the token received in exchange */
+  tradeReceived?: { symbol: string; amount: string; iconUrl: string };
+  /** USD value of the primary transfer (from Zerion) */
+  valueUSD?: number;
   to: string;
   amount: string;
   token: string;
   direction?: TransactionDirection;
-  usdcAddress: string;
+  tokenAddress: string;
   /** Token icon URL for display (stored when proposing). */
   tokenIconUrl?: string | null;
   proposedBy: string;

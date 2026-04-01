@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Zhentan Client",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:client"],
+      "port": 3000
+    },
+    {
+      "name": "Zhentan Server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:server"],
+      "port": 3001
+    },
+    {
+      "name": "Zhentan Docs",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev:docs"],
+      "port": 3002
+    }
+  ]
+}

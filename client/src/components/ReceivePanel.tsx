@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { QRCodeSVG } from "qrcode.react";
 import { Copy, Check, ArrowDownLeft } from "lucide-react";
+import { truncateAddress } from "@/lib/format";
 
 interface ReceivePanelProps {
   safeAddress: string;
@@ -20,7 +21,7 @@ export function ReceivePanel({ safeAddress }: ReceivePanelProps) {
 
   return (
     <div className="flex flex-col items-center text-center gap-5 pb-1">
-      <div className="w-12 h-12 rounded-2xl bg-white/[0.08] flex items-center justify-center text-claw">
+      <div className="w-12 h-12 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
         <ArrowDownLeft className="h-5 w-5" />
       </div>
       <div className="space-y-1">
@@ -38,16 +39,16 @@ export function ReceivePanel({ safeAddress }: ReceivePanelProps) {
       <button
         type="button"
         onClick={copyAddress}
-        className="w-full rounded-2xl bg-white/[0.06] hover:bg-white/[0.1] transition-colors px-3 py-3 text-left min-h-[2.75rem] touch-manipulation"
+        className="w-full rounded-2xl bg-white/6 hover:bg-white/10 transition-colors px-3 py-3 text-left min-h-11 touch-manipulation"
       >
         <span className="flex items-center justify-between gap-2">
           <span className="font-mono text-xs sm:text-sm text-slate-300 break-all">
-            {safeAddress}
+            {truncateAddress(safeAddress, 32)}
           </span>
           {copied ? (
-            <Check className="h-4 w-4 text-claw flex-shrink-0" />
+            <Check className="h-4 w-4 text-gold shrink-0" />
           ) : (
-            <Copy className="h-4 w-4 text-slate-400 flex-shrink-0" />
+            <Copy className="h-4 w-4 text-slate-400 shrink-0" />
           )}
         </span>
       </button>

@@ -1,34 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { motion } from "framer-motion";
 import { Skeleton } from "./ui/Skeleton";
 import { truncateAddress } from "@/lib/format";
 import { ArrowUpRight, ArrowDownLeft, Copy, Check, RefreshCw, Plug } from "lucide-react";
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 40, scale: 0.98 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      duration: 0.6,
-      type: "spring" as const,
-      bounce: 0.18,
-    },
-  },
-};
-
 interface BalanceCardProps {
-  /** Total portfolio value in USD (from Zerion) */
   portfolioTotalUsd: number | null;
-  /** 24h portfolio % change (from Zerion), null if unavailable */
   portfolioPercentChange24h?: number | null;
   safeAddress: string;
   loading: boolean;
-  /** Display name for greeting (e.g. "gm, {name}") */
   name?: string | null;
   onRefresh?: () => void;
   onToggleSend: () => void;
@@ -54,7 +36,13 @@ export function BalanceCard({
   connectOpen,
 }: BalanceCardProps) {
   const [copied, setCopied] = useState(false);
-  const displayTotal = portfolioTotalUsd != null ? portfolioTotalUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : null;
+  const displayTotal =
+    portfolioTotalUsd != null
+      ? portfolioTotalUsd.toLocaleString("en-US", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        })
+      : null;
 
   const copyAddress = async () => {
     await navigator.clipboard.writeText(safeAddress);
@@ -62,69 +50,87 @@ export function BalanceCard({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const cardNumberStyle = safeAddress.startsWith("0x")
-    ? `${safeAddress.slice(0, 6)} ${safeAddress.slice(6, 10)} ${safeAddress.slice(10, 14)} ···· ···· ${safeAddress.slice(-4)}`
-    : truncateAddress(safeAddress);
+  const greeting = name?.trim() ? `gm, ${name.trim()}` : "gm";
 
-  const greeting = `gm, ${name?.trim() || "there"}`;
+  const actions = [
+    {
+      label: "Send",
+      icon: ArrowUpRight,
+      onClick: onToggleSend,
+      active: sendOpen,
+    },
+    {
+      label: "Receive",
+      icon: ArrowDownLeft,
+      onClick: onToggleReceive,
+      active: receiveOpen,
+    },
+    ...(onToggleConnect
+      ? [
+          {
+            label: "Connect",
+            icon: Plug,
+            onClick: onToggleConnect,
+            active: connectOpen,
+          },
+        ]
+      : []),
+  ];
 
   return (
     <motion.div
-      className="balance-card p-6 text-left relative"
-      initial="hidden"
-      animate="visible"
-      variants={cardVariants}
+      className="flex flex-col items-center text-center px-4 pt-2 pb-6 sm:pt-4 sm:pb-8 gap-4"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, type: "spring", bounce: 0.15 }}
     >
-      {/* Top row: chip + greeting */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="balance-card-chip flex items-center justify-center overflow-hidden rounded-lg p-1 aspect-square w-10 h-10" aria-hidden>
-          <Image
-            src="/bsc-yellow.png"
-            alt=""
-            width={28}
-            height={28}
-            className="object-contain opacity-95 drop-shadow-sm w-10 h-10"
-            unoptimized
-          />
-        </div>
-        <span className="text-base font-medium italic tracking-wide text-claw/90 truncate max-w-[160px] sm:max-w-[220px]">
-          {greeting}
-        </span>
-      </div>
+      {/* Greeting */}
+      <motion.p
+        className="text-sm font-medium text-slate-400 mb-1"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+      >
+        {greeting}
+      </motion.p>
 
-      {/* Balance + refresh */}
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <span className="text-sm font-medium text-slate-400 tracking-wide">
-          Available balance
-        </span>
+      {/* Balance */}
+      <div className="flex items-center gap-2 mb-1">
+        {loading ? (
+          <Skeleton className="h-12 w-44 rounded-2xl" />
+        ) : (
+          <motion.h1
+            className="text-5xl sm:text-6xl font-bold gradient-text tracking-tight"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.15, duration: 0.5 }}
+          >
+            ${displayTotal ?? "0.00"}
+          </motion.h1>
+        )}
         {onRefresh && (
           <button
             type="button"
             onClick={onRefresh}
             disabled={loading}
-            aria-label="Refresh balance and activity"
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/[0.08] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Refresh"
+            className="p-2 rounded-full text-slate-500 hover:text-white hover:bg-white/8 transition-colors disabled:opacity-40"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </button>
         )}
       </div>
-      {loading ? (
-        <Skeleton className="h-12 w-36 rounded-xl" />
-      ) : (
-        <motion.div
-          className="text-4xl sm:text-5xl font-bold gradient-text tracking-tight"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
-          ${displayTotal ?? "—"}
-        </motion.div>
-      )}
+
+      {/* 24h change */}
       {portfolioPercentChange24h != null && !loading && (
-        <div className="flex items-baseline gap-2 mt-1.5">
+        <motion.div
+          className="flex items-center gap-1.5 mb-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.25 }}
+        >
           <span
-            className={`text-sm font-medium tabular-nums ${
+            className={`text-sm font-semibold tabular-nums ${
               portfolioPercentChange24h > 0
                 ? "text-emerald-400"
                 : portfolioPercentChange24h < 0
@@ -135,68 +141,58 @@ export function BalanceCard({
             {portfolioPercentChange24h > 0 ? "+" : ""}
             {portfolioPercentChange24h.toFixed(2)}%
           </span>
-          <span className="text-xs text-slate-500">24h</span>
-        </div>
+          <span className="text-xs text-slate-600">24h</span>
+        </motion.div>
       )}
+      {/* {(portfolioPercentChange24h == null || loading) && <div className="h-4 mb-4" />} */}
 
-      {/* Card number style address */}
+      {/* Address chip */}
       <button
         onClick={copyAddress}
-        className="flex items-center gap-2 mt-6 text-slate-400 hover:text-white transition-colors font-mono text-xs sm:text-sm tracking-[0.1em] sm:tracking-[0.15em] min-h-[2.75rem] touch-manipulation break-all text-left"
+        className="flex items-center gap-1.5 rounded-full bg-white/6 border border-white/6 px-3 py-1.5 mb-6 hover:bg-white/10 transition-all touch-manipulation"
       >
-        <span className="text-slate-500 break-all">{cardNumberStyle}</span>
+        <span className="text-xs font-mono text-slate-500">
+          {truncateAddress(safeAddress)}
+        </span>
         {copied ? (
-          <Check className="h-4 w-4 text-claw flex-shrink-0" />
+          <Check className="h-3 w-3 text-gold" />
         ) : (
-          <Copy className="h-4 w-4 flex-shrink-0 opacity-70" />
+          <Copy className="h-3 w-3 text-slate-500" />
         )}
       </button>
 
-      {/* Actions: card-style buttons */}
+      {/* Action buttons */}
       <motion.div
-        className="flex gap-2 sm:gap-3 mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-white/[0.06]"
-        initial={{ opacity: 0, y: 20 }}
+        className="flex items-center justify-center gap-6 sm:gap-8"
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.35, duration: 0.5 }}
+        transition={{ delay: 0.3, duration: 0.4 }}
       >
-        <button
-          type="button"
-          onClick={onToggleSend}
-          className={`flex-1 flex items-center justify-center gap-2 rounded-2xl py-3 sm:py-3.5 text-sm font-semibold transition-all min-h-[2.75rem] touch-manipulation ${
-            sendOpen
-              ? "bg-claw text-white shadow-[0_4px_20px_-2px_rgba(240,185,11,0.4)]"
-              : "bg-white/[0.08] text-slate-200 hover:bg-white/[0.12]"
-          }`}
-        >
-          <ArrowUpRight className="h-5 w-5" />
-          Send
-        </button>
-        <button
-          type="button"
-          onClick={onToggleReceive}
-          className={`flex-1 flex items-center justify-center gap-2 rounded-2xl py-3 sm:py-3.5 text-sm font-semibold transition-all min-h-[2.75rem] touch-manipulation ${
-            receiveOpen
-              ? "bg-claw text-white shadow-[0_4px_20px_-2px_rgba(240,185,11,0.4)]"
-              : "bg-white/[0.08] text-slate-200 hover:bg-white/[0.12]"
-          }`}
-        >
-          <ArrowDownLeft className="h-5 w-5" />
-          Receive
-        </button>
-        {onToggleConnect && (
+        {actions.map((action) => (
           <button
+            key={action.label}
             type="button"
-            onClick={onToggleConnect}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-2xl py-3 sm:py-3.5 text-sm font-semibold transition-all min-h-[2.75rem] touch-manipulation ${
-              connectOpen
-                ? "bg-claw text-white shadow-[0_4px_20px_-2px_rgba(240,185,11,0.4)]"
-                : "bg-white/[0.08] text-slate-200 hover:bg-white/[0.12]"
-            }`}
+            onClick={action.onClick}
+            className="flex flex-col items-center gap-2 group touch-manipulation"
           >
-            <Plug className="h-5 w-5" />
-            Connect
+            <div
+              className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all ${
+                action.active
+                  ? "bg-gold text-black shadow-[0_4px_24px_-4px_rgba(229,168,50,0.5)]"
+                  : "bg-white/[0.07] text-slate-300 group-hover:bg-white/12 group-hover:text-white border border-white/6"
+              }`}
+            >
+              <action.icon className="h-6 w-6" />
+            </div>
+            <span
+              className={`text-xs font-medium ${
+                action.active ? "text-gold" : "text-slate-400"
+              }`}
+            >
+              {action.label}
+            </span>
           </button>
-        )}
+        ))}
       </motion.div>
     </motion.div>
   );

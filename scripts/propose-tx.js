@@ -70,7 +70,7 @@ async function main() {
   const pimlicoApiKey = process.env.PIMLICO_API_KEY;
   const recipient = process.env.RECIPIENT_ADDRESS;
   const amountHuman = process.env.USDC_AMOUNT ?? "1";
-  const usdcAddress = process.env.USDC_CONTRACT_ADDRESS ?? DEFAULT_USDC;
+  const tokenAddress = process.env.USDC_CONTRACT_ADDRESS ?? DEFAULT_USDC;
   const ownerAddr1 = process.env.OWNER_ADDRESS1;
   const ownerAddr2 = process.env.OWNER_ADDRESS2;
   const threshold = parseInt(process.env.SAFE_THRESHOLD || "2", 10);
@@ -131,7 +131,7 @@ async function main() {
 
   // 1. Prepare unsigned user operation (talks to bundler/paymaster for gas estimates)
   const unsignedUserOp = await smartAccountClient.prepareUserOperation({
-    calls: [{ to: usdcAddress, value: 0n, data }],
+    calls: [{ to: tokenAddress, value: 0n, data }],
   });
 
   console.log(unsignedUserOp);
@@ -154,7 +154,7 @@ async function main() {
     to: recipient,
     amount: amountHuman,
     token: "USDC",
-    usdcAddress,
+    tokenAddress,
     proposedBy: ownerAccount.address,
     signatures: [ownerAccount.address],
     ownerAddresses: [ownerAddr1, ownerAddr2],

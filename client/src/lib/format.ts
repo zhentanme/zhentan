@@ -18,9 +18,9 @@ export function formatTokenAmount(value: string | number, maxDecimals = 8): stri
   return s || "0";
 }
 
-export function truncateAddress(addr: string): string {
-  if (addr.length <= 12) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+export function truncateAddress(addr: string, length = 22): string {
+  if (addr.length <= length) return addr;
+  return `${addr.slice(0, length / 2)}...${addr.slice(-length / 2)}`;
 }
 
 export function formatDate(iso: string): string {

@@ -109,7 +109,8 @@ export function ClaimBanner({
   return (
     <>
       <AnimatePresence>
-        {!dismissed && (
+       <div className="mx-4">
+       {!dismissed && (
           <motion.button
             type="button"
             onClick={() => setOpen(true)}
@@ -143,7 +144,7 @@ export function ClaimBanner({
 
             <div className="relative px-5 py-4 flex items-center gap-4">
               <div
-                className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
+                className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
                 style={{
                   background: "rgba(240,185,11,0.15)",
                   boxShadow: "0 0 16px rgba(240,185,11,0.2)",
@@ -167,17 +168,18 @@ export function ClaimBanner({
               </div>
 
               {alreadyClaimed ? (
-                <span className="text-[11px] font-semibold text-claw bg-claw/15 px-2.5 py-1 rounded-full border border-claw/20 flex-shrink-0">
+                <span className="text-[11px] font-semibold text-claw bg-claw/15 px-2.5 py-1 rounded-full border border-claw/20 shrink-0">
                   Claimed
                 </span>
               ) : (
-                <span className="text-[11px] font-semibold text-black bg-claw px-3 py-1.5 rounded-full flex-shrink-0 shadow-[0_0_12px_rgba(240,185,11,0.4)] group-hover:bg-claw/90 transition-colors">
+                <span className="text-[11px] font-semibold text-black bg-claw px-3 py-1.5 rounded-full shrink-0 shadow-[0_0_12px_rgba(240,185,11,0.4)] group-hover:bg-claw/90 transition-colors">
                   Claim
                 </span>
               )}
             </div>
           </motion.button>
         )}
+       </div>
       </AnimatePresence>
 
       <Dialog open={open} onClose={() => setOpen(false)} title="Claim Free Tokens">
@@ -210,13 +212,13 @@ export function ClaimBanner({
                     return (
                       <div
                         key={key}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.04] shadow-[0_0_0_1px_rgba(255,255,255,0.05)]"
+                        className="flex items-center gap-3 p-3 rounded-xl bg-white/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)]"
                       >
                         <div
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                             met
                               ? "bg-claw/10 shadow-[0_0_8px_rgba(240,185,11,0.15)]"
-                              : "bg-white/[0.04]"
+                              : "bg-white/4"
                           }`}
                         >
                           <Icon className={`h-4 w-4 ${met ? "text-claw" : "text-slate-600"}`} />
@@ -225,9 +227,9 @@ export function ClaimBanner({
                           {def?.label ?? key}
                         </p>
                         {met ? (
-                          <Check className="h-4 w-4 text-claw flex-shrink-0" />
+                          <Check className="h-4 w-4 text-claw shrink-0" />
                         ) : (
-                          <span className="w-2 h-2 rounded-full bg-slate-700 flex-shrink-0" />
+                          <span className="w-2 h-2 rounded-full bg-slate-700 shrink-0" />
                         )}
                       </div>
                     );

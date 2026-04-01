@@ -58,9 +58,9 @@ export function InvoiceList({
         animate="visible"
         variants={headerVariants}
       >
-        <FileText className="h-4 w-4 text-claw" />
+        <FileText className="h-4 w-4 text-gold" />
         <h2 className="text-sm font-semibold text-white tracking-wide">
-          <span className="text-claw">&rsaquo;</span> Invoices
+          <span className="text-gold">&rsaquo;</span> Invoices
         </h2>
       </motion.div>
 
@@ -71,7 +71,7 @@ export function InvoiceList({
               key={i}
               className="flex items-center gap-4 px-4 py-3 rounded-2xl"
             >
-              <Skeleton className="h-10 w-10 rounded-2xl flex-shrink-0" />
+              <Skeleton className="h-10 w-10 rounded-2xl shrink-0" />
               <div className="flex-1 min-w-0 space-y-2">
                 <div className="flex items-center gap-2">
                   <Skeleton className="h-4 w-24" />
@@ -80,7 +80,7 @@ export function InvoiceList({
                 </div>
                 <Skeleton className="h-3 w-32" />
               </div>
-              <Skeleton className="h-6 w-16 rounded-full flex-shrink-0" />
+              <Skeleton className="h-6 w-16 rounded-full shrink-0" />
             </div>
           ))}
         </div>

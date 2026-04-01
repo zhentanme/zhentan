@@ -33,7 +33,7 @@ function rowToTx(row: TransactionRow): PendingTransaction {
     amount: row.amount,
     token: row.token ?? "",
     direction: (row.direction as PendingTransaction["direction"]) ?? undefined,
-    usdcAddress: row.usdc_address ?? "",
+    tokenAddress: row.token_address ?? "",
     tokenIconUrl: row.token_icon_url ?? null,
     proposedBy: row.proposed_by ?? "",
     signatures: [],
@@ -68,7 +68,7 @@ function txToRow(tx: PendingTransaction): TransactionRow {
     amount: tx.amount,
     token: tx.token ?? null,
     direction: tx.direction ?? null,
-    usdc_address: tx.usdcAddress ?? null,
+    token_address: tx.tokenAddress ?? null,
     token_icon_url: tx.tokenIconUrl ?? null,
     proposed_by: tx.proposedBy ?? null,
     owner_addresses: tx.ownerAddresses ?? null,
@@ -175,7 +175,7 @@ export async function updateTransaction(
     amount: "amount",
     token: "token",
     direction: "direction",
-    usdcAddress: "usdc_address",
+    tokenAddress: "token_address",
     tokenIconUrl: "token_icon_url",
     proposedBy: "proposed_by",
     ownerAddresses: "owner_addresses",
@@ -859,7 +859,7 @@ export async function recordTxOutcome(
     event_type: outcome,
     recipient_address: tx.to.toLowerCase(),
     amount: tx.amount,
-    token_address: tx.usdcAddress?.toLowerCase() ?? null,
+    token_address: tx.tokenAddress?.toLowerCase() ?? null,
     token_symbol: tx.token ?? null,
     risk_score: opts?.riskScore ?? tx.riskScore ?? null,
     risk_verdict: opts?.riskVerdict ?? tx.riskVerdict ?? null,
@@ -984,8 +984,8 @@ async function _updateTokenPattern(
   safe: string,
   tx: PendingTransaction
 ): Promise<void> {
-  if (!tx.usdcAddress) return;
-  const tokenAddress = tx.usdcAddress.toLowerCase();
+  if (!tx.tokenAddress) return;
+  const tokenAddress = tx.tokenAddress.toLowerCase();
   const amount = parseFloat(tx.amount);
   const existing = await getTokenPattern(safe, tokenAddress);
   const n = existing?.total_tx_count ?? 0;

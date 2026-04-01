@@ -34,9 +34,9 @@ const VARIANT_ICONS: Record<ThemeLoaderVariant, React.ReactNode> = {
       />
     </div>
   ),
-  transaction: <ArrowRightLeft className="w-7 h-7 text-claw" />,
+  transaction: <ArrowRightLeft className="w-7 h-7 text-gold" />,
   default: (
-    <div className="w-2 h-2 rounded-full bg-claw shadow-[0_0_12px_rgba(240,185,11,0.8)] animate-pulse" />
+    <div className="w-2 h-2 rounded-full bg-gold shadow-[0_0_12px_rgba(229,168,50,0.8)] animate-pulse" />
   ),
 };
 
@@ -44,11 +44,11 @@ function SpinnerRing() {
   return (
     <>
       <div
-        className="absolute inset-0 w-14 h-14 rounded-full border-2 border-transparent border-t-claw border-r-claw/60 animate-spin"
+        className="absolute inset-0 w-14 h-14 rounded-full border-2 border-transparent border-t-gold border-r-gold/60 animate-spin"
         aria-hidden
       />
       <div
-        className="absolute inset-0 w-14 h-14 rounded-full border-2 border-transparent border-b-claw/40 border-l-claw/80 animate-spin"
+        className="absolute inset-0 w-14 h-14 rounded-full border-2 border-transparent border-b-gold/40 border-l-gold/80 animate-spin"
         style={{ animationDuration: "1.2s", animationDirection: "reverse" }}
         aria-hidden
       />
@@ -86,8 +86,8 @@ export function ThemeLoaderSpinner({
   imageAlt?: string;
 }) {
   return (
-    <div className="relative w-14 h-14 flex items-center justify-center flex-shrink-0">
-      <div className="absolute inset-0 w-14 h-14 rounded-full border-2 border-claw/30" aria-hidden />
+    <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
+      <div className="absolute inset-0 w-14 h-14 rounded-full border-2 border-gold/30" aria-hidden />
       <SpinnerRing />
       <div className="absolute inset-0 flex items-center justify-center">
         {getCenterContent(variant, icon, imageSrc, imageAlt)}
@@ -107,12 +107,12 @@ export function ThemeLoader({
   const centerContent = getCenterContent(variant, icon, imageSrc, imageAlt);
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen cosmic-bg starfield gap-8">
+    <div className="flex flex-col items-center justify-center h-screen hero-gradient gap-8">
       <div className="flex flex-col items-center gap-6">
         <div className="relative w-14 h-14 flex items-center justify-center">
           {/* Background ring (always) */}
           <div
-            className="absolute inset-0 w-14 h-14 rounded-full border-2 border-claw/30"
+            className="absolute inset-0 w-14 h-14 rounded-full border-2 border-gold/30"
             aria-hidden
           />
           <SpinnerRing />

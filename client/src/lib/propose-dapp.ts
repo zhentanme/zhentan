@@ -110,7 +110,7 @@ export async function proposeDappTransaction({
     to,
     amount: "0",
     token: "BNB",
-    usdcAddress: "",
+    tokenAddress: "",
     ...(screeningDisabled && { screeningDisabled: true }),
     proposedBy: ownerAccount.address,
     signatures: [ownerAccount.address],

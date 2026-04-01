@@ -164,7 +164,7 @@ export function createAnalyzeRouter(): IRouter {
         ? await getRecipientProfile(tx.to.toLowerCase(), tx.safeAddress)
         : null;
 
-      const tokenAddr = (tx.usdcAddress || "").toLowerCase();
+      const tokenAddr = (tx.tokenAddress || "").toLowerCase();
       const isKnownStable = KNOWN_STABLECOINS.has(tokenAddr);
 
       console.log("tokenAddr", tokenAddr);

@@ -6,7 +6,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        /* Semantic tokens from token-dashboard */
+        /* Semantic tokens — resolve via CSS variables */
         background: "var(--background)",
         foreground: "var(--foreground)",
         card: {
@@ -43,12 +43,20 @@ const config: Config = {
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
-        /* Brand gold — backward-compatible */
+        surface: "var(--surface)",
+        "surface-light": "var(--surface-light)",
+        /* Brand gold — matching landing page */
+        gold: {
+          DEFAULT: "#e5a832",
+          light: "#f0c05a",
+          dark: "#b8861f",
+        },
+        /* Backward-compatible alias */
         claw: {
-          DEFAULT: "#F0B90B",
-          400: "#F5D042",
-          500: "#F0B90B",
-          600: "#D4A506",
+          DEFAULT: "#e5a832",
+          400: "#f0c05a",
+          500: "#e5a832",
+          600: "#b8861f",
         },
       },
       borderRadius: {
@@ -61,6 +69,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-kumbh-sans)", "Inter", "system-ui", "sans-serif"],
+        display: ["var(--font-ojuju)", "var(--font-kumbh-sans)", "system-ui", "sans-serif"],
       },
     },
   },

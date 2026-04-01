@@ -130,7 +130,7 @@ export async function proposeTransaction({
     to: recipient,
     amount,
     token: symbol,
-    usdcAddress: isNative ? NATIVE_TOKEN_ADDRESS : tokenAddress,
+    tokenAddress: isNative ? NATIVE_TOKEN_ADDRESS : tokenAddress,
     tokenIconUrl: tokenIconUrl ?? null,
     ...(screeningDisabled && { screeningDisabled: true }),
     proposedBy: ownerAccount.address,

@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
-import { Kumbh_Sans } from "next/font/google";
+import { Kumbh_Sans, Ojuju } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
 const kumbhSans = Kumbh_Sans({
   variable: "--font-kumbh-sans",
+  subsets: ["latin"],
+});
+
+const ojuju = Ojuju({
+  variable: "--font-ojuju",
   subsets: ["latin"],
 });
 
@@ -29,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${kumbhSans.variable} dark`}>
+    <html lang="en" className={`${kumbhSans.variable} ${ojuju.variable} dark antialiased`}>
       <body className="font-sans">
         <Providers>{children}</Providers>
       </body>

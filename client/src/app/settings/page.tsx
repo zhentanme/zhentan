@@ -15,22 +15,9 @@ import {
   Rocket,
   Server,
   ExternalLink,
+  Settings,
 } from "lucide-react";
 import { useApiClient } from "@/lib/api/client";
-
-const cardVariants = {
-  hidden: { opacity: 0, y: 40, scale: 0.98 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      duration: 0.6,
-      type: "spring" as const,
-      bounce: 0.18,
-    },
-  },
-};
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -106,12 +93,12 @@ function SettingsPageContent() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen cosmic-bg starfield">
+    <div className="flex flex-col h-screen bg-background">
       <TopBar screeningMode={screeningMode} />
-      <main className="flex-1 w-full px-4 py-5 sm:p-6 md:p-8 max-w-4xl mx-auto overflow-y-auto">
+      <main className="flex-1 w-full px-4 py-5 sm:p-6 max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
         {loading ? (
           <div className="flex justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-claw" />
+            <Loader2 className="h-6 w-6 animate-spin text-gold" />
           </div>
         ) : (
           <motion.div
@@ -120,63 +107,66 @@ function SettingsPageContent() {
             animate="visible"
             className="space-y-5"
           >
+            {/* Page Header */}
+            <motion.div variants={staggerItem} className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center">
+                <Settings className="h-[18px] w-[18px] text-gold" />
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-white">Settings</h1>
+                <p className="text-xs text-slate-500">Screening & agent configuration</p>
+              </div>
+            </motion.div>
+
             {/* Zhentan Mode Toggle */}
             <motion.div variants={staggerItem}>
-              <div
-                className={`relative rounded-2xl p-5 transition-all duration-300 ${
-                  screeningMode
-                    ? "bg-white/[0.06] shadow-[0_0_0_1px_rgba(240,185,11,0.15),0_8px_32px_-8px_rgba(240,185,11,0.1)]"
-                    : "bg-white/[0.04] shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div
-                    className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-                      screeningMode
-                        ? "bg-claw/10 shadow-[0_0_12px_rgba(240,185,11,0.15)]"
-                        : "bg-white/[0.06]"
-                    }`}
-                  >
-                    {screeningMode ? (
-                      <ShieldCheck className="h-5 w-5 text-claw" />
-                    ) : (
-                      <ShieldOff className="h-5 w-5 text-slate-500" />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-white">
-                      Zhentan Mode
-                    </h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      {screeningMode
-                        ? "AI screening active"
-                        : "Screening disabled"}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={handleToggle}
-                    disabled={toggling}
-                    className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-claw/30 ${
-                      screeningMode
-                        ? "bg-claw shadow-[0_0_12px_rgba(240,185,11,0.3)]"
-                        : "bg-white/[0.12]"
-                    }`}
-                  >
-                    {toggling ? (
-                      <span className="absolute inset-0 flex items-center justify-center">
-                        <Loader2 className="h-3 w-3 animate-spin text-white" />
-                      </span>
-                    ) : (
-                      <span
-                        className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${
-                          screeningMode ? "left-6" : "left-0.5"
-                        }`}
-                      />
-                    )}
-                  </button>
+              <div className="flex items-center gap-4 p-5 rounded-2xl bg-white/2 border border-white/6">
+                <div
+                  className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300 ${
+                    screeningMode
+                      ? "bg-gold/10"
+                      : "bg-white/6"
+                  }`}
+                >
+                  {screeningMode ? (
+                    <ShieldCheck className="h-5 w-5 text-gold" />
+                  ) : (
+                    <ShieldOff className="h-5 w-5 text-slate-500" />
+                  )}
                 </div>
+
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold text-white">
+                    Zhentan Mode
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {screeningMode
+                      ? "AI screening active"
+                      : "Screening disabled"}
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleToggle}
+                  disabled={toggling}
+                  className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 ${
+                    screeningMode
+                      ? "bg-gold"
+                      : "bg-white/12"
+                  }`}
+                >
+                  {toggling ? (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <Loader2 className="h-3 w-3 animate-spin text-white" />
+                    </span>
+                  ) : (
+                    <span
+                      className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${
+                        screeningMode ? "left-6" : "left-0.5"
+                      }`}
+                    />
+                  )}
+                </button>
               </div>
             </motion.div>
 
@@ -187,12 +177,8 @@ function SettingsPageContent() {
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  transition={{
-                    duration: 0.3,
-                    type: "spring" as const,
-                    bounce: 0.15,
-                  }}
-                  className="rounded-2xl p-4 bg-amber-400/[0.06] shadow-[0_0_0_1px_rgba(251,191,36,0.12)]"
+                  transition={{ duration: 0.3, type: "spring" as const, bounce: 0.15 }}
+                  className="rounded-2xl p-4 bg-amber-400/6 border border-amber-400/10"
                 >
                   <p className="text-xs text-amber-400/90 leading-relaxed">
                     <strong className="text-amber-400">Warning:</strong>{" "}
@@ -203,175 +189,150 @@ function SettingsPageContent() {
               )}
             </AnimatePresence>
 
-            {/* Current Plan — always visible, dimmed when off */}
+            {/* Current Plan */}
             <motion.div variants={staggerItem}>
-              <div
-                className={`relative rounded-2xl overflow-hidden transition-all duration-500 ${
-                  screeningMode
-                    ? "bg-white/[0.06] shadow-[0_0_0_1px_rgba(240,185,11,0.12),0_12px_40px_-12px_rgba(240,185,11,0.08)]"
-                    : "bg-white/[0.03] shadow-[0_0_0_1px_rgba(255,255,255,0.04)] opacity-40"
-                }`}
-              >
-                {/* Subtle gradient accent line at top */}
-                <div
-                  className={`h-px transition-opacity duration-500 ${
-                    screeningMode ? "opacity-100" : "opacity-0"
-                  }`}
-                  style={{
-                    background:
-                      "linear-gradient(90deg, transparent, rgba(240,185,11,0.4), transparent)",
-                  }}
-                />
-
-                <div className="p-5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div
-                      className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                        screeningMode
-                          ? "bg-claw/10 shadow-[0_0_10px_rgba(240,185,11,0.1)]"
-                          : "bg-white/[0.06]"
+              <div className={`p-5 rounded-2xl bg-white/2 border border-white/6 transition-all duration-500 ${!screeningMode ? "opacity-40" : ""}`}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div
+                    className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                      screeningMode ? "bg-gold/10" : "bg-white/6"
+                    }`}
+                  >
+                    <Cpu
+                      className={`h-[18px] w-[18px] transition-colors duration-300 ${
+                        screeningMode ? "text-gold" : "text-slate-500"
                       }`}
-                    >
-                      <Cpu
-                        className={`h-[18px] w-[18px] transition-colors duration-300 ${
-                          screeningMode ? "text-claw" : "text-slate-500"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-semibold text-white">
+                        Basic Plan
+                      </h3>
+                      <span
+                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-all duration-300 ${
+                          screeningMode
+                            ? "bg-gold/15 text-gold"
+                            : "bg-white/6 text-slate-500"
                         }`}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold text-white">
-                          Basic Plan
-                        </h3>
-                        <span
-                          className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-all duration-300 ${
-                            screeningMode
-                              ? "bg-claw/15 text-claw"
-                              : "bg-white/[0.06] text-slate-500"
-                          }`}
-                        >
-                          {screeningMode ? "Active" : "Inactive"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        Public OpenClaw instance
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Model chip */}
-                  <div className="mb-5">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all duration-300 ${
-                        screeningMode
-                          ? "bg-white/[0.06] text-slate-300 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]"
-                          : "bg-white/[0.03] text-slate-500 shadow-[0_0_0_1px_rgba(255,255,255,0.03)]"
-                      }`}
-                    >
-                      <Cpu
-                        className={`h-3 w-3 ${screeningMode ? "text-claw/60" : "text-slate-600"}`}
-                      />
-                      Qwen3-235B-A22B
-                    </span>
-                  </div>
-
-                  {/* Telegram Notifications */}
-                  <AnimatePresence>
-                    {screeningMode && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        exit={{ opacity: 0, height: 0 }}
-                        transition={{
-                          duration: 0.3,
-                          type: "spring" as const,
-                          bounce: 0.1,
-                        }}
                       >
-                        <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white/[0.04] shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
-                          <div className="w-8 h-8 rounded-xl bg-blue-400/[0.08] flex items-center justify-center flex-shrink-0">
-                            <MessageCircle className="h-3.5 w-3.5 text-blue-400" />
-                          </div>
-
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-xs font-medium text-white">
-                                Telegram Channel
-                              </h4>
-                              {telegramLinked ? (
-                                <button
-                                  onClick={async () => {
-                                    try {
-                                      const tgAccount = (
-                                        privyUser?.linkedAccounts as unknown as Array<
-                                          Record<string, unknown>
-                                        >
-                                      )?.find((a) => a.type === "telegram");
-                                      if (tgAccount) {
-                                        const identifier =
-                                          (tgAccount.subject as string) ||
-                                          (tgAccount.telegramUserId as string) ||
-                                          (tgAccount.username as string);
-                                        if (identifier) {
-                                          await (
-                                            unlinkTelegram as unknown as (
-                                              id: string
-                                            ) => Promise<unknown>
-                                          )(identifier);
-                                        }
-                                      }
-                                      setTelegramLinked(false);
-                                      await api.status.update({ safe: safeAddress!, telegramChatId: "" });
-                                    } catch {
-                                      /* ignore */
-                                    }
-                                  }}
-                                  className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-white/[0.06] text-slate-400 hover:bg-white/[0.1] hover:text-slate-300 transition-all"
-                                >
-                                  Unlink
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setLinkingTelegram(true);
-                                    linkTelegram();
-                                  }}
-                                  disabled={linkingTelegram}
-                                  className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/[0.1] text-blue-400 hover:bg-blue-400/[0.15] transition-all disabled:opacity-50"
-                                >
-                                  {linkingTelegram ? (
-                                    <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
-                                  ) : null}
-                                  Link Telegram
-                                </button>
-                              )}
-                            </div>
-                            <p className="text-[11px] text-slate-500 mt-1">
-                              {telegramLinked ? (
-                                <span className="text-blue-400 font-medium">
-                                  Connected
-                                </span>
-                              ) : (
-                                <>
-                                  Message{" "}
-                                  <a
-                                    href="https://t.me/zhentan_clawbot"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-400/80 hover:text-blue-400 transition-colors"
-                                  >
-                                    @zhentan_clawbot
-                                  </a>{" "}
-                                  first, then link here.
-                                </>
-                              )}
-                            </p>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                        {screeningMode ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Public OpenClaw instance
+                    </p>
+                  </div>
                 </div>
+
+                {/* Model chip */}
+                <div className="mb-5">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all duration-300 ${
+                      screeningMode
+                        ? "bg-white/6 text-slate-300"
+                        : "bg-white/3 text-slate-500"
+                    }`}
+                  >
+                    <Cpu
+                      className={`h-3 w-3 ${screeningMode ? "text-gold/60" : "text-slate-600"}`}
+                    />
+                    Qwen3-235B-A22B
+                  </span>
+                </div>
+
+                {/* Telegram Notifications */}
+                <AnimatePresence>
+                  {screeningMode && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3, type: "spring" as const, bounce: 0.1 }}
+                    >
+                      <div className="flex items-start gap-3 p-3.5 rounded-xl bg-white/4">
+                        <div className="w-8 h-8 rounded-xl bg-blue-400/8 flex items-center justify-center shrink-0">
+                          <MessageCircle className="h-3.5 w-3.5 text-blue-400" />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-medium text-white">
+                              Telegram Channel
+                            </h4>
+                            {telegramLinked ? (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const tgAccount = (
+                                      privyUser?.linkedAccounts as unknown as Array<
+                                        Record<string, unknown>
+                                      >
+                                    )?.find((a) => a.type === "telegram");
+                                    if (tgAccount) {
+                                      const identifier =
+                                        (tgAccount.subject as string) ||
+                                        (tgAccount.telegramUserId as string) ||
+                                        (tgAccount.username as string);
+                                      if (identifier) {
+                                        await (
+                                          unlinkTelegram as unknown as (
+                                            id: string
+                                          ) => Promise<unknown>
+                                        )(identifier);
+                                      }
+                                    }
+                                    setTelegramLinked(false);
+                                    await api.status.update({ safe: safeAddress!, telegramChatId: "" });
+                                  } catch {
+                                    /* ignore */
+                                  }
+                                }}
+                                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-white/6 text-slate-400 hover:bg-white/10 hover:text-slate-300 transition-all"
+                              >
+                                Unlink
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setLinkingTelegram(true);
+                                  linkTelegram();
+                                }}
+                                disabled={linkingTelegram}
+                                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 hover:bg-blue-400/15 transition-all disabled:opacity-50"
+                              >
+                                {linkingTelegram ? (
+                                  <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
+                                ) : null}
+                                Link Telegram
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            {telegramLinked ? (
+                              <span className="text-blue-400 font-medium">
+                                Connected
+                              </span>
+                            ) : (
+                              <>
+                                Message{" "}
+                                <a
+                                  href="https://t.me/zhentan_clawbot"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-400/80 hover:text-blue-400 transition-colors"
+                                >
+                                  @zhentan_clawbot
+                                </a>{" "}
+                                first, then link here.
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
 
@@ -382,18 +343,14 @@ function SettingsPageContent() {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 12 }}
-                  transition={{
-                    duration: 0.4,
-                    type: "spring" as const,
-                    bounce: 0.12,
-                  }}
+                  transition={{ duration: 0.4, type: "spring" as const, bounce: 0.12 }}
                 >
                   <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mb-3 px-1">
                     Upgrade
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Advanced Plan */}
-                    <div className="relative rounded-2xl p-4 bg-white/[0.03] shadow-[0_0_0_1px_rgba(168,85,247,0.1)] opacity-45 pointer-events-none">
+                    <div className="p-4 rounded-2xl bg-white/2 border border-white/6 opacity-50 pointer-events-none">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-9 h-9 rounded-xl bg-purple-400/[0.08] flex items-center justify-center">
@@ -416,7 +373,7 @@ function SettingsPageContent() {
                     </div>
 
                     {/* Self-hosted Plan */}
-                    <div className="relative rounded-2xl p-4 bg-white/[0.03] shadow-[0_0_0_1px_rgba(255,255,255,0.04)] opacity-45 pointer-events-none">
+                    <div className="p-4 rounded-2xl bg-white/2 border border-white/6 opacity-50 pointer-events-none">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-9 h-9 rounded-xl bg-white/[0.05] flex items-center justify-center">

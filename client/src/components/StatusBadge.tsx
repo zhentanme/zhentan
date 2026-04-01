@@ -8,8 +8,8 @@ interface StatusBadgeProps {
 
 const styleMap: Record<TransactionStatus, string> = {
   pending: "bg-amber-400/15 text-amber-400",
-  in_review: "bg-claw/15 text-claw",
-  executed: "bg-claw/15 text-claw",
+  in_review: "bg-gold/15 text-gold",
+  executed: "bg-gold/15 text-gold",
   rejected: "bg-red-400/15 text-red-400",
 };
 

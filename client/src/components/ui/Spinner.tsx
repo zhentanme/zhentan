@@ -9,7 +9,7 @@ interface SpinnerProps {
 export function Spinner({ className, size = 24 }: SpinnerProps) {
   return (
     <Loader2
-      className={clsx("animate-spin text-claw", className)}
+      className={clsx("animate-spin text-gold", className)}
       size={size}
     />
   );

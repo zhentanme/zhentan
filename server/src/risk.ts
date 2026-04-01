@@ -250,7 +250,7 @@ export function analyzeRisk(
   }
 
   // ── 8. Token familiarity ──────────────────────────────────
-  const tokenKey = (tx.usdcAddress ?? "").toLowerCase();
+  const tokenKey = (tx.tokenAddress ?? "").toLowerCase();
   if (tokenKey) {
     const tokenPattern = patterns.tokenPatterns[tokenKey];
     if (!tokenPattern || !tokenPattern.isFamiliar) {
@@ -338,7 +338,7 @@ function evaluateRule(
 
     case "token_restriction": {
       const targetToken = (c.token as string)?.toLowerCase();
-      return !!(targetToken && tx.usdcAddress?.toLowerCase() === targetToken);
+      return !!(targetToken && tx.tokenAddress?.toLowerCase() === targetToken);
     }
 
     case "custom":

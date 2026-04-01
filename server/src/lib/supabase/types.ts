@@ -14,7 +14,7 @@ export interface TransactionRow {
   amount: string;
   token: string | null;
   direction: string | null;
-  usdc_address: string | null;
+  token_address: string | null;
   token_icon_url: string | null;
   proposed_by: string | null;
   owner_addresses: string[] | null;

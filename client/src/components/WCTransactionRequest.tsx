@@ -85,12 +85,12 @@ export function WCTransactionRequest() {
         <img
           src={dapp.icons[0]}
           alt=""
-          className="w-6 h-6 rounded-md flex-shrink-0 bg-white/10"
+          className="w-6 h-6 rounded-md shrink-0 bg-white/10"
         />
       );
     }
     return (
-      <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center flex-shrink-0">
+      <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center shrink-0">
         <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
       </div>
     );
@@ -98,8 +98,8 @@ export function WCTransactionRequest() {
 
   // Amount badge — matches SendPanel's "amount + icon" row
   const AmountBadge = () => (
-    <div className="flex items-center gap-3 rounded-2xl bg-white/[0.06] p-4">
-      <div className="w-10 h-10 rounded-2xl bg-white/[0.08] flex items-center justify-center text-claw">
+    <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
+      <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
         <ArrowUpRight className="h-5 w-5" />
       </div>
       <DappIcon />
@@ -116,7 +116,7 @@ export function WCTransactionRequest() {
         <div className="flex flex-col gap-6">
           <div className="flex flex-col items-center gap-4">
             <ThemeLoaderSpinner variant="transaction" />
-            <p className="text-sm font-semibold text-claw">Proposing transaction</p>
+            <p className="text-sm font-semibold text-gold">Proposing transaction</p>
             <p className="text-xs text-slate-500 uppercase tracking-widest">Awaiting your signature</p>
           </div>
           <AmountBadge />
@@ -195,10 +195,10 @@ export function WCTransactionRequest() {
       {requestStatus === "success" && requestTxHash && (
         <div className="space-y-6">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-20 h-20 rounded-2xl bg-claw/20 text-claw flex items-center justify-center">
+            <div className="w-20 h-20 rounded-2xl bg-gold/20 text-gold flex items-center justify-center">
               <CheckCircle2 className="h-10 w-10" />
             </div>
-            <span className="text-sm font-semibold text-claw">Executed</span>
+            <span className="text-sm font-semibold text-gold">Executed</span>
           </div>
           <AmountBadge />
           <dl className="space-y-3 text-sm">
@@ -223,12 +223,11 @@ export function WCTransactionRequest() {
             href={`${BSC_EXPLORER_URL}/tx/${requestTxHash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-white/[0.08] text-slate-300 hover:text-white hover:bg-white/[0.12] transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-white/8 text-slate-300 hover:text-white hover:bg-white/12 transition-colors text-sm font-medium"
           >
-            <span className="relative w-[18px] h-[18px] flex-shrink-0">
+            <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
             </span>
-            <ExternalLink className="h-4 w-4" />
             View on BSC Explorer
           </a>
           <Button type="button" onClick={resetRequestState} className="w-full py-3.5">
@@ -265,10 +264,10 @@ export function WCTransactionRequest() {
                 <img
                   src={dapp.icons[0]}
                   alt=""
-                  className="w-10 h-10 rounded-xl bg-white/10 flex-shrink-0"
+                  className="w-10 h-10 rounded-xl bg-white/10 shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
                   <ExternalLink className="h-5 w-5 text-slate-400" />
                 </div>
               )}
@@ -297,8 +296,8 @@ export function WCTransactionRequest() {
           </dl>
 
           {/* Security note */}
-          <div className="flex items-start gap-3 rounded-xl bg-claw/[0.08] border border-claw/20 px-4 py-3">
-            <Shield className="h-5 w-5 text-claw flex-shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 rounded-xl bg-gold/[0.08] border border-gold/20 px-4 py-3">
+            <Shield className="h-5 w-5 text-gold shrink-0 mt-0.5" />
             <p className="text-xs text-slate-300 leading-relaxed">
               This transaction will be queued for AI screening before execution.
             </p>

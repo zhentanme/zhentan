@@ -19,7 +19,7 @@ import {
 function GoldLine() {
   return (
     <div className="absolute top-0 left-0 right-0 h-px"
-      style={{ background: "linear-gradient(90deg, transparent, rgba(240,185,11,0.6), transparent)" }} />
+      style={{ background: "linear-gradient(90deg, transparent, rgba(229,168,50,0.6), transparent)" }} />
   );
 }
 
@@ -31,7 +31,7 @@ function StatCard({
       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
       transition={{ delay, type: "spring" }}
       className="relative rounded-2xl px-5 py-4 overflow-hidden text-center"
-      style={{ background: "rgba(240,185,11,0.06)", border: "1px solid rgba(240,185,11,0.20)" }}>
+      style={{ background: "rgba(229,168,50,0.06)", border: "1px solid rgba(229,168,50,0.20)" }}>
       <GoldLine />
       <div className="text-2xl sm:text-3xl font-black gradient-text leading-none mb-1">{value}</div>
       <div className="text-white text-xs font-semibold">{label}</div>
@@ -42,7 +42,7 @@ function StatCard({
 
 function Tag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="px-3 py-1 rounded-full border border-claw/20 bg-claw/5 text-[11px] text-claw/70 font-medium">
+    <span className="px-3 py-1 rounded-full border border-gold/20 bg-gold/5 text-[11px] text-gold/70 font-medium">
       {children}
     </span>
   );
@@ -51,7 +51,7 @@ function Tag({ children }: { children: React.ReactNode }) {
 function SlideMeta({ label }: { label: string }) {
   return (
     <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}
-      className="text-[10px] font-bold uppercase tracking-[0.18em] text-claw/50 mb-3">
+      className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold/50 mb-3">
       {label}
     </motion.p>
   );
@@ -65,7 +65,7 @@ function SlideTitle() {
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.1, type: "spring", bounce: 0.3 }}
         className="relative w-[240px] h-[96px] sm:w-[320px] sm:h-[128px]">
-        <Image src="/cover.png" alt="Zhentan" fill className="object-contain drop-shadow-[0_0_50px_rgba(240,185,11,0.35)]" priority sizes="320px" />
+        <Image src="/cover.png" alt="Zhentan" fill className="object-contain drop-shadow-[0_0_50px_rgba(229,168,50,0.35)]" priority sizes="320px" />
       </motion.div>
 
       <div>
@@ -119,7 +119,7 @@ function SlideProblem() {
           <motion.div key={p.t} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 + i * 0.1, type: "spring" }}
             className="glass-card p-4 flex gap-3 items-start">
-            <span className="text-xl flex-shrink-0">{p.icon}</span>
+            <span className="text-xl shrink-0">{p.icon}</span>
             <div>
               <div className="text-xs font-bold text-white mb-0.5">{p.t}</div>
               <div className="text-slate-500 text-[11px] leading-relaxed">{p.d}</div>
@@ -158,7 +158,7 @@ function SlidePhilosophy() {
           <motion.div key={p.title} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 + i * 0.13, type: "spring" }}
             className="relative rounded-2xl p-5 overflow-hidden"
-            style={{ background: "rgba(240,185,11,0.05)", border: "1px solid rgba(240,185,11,0.15)" }}>
+            style={{ background: "rgba(229,168,50,0.05)", border: "1px solid rgba(229,168,50,0.15)" }}>
             <GoldLine />
             <div className="text-4xl mb-3">{p.emoji}</div>
             <div className="text-sm font-bold text-white mb-2">{p.title}</div>
@@ -170,7 +170,7 @@ function SlidePhilosophy() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.65, type: "spring" }}
         className="w-full max-w-lg rounded-2xl px-6 py-4 text-center"
-        style={{ background: "rgba(240,185,11,0.07)", border: "1px solid rgba(240,185,11,0.22)" }}>
+        style={{ background: "rgba(229,168,50,0.07)", border: "1px solid rgba(229,168,50,0.22)" }}>
         <p className="text-sm text-white/80 font-medium leading-relaxed">
           Zhentan is a <span className="gradient-text font-bold">personalized onchain detective</span> — it learns your behavior,
           screens every transaction, and defends your autonomy in real time.
@@ -188,7 +188,7 @@ function SlideHowItWorks() {
       num: "01", title: "User Initiates",
       desc: "Signs and proposes a transaction via the Privy-secured wallet on BNB Chain.",
       sub: "Gasless via ERC-4337",
-      color: "#F0B90B", bg: "rgba(240,185,11,0.07)", border: "rgba(240,185,11,0.25)",
+      color: "#e5a832", bg: "rgba(229,168,50,0.07)", border: "rgba(229,168,50,0.25)",
     },
     {
       num: "02", title: "Zhentan Screens",
@@ -236,7 +236,7 @@ function SlideHowItWorks() {
             {i < steps.length - 1 && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 transition={{ delay: 0.32 + i * 0.14 }}
-                className="text-slate-600 text-lg font-light flex-shrink-0 sm:hidden">↓</motion.div>
+                className="text-slate-600 text-lg font-light shrink-0 sm:hidden">↓</motion.div>
             )}
           </div>
         ))}
@@ -259,8 +259,8 @@ function SlideProduct() {
     { name: "Safe Multisig",  note: "2-of-2 smart account · $100B+ secured",  color: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.28)" },
     { name: "ERC-4337",       note: "Account abstraction · 40M+ smart accounts", color: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.28)" },
     { name: "ERC-7579",       note: "Module extensibility standard",           color: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.28)" },
-    { name: "ERC-8004",       note: "Agent identity on-chain",                 color: "rgba(240,185,11,0.10)", border: "rgba(240,185,11,0.28)" },
-    { name: "OpenClaw",       note: "Qwen3-235B + Claude Sonnet agent",        color: "rgba(240,185,11,0.15)", border: "rgba(240,185,11,0.30)" },
+    { name: "ERC-8004",       note: "Agent identity on-chain",                 color: "rgba(229,168,50,0.10)", border: "rgba(229,168,50,0.28)" },
+    { name: "OpenClaw",       note: "Qwen3-235B + Claude Sonnet agent",        color: "rgba(229,168,50,0.15)", border: "rgba(229,168,50,0.30)" },
     { name: "Pimlico",        note: "Gasless bundler + paymaster",             color: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.25)" },
   ];
 
@@ -286,7 +286,7 @@ function SlideProduct() {
             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.15 + i * 0.07, type: "spring" }}
             className="relative rounded-xl px-4 py-3 text-center overflow-hidden"
-            style={{ background: "rgba(240,185,11,0.06)", border: "1px solid rgba(240,185,11,0.20)", minWidth: 90 }}>
+            style={{ background: "rgba(229,168,50,0.06)", border: "1px solid rgba(229,168,50,0.20)", minWidth: 90 }}>
             <GoldLine />
             <div className="text-lg font-black gradient-text leading-none">{s.v}</div>
             <div className="text-[10px] text-slate-500 mt-0.5">{s.l}</div>
@@ -355,10 +355,10 @@ function SlideTraction() {
           <motion.div key={t.handle} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.55 + i * 0.1, type: "spring" }}
             className="relative rounded-2xl p-4 overflow-hidden"
-            style={{ background: "rgba(240,185,11,0.05)", border: "1px solid rgba(240,185,11,0.18)" }}>
+            style={{ background: "rgba(229,168,50,0.05)", border: "1px solid rgba(229,168,50,0.18)" }}>
             <GoldLine />
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-7 h-7 rounded-full bg-claw/20 flex items-center justify-center text-claw text-xs font-bold">
+              <div className="w-7 h-7 rounded-full bg-gold/20 flex items-center justify-center text-gold text-xs font-bold">
                 {t.handle[1].toUpperCase()}
               </div>
               <div>
@@ -386,7 +386,7 @@ function SlideMarket() {
     {
       Icon: Shield, title: "DAOs & Treasuries",
       desc: "Safe secures $100B+. DAOs need intelligent co-signers, not unreliable human multisig participants.",
-      color: "#F0B90B", bg: "rgba(240,185,11,0.08)", border: "rgba(240,185,11,0.25)",
+      color: "#e5a832", bg: "rgba(229,168,50,0.08)", border: "rgba(229,168,50,0.25)",
     },
     {
       Icon: Code2, title: "Safe Developers",
@@ -456,7 +456,7 @@ function SlideRevenue() {
       target: "Power users · subscription",
       desc: "Personalized agent instances, custom thresholds, priority screening, advanced analytics.",
       metric: "→ Per-user MRR",
-      color: "rgba(240,185,11,0.08)", border: "rgba(240,185,11,0.28)", accent: "#F0B90B",
+      color: "rgba(229,168,50,0.08)", border: "rgba(229,168,50,0.28)", accent: "#e5a832",
     },
     {
       name: "SDK & Licensing",
@@ -543,15 +543,15 @@ function SlideRoadmap() {
             transition={{ delay: 0.18 + i * 0.11, type: "spring" }}
             className="relative flex items-center gap-4 rounded-2xl px-5 py-4 overflow-hidden"
             style={{
-              background: m.done ? "rgba(240,185,11,0.08)" : "rgba(255,255,255,0.03)",
-              border: m.done ? "1px solid rgba(240,185,11,0.30)" : "1px solid rgba(255,255,255,0.08)",
+              background: m.done ? "rgba(229,168,50,0.08)" : "rgba(255,255,255,0.03)",
+              border: m.done ? "1px solid rgba(229,168,50,0.30)" : "1px solid rgba(255,255,255,0.08)",
             }}>
             <div className="absolute top-0 left-0 right-0 h-px"
               style={{ background: m.done
-                ? "linear-gradient(90deg, transparent, rgba(240,185,11,0.5), transparent)"
+                ? "linear-gradient(90deg, transparent, rgba(229,168,50,0.5), transparent)"
                 : "linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent)" }} />
             {/* Timeline dot */}
-            <div className="flex-shrink-0 text-center w-14">
+            <div className="shrink-0 text-center w-14">
               <div className={`text-[10px] font-black ${m.done ? "gradient-text" : "text-slate-500"}`}>{m.v}</div>
               <div className="text-[9px] text-slate-600 font-mono">{m.date}</div>
             </div>
@@ -560,8 +560,8 @@ function SlideRoadmap() {
               <p className="text-slate-500 text-xs leading-relaxed">{m.desc}</p>
             </div>
             {m.done && (
-              <div className="flex-shrink-0 w-5 h-5 rounded-full bg-claw/20 flex items-center justify-center">
-                <span className="text-claw text-[10px]">✓</span>
+              <div className="shrink-0 w-5 h-5 rounded-full bg-gold/20 flex items-center justify-center">
+                <span className="text-gold text-[10px]">✓</span>
               </div>
             )}
           </motion.div>
@@ -569,7 +569,7 @@ function SlideRoadmap() {
       </div>
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.65 }}
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-claw/10 border border-claw/20 text-[10px] font-semibold text-claw/70 uppercase tracking-widest">
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gold/10 border border-gold/20 text-[10px] font-semibold text-gold/70 uppercase tracking-widest">
         <TrendingUp className="w-3 h-3" />
         V1 already shipped · Q2 2026
       </motion.div>
@@ -585,7 +585,7 @@ function SlideVision() {
       <motion.div initial={{ opacity: 0, scale: 0.88 }} animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.1, type: "spring", bounce: 0.3 }}
         className="relative w-[200px] h-[80px] sm:w-[260px] sm:h-[104px]">
-        <Image src="/cover.png" alt="Zhentan" fill className="object-contain drop-shadow-[0_0_50px_rgba(240,185,11,0.35)]" sizes="260px" />
+        <Image src="/cover.png" alt="Zhentan" fill className="object-contain drop-shadow-[0_0_50px_rgba(229,168,50,0.35)]" sizes="260px" />
       </motion.div>
 
       <div>
@@ -610,15 +610,15 @@ function SlideVision() {
         className="flex flex-col sm:flex-row gap-3 items-center">
         <a href="https://zhentan.me" target="_blank" rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm text-black transition-opacity hover:opacity-90"
-          style={{ background: "linear-gradient(90deg, #F5D042, #F0B90B)" }}>
+          style={{ background: "linear-gradient(90deg, #F5D042, #e5a832)" }}>
           Try zhentan.me →
         </a>
       </motion.div>
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.66 }}
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-claw/10 border border-claw/20 text-[10px] font-semibold text-claw/70 uppercase tracking-widest">
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gold/10 border border-gold/20 text-[10px] font-semibold text-gold/70 uppercase tracking-widest">
         <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ repeat: Infinity, duration: 2.4 }}
-          className="w-1.5 h-1.5 rounded-full bg-claw" />
+          className="w-1.5 h-1.5 rounded-full bg-gold" />
         On BNB Chain · For Everyone
       </motion.div>
     </div>
@@ -671,9 +671,9 @@ export default function DeckPage() {
   };
 
   return (
-    <div className="cosmic-bg starfield min-h-screen text-white flex flex-col overflow-hidden">
+    <div className="hero-gradient min-h-screen text-white flex flex-col overflow-hidden">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04] flex-shrink-0">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04] shrink-0">
         <Link href="/" className="text-[11px] text-slate-600 hover:text-slate-400 transition-colors font-medium tracking-wide">
           ← zhentan.me
         </Link>
@@ -683,7 +683,7 @@ export default function DeckPage() {
           {SLIDES.map((s, i) => (
             <button key={s.id} onClick={() => go(i)}
               className={`px-2.5 py-1 rounded-full text-[9px] font-semibold uppercase tracking-widest transition-colors ${
-                i === current ? "bg-claw/20 text-claw border border-claw/30" : "text-slate-600 hover:text-slate-400"
+                i === current ? "bg-gold/20 text-gold border border-gold/30" : "text-slate-600 hover:text-slate-400"
               }`}>
               {s.label}
             </button>
@@ -710,9 +710,9 @@ export default function DeckPage() {
       </div>
 
       {/* Bottom navigation */}
-      <div className="flex items-center justify-center gap-4 py-3 border-t border-white/[0.04] flex-shrink-0">
+      <div className="flex items-center justify-center gap-4 py-3 border-t border-white/[0.04] shrink-0">
         <button onClick={() => go(current - 1)} disabled={current === 0}
-          className="w-9 h-9 rounded-full border border-white/[0.08] flex items-center justify-center text-slate-500 hover:text-white hover:border-claw/30 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+          className="w-9 h-9 rounded-full border border-white/8 flex items-center justify-center text-slate-500 hover:text-white hover:border-gold/30 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
           <ChevronLeft className="w-4 h-4" />
         </button>
 
@@ -720,13 +720,13 @@ export default function DeckPage() {
           {SLIDES.map((_, i) => (
             <button key={i} onClick={() => go(i)}
               className={`rounded-full transition-all duration-300 ${
-                i === current ? "w-5 h-1.5 bg-claw" : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"
+                i === current ? "w-5 h-1.5 bg-gold" : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"
               }`} />
           ))}
         </div>
 
         <button onClick={() => go(current + 1)} disabled={current === total - 1}
-          className="w-9 h-9 rounded-full border border-white/[0.08] flex items-center justify-center text-slate-500 hover:text-white hover:border-claw/30 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
+          className="w-9 h-9 rounded-full border border-white/8 flex items-center justify-center text-slate-500 hover:text-white hover:border-gold/30 disabled:opacity-25 disabled:cursor-not-allowed transition-colors">
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>

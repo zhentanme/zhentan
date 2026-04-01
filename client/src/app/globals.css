@@ -1,39 +1,40 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@config "../../tailwind.config.ts";
+@import "tailwindcss";
 
 /* Light mode */
 :root {
-  --background: #fafafa;
+  --background: #fbfbfb;
   --foreground: #171717;
   --card: #ffffff;
   --card-foreground: #171717;
   --popover: #ffffff;
   --popover-foreground: #171717;
-  --primary: #c9a227;
+  --primary: #c9942a;
   --primary-foreground: #ffffff;
   --secondary: #f0f0f0;
   --secondary-foreground: #2e2e2e;
   --muted: #f0f0f0;
-  --muted-foreground: #6b6b6b;
+  --muted-foreground: #737373;
   --accent: #f0f0f0;
   --accent-foreground: #2e2e2e;
   --destructive: #dc2626;
-  --border: #e0e0e0;
-  --input: #e0e0e0;
-  --ring: #c9a227;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #c9942a;
   --radius: 0.625rem;
+  --surface: #f5f5f5;
+  --surface-light: #fafafa;
 }
 
 /* Dark mode */
 .dark {
   --background: #000000;
   --foreground: #fafafa;
-  --card: #111111;
+  --card: #0f0f14;
   --card-foreground: #fafafa;
-  --popover: #111111;
+  --popover: #0f0f14;
   --popover-foreground: #fafafa;
-  --primary: #d4a506;
+  --primary: #e5a832;
   --primary-foreground: #141414;
   --secondary: #1c1c1c;
   --secondary-foreground: #e0e0e0;
@@ -44,20 +45,25 @@
   --destructive: #ef4444;
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.15);
-  --ring: #d4a506;
+  --ring: #e5a832;
+  --surface: #0f0f14;
+  --surface-light: #16161d;
 }
 
 @layer base {
-  html {
-    -webkit-tap-highlight-color: transparent;
-  }
   * {
     border-color: var(--border);
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    background-color: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -83,58 +89,34 @@
   touch-action: manipulation;
 }
 
-/* Cosmic gradient + starfield background */
-.cosmic-bg {
-  background-image:
-    radial-gradient(ellipse 120% 80% at 0% 0%, rgba(60, 50, 20, 0.12) 0%, transparent 50%),
-    radial-gradient(ellipse 80% 120% at 100% 100%, rgba(30, 60, 80, 0.12) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(240, 185, 11, 0.04) 0%, transparent 50%);
-  background-color: var(--background);
-}
-
-.starfield {
-  background-image:
-    radial-gradient(1.5px 1.5px at 20px 30px, rgba(255, 255, 255, 0.45), transparent),
-    radial-gradient(1.5px 1.5px at 40px 70px, rgba(255, 255, 255, 0.35), transparent),
-    radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.3), transparent),
-    radial-gradient(1.5px 1.5px at 130px 80px, rgba(255, 255, 255, 0.28), transparent),
-    radial-gradient(1px 1px at 160px 120px, rgba(255, 255, 255, 0.22), transparent),
-    radial-gradient(1px 1px at 60px 150px, rgba(255, 255, 255, 0.2), transparent),
-    radial-gradient(1.5px 1.5px at 180px 50px, rgba(255, 255, 255, 0.18), transparent);
-  background-size: 200px 200px;
-}
-
 @layer components {
-  /* Neobank-style surface: no borders, soft elevation */
+  /* Glassmorphism card — matching landing page */
   .glass-card {
-    @apply rounded-2xl bg-white/[0.06] relative overflow-hidden;
-    box-shadow:
-      0 0 0 1px rgba(240, 185, 11, 0.12),
-      0 12px 40px -12px rgba(240, 185, 11, 0.08);
-  }
-
-  .glass-card::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(240, 185, 11, 0.4), transparent);
-    pointer-events: none;
-    z-index: 1;
+    background: linear-gradient(
+      135deg,
+      rgba(229, 168, 50, 0.04) 0%,
+      rgba(15, 15, 20, 0.8) 100%
+    );
+    border: 1px solid rgba(229, 168, 50, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 1rem;
+    position: relative;
+    overflow: hidden;
   }
 
   .glass-card:hover {
-    @apply bg-white/[0.08];
-    box-shadow:
-      0 0 0 1px rgba(240, 185, 11, 0.18),
-      0 12px 40px -12px rgba(240, 185, 11, 0.12);
+    border-color: rgba(229, 168, 50, 0.15);
+    background: linear-gradient(
+      135deg,
+      rgba(229, 168, 50, 0.06) 0%,
+      rgba(15, 15, 20, 0.9) 100%
+    );
   }
 
   .gradient-text {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(90deg, #F5D042 0%, #F0B90B 40%, #D4A506 80%, #F5E6A3 100%);
+    background-image: linear-gradient(90deg, #f5d042 0%, #e5a832 40%, #b8861f 80%, #f5e6a3 100%);
   }
 
   /* Logo-style text: grey (left) to white (right) */
@@ -150,9 +132,9 @@
   .balance-card {
     background: linear-gradient(145deg, rgba(23, 20, 12, 0.95) 0%, rgba(35, 30, 15, 0.98) 40%, rgba(28, 24, 12, 0.95) 100%);
     box-shadow:
-      0 0 0 1px rgba(240, 185, 11, 0.12),
+      0 0 0 1px rgba(229, 168, 50, 0.12),
       0 24px 48px -12px rgba(0, 0, 0, 0.45),
-      0 12px 24px -8px rgba(240, 185, 11, 0.15);
+      0 12px 24px -8px rgba(229, 168, 50, 0.15);
     border-radius: 24px;
     position: relative;
     overflow: hidden;
@@ -176,13 +158,11 @@
     width: 40px;
     height: 32px;
     border-radius: 6px;
-    /* Metallic gold base with bevel: lighter top-left, darker bottom-right */
     background: linear-gradient(145deg, #d4a853 0%, #b8860b 25%, #8b6914 75%, #6b5344 100%);
     box-shadow:
       inset 1px 1px 0 rgba(255, 255, 255, 0.35),
       inset -1px -1px 0 rgba(0, 0, 0, 0.2),
       0 1px 2px rgba(0, 0, 0, 0.2);
-    /* Subtle diagonal lines like a real chip */
     position: relative;
   }
 
@@ -200,6 +180,83 @@
     );
     pointer-events: none;
   }
+}
+
+@layer utilities {
+  /* Gold gradient text utility */
+  .text-gold-gradient {
+    background: linear-gradient(
+      90deg,
+      #f5d042,
+      #f0b90b 40%,
+      #d4a506 80%,
+      #f5e6a3
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glow effects */
+  .glow-gold {
+    box-shadow:
+      0 0 40px rgba(229, 168, 50, 0.15),
+      0 0 80px rgba(229, 168, 50, 0.05);
+  }
+
+  .glow-gold-strong {
+    box-shadow:
+      0 0 30px rgba(229, 168, 50, 0.25),
+      0 0 60px rgba(229, 168, 50, 0.1);
+  }
+
+  /* Risk score bar */
+  .risk-bar {
+    background: linear-gradient(
+      90deg,
+      #22c55e 0%,
+      #22c55e 40%,
+      #eab308 40%,
+      #eab308 70%,
+      #ef4444 70%,
+      #ef4444 100%
+    );
+  }
+}
+
+/* Hero background gradient — from landing page */
+.hero-gradient {
+  background:
+    radial-gradient(
+      ellipse 80% 60% at 50% -10%,
+      rgba(229, 168, 50, 0.12) 0%,
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 80% 50%,
+      rgba(229, 168, 50, 0.05) 0%,
+      transparent 50%
+    ),
+    var(--background);
+}
+
+/* Subtle hero gradient — for balance section */
+.hero-gradient-subtle {
+  background:
+    radial-gradient(
+      ellipse 120% 80% at 50% 20%,
+      rgba(229, 168, 50, 0.06) 0%,
+      transparent 70%
+    ),
+    transparent;
+}
+
+/* Grid pattern overlay */
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(229, 168, 50, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(229, 168, 50, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
 }
 
 /* Glass morphism utilities — adapt to light/dark */
@@ -231,4 +288,22 @@
 .dark .glass-strong {
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(229, 168, 50, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(229, 168, 50, 0.4);
 }

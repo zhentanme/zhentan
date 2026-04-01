@@ -51,7 +51,7 @@ function StatusAnimation({ status }: { status: QueuedInvoice["status"] }) {
     case "approved":
       return (
         <motion.div
-          className={`${size} ${common} bg-claw/15 text-claw`}
+          className={`${size} ${common} bg-gold/15 text-gold`}
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: [1, 1.05, 1], opacity: 1 }}
           transition={{
@@ -65,7 +65,7 @@ function StatusAnimation({ status }: { status: QueuedInvoice["status"] }) {
     case "executed":
       return (
         <motion.div
-          className={`${size} ${common} bg-claw/20 text-claw`}
+          className={`${size} ${common} bg-gold/20 text-gold`}
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: [0, 1.2, 1], opacity: 1 }}
           transition={{
@@ -97,7 +97,7 @@ function StatusAnimation({ status }: { status: QueuedInvoice["status"] }) {
 function RiskBadge({ score }: { score: number }) {
   const color =
     score < 40
-      ? "bg-claw/15 text-claw"
+      ? "bg-gold/15 text-gold"
       : score <= 70
         ? "bg-amber-400/15 text-amber-400"
         : "bg-red-400/15 text-red-400";
@@ -175,7 +175,7 @@ export function InvoiceDetailDialog({
             className={clsx(
               "text-sm font-semibold",
               invoice.status === "executed" || invoice.status === "approved"
-                ? "text-claw"
+                ? "text-gold"
                 : invoice.status === "rejected"
                   ? "text-red-400"
                   : "text-amber-400"
@@ -186,11 +186,11 @@ export function InvoiceDetailDialog({
         </div>
 
         {/* Amount row */}
-        <div className="flex items-center gap-3 rounded-2xl bg-white/[0.06] p-4">
-          <div className="w-10 h-10 rounded-2xl bg-white/[0.08] flex items-center justify-center text-claw">
+        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
+          <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
             <FileText className="h-5 w-5" />
           </div>
-          <UsdcIcon size={24} className="flex-shrink-0 opacity-90" />
+          <UsdcIcon size={24} className="shrink-0 opacity-90" />
           <span className="text-lg font-semibold text-white">
             {invoice.amount} {invoice.token}
           </span>
@@ -236,10 +236,10 @@ export function InvoiceDetailDialog({
         {invoice.services && invoice.services.length > 0 && (
           <div>
             <p className="text-xs text-slate-500 mb-2">Services</p>
-            <div className="rounded-2xl bg-white/[0.04] overflow-x-auto scrollbar-hide -mx-1">
+            <div className="rounded-2xl bg-white/4 overflow-x-auto scrollbar-hide -mx-1">
               <table className="w-full text-sm min-w-[280px]">
                 <thead>
-                  <tr className="text-left text-xs text-slate-500 border-b border-white/[0.06]">
+                  <tr className="text-left text-xs text-slate-500 border-b border-white/6">
                     <th className="px-2 sm:px-3 py-2 font-medium">Description</th>
                     <th className="px-2 sm:px-3 py-2 font-medium text-right whitespace-nowrap">Qty</th>
                     <th className="px-2 sm:px-3 py-2 font-medium text-right whitespace-nowrap">Rate</th>
@@ -274,7 +274,7 @@ export function InvoiceDetailDialog({
 
         {/* Risk assessment */}
         {invoice.riskScore != null && (
-          <div className="rounded-2xl bg-white/[0.04] p-3">
+          <div className="rounded-2xl bg-white/4 p-3">
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs text-slate-500">Risk Assessment</p>
               <RiskBadge score={invoice.riskScore} />
@@ -312,7 +312,7 @@ export function InvoiceDetailDialog({
                   placeholder="Reason (optional)"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full rounded-2xl bg-white/[0.06] px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-400/40 transition-all"
+                  className="w-full rounded-2xl bg-white/6 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-400/40 transition-all"
                 />
                 <Button
                   variant="secondary"
