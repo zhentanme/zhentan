@@ -1136,6 +1136,15 @@ export async function getUserDetails(safeAddress: string): Promise<UserDetailsRo
   return data ?? null;
 }
 
+export async function getUserBySignerAddress(signerAddress: string): Promise<UserDetailsRow | null> {
+  const { data } = await supabase
+    .from("user_details")
+    .select("*")
+    .ilike("signer_address", signerAddress)
+    .maybeSingle();
+  return data ?? null;
+}
+
 export async function upsertUserDetails(
   safeAddress: string,
   patch: Partial<Omit<UserDetailsRow, "safe_address" | "created_at" | "updated_at">>
