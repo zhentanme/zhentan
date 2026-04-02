@@ -1,18 +1,24 @@
-import { Router, type Request, type Response, type IRouter } from "express";
+import { Router, type Request, type Response, type NextFunction, type IRouter } from "express";
 import type { Address } from "viem";
-import {
-  getCampaign,
-  getCampaignClaim,
-  updateCampaignClaim,
-} from "../lib/supabase/index.js";
 import { getTreasurySafeAddress, sendTokenFromTreasury } from "../lib/treasury.js";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Admin auth ───────────────────────────────────────────────────────────────
 
-/**
- * Resolves the token address and decimals to use for a payout.
- * Falls back to TREASURY_TOKEN_ADDRESS / TREASURY_TOKEN_DECIMALS env vars.
- */
+function adminAuth(req: Request, res: Response, next: NextFunction): void {
+  const adminKey = process.env.ADMIN_API_KEY;
+  if (!adminKey) {
+    res.status(500).json({ error: "ADMIN_API_KEY is not configured" });
+    return;
+  }
+  if (req.headers["x-admin-key"] !== adminKey) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+}
+
+// ─── Token resolver ───────────────────────────────────────────────────────────
+
 function resolveToken(
   tokenAddress?: string,
   decimals?: number
@@ -34,6 +40,8 @@ function resolveToken(
 export function createPayoutRouter(): IRouter {
   const router = Router();
 
+  router.use(adminAuth);
+
   /**
    * GET /payout/treasury-address
    * Returns the computed treasury Safe address (no deployment required).
@@ -51,7 +59,7 @@ export function createPayoutRouter(): IRouter {
    * POST /payout/send
    * Generic token send from the treasury Safe.
    *
-   * Body: { to, tokenAddress?, amount, decimals? }
+   * Body: { to, amount, tokenAddress?, decimals? }
    *   - tokenAddress: defaults to TREASURY_TOKEN_ADDRESS env var
    *   - decimals:     defaults to TREASURY_TOKEN_DECIMALS env var (18 if unset)
    */
@@ -74,79 +82,6 @@ export function createPayoutRouter(): IRouter {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error("Payout /send error:", message);
-      res.status(500).json({ error: message });
-    }
-  });
-
-  /**
-   * POST /payout/campaign-claim
-   * Pay out a pending campaign claim from the treasury Safe.
-   *
-   * Body: { campaignId, safeAddress, tokenAddress?, decimals? }
-   *
-   * The claim must exist and have status "pending".
-   * On success, the claim status is updated to "paid".
-   */
-  router.post("/campaign-claim", async (req: Request, res: Response) => {
-    const {
-      campaignId,
-      safeAddress,
-      tokenAddress: tokenAddressParam,
-      decimals: decimalsParam,
-    } = req.body ?? {};
-
-    if (!campaignId) {
-      res.status(400).json({ error: "Missing required field: campaignId" });
-      return;
-    }
-    if (!safeAddress) {
-      res.status(400).json({ error: "Missing required field: safeAddress" });
-      return;
-    }
-
-    try {
-      const [campaign, claim] = await Promise.all([
-        getCampaign(campaignId),
-        getCampaignClaim(campaignId, safeAddress),
-      ]);
-
-      if (!campaign) {
-        res.status(404).json({ error: "Campaign not found" });
-        return;
-      }
-      if (!claim) {
-        res.status(404).json({ error: "Claim not found for this safe address" });
-        return;
-      }
-      if (claim.status !== "pending") {
-        res.status(400).json({ error: `Claim is already ${claim.status}`, claim });
-        return;
-      }
-
-      const { tokenAddress, decimals } = resolveToken(tokenAddressParam, decimalsParam);
-      const txHash = await sendTokenFromTreasury(
-        safeAddress as Address,
-        tokenAddress,
-        claim.token_amount,
-        decimals
-      );
-
-      await updateCampaignClaim(campaignId, safeAddress, {
-        status: "paid",
-        tx_hash: txHash,
-        paid_at: new Date().toISOString(),
-      });
-
-      res.json({
-        status: "paid",
-        campaignId,
-        safeAddress,
-        tokenAmount: claim.token_amount,
-        txHash,
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("Payout /campaign-claim error:", message);
       res.status(500).json({ error: message });
     }
   });

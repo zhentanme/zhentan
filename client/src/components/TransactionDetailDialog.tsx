@@ -343,7 +343,8 @@ export function TransactionDetailDialog({ tx, open, onClose }: TransactionDetail
   const isZhentanTx = tx.source !== "zerion-only";
   // Whether counterparty address is meaningful for this op
   const showCounterparty = !!tx.to && op !== "execute" && op !== "approve";
-  const counterpartyLabel = tx.direction === "receive" ? "From" : "To";
+  const counterpartyLabel =
+    op === "receive" ? "From" : op === "send" ? "To" : "Interacted with";
 
   // Risk section: only for zhentan txs with risk data
   const showRisk =
@@ -381,8 +382,19 @@ export function TransactionDetailDialog({ tx, open, onClose }: TransactionDetail
           {showCounterparty && (
             <div className="flex justify-between gap-2 sm:gap-4">
               <dt className="text-slate-500 shrink-0">{counterpartyLabel}</dt>
-              <dd className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={tx.to}>
-                {truncateAddress(tx.to)}
+              <dd
+                className="min-w-0 max-w-[50%] sm:max-w-[200px] truncate"
+                title={tx.to}
+              >
+                <a
+                  href={`${BSC_EXPLORER_URL}/address/${tx.to}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group inline-flex items-center gap-2 font-mono text-slate-200 hover:text-white transition-colors underline-offset-4 hover:underline truncate"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-500 group-hover:text-slate-200" />
+                  <span className="truncate">{truncateAddress(tx.to, 10)}</span>
+                </a>
               </dd>
             </div>
           )}
@@ -439,7 +451,7 @@ export function TransactionDetailDialog({ tx, open, onClose }: TransactionDetail
             <div className="flex justify-between gap-2 sm:gap-4">
               <dt className="text-slate-500 shrink-0">Signatures</dt>
               <dd className="text-slate-300">
-                {tx.txHash ? tx.threshold : tx.signatures.length} of {tx.threshold}
+                {tx.txHash ? tx.threshold : 1} of {tx.threshold}
               </dd>
             </div>
           )}

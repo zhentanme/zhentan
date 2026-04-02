@@ -403,11 +403,18 @@ function bscAddress(fi?: RawFungibleInfo): string {
 
 /** Map a Zerion fungible_info to our ZerionToken shape */
 function toToken(fi?: RawFungibleInfo): ZerionToken {
+  // Zerion may omit name/symbol/icon for some transfers; use our static
+  // fallback metadata keyed by the BSC contract address.
+  const bscAddr = bscAddress(fi);
+  const tokenAddressForFallback = bscAddr || zeroAddress;
+  const needsFallback = !fi?.name || !fi?.symbol || !fi?.icon?.url;
+  const fallback = needsFallback ? getTokenFallback(tokenAddressForFallback) : undefined;
+
   return {
-    symbol: fi?.symbol ?? "?",
-    name: fi?.name ?? "",
-    address: bscAddress(fi),
-    iconUrl: fi?.icon?.url ?? null,
+    symbol: fi?.symbol || fallback?.symbol || "?",
+    name: fi?.name || fallback?.name || "",
+    address: bscAddr,
+    iconUrl: fi?.icon?.url || fallback?.iconUrl || null,
     verified: fi?.flags?.verified ?? false,
   };
 }
@@ -465,7 +472,7 @@ export async function fetchTransfers(
   const params = new URLSearchParams({
     currency: "usd",
     "filter[chain_ids]": BSC_CHAIN,   // server-side BSC filter — no need to filter again
-    "filter[trash]": "only_non_trash", // skip spam/dust tokens
+    // "filter[trash]": "only_non_trash", // skip spam/dust tokens
     "page[size]": pageSize.toString(),
   });
   const url = `${BASE_URL}/wallets/${address}/transactions/?${params}`;

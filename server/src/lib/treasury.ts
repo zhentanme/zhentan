@@ -130,7 +130,7 @@ export async function sendTokenFromTreasury(
 ): Promise<Hex> {
   const { smartAccountClient } = await buildClients();
 
-  const amountWei = parseUnits(amount, decimals);
+  const amountWei = parseUnits(String(amount), decimals);
   const isNative =
     tokenAddress.toLowerCase() === NATIVE_TOKEN_ADDRESS.toLowerCase();
 

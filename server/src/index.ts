@@ -92,8 +92,8 @@ app.use("/rules", auth, createRulesRouter());
 app.use("/resolve", auth, createResolveRouter());
 app.use("/analyze", auth, createAnalyzeRouter());
 app.use("/users", auth, createUsersRouter());
-app.use("/campaigns",  createCampaignsRouter());
-app.use("/payout", createPayoutRouter());
+app.use("/campaigns", auth, createCampaignsRouter());
+app.use("/payout", createPayoutRouter()); // admin-key protected internally
 
 app.post("/notify-resolve", auth, async (req, res) => {
   const { txId, action, txHash, safeAddress } = req.body ?? {};
