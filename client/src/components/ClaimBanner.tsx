@@ -11,9 +11,22 @@ import { ClaimAnimation, type ClaimAnimationPhase } from "@/components/ClaimAnim
 
 const CAMPAIGN_ID = "onboarding-genesis";
 
-const TASK_LABELS: Record<string, { label: string; icon: React.ElementType; route: string }> = {
-  tg_connected:     { label: "Connect Telegram", icon: MessageCircle, route: "/settings" },
-  username_claimed: { label: "Set a username",   icon: AtSign,        route: "/profile"  },
+const TASK_LABELS: Record<
+  string,
+  { label: string; subtext: string; icon: React.ElementType; route: string }
+> = {
+  tg_connected: {
+    label: "Connect Telegram",
+    subtext: "Enable Zhentan mode and connect your Telegram.",
+    icon: MessageCircle,
+    route: "/settings",
+  },
+  username_claimed: {
+    label: "Set a username",
+    subtext: "Set a Zhentan username on profile.",
+    icon: AtSign,
+    route: "/profile",
+  },
 };
 
 interface ClaimBannerProps {
@@ -134,7 +147,7 @@ export function ClaimBanner({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
             transition={{ duration: 0.3, type: "spring", bounce: 0.15 }}
-            className={`w-full relative overflow-hidden rounded-2xl text-left focus:outline-none group${hideWhenClaimed ? " mb-4" : ""}`}
+            className={`w-full relative overflow-hidden rounded-2xl text-left focus:outline-none group cursor-pointer${hideWhenClaimed ? " mb-4" : ""}`}
             style={{
               background:
                 "linear-gradient(135deg, rgba(240,185,11,0.12) 0%, rgba(240,185,11,0.05) 50%, rgba(240,185,11,0.10) 100%)",
@@ -243,7 +256,14 @@ export function ClaimBanner({
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-claw/10 shadow-[0_0_8px_rgba(240,185,11,0.15)]">
                           <Icon className="h-4 w-4 text-claw" />
                         </div>
-                        <p className="text-sm flex-1 text-white">{def?.label ?? key}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-white">{def?.label ?? key}</p>
+                          {def?.subtext && (
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {def.subtext}
+                            </p>
+                          )}
+                        </div>
                         <Check className="h-4 w-4 text-claw shrink-0" />
                       </div>
                     ) : (
@@ -251,12 +271,19 @@ export function ClaimBanner({
                         key={key}
                         type="button"
                         onClick={handleTaskClick}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] hover:bg-white/6 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] transition-colors text-left"
+                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] hover:bg-white/6 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] transition-colors text-left cursor-pointer"
                       >
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white/4">
                           <Icon className="h-4 w-4 text-slate-600" />
                         </div>
-                        <p className="text-sm flex-1 text-slate-400">{def?.label ?? key}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-slate-300">{def?.label ?? key}</p>
+                          {def?.subtext && (
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              {def.subtext}
+                            </p>
+                          )}
+                        </div>
                         <ChevronRight className="h-4 w-4 text-slate-600 shrink-0" />
                       </button>
                     );
@@ -287,7 +314,7 @@ export function ClaimBanner({
                   type="button"
                   onClick={handleClaim}
                   disabled={claiming || !allTasksMet || noSpotsLeft}
-                  className="w-full py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-claw text-black hover:bg-claw/90 shadow-[0_0_20px_rgba(240,185,11,0.25)]"
+                  className="w-full py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-claw text-black hover:bg-claw/90 shadow-[0_0_20px_rgba(240,185,11,0.25)]"
                 >
                   {claiming ? (
                     <span className="flex items-center justify-center gap-2">

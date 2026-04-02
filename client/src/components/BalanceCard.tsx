@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Skeleton } from "./ui/Skeleton";
 import { truncateAddress } from "@/lib/format";
-import { ArrowUpRight, ArrowDownLeft, Copy, Check, RefreshCw, Plug } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, Copy, Check, RefreshCw, Plug, ArrowLeftRight } from "lucide-react";
 
 interface BalanceCardProps {
   portfolioTotalUsd: number | null;
@@ -16,9 +16,11 @@ interface BalanceCardProps {
   onToggleSend: () => void;
   onToggleReceive: () => void;
   onToggleConnect?: () => void;
+  onToggleSwap?: () => void;
   sendOpen: boolean;
   receiveOpen: boolean;
   connectOpen?: boolean;
+  swapOpen?: boolean;
 }
 
 export function BalanceCard({
@@ -31,9 +33,11 @@ export function BalanceCard({
   onToggleSend,
   onToggleReceive,
   onToggleConnect,
+  onToggleSwap,
   sendOpen,
   receiveOpen,
   connectOpen,
+  swapOpen,
 }: BalanceCardProps) {
   const [copied, setCopied] = useState(false);
   const displayTotal =
@@ -65,6 +69,16 @@ export function BalanceCard({
       onClick: onToggleReceive,
       active: receiveOpen,
     },
+    ...(onToggleSwap
+      ? [
+          {
+            label: "Swap",
+            icon: ArrowLeftRight,
+            onClick: onToggleSwap,
+            active: swapOpen,
+          },
+        ]
+      : []),
     ...(onToggleConnect
       ? [
           {
@@ -114,7 +128,7 @@ export function BalanceCard({
             onClick={onRefresh}
             disabled={loading}
             aria-label="Refresh"
-            className="p-2 rounded-full text-slate-500 hover:text-white hover:bg-white/8 transition-colors disabled:opacity-40"
+            className="p-2 rounded-full text-slate-500 hover:text-white hover:bg-white/8 transition-colors disabled:opacity-40 cursor-pointer disabled:cursor-default"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </button>
@@ -149,7 +163,7 @@ export function BalanceCard({
       {/* Address chip */}
       <button
         onClick={copyAddress}
-        className="flex items-center gap-1.5 rounded-full bg-white/6 border border-white/6 px-3 py-1.5 mb-6 hover:bg-white/10 transition-all touch-manipulation"
+        className="flex items-center gap-1.5 rounded-full bg-white/6 border border-white/6 px-3 py-1.5 mb-6 hover:bg-white/10 transition-all touch-manipulation cursor-pointer"
       >
         <span className="text-xs font-mono text-slate-500">
           {truncateAddress(safeAddress)}
@@ -173,7 +187,7 @@ export function BalanceCard({
             key={action.label}
             type="button"
             onClick={action.onClick}
-            className="flex flex-col items-center gap-2 group touch-manipulation"
+            className="flex flex-col items-center gap-2 group touch-manipulation cursor-pointer"
           >
             <div
               className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all ${

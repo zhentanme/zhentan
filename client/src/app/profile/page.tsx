@@ -208,13 +208,13 @@ function ProfilePageContent() {
                       <button
                         onClick={saveUsername}
                         disabled={usernameSaving || !usernameInput.trim()}
-                        className="flex-1 py-2 rounded-xl bg-claw/90 text-black text-xs font-semibold disabled:opacity-50"
+                        className="flex-1 py-2 rounded-xl bg-claw/90 text-black text-xs font-semibold disabled:opacity-50 cursor-pointer disabled:cursor-default"
                       >
                         {usernameSaving ? <Loader2 className="h-3 w-3 animate-spin mx-auto" /> : "Save"}
                       </button>
                       <button
                         onClick={() => { setUsernameEditing(false); setUsernameInput(username ?? ""); setUsernameError(null); }}
-                        className="flex-1 py-2 rounded-xl bg-white/6 text-white/60 text-xs"
+                        className="flex-1 py-2 rounded-xl bg-white/6 text-white/60 text-xs cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -223,7 +223,7 @@ function ProfilePageContent() {
                 ) : (
                   <button
                     onClick={() => setUsernameEditing(true)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/4 border border-white/[0.06] hover:border-claw/30 transition-colors group"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/4 border border-white/[0.06] hover:border-claw/30 transition-colors group cursor-pointer"
                   >
                     <span className={`text-sm ${username ? "text-white" : "text-white/30"}`}>
                       {username ? `@${username}` : "Set a username"}
@@ -261,7 +261,7 @@ function ProfilePageContent() {
                 <div className="flex items-center gap-0.5 ml-auto shrink-0">
                   <button
                     onClick={copyAddress}
-                    className="p-1.5 rounded-lg hover:bg-white/8 text-slate-500 hover:text-white transition-all"
+                    className="p-1.5 rounded-lg hover:bg-white/8 text-slate-500 hover:text-white transition-all cursor-pointer"
                     aria-label="Copy safe address"
                   >
                     {copied ? (

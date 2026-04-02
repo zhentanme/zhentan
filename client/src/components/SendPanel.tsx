@@ -474,7 +474,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         <button
           type="button"
           onClick={() => setShowTgRequiredModal(false)}
-          className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+          className="text-xs text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
         >
           Cancel
         </button>
@@ -509,7 +509,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         <button
           type="button"
           onClick={() => setTokenSelectorOpen(true)}
-          className="w-full flex items-center gap-3 rounded-2xl bg-white/6 p-4 text-left hover:bg-white/8 transition-colors min-h-11 touch-manipulation"
+          className="w-full flex items-center gap-3 rounded-2xl bg-white/6 p-4 text-left hover:bg-white/8 transition-colors min-h-11 touch-manipulation cursor-pointer"
         >
           {selectedToken ? (
             <>
@@ -633,7 +633,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               type="button"
               aria-label="Remove recipient"
               onClick={clearRecipient}
-              className="h-7 w-7 rounded-full text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors"
+              className="h-7 w-7 rounded-full text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>

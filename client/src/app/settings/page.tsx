@@ -149,7 +149,7 @@ function SettingsPageContent() {
                 <button
                   onClick={handleToggle}
                   disabled={toggling}
-                  className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 ${
+                  className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default ${
                     screeningMode
                       ? "bg-gold"
                       : "bg-white/12"
@@ -288,7 +288,7 @@ function SettingsPageContent() {
                                     /* ignore */
                                   }
                                 }}
-                                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-white/6 text-slate-400 hover:bg-white/10 hover:text-slate-300 transition-all"
+                                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-white/6 text-slate-400 hover:bg-white/10 hover:text-slate-300 transition-all cursor-pointer"
                               >
                                 Unlink
                               </button>
@@ -299,7 +299,7 @@ function SettingsPageContent() {
                                   linkTelegram();
                                 }}
                                 disabled={linkingTelegram}
-                                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 hover:bg-blue-400/15 transition-all disabled:opacity-50"
+                                className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 hover:bg-blue-400/15 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-default"
                               >
                                 {linkingTelegram ? (
                                   <Loader2 className="h-3 w-3 animate-spin inline mr-1" />

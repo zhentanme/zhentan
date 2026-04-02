@@ -21,6 +21,19 @@ export const ERC20_TRANSFER_ABI = [
   },
 ] as const;
 
+export const ERC20_APPROVE_ABI = [
+  {
+    name: "approve",
+    type: "function" as const,
+    stateMutability: "nonpayable" as const,
+    inputs: [
+      { name: "spender", type: "address" as const },
+      { name: "amount", type: "uint256" as const },
+    ],
+    outputs: [{ type: "bool" as const }],
+  },
+] as const;
+
 export const ERC20_BALANCE_OF_ABI = [
   {
     name: "balanceOf",

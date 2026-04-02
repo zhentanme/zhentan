@@ -197,7 +197,7 @@ function RiskDetailsSection({
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-white/6 transition-colors"
+        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-white/6 transition-colors cursor-pointer"
       >
         <ShieldAlert className="h-4 w-4 text-amber-400/90 shrink-0" />
         <span className="text-sm font-medium text-slate-200 flex-1">{summary}</span>

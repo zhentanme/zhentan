@@ -133,7 +133,7 @@ export function WalletConnectPanel() {
                   <button
                     type="button"
                     onClick={() => handleDisconnect(topic)}
-                    className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors shrink-0"
+                    className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-400/10 transition-colors shrink-0 cursor-pointer"
                     aria-label="Disconnect"
                   >
                     <Unplug className="h-4 w-4" />

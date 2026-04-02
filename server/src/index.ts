@@ -18,6 +18,7 @@ import { createUsersRouter } from "./routes/users.js";
 import { createCampaignsRouter } from "./routes/campaigns.js";
 import { createTokensRouter } from "./routes/tokens.js";
 import { createPayoutRouter } from "./routes/payout.js";
+import { createSwapRouter } from "./routes/swap.js";
 import { editNotification } from "./notify.js";
 
 const app = express();
@@ -94,6 +95,7 @@ app.use("/analyze", auth, createAnalyzeRouter());
 app.use("/users", auth, createUsersRouter());
 app.use("/campaigns", auth, createCampaignsRouter());
 app.use("/payout", createPayoutRouter()); // admin-key protected internally
+app.use("/swap", auth, createSwapRouter());
 
 app.post("/notify-resolve", auth, async (req, res) => {
   const { txId, action, txHash, safeAddress } = req.body ?? {};
