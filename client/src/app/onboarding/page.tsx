@@ -172,9 +172,8 @@ function ConnectStep({
         if (tgUserId) {
           setTelegramLinked(true);
           setTgUsername(name);
-          api.status
-            .update({ safe: safeAddress, telegramChatId: String(tgUserId) })
-            .catch(() => {});
+          api.status.update({ safe: safeAddress, telegramChatId: String(tgUserId) }).catch(() => {});
+          api.users.upsert({ safeAddress, telegramId: String(tgUserId) }).catch(() => {});
         }
       }
       setLinking(false);
@@ -191,6 +190,7 @@ function ConnectStep({
       setTelegramLinked(false);
       setTgUsername(null);
       api.status.update({ safe: safeAddress, telegramChatId: "" }).catch(() => {});
+      api.users.upsert({ safeAddress, telegramId: "" }).catch(() => {});
     } catch {
       // ignore
     } finally {

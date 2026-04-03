@@ -57,6 +57,7 @@ function SettingsPageContent() {
         if (tgUserId) {
           setTelegramLinked(true);
           api.status.update({ safe: safeAddress!, telegramChatId: String(tgUserId) }).catch(() => {});
+          api.users.upsert({ safeAddress: safeAddress!, telegramId: String(tgUserId) }).catch(() => {});
         }
       }
       setLinkingTelegram(false);
@@ -284,6 +285,7 @@ function SettingsPageContent() {
                                     }
                                     setTelegramLinked(false);
                                     await api.status.update({ safe: safeAddress!, telegramChatId: "" });
+                                    await api.users.upsert({ safeAddress: safeAddress!, telegramId: "" });
                                   } catch {
                                     /* ignore */
                                   }
