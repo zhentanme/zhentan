@@ -374,7 +374,7 @@ function DoneStep({ username, socialName }: { username: string | null; socialNam
         protected by Zhentan.
       </p>
 
-      <Button onClick={() => router.replace("/")} className="w-full max-w-xs">
+      <Button onClick={() => router.replace("/home")} className="w-full max-w-xs">
         Go to App
         <ArrowRight className="w-4 h-4" />
       </Button>

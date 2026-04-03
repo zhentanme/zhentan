@@ -563,7 +563,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (!loading && user && wallet) {
-      router.replace("/");
+      router.replace("/home");
     }
   }, [loading, user, wallet, router]);
 
