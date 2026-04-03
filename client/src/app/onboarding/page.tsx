@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, AtSign, Check, MessageCircle, Loader2, X } from "lucide-react";
+import { ArrowRight, AtSign, Check, MessageCircle, Loader2, X, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
@@ -256,7 +256,7 @@ function ConnectStep({
               exit={{ opacity: 0, y: -6 }}
               transition={{ type: "spring", bounce: 0.1 }}
             >
-              <div className="flex items-center gap-4 rounded-2xl px-5 py-4 border border-white/8 bg-white/4">
+              <div className="flex flex-row justify-between items-center gap-4 rounded-2xl px-5 py-4 border border-white/8 bg-white/4">
                 <div className="w-10 h-10 rounded-xl bg-white/6 flex items-center justify-center shrink-0">
                   <TelegramIcon className="h-5 w-5 text-slate-400" />
                 </div>
@@ -271,19 +271,17 @@ function ConnectStep({
                     {tgUsername ? `@${tgUsername}` : "Account linked"}
                   </p>
                 </div>
-                <div className="w-6 h-6 rounded-full border-2 border-white/20 bg-white/10 flex items-center justify-center shrink-0">
-                  <Check className="w-3.5 h-3.5 text-white" />
-                </div>
-              </div>
-
-              <button
+                <button
                 onClick={handleDisconnect}
                 disabled={unlinking}
-                className="w-full flex items-center justify-center gap-1.5 mt-2 py-1.5 text-xs text-slate-500 hover:text-red-400 transition-colors"
+                className="flex items-center justify-center gap-1.5 py-1.5 text-xs text-slate-500 hover:text-red-400 transition-colors"
               >
-                {unlinking && <Loader2 className="h-3 w-3 animate-spin" />}
-                Disconnect
+                {unlinking ? <Loader2 className="h-5 w-5 animate-spin" /> : <XIcon className="h-5 w-5" />}
+                
               </button>
+              </div>
+
+              
             </motion.div>
           )}
         </AnimatePresence>
@@ -329,7 +327,7 @@ function DoneStep({ username }: { username: string | null }) {
       <h2 className="text-2xl font-bold text-center mb-2">You're all set!</h2>
       {username && (
         <p className="text-sm text-muted-foreground text-center mb-2">
-          Welcome, <span className="text-gold font-semibold">@{username}</span>
+          Welcome, <span className="text-gold font-semibold capitalize">{username}</span>
         </p>
       )}
       <p className="text-xs text-muted-foreground/60 text-center max-w-xs mb-8">
