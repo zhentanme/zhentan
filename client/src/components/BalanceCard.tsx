@@ -109,7 +109,7 @@ export function BalanceCard({
       </motion.p>
 
       {/* Balance */}
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex items-center gap-2">
         {loading ? (
           <Skeleton className="h-12 w-44 rounded-2xl" />
         ) : (
@@ -138,7 +138,7 @@ export function BalanceCard({
       {/* 24h change */}
       {portfolioPercentChange24h != null && !loading && (
         <motion.div
-          className="flex items-center gap-1.5 mb-4"
+          className="flex items-center gap-1.5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.25 }}
@@ -163,7 +163,7 @@ export function BalanceCard({
       {/* Address chip */}
       <button
         onClick={copyAddress}
-        className="flex items-center gap-1.5 rounded-full bg-white/6 border border-white/6 px-3 py-1.5 mb-6 hover:bg-white/10 transition-all touch-manipulation cursor-pointer"
+        className="flex items-center gap-1.5 rounded-full bg-white/6 border border-white/6 px-3 py-1.5 mb-4 hover:bg-white/10 transition-all touch-manipulation cursor-pointer"
       >
         <span className="text-xs font-mono text-slate-500">
           {truncateAddress(safeAddress)}

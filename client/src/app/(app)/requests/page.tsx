@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { TopBar } from "@/components/TopBar";
 import { InvoiceList } from "@/components/InvoiceList";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
@@ -99,7 +98,7 @@ function RequestsPageContent() {
   if (safeLoading || !safeAddress) {
     return (
       <div className="flex flex-col h-screen bg-background">
-        <TopBar screeningMode={false} />
+      
         <div className="flex-1 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-gold border-t-transparent" />
         </div>
@@ -109,7 +108,6 @@ function RequestsPageContent() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <TopBar screeningMode={screeningMode} />
       <main className="flex-1 w-full px-4 py-5 sm:p-6 max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
         <motion.div
           variants={staggerContainer}

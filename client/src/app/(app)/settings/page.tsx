@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLinkAccount, usePrivy } from "@privy-io/react-auth";
-import { TopBar } from "@/components/TopBar";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -95,7 +94,7 @@ function SettingsPageContent() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <TopBar screeningMode={screeningMode} />
+    
       <main className="flex-1 w-full px-4 py-5 sm:p-6 max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
         {loading ? (
           <div className="flex justify-center py-16">

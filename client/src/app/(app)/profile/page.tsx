@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { TopBar } from "@/components/TopBar";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -145,7 +144,6 @@ function ProfilePageContent() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <TopBar screeningMode={screeningMode} />
       <main className="flex-1 w-full px-4 py-5 sm:p-6 max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
         <motion.div
           variants={staggerContainer}
@@ -159,6 +157,7 @@ function ProfilePageContent() {
               safeAddress={safeAddress}
               telegramUserId={telegramUserId}
               username={username}
+              hideWhenClaimed
             />
           </motion.div>
 
@@ -266,7 +265,7 @@ function ProfilePageContent() {
                 ) : (
                   <button
                     onClick={() => setUsernameEditing(true)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/4 border border-white/[0.06] hover:border-claw/30 transition-colors group cursor-pointer"
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-white/4 border border-white/6 hover:border-claw/30 transition-colors group cursor-pointer"
                   >
                     <span className={`text-sm ${username ? "text-white" : "text-white/30"}`}>
                       {username ? `@${username}` : "Set a username"}
@@ -384,7 +383,7 @@ function ProfilePageContent() {
                 logout();
                 router.replace("/login");
               }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-sm font-medium text-slate-500 hover:text-red-400 bg-white/2 border border-white/6 hover:border-red-400/20 hover:bg-red-500/[0.04] transition-all"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-sm font-medium text-slate-500 hover:text-red-400 bg-white/2 border border-white/6 hover:border-red-400/20 hover:bg-red-500/4 transition-all"
             >
               <LogOut className="h-4 w-4" />
               Log out

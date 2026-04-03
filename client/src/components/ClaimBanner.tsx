@@ -121,33 +121,26 @@ export function ClaimBanner({
   const alreadyClaimed = !!status?.userClaim;
   const noSpotsLeft = status ? status.claimsRemaining <= 0 : false;
 
-  // In hideWhenClaimed mode, don't render once claimed + dismissed, or if status loaded and already claimed
-  if (hideWhenClaimed && statusLoaded && (alreadyClaimed || dismissed)) {
-    return (
-      <AnimatePresence>
-        {!dismissed && !alreadyClaimed && (
-          <motion.div exit={{ opacity: 0, height: 0, marginBottom: 0 }} />
-        )}
-      </AnimatePresence>
-    );
+  // If configured, hide the entire banner once claimed.
+  if (hideWhenClaimed) {
+    // In hideWhenClaimed mode, don't flash before status is known.
+    if (!statusLoaded) return null;
+    if (alreadyClaimed || dismissed) return null;
   }
-
-  // In hideWhenClaimed mode, don't flash before status is known
-  if (hideWhenClaimed && !statusLoaded) return null;
 
   return (
     <>
       <AnimatePresence>
-       <div className="mx-4">
-       {!dismissed && (
+        {!dismissed && (
           <motion.button
+            key="claim-banner-trigger"
             type="button"
             onClick={() => setOpen(true)}
             initial={hideWhenClaimed ? { opacity: 0, y: -8 } : false}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
             transition={{ duration: 0.3, type: "spring", bounce: 0.15 }}
-            className={`w-full relative overflow-hidden rounded-2xl text-left focus:outline-none group cursor-pointer${hideWhenClaimed ? " mb-4" : ""}`}
+            className={`w-full relative overflow-hidden rounded-2xl text-left focus:outline-none group cursor-pointer mx-4 lg:mx-0${hideWhenClaimed ? " mb-4" : ""}`}
             style={{
               background:
                 "linear-gradient(135deg, rgba(240,185,11,0.12) 0%, rgba(240,185,11,0.05) 50%, rgba(240,185,11,0.10) 100%)",
@@ -208,7 +201,6 @@ export function ClaimBanner({
             </div>
           </motion.button>
         )}
-       </div>
       </AnimatePresence>
 
       <ClaimAnimation

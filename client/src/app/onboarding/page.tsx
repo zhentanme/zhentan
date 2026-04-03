@@ -476,17 +476,9 @@ function OnboardingContent() {
         className="w-full max-w-sm glass-card p-8 flex flex-col items-center"
       >
         {/* Step indicator + skip-all button */}
-        <div className="w-full flex items-center justify-between mb-8">
+        <div className="w-full flex items-center justify-center mb-8">
           <StepIndicator current={step} total={totalSteps} />
-          {step < 2 && (
-            <button
-              onClick={handleSkipAll}
-              className="flex items-center gap-1 text-xs text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
-            >
-              Skip setup
-              <X className="w-3 h-3" />
-            </button>
-          )}
+          
         </div>
 
         {/* Step content */}

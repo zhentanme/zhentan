@@ -3,27 +3,25 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useApiClient } from "@/lib/api/client";
-import { useAuth } from "@/app/context/AuthContext";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Home, FileText, Settings, User, Bell, Shield, ShieldOff } from "lucide-react";
+import { Home, Settings, User, Bell, Shield, ShieldOff } from "lucide-react";
 import { clsx } from "clsx";
+import { useAuth } from "@/app/context/AuthContext";
 
 const navItems = [
-  { href: "/", label: "Home", icon: Home },
+  { href: "/home", label: "Home", icon: Home },
   { href: "/requests", label: "Requests", icon: Bell, badge: true },
   { href: "/settings", label: "Settings", icon: Settings },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
-interface TopBarProps {
-  screeningMode: boolean;
-}
-
-export function TopBar({ screeningMode }: TopBarProps) {
+export function TopBar() {
   const pathname = usePathname();
   const [queuedCount, setQueuedCount] = useState(0);
+  const [screeningMode, setScreeningMode] = useState(false);
   const api = useApiClient();
+  const { safeAddress } = useAuth();
 
   const fetchQueuedCount = useCallback(async () => {
     try {
@@ -43,12 +41,19 @@ export function TopBar({ screeningMode }: TopBarProps) {
     return () => clearInterval(interval);
   }, [fetchQueuedCount]);
 
+  useEffect(() => {
+    if (!safeAddress) return;
+    api.status.get(safeAddress)
+      .then((data) => setScreeningMode(data.screeningMode ?? false))
+      .catch(() => {});
+  }, [safeAddress, api]);
+
   return (
     <>
       {/* Mobile top bar — minimal */}
       <header className="shrink-0 z-50 w-full safe-area-top sm:hidden">
         <div className="h-14 px-5 flex items-center justify-between">
-          <Link href="/" className="flex items-center" aria-label="Zhentan">
+          <Link href="/home" className="flex items-center" aria-label="Zhentan">
             <Image
               src="/logo.png"
               alt="Zhentan"
@@ -79,7 +84,7 @@ export function TopBar({ screeningMode }: TopBarProps) {
       {/* Desktop top bar — full nav */}
       <header className="shrink-0 z-50 w-full backdrop-blur-xl border-b border-white/6 safe-area-top hidden sm:block">
         <div className="h-16 px-6 lg:px-8 flex items-center justify-between gap-4">
-          <Link href="/" className="flex items-center shrink-0" aria-label="Zhentan">
+          <Link href="/home" className="flex items-center shrink-0" aria-label="Zhentan">
             <Image
               src="/logo.png"
               alt="Zhentan"
