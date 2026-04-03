@@ -233,7 +233,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
           <button
             key={key}
             onClick={() => setPeriod(key)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               period === key
                 ? "bg-gold/15 text-gold"
                 : "text-slate-500 hover:text-slate-300 hover:bg-white/5"

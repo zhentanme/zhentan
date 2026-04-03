@@ -133,6 +133,8 @@ export interface TokenPosition {
   balance: string;
   price: number;
   address: string | null;
+  /** True for zero-balance fallback entries shown when the portfolio is sparse. */
+  placeholder?: boolean;
   chain: { id: string; chainId: number; name: string };
   verified: boolean;
 }

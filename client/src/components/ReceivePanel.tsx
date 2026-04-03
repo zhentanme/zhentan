@@ -39,7 +39,7 @@ export function ReceivePanel({ safeAddress }: ReceivePanelProps) {
       <button
         type="button"
         onClick={copyAddress}
-        className="w-full rounded-2xl bg-white/6 hover:bg-white/10 transition-colors px-3 py-3 text-left min-h-11 touch-manipulation"
+        className="w-full rounded-2xl bg-white/6 hover:bg-white/10 transition-colors px-3 py-3 text-left min-h-11 touch-manipulation cursor-pointer"
       >
         <span className="flex items-center justify-between gap-2">
           <span className="font-mono text-xs sm:text-sm text-slate-300 break-all">

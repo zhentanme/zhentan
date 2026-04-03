@@ -4,11 +4,11 @@ import { useRef, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion, useInView } from "framer-motion";
-import { Zap, Bell, Bot, Search, TrendingUp, Lock, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ThemeLoader } from "@/components/ThemeLoader";
 import { useAuth } from "@/app/context/AuthContext";
-import { useLoginWithOAuth, useLoginWithTelegram } from "@privy-io/react-auth";
+import { useLoginWithOAuth } from "@privy-io/react-auth";
 
 /* ─── Helpers ─────────────────────────────────────────────────────── */
 
@@ -508,38 +508,38 @@ const verdicts = [
   },
 ];
 
-const features = [
-  {
-    icon: Bot,
-    title: "Agentic AI Co-Signer",
-    desc: "OpenClaw agent (Qwen3-235B) acts as the second signer on your Safe multisig, making autonomous decisions on every transaction.",
-  },
-  {
-    icon: TrendingUp,
-    title: "Behavioral Pattern Learning",
-    desc: "Builds a profile of your onchain habits — typical recipients, amounts, timing, daily limits — and flags deviations instantly.",
-  },
-  {
-    icon: Lock,
-    title: "2-of-2 Safe Multisig",
-    desc: "Your embedded wallet holds one key; the OpenClaw agent holds the other. Both signatures required — no single point of compromise, ever.",
-  },
-  {
-    icon: Search,
-    title: "Deep Security Scan",
-    desc: "On-demand GoPlus + Honeypot.is checks for address reputation, scam detection, and token security analysis via Telegram.",
-  },
-  {
-    icon: Zap,
-    title: "Gasless via ERC-4337",
-    desc: "Account abstraction with Pimlico bundler means zero gas fees for every transaction. Sponsored automatically.",
-  },
-  {
-    icon: Bell,
-    title: "Telegram Reviews",
-    desc: "Borderline transactions trigger interactive Telegram messages. Approve or reject from anywhere on your phone.",
-  },
-];
+// const features = [
+//   {
+//     icon: Bot,
+//     title: "Agentic AI Co-Signer",
+//     desc: "OpenClaw agent (Qwen3-235B) acts as the second signer on your Safe multisig, making autonomous decisions on every transaction.",
+//   },
+//   {
+//     icon: TrendingUp,
+//     title: "Behavioral Pattern Learning",
+//     desc: "Builds a profile of your onchain habits — typical recipients, amounts, timing, daily limits — and flags deviations instantly.",
+//   },
+//   {
+//     icon: Lock,
+//     title: "2-of-2 Safe Multisig",
+//     desc: "Your embedded wallet holds one key; the OpenClaw agent holds the other. Both signatures required — no single point of compromise, ever.",
+//   },
+//   {
+//     icon: Search,
+//     title: "Deep Security Scan",
+//     desc: "On-demand GoPlus + Honeypot.is checks for address reputation, scam detection, and token security analysis via Telegram.",
+//   },
+//   {
+//     icon: Zap,
+//     title: "Gasless via ERC-4337",
+//     desc: "Account abstraction with Pimlico bundler means zero gas fees for every transaction. Sponsored automatically.",
+//   },
+//   {
+//     icon: Bell,
+//     title: "Telegram Reviews",
+//     desc: "Borderline transactions trigger interactive Telegram messages. Approve or reject from anywhere on your phone.",
+//   },
+// ];
 
 const techStack = [
   "OpenClaw Agent",
@@ -555,9 +555,7 @@ const techStack = [
 export default function LandingPage() {
   const { user, wallet, loading } = useAuth();
   const { initOAuth, loading: oauthLoading } = useLoginWithOAuth();
-  const { login: loginWithTelegram } = useLoginWithTelegram();
   const [signingInGoogle, setSigningInGoogle] = useState(false);
-  const [signingInTelegram, setSigningInTelegram] = useState(false);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
@@ -579,16 +577,6 @@ export default function LandingPage() {
     }
   };
 
-  const handleTelegramLogin = async () => {
-    try {
-      setSigningInTelegram(true);
-      await loginWithTelegram();
-    } catch (err) {
-      console.error("Telegram login failed:", err);
-      setSigningInTelegram(false);
-    }
-  };
-
   if (!mounted || loading || (user && wallet)) {
     return (
       <ThemeLoader
@@ -604,12 +592,15 @@ export default function LandingPage() {
       {/* ── Hero ──────────────────────────────────────────────────── */}
       <section className="min-h-screen flex flex-col items-center justify-center px-4 relative">
 
+        {/* Background grid */}
+        <div className="absolute inset-0 grid-pattern opacity-40 pointer-events-none" />
+
         {/* Logo */}
         <motion.div
           initial={{ opacity: 0, scale: 0.92, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ delay: 0.1, type: "spring", bounce: 0.3 }}
-          className="relative w-[220px] h-[88px] sm:w-[280px] sm:h-[112px]"
+          className="relative w-[220px] h-[88px] sm:w-[280px] sm:h-[112px] mb-10"
         >
           <Image
             src="/brand-kit/Lockup.png"
@@ -621,80 +612,44 @@ export default function LandingPage() {
           />
         </motion.div>
 
-        {/* One-liner */}
-        <motion.p
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, type: "spring", bounce: 0.12 }}
-          className="mt-4 text-sm text-muted-foreground text-center"
-        >
-          Your Onchain Behaviour, Guarded
-        </motion.p>
-
-        {/* Login card */}
+        {/* Card — contains headline, subtext, and button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4, type: "spring", bounce: 0.15 }}
-          className="mt-10 w-full max-w-sm glass-card p-6 flex flex-col gap-3"
+          transition={{ delay: 0.25, type: "spring", bounce: 0.15 }}
+          className="w-full max-w-sm glass-card p-8 flex flex-col items-center"
         >
-          {/* Google */}
-          <Button
-            onClick={handleGoogleLogin}
-            disabled={signingInGoogle || signingInTelegram || oauthLoading}
-            className="w-full"
-          >
-            {signingInGoogle || (oauthLoading && !signingInTelegram) ? (
-              <><Loader2 className="h-4 w-4 animate-spin" />Signing in...</>
-            ) : (
-              <>
-                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
-                Continue with Google
-              </>
-            )}
-          </Button>
+          <h2 className="text-2xl font-bold text-center mb-2">Your Onchain Behaviour, Guarded</h2>
+          <p className="text-sm text-muted-foreground text-center mb-8 max-w-xs">
+            Sign in to access your onchain detective wallet.
+          </p>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-1">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-[11px] text-muted-foreground uppercase tracking-widest">or</span>
-            <div className="flex-1 h-px bg-border" />
+          <div className="w-full space-y-4">
+            <Button
+              onClick={handleGoogleLogin}
+              disabled={signingInGoogle || oauthLoading}
+              className="w-full"
+            >
+              {signingInGoogle || oauthLoading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" />Signing in...</>
+              ) : (
+                <>
+                  <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  Continue with Google
+                </>
+              )}
+            </Button>
+
+            <p className="text-[11px] text-muted-foreground/50 text-center">
+              Secured by Safe · Powered by OpenClaw on BNB Chain
+            </p>
           </div>
-
-          {/* Telegram */}
-          <Button
-            variant="secondary"
-            onClick={handleTelegramLogin}
-            disabled={signingInGoogle || signingInTelegram || oauthLoading}
-            className="w-full"
-          >
-            {signingInTelegram ? (
-              <><Loader2 className="h-4 w-4 animate-spin" />Signing in...</>
-            ) : (
-              <>
-                <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-                </svg>
-                Continue with Telegram
-              </>
-            )}
-          </Button>
         </motion.div>
-
-        {/* Footer note */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.7 }}
-          className="mt-6 text-[11px] text-muted-foreground/50 text-center"
-        >
-          Secured by Safe · Powered by OpenClaw on BNB Chain
-        </motion.p>
 
       </section>
 

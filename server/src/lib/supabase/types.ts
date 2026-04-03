@@ -45,6 +45,7 @@ export interface UserDetailsRow {
   name: string | null;
   username: string | null;
   signer_address: string | null;
+  onboarding_completed: boolean | null;
   created_at: string;
   updated_at: string;
 }

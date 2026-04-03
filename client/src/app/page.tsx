@@ -6,6 +6,7 @@ import { TopBar } from "@/components/TopBar";
 import { BalanceCard } from "@/components/BalanceCard";
 import { SendPanel } from "@/components/SendPanel";
 import { ReceivePanel } from "@/components/ReceivePanel";
+import { SwapPanel } from "@/components/SwapPanel";
 import { WalletConnectPanel } from "@/components/WalletConnectPanel";
 import { WCSessionProposal } from "@/components/WCSessionProposal";
 import { WCTransactionRequest } from "@/components/WCTransactionRequest";
@@ -17,6 +18,7 @@ import { ThemeLoader } from "@/components/ThemeLoader";
 import { ClaimBanner } from "@/components/ClaimBanner";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
+import { padTokensWithFallbacks } from "@/lib/tokenFallbacks";
 import type { TransactionWithStatus, StatusResponse, TokenPosition, PortfolioResponse } from "@/types";
 
 function Dashboard() {
@@ -34,6 +36,7 @@ function Dashboard() {
   const [sendOpen, setSendOpen] = useState(false);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
+  const [swapOpen, setSwapOpen] = useState(false);
   const [listTab, setListTab] = useState<"tokens" | "activity">("tokens");
 
   const fetchPortfolio = useCallback(async () => {
@@ -42,7 +45,7 @@ function Dashboard() {
       const data: PortfolioResponse = await api.portfolio.get(safeAddress);
       setPortfolioTotalUsd(data.totalUsd);
       setPortfolioPercentChange24h(data.percentChange24h ?? null);
-      setTokens(data.tokens ?? []);
+      setTokens(padTokensWithFallbacks(data.tokens ?? []));
     } catch {
       // silent
     } finally {
@@ -114,6 +117,10 @@ function Dashboard() {
           telegramUserId={telegramUserId}
           username={username}
           hideWhenClaimed
+          onClaimed={() => {
+            fetchPortfolio();
+            fetchTransactions();
+          }}
         />
 
         {/* Hero balance section */}
@@ -134,20 +141,30 @@ function Dashboard() {
               setSendOpen(!sendOpen);
               setReceiveOpen(false);
               setConnectOpen(false);
+              setSwapOpen(false);
             }}
             onToggleReceive={() => {
               setReceiveOpen(!receiveOpen);
               setSendOpen(false);
+              setConnectOpen(false);
+              setSwapOpen(false);
+            }}
+            onToggleSwap={() => {
+              setSwapOpen(!swapOpen);
+              setSendOpen(false);
+              setReceiveOpen(false);
               setConnectOpen(false);
             }}
             onToggleConnect={() => {
               setConnectOpen(!connectOpen);
               setSendOpen(false);
               setReceiveOpen(false);
+              setSwapOpen(false);
             }}
             sendOpen={sendOpen}
             receiveOpen={receiveOpen}
             connectOpen={connectOpen}
+            swapOpen={swapOpen}
           />
         </div>
 
@@ -171,6 +188,23 @@ function Dashboard() {
           <ReceivePanel safeAddress={safeAddress} />
         </Dialog>
 
+        <Dialog
+          open={swapOpen}
+          onClose={() => setSwapOpen(false)}
+          title="Swap tokens"
+          className="max-w-md"
+        >
+          <SwapPanel
+            onSuccess={() => {
+              setSwapOpen(false);
+              fetchPortfolio();
+              fetchTransactions();
+            }}
+            onClose={() => setSwapOpen(false)}
+            tokens={tokens}
+          />
+        </Dialog>
+
         <Dialog open={connectOpen} onClose={() => setConnectOpen(false)} title="Connect DApp">
           <WalletConnectPanel />
         </Dialog>
@@ -190,7 +224,7 @@ function Dashboard() {
             <button
               type="button"
               onClick={() => setListTab("tokens")}
-              className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                 listTab === "tokens"
                   ? "text-white"
                   : "text-slate-500 hover:text-slate-300"
@@ -208,7 +242,7 @@ function Dashboard() {
             <button
               type="button"
               onClick={() => setListTab("activity")}
-              className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                 listTab === "activity"
                   ? "text-white"
                   : "text-slate-500 hover:text-slate-300"

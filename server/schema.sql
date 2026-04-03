@@ -63,14 +63,15 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 -- user_details  — identity info synced from Privy on first login
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS user_details (
-  safe_address    TEXT        PRIMARY KEY,
-  email           TEXT,
-  telegram_id     TEXT,
-  name            TEXT,
-  username        TEXT UNIQUE,
-  signer_address  TEXT,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  safe_address          TEXT        PRIMARY KEY,
+  email                 TEXT,
+  telegram_id           TEXT,
+  name                  TEXT,
+  username              TEXT UNIQUE,
+  signer_address        TEXT,
+  onboarding_completed  BOOLEAN,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE OR REPLACE TRIGGER trg_user_details_updated_at

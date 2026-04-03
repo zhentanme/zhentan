@@ -20,17 +20,19 @@ const TOKEN_FALLBACKS: Record<string, TokenFallback> = {
     iconUrl: "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/binance/info/logo.png",
   },
 
-  // USDC (BSC, 18 decimals)
-  "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d": {
-    name: "USD Coin",
-    symbol: "USDC",
-    iconUrl: TW("0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"),
-  },
+
   "0x71da0ba87ffbfc41aab54e3dddb980293c8a7777": {
     name: "Zhentan",
     symbol: "ZHENTAN",
     iconUrl: "https://cdn.dexscreener.com/cms/images/rOBh0EA3qVRGOAxu?width=64&height=64&fit=crop&quality=95&format=auto",
   },
+
+    // USDC (BSC, 18 decimals)
+    "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d": {
+      name: "USD Coin",
+      symbol: "USDC",
+      iconUrl: TW("0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d"),
+    },
 
   // USDT
   "0x55d398326f99059ff775485246999027b3197955": {

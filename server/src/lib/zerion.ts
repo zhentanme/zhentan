@@ -403,11 +403,18 @@ function bscAddress(fi?: RawFungibleInfo): string {
 
 /** Map a Zerion fungible_info to our ZerionToken shape */
 function toToken(fi?: RawFungibleInfo): ZerionToken {
+  // Zerion may omit name/symbol/icon for some transfers; use our static
+  // fallback metadata keyed by the BSC contract address.
+  const bscAddr = bscAddress(fi);
+  const tokenAddressForFallback = bscAddr || zeroAddress;
+  const needsFallback = !fi?.name || !fi?.symbol || !fi?.icon?.url;
+  const fallback = needsFallback ? getTokenFallback(tokenAddressForFallback) : undefined;
+
   return {
-    symbol: fi?.symbol ?? "?",
-    name: fi?.name ?? "",
-    address: bscAddress(fi),
-    iconUrl: fi?.icon?.url ?? null,
+    symbol: fi?.symbol || fallback?.symbol || "?",
+    name: fi?.name || fallback?.name || "",
+    address: bscAddr,
+    iconUrl: fi?.icon?.url || fallback?.iconUrl || null,
     verified: fi?.flags?.verified ?? false,
   };
 }
@@ -465,7 +472,7 @@ export async function fetchTransfers(
   const params = new URLSearchParams({
     currency: "usd",
     "filter[chain_ids]": BSC_CHAIN,   // server-side BSC filter — no need to filter again
-    "filter[trash]": "only_non_trash", // skip spam/dust tokens
+    // "filter[trash]": "only_non_trash", // skip spam/dust tokens
     "page[size]": pageSize.toString(),
   });
   const url = `${BASE_URL}/wallets/${address}/transactions/?${params}`;
@@ -598,6 +605,70 @@ export async function fetchTransfers(
     }
   }
   return [];
+}
+
+// Zerion chain-ID string for BSC used in the fungibles API
+const BSC_ZERION_CHAIN_ID = "binance-smart-chain";
+
+export interface SearchedToken {
+  id: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  iconUrl: string | null;
+  address: string | null;
+}
+
+export async function fetchTokenSearch(
+  query: string,
+  pageSize = 20
+): Promise<SearchedToken[]> {
+  if (!ZERION_API_KEY) return [];
+
+  const params = new URLSearchParams({
+    currency: "usd",
+    "page[size]": pageSize.toString(),
+    "filter[implementation_chain_id]": BSC_ZERION_CHAIN_ID,
+    "filter[search_query]": query,
+    sort: "-market_data.market_cap",
+  });
+
+  const res = await fetch(`${BASE_URL}/fungibles/?${params}`, {
+    headers: {
+      accept: "application/json",
+      authorization: `Basic ${ZERION_API_KEY}`,
+    },
+  });
+  if (!res.ok) throw new Error(`Zerion fungibles ${res.status}`);
+
+  const json = await res.json();
+  const data: unknown[] = json?.data ?? [];
+
+  return data
+    .filter((item: unknown) => !!(item as { attributes?: unknown }).attributes)
+    .map((item: unknown) => {
+      const t = item as {
+        id: string;
+        attributes: {
+          name: string;
+          symbol: string;
+          icon?: { url?: string };
+          implementations?: { chain_id: string; address?: string | null; decimals?: number }[];
+        };
+      };
+      const impl = t.attributes.implementations?.find(
+        (i) => i.chain_id === BSC_ZERION_CHAIN_ID
+      );
+      return {
+        id: t.id,
+        name: t.attributes.name,
+        symbol: t.attributes.symbol,
+        decimals: impl?.decimals ?? 18,
+        iconUrl: t.attributes.icon?.url ?? null,
+        address: impl?.address ?? null,
+      };
+    })
+    .filter((t) => t.address); // must have a BSC address
 }
 
 export async function getPortfolioForAddress(address: string): Promise<PortfolioResponse> {

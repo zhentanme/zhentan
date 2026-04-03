@@ -8,6 +8,7 @@ import {
   getUserDetails,
 } from "../lib/supabase/index.js";
 import type { UserDetailsRow } from "../lib/supabase/types.js";
+import { payCampaignClaim } from "../lib/campaignPayout.js";
 
 type RequirementKey = "tg_connected" | "username_claimed";
 
@@ -47,7 +48,7 @@ export function createCampaignsRouter(): IRouter {
   // GET /campaigns/:id — get campaign + claim status for the caller
   router.get("/:id", async (req: Request, res: Response) => {
     const { id } = req.params;
-    const safeAddress = req.query.safe as string | undefined;
+    const safeAddress = req.user?.safe_address ?? req.query.safe as string | undefined;
     if (!safeAddress) {
       res.status(400).json({ error: "Missing required query param: safe" });
       return;
@@ -72,10 +73,10 @@ export function createCampaignsRouter(): IRouter {
     }
   });
 
-  // POST /campaigns/:id/claim — claim tokens for a campaign
+  // POST /campaigns/:id/claim — claim tokens and trigger treasury payout
   router.post("/:id/claim", async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { safeAddress } = req.body ?? {};
+    const safeAddress = req.user?.safe_address ?? req.body?.safeAddress;
     if (!safeAddress) {
       res.status(400).json({ error: "Missing required field: safeAddress" });
       return;
@@ -132,6 +133,13 @@ export function createCampaignsRouter(): IRouter {
       }
 
       const claim = await createCampaignClaim(id, safeAddress, campaign.token_amount);
+
+      // Fire-and-forget payout — claim is already recorded; payout failure doesn't
+      // block the response and can be retried via /payout/send.
+      payCampaignClaim(id, safeAddress, claim.token_amount).catch((err) =>
+        console.error(`Campaign ${id} payout failed for ${safeAddress}:`, err)
+      );
+
       res.json({ claim });
     } catch (err) {
       res.status(500).json({ error: String(err) });

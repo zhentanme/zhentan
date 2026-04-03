@@ -19,17 +19,19 @@ function formatUsd(value: number): string {
   return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-export function TokenRow({ token, index = 0, selected, onClick }: TokenRowProps) {
+export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance = false }: TokenRowProps & { hideZeroBalance?: boolean }) {
   const usdStr = token.usdValue != null ? formatUsd(token.usdValue) : null;
+  const balanceNum = parseFloat(token.balance) || 0;
   const balanceStr = formatTokenAmount(token.balance);
+  const showBalance = hideZeroBalance ? balanceNum > 0 : true;
 
   const row = (
     <motion.div
       className={`flex items-center gap-3 px-4 py-3.5 transition-colors ${
         onClick ? "cursor-pointer active:bg-white/4" : ""
-      } hover:bg-white/3 ${selected ? "bg-gold/[0.06]" : ""}`}
+      } hover:bg-white/3 ${selected ? "bg-gold/[0.06]" : ""} ${!hideZeroBalance && token.placeholder ? "opacity-35" : ""}`}
       initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: hideZeroBalance ? 1 : token.placeholder ? 0.35 : 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.35, type: "spring", bounce: 0.1 }}
     >
       {/* Token icon */}
@@ -60,20 +62,24 @@ export function TokenRow({ token, index = 0, selected, onClick }: TokenRowProps)
             <CheckCircle2 className="h-3.5 w-3.5 text-gold shrink-0" />
           )}
         </div>
-        <p className="text-xs text-slate-500 mt-0.5">
-          {balanceStr} {token.symbol}
-        </p>
+        {showBalance && (
+          <p className="text-xs text-slate-500 mt-0.5">
+            {balanceStr} {token.symbol}
+          </p>
+        )}
       </div>
 
       {/* Value */}
       <div className="shrink-0 text-right flex items-center gap-2">
         {usdStr != null ? (
           <span className="text-sm font-semibold text-white tabular-nums">{usdStr}</span>
-        ) : (
+        ) : token.placeholder ? (
+          <span className="text-sm font-semibold text-white tabular-nums">$0</span>
+        ) : !hideZeroBalance ? (
           <span className="text-sm text-slate-500 tabular-nums">
             {balanceStr} {token.symbol}
           </span>
-        )}
+        ) : null}
         {selected && (
           <CheckCircle2 className="h-5 w-5 text-gold shrink-0" />
         )}
