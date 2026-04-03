@@ -607,6 +607,70 @@ export async function fetchTransfers(
   return [];
 }
 
+// Zerion chain-ID string for BSC used in the fungibles API
+const BSC_ZERION_CHAIN_ID = "binance-smart-chain";
+
+export interface SearchedToken {
+  id: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  iconUrl: string | null;
+  address: string | null;
+}
+
+export async function fetchTokenSearch(
+  query: string,
+  pageSize = 20
+): Promise<SearchedToken[]> {
+  if (!ZERION_API_KEY) return [];
+
+  const params = new URLSearchParams({
+    currency: "usd",
+    "page[size]": pageSize.toString(),
+    "filter[implementation_chain_id]": BSC_ZERION_CHAIN_ID,
+    "filter[search_query]": query,
+    sort: "-market_data.market_cap",
+  });
+
+  const res = await fetch(`${BASE_URL}/fungibles/?${params}`, {
+    headers: {
+      accept: "application/json",
+      authorization: `Basic ${ZERION_API_KEY}`,
+    },
+  });
+  if (!res.ok) throw new Error(`Zerion fungibles ${res.status}`);
+
+  const json = await res.json();
+  const data: unknown[] = json?.data ?? [];
+
+  return data
+    .filter((item: unknown) => !!(item as { attributes?: unknown }).attributes)
+    .map((item: unknown) => {
+      const t = item as {
+        id: string;
+        attributes: {
+          name: string;
+          symbol: string;
+          icon?: { url?: string };
+          implementations?: { chain_id: string; address?: string | null; decimals?: number }[];
+        };
+      };
+      const impl = t.attributes.implementations?.find(
+        (i) => i.chain_id === BSC_ZERION_CHAIN_ID
+      );
+      return {
+        id: t.id,
+        name: t.attributes.name,
+        symbol: t.attributes.symbol,
+        decimals: impl?.decimals ?? 18,
+        iconUrl: t.attributes.icon?.url ?? null,
+        address: impl?.address ?? null,
+      };
+    })
+    .filter((t) => t.address); // must have a BSC address
+}
+
 export async function getPortfolioForAddress(address: string): Promise<PortfolioResponse> {
   const [positionsResult, percentChange24h] = await Promise.all([
     fetchTokenPositions(address, 100),

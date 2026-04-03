@@ -1,8 +1,25 @@
 import { Router, type Request, type Response } from "express";
-import { fetchTokenDetails, fetchTokenChartData } from "../lib/zerion.js";
+import { fetchTokenDetails, fetchTokenChartData, fetchTokenSearch } from "../lib/zerion.js";
 
 export function createTokensRouter(): Router {
   const router = Router();
+
+  /** GET /tokens/search?q=... — search BNB Chain tokens via Zerion fungibles API */
+  router.get("/search", async (req: Request, res: Response) => {
+    const q = ((req.query.q as string) || "").trim();
+    if (!q) {
+      res.json({ tokens: [] });
+      return;
+    }
+    try {
+      const tokens = await fetchTokenSearch(q);
+      res.json({ tokens });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      console.error("Token search error:", message);
+      res.status(500).json({ error: message });
+    }
+  });
 
   /** GET /tokens/details/:tokenId?currency=usd
    *  Returns token details + all chart periods in parallel (same pattern as Brewit).

@@ -86,7 +86,7 @@ app.use("/tokens", createTokensRouter());         // public — market data
 app.use("/events", createEventsRouter());          // public — client SSE stream
 app.use("/transactions", auth, createTransactionsRouter());
 app.use("/queue", auth, createQueueRouter());
-app.use("/execute", createExecuteRouter());
+app.use("/execute", auth, createExecuteRouter());
 app.use("/invoices", auth, createInvoicesRouter());
 app.use("/status", auth, createStatusRouter());
 app.use("/rules", auth, createRulesRouter());

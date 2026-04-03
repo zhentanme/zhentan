@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
@@ -17,6 +17,7 @@ import {
   Loader2,
   AtSign,
   Pencil,
+  X,
 } from "lucide-react";
 import { truncateAddress } from "@/lib/format";
 import { useApiClient } from "@/lib/api/client";
@@ -52,6 +53,9 @@ function ProfilePageContent() {
   const [usernameEditing, setUsernameEditing] = useState(false);
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameChecking, setUsernameChecking] = useState(false);
+  const [usernameTaken, setUsernameTaken] = useState(false);
+  const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
   const { user, wallet, getOwnerAccount, logout, telegramUserId } = useAuth();
   const { safeAddress: computedSafeAddress } = useSafeAddress(wallet?.address);
@@ -76,8 +80,30 @@ function ProfilePageContent() {
       .catch(() => {});
   }, [safeAddress, api]);
 
+  const handleUsernameInputChange = (val: string) => {
+    setUsernameInput(val);
+    setUsernameError(null);
+    setUsernameTaken(false);
+    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+    if (val.trim().length >= 3) {
+      setUsernameChecking(true);
+      usernameDebounceRef.current = setTimeout(async () => {
+        try {
+          const available = await api.users.checkUsername(val.trim());
+          setUsernameTaken(!available);
+        } catch {
+          setUsernameTaken(false);
+        } finally {
+          setUsernameChecking(false);
+        }
+      }, 400);
+    } else {
+      setUsernameChecking(false);
+    }
+  };
+
   const saveUsername = async () => {
-    if (!safeAddress || !usernameInput.trim()) return;
+    if (!safeAddress || !usernameInput.trim() || usernameTaken || usernameChecking) return;
     setUsernameSaving(true);
     setUsernameError(null);
     try {
@@ -85,7 +111,8 @@ function ProfilePageContent() {
       setUsername(usernameInput.trim());
       setUsernameEditing(false);
     } catch (err) {
-      setUsernameError(err instanceof Error ? err.message : "Failed to save username");
+      const msg = err instanceof Error ? err.message : "Failed to save username";
+      setUsernameError(msg.includes("taken") ? "Username already taken" : msg);
     } finally {
       setUsernameSaving(false);
     }
@@ -193,27 +220,43 @@ function ProfilePageContent() {
 
                 {usernameEditing ? (
                   <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={usernameInput}
-                      onChange={(e) => setUsernameInput(e.target.value)}
-                      placeholder="Enter username"
-                      className="w-full bg-white/6 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-claw/50"
-                      onKeyDown={(e) => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") setUsernameEditing(false); }}
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={usernameInput}
+                        onChange={(e) => handleUsernameInputChange(e.target.value)}
+                        placeholder="Enter username"
+                        className="w-full bg-white/6 border border-white/10 rounded-xl px-3 py-2 pr-8 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-claw/50"
+                        onKeyDown={(e) => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") { setUsernameEditing(false); setUsernameInput(username ?? ""); setUsernameError(null); setUsernameTaken(false); } }}
+                      />
+                      {usernameInput.trim().length >= 3 && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                          {usernameChecking ? (
+                            <Loader2 className="h-3 w-3 animate-spin text-slate-500" />
+                          ) : usernameTaken ? (
+                            <X className="h-3 w-3 text-red-400" />
+                          ) : (
+                            <Check className="h-3 w-3 text-emerald-400" />
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    {usernameTaken && (
+                      <p className="text-xs text-red-400">Username already taken</p>
+                    )}
                     {usernameError && (
                       <p className="text-xs text-red-400">{usernameError}</p>
                     )}
                     <div className="flex gap-2">
                       <button
                         onClick={saveUsername}
-                        disabled={usernameSaving || !usernameInput.trim()}
+                        disabled={usernameSaving || !usernameInput.trim() || usernameTaken || usernameChecking}
                         className="flex-1 py-2 rounded-xl bg-claw/90 text-black text-xs font-semibold disabled:opacity-50 cursor-pointer disabled:cursor-default"
                       >
                         {usernameSaving ? <Loader2 className="h-3 w-3 animate-spin mx-auto" /> : "Save"}
                       </button>
                       <button
-                        onClick={() => { setUsernameEditing(false); setUsernameInput(username ?? ""); setUsernameError(null); }}
+                        onClick={() => { setUsernameEditing(false); setUsernameInput(username ?? ""); setUsernameError(null); setUsernameTaken(false); }}
                         className="flex-1 py-2 rounded-xl bg-white/6 text-white/60 text-xs cursor-pointer"
                       >
                         Cancel

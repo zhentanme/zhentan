@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -50,10 +50,38 @@ function UsernameStep({
   const [username, setUsername] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [taken, setTaken] = useState(false);
+  const api = useApiClient();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isValid = username.trim().length >= 3;
 
+  const handleChange = (val: string) => {
+    const clean = val.toLowerCase().replace(/[^a-z0-9_]/g, "");
+    setUsername(clean);
+    setError(null);
+    setTaken(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (clean.length >= 3) {
+      setChecking(true);
+      debounceRef.current = setTimeout(async () => {
+        try {
+          const available = await api.users.checkUsername(clean);
+          setTaken(!available);
+        } catch {
+          setTaken(false);
+        } finally {
+          setChecking(false);
+        }
+      }, 400);
+    } else {
+      setChecking(false);
+    }
+  };
+
   const handleSave = async () => {
-    if (!isValid) return;
+    if (!isValid || taken || checking) return;
     setSaving(true);
     setError(null);
     try {
@@ -90,21 +118,31 @@ function UsernameStep({
           <input
             type="text"
             value={username}
-            onChange={(e) =>
-              setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))
-            }
+            onChange={(e) => handleChange(e.target.value)}
             placeholder="johndoe"
             maxLength={20}
-            className="w-full rounded-2xl bg-white/6 pl-9 pr-4 py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-white/8 transition-all"
+            className="w-full rounded-2xl bg-white/6 pl-9 pr-10 py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-white/8 transition-all"
           />
+          {isValid && (
+            <span className="absolute right-4 top-1/2 -translate-y-1/2">
+              {checking ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-500" />
+              ) : taken ? (
+                <X className="w-3.5 h-3.5 text-red-400" />
+              ) : (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              )}
+            </span>
+          )}
         </div>
 
         {username.length > 0 && username.length < 3 && (
           <p className="text-xs text-amber-400/80 pl-1">At least 3 characters</p>
         )}
+        {taken && <p className="text-xs text-red-400 pl-1">Username already taken</p>}
         {error && <p className="text-xs text-red-400 pl-1">{error}</p>}
 
-        <Button onClick={handleSave} disabled={!isValid || saving} className="w-full">
+        <Button onClick={handleSave} disabled={!isValid || saving || taken || checking} className="w-full">
           {saving ? (
             <><Loader2 className="w-4 h-4 animate-spin" />Saving...</>
           ) : (
@@ -304,8 +342,9 @@ function ConnectStep({
 
 /* ─── Step 3: Done ───────────────────────────────────────────────── */
 
-function DoneStep({ username }: { username: string | null }) {
+function DoneStep({ username, socialName }: { username: string | null; socialName: string | null }) {
   const router = useRouter();
+  const displayName = socialName?.trim() || username;
 
   return (
     <motion.div
@@ -325,9 +364,9 @@ function DoneStep({ username }: { username: string | null }) {
       </motion.div>
 
       <h2 className="text-2xl font-bold text-center mb-2">You're all set!</h2>
-      {username && (
+      {displayName && (
         <p className="text-sm text-muted-foreground text-center mb-2">
-          Welcome, <span className="text-gold font-semibold capitalize">{username}</span>
+          Welcome, <span className="text-gold font-semibold capitalize">{displayName}</span>
         </p>
       )}
       <p className="text-xs text-muted-foreground/60 text-center max-w-xs mb-8">
@@ -347,7 +386,7 @@ function DoneStep({ username }: { username: string | null }) {
 
 function OnboardingContent() {
   const router = useRouter();
-  const { safeAddress } = useAuth();
+  const { safeAddress, user } = useAuth();
   const api = useApiClient();
 
   const [step, setStep] = useState(0);
@@ -465,7 +504,7 @@ function OnboardingContent() {
               onSkip={handleSkipTelegram}
             />
           )}
-          {step === 2 && <DoneStep username={savedUsername} />}
+          {step === 2 && <DoneStep username={savedUsername} socialName={user?.name ?? null} />}
         </AnimatePresence>
       </motion.div>
     </div>

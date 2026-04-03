@@ -1,8 +1,23 @@
 import { Router, type Request, type Response, type IRouter } from "express";
-import { getUserDetails, upsertUserDetails } from "../lib/supabase/index.js";
+import { getUserDetails, getUserByUsername, upsertUserDetails } from "../lib/supabase/index.js";
 
 export function createUsersRouter(): IRouter {
   const router = Router();
+
+  // GET /users/check-username?username=foo
+  router.get("/check-username", async (req: Request, res: Response) => {
+    const username = (req.query.username as string | undefined)?.toLowerCase().trim();
+    if (!username || username.length < 3) {
+      res.status(400).json({ error: "Username must be at least 3 characters" });
+      return;
+    }
+    try {
+      const existing = await getUserByUsername(username);
+      res.json({ available: !existing });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
 
   // GET /users?safe=0x...
   router.get("/", async (req: Request, res: Response) => {
@@ -38,7 +53,12 @@ export function createUsersRouter(): IRouter {
       const details = await getUserDetails(safeAddress);
       res.json({ user: details });
     } catch (err) {
-      res.status(500).json({ error: String(err) });
+      const msg = String(err);
+      if (msg.includes("unique") || msg.includes("duplicate") || msg.includes("23505")) {
+        res.status(409).json({ error: "Username already taken" });
+      } else {
+        res.status(500).json({ error: msg });
+      }
     }
   });
 

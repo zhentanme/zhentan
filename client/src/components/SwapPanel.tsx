@@ -13,11 +13,15 @@ import {
   ChevronDown,
   Coins,
   CheckCircle2,
+  Search,
+  X,
+  Loader2,
 } from "lucide-react";
 import { formatTokenAmount, truncateAddress, formatDate } from "@/lib/format";
 import { BSC_EXPLORER_URL, NATIVE_TOKEN_ADDRESS } from "@/lib/constants";
 import { proposeSwap, type SwapQuote } from "@/lib/proposeSwap";
 import { useApiClient } from "@/lib/api/client";
+import type { SearchedToken } from "@/lib/api/tokens";
 import { parseUnits, formatUnits } from "viem";
 import type { TokenPosition } from "@/types";
 
@@ -128,7 +132,11 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
   const [executedAt, setExecutedAt] = useState<string | null>(null);
   const [fromSelectorOpen, setFromSelectorOpen] = useState(false);
   const [toSelectorOpen, setToSelectorOpen] = useState(false);
+  const [tokenSearch, setTokenSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<TokenPosition[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Portfolio tokens that can be sold (have balance)
   const sellableTokens = tokens.filter(
@@ -206,6 +214,46 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
     quote && toToken
       ? parseFloat(formatUnits(BigInt(quote.buyAmount), toToken.decimals)).toFixed(6)
       : "";
+
+  const handleTokenSearch = (q: string) => {
+    setTokenSearch(q);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!q.trim()) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await api.tokens.search(q.trim());
+        setSearchResults(results.map((t: SearchedToken): TokenPosition => ({
+          id: t.id,
+          name: t.name,
+          symbol: t.symbol,
+          decimals: t.decimals,
+          iconUrl: t.iconUrl ?? undefined,
+          usdValue: null,
+          balance: "0",
+          price: 0,
+          address: t.address,
+          chain: { id: "bsc", chainId: 56, name: "BNB Chain" },
+          verified: true,
+        })));
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 400);
+  };
+
+  const handleToSelectorClose = () => {
+    setToSelectorOpen(false);
+    setTokenSearch("");
+    setSearchResults([]);
+    setSearchLoading(false);
+  };
 
   const handleSwapTokens = () => {
     const prev = fromToken;
@@ -409,31 +457,82 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
       {/* To token selector dialog */}
       <Dialog
         open={toSelectorOpen}
-        onClose={() => setToSelectorOpen(false)}
+        onClose={handleToSelectorClose}
         title="Buy token"
         sheetOnMobile
       >
-        <div className="flex items-center gap-2 mb-4">
-          <Coins className="h-4 w-4 text-gold" />
-          <h2 className="text-sm font-semibold text-white tracking-wide">
-            <span className="text-gold">›</span> BNB Chain tokens
-          </h2>
+        {/* Search input */}
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+          <input
+            type="text"
+            value={tokenSearch}
+            onChange={(e) => handleTokenSearch(e.target.value)}
+            placeholder="Search by name or address…"
+            className="w-full rounded-xl bg-white/6 border border-white/8 pl-9 pr-9 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-gold/30 focus:bg-white/8 transition-all"
+            autoFocus
+          />
+          {tokenSearch && (
+            <button
+              type="button"
+              onClick={() => handleTokenSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-        <div className="space-y-1 -mx-1">
-          {buyTokens.map((t, i) => (
-            <TokenRow
-              key={t.id}
-              token={t}
-              index={i}
-              selected={toToken?.address?.toLowerCase() === t.address?.toLowerCase()}
-              onClick={() => {
-                setToToken(t);
-                setQuote(null);
-                setToSelectorOpen(false);
-              }}
-            />
-          ))}
-        </div>
+
+        {searchLoading ? (
+          <div className="flex items-center justify-center py-10 gap-2 text-slate-500">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Searching…</span>
+          </div>
+        ) : tokenSearch.trim() ? (
+          searchResults.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-10">No tokens found</p>
+          ) : (
+            <div className="space-y-1 -mx-1">
+              {searchResults.map((t, i) => (
+                <TokenRow
+                  key={t.id}
+                  token={t}
+                  index={i}
+                  selected={toToken?.address?.toLowerCase() === t.address?.toLowerCase()}
+                  onClick={() => {
+                    setToToken(t);
+                    setQuote(null);
+                    handleToSelectorClose();
+                  }}
+                />
+              ))}
+            </div>
+          )
+        ) : (
+          <>
+            <div className="flex items-center gap-2 mb-3">
+              <Coins className="h-4 w-4 text-gold" />
+              <h2 className="text-sm font-semibold text-white tracking-wide">
+                <span className="text-gold">›</span> Popular on BNB Chain
+              </h2>
+            </div>
+            <div className="space-y-1 -mx-1">
+              {buyTokens.map((t, i) => (
+                <TokenRow
+                  key={t.id}
+                  token={t}
+                  index={i}
+                  selected={toToken?.address?.toLowerCase() === t.address?.toLowerCase()}
+                  onClick={() => {
+                    setToToken(t);
+                    setQuote(null);
+                    handleToSelectorClose();
+                  }}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </Dialog>
 
       <div className="flex flex-col gap-3">
