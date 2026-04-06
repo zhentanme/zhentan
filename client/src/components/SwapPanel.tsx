@@ -569,13 +569,29 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           {fromToken && (
             <div className="flex items-center justify-between mt-2">
               <div className="flex items-center gap-1">
-                {[{ label: "50%", pct: 0.5 }, { label: "75%", pct: 0.75 }, { label: "MAX", pct: 1 }].map(({ label, pct }) => (
+                {[{ label: "50%", num: 1n, den: 2n }, { label: "75%", num: 3n, den: 4n }, { label: "MAX", num: 1n, den: 1n }].map(({ label, num, den }) => (
                   <button
                     key={label}
                     type="button"
                     onClick={() => {
-                      const val = (parseFloat(fromToken.balance) * pct).toFixed(6).replace(/\.?0+$/, "");
-                      setSellAmount(val || "0");
+                      const raw = fromToken.balance ?? "0";
+                      if (num === 1n && den === 1n) {
+                        // MAX — use balance string directly to preserve full precision
+                        const trimmed = raw.includes(".")
+                          ? raw.replace(/\.?0+$/, "")
+                          : raw;
+                        setSellAmount(trimmed || "0");
+                      } else {
+                        // Percentage — use bigint math to avoid float precision loss
+                        try {
+                          const wei = parseUnits(raw, fromToken.decimals);
+                          const val = formatUnits((wei * num) / den, fromToken.decimals)
+                            .replace(/\.?0+$/, "");
+                          setSellAmount(val || "0");
+                        } catch {
+                          setSellAmount("0");
+                        }
+                      }
                     }}
                     className="px-1.5 py-0.5 rounded text-xs font-semibold text-gold hover:text-gold-light transition-colors cursor-pointer"
                   >
