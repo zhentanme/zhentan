@@ -641,7 +641,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
                 ))}
               </div>
               <p className="text-xs text-slate-500">
-                {formatTokenAmount(fromToken.balance)} {fromToken.symbol}
+                {formatTokenAmount(fromToken.balance, { raw: true })} {fromToken.symbol}
                 {fromToken.usdValue != null &&
                   ` · $${fromToken.usdValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </p>

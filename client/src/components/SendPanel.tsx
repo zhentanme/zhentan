@@ -542,7 +542,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         ) : null}
         <div className="mt-2 flex items-center justify-between">
           <p className="text-xs text-slate-500">
-            Balance: {selectedToken ? `${formatTokenAmount(selectedToken.balance)} ${selectedToken.symbol}` : "--"}
+            Balance: {selectedToken ? `${formatTokenAmount(selectedToken.balance, { raw: true })} ${selectedToken.symbol}` : "--"}
           </p>
           <button
             type="button"
@@ -582,7 +582,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               <div className="flex-1 min-w-0">
                 <p className="text-base font-semibold text-white">{selectedToken.symbol}</p>
                 <p className="text-sm text-slate-400">
-                  {formatTokenAmount(selectedToken.balance)} {selectedToken.symbol}
+                  {formatTokenAmount(selectedToken.balance, { raw: true })} {selectedToken.symbol}
                   {selectedToken.usdValue != null && ` · $${selectedToken.usdValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </p>
               </div>
