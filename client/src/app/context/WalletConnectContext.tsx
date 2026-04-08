@@ -15,6 +15,7 @@ import { buildApprovedNamespaces, getSdkError } from "@walletconnect/utils";
 import { useAuth } from "./AuthContext";
 import { proposeDappTransaction } from "@/lib/propose-dapp";
 import { useApiClient, apiFetch } from "@/lib/api/client";
+import { hexToBytes } from "viem";
 import type { DappMetadata, TransactionWithStatus } from "@/types";
 
 type SessionMap = Record<string, WalletKitTypes.SessionRequest["params"]>;
@@ -27,21 +28,36 @@ interface WCPendingRequest {
   dappMetadata?: DappMetadata;
 }
 
+interface WCPendingSignRequest {
+  id: number;
+  topic: string;
+  method: "personal_sign" | "eth_sign" | "eth_signTypedData" | "eth_signTypedData_v4";
+  params: unknown[];
+  dappMetadata?: DappMetadata;
+}
+
 interface WalletConnectContextType {
   ready: boolean;
   pair: (uri: string) => Promise<void>;
   sessions: SessionMap;
   sessionProposal: WalletKitTypes.SessionProposal | null;
   pendingRequest: WCPendingRequest | null;
+  pendingSignRequest: WCPendingSignRequest | null;
   approveSession: () => Promise<void>;
   rejectSession: () => Promise<void>;
   approveRequest: () => Promise<string>;
   rejectRequest: () => Promise<void>;
+  approveSignRequest: () => Promise<string>;
+  rejectSignRequest: () => Promise<void>;
   disconnectSession: (topic: string) => Promise<void>;
   requestStatus: "idle" | "signing" | "queued" | "polling" | "success" | "error";
   requestTxHash: string | null;
   requestError: string | null;
   resetRequestState: () => void;
+  signStatus: "idle" | "signing" | "success" | "error";
+  signResult: string | null;
+  signError: string | null;
+  resetSignState: () => void;
 }
 
 const WalletConnectContext = createContext<WalletConnectContextType | null>(null);
@@ -66,9 +82,13 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<SessionMap>({});
   const [sessionProposal, setSessionProposal] = useState<WalletKitTypes.SessionProposal | null>(null);
   const [pendingRequest, setPendingRequest] = useState<WCPendingRequest | null>(null);
+  const [pendingSignRequest, setPendingSignRequest] = useState<WCPendingSignRequest | null>(null);
   const [requestStatus, setRequestStatus] = useState<WalletConnectContextType["requestStatus"]>("idle");
   const [requestTxHash, setRequestTxHash] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
+  const [signStatus, setSignStatus] = useState<WalletConnectContextType["signStatus"]>("idle");
+  const [signResult, setSignResult] = useState<string | null>(null);
+  const [signError, setSignError] = useState<string | null>(null);
   const walletKitRef = useRef<InstanceType<typeof WalletKit> | null>(null);
   const initRef = useRef(false);
 
@@ -157,7 +177,23 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Unsupported methods for MVP
+      if (
+        request.method === "personal_sign" ||
+        request.method === "eth_sign" ||
+        request.method === "eth_signTypedData" ||
+        request.method === "eth_signTypedData_v4"
+      ) {
+        setPendingSignRequest({
+          id,
+          topic,
+          method: request.method as WCPendingSignRequest["method"],
+          params: request.params,
+          dappMetadata: dappMeta,
+        });
+        return;
+      }
+
+      // Unsupported methods
       walletKit.respondSessionRequest({
         topic,
         response: {
@@ -235,6 +271,99 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     });
     setSessionProposal(null);
   }, [walletKit, sessionProposal]);
+
+  const approveSignRequest = useCallback(async (): Promise<string> => {
+    if (!walletKit || !pendingSignRequest || !wallet) {
+      throw new Error("Not ready to sign");
+    }
+
+    setSignStatus("signing");
+
+    try {
+      const ownerAccount = await getOwnerAccount();
+      if (!ownerAccount) throw new Error("Could not get signer account");
+
+      // ownerAccount is a viem WalletClient spread, cast to access sign methods
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const client = ownerAccount as any;
+
+      let signature: string;
+      const { method, params } = pendingSignRequest;
+
+      if (method === "personal_sign") {
+        // params: [message_hex, address]
+        const messageHex = params[0] as `0x${string}`;
+        signature = await client.signMessage({
+          account: wallet.address,
+          message: { raw: hexToBytes(messageHex) },
+        });
+      } else if (method === "eth_sign") {
+        // params: [address, message_hex] — reversed from personal_sign
+        const messageHex = params[1] as `0x${string}`;
+        signature = await client.signMessage({
+          account: wallet.address,
+          message: { raw: hexToBytes(messageHex) },
+        });
+      } else {
+        // eth_signTypedData / eth_signTypedData_v4
+        // params: [address, typedDataJson]
+        const typedData = JSON.parse(params[1] as string);
+        const { domain, types, primaryType, message } = typedData;
+        // Remove EIP712Domain from types if present (viem adds it automatically)
+        const { EIP712Domain: _eip712Domain, ...filteredTypes } = types;
+        signature = await client.signTypedData({
+          account: wallet.address,
+          domain,
+          types: filteredTypes,
+          primaryType,
+          message,
+        });
+      }
+
+      await walletKit.respondSessionRequest({
+        topic: pendingSignRequest.topic,
+        response: { id: pendingSignRequest.id, jsonrpc: "2.0", result: signature },
+      });
+
+      setSignResult(signature);
+      setSignStatus("success");
+      setPendingSignRequest(null);
+      return signature;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Signing failed";
+      setSignStatus("error");
+      setSignError(message);
+      await walletKit.respondSessionRequest({
+        topic: pendingSignRequest.topic,
+        response: {
+          id: pendingSignRequest.id,
+          jsonrpc: "2.0",
+          error: { code: -32000, message },
+        },
+      });
+      throw err;
+    }
+  }, [walletKit, pendingSignRequest, wallet, getOwnerAccount]);
+
+  const rejectSignRequest = useCallback(async () => {
+    if (!walletKit || !pendingSignRequest) return;
+    await walletKit.respondSessionRequest({
+      topic: pendingSignRequest.topic,
+      response: {
+        id: pendingSignRequest.id,
+        jsonrpc: "2.0",
+        error: getSdkError("USER_REJECTED"),
+      },
+    });
+    setPendingSignRequest(null);
+    setSignStatus("idle");
+  }, [walletKit, pendingSignRequest]);
+
+  const resetSignState = useCallback(() => {
+    setSignStatus("idle");
+    setSignResult(null);
+    setSignError(null);
+  }, []);
 
   const approveRequest = useCallback(async (): Promise<string> => {
     if (!walletKit || !pendingRequest || !wallet || !safeAddress) {
@@ -361,15 +490,22 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
     sessions,
     sessionProposal,
     pendingRequest,
+    pendingSignRequest,
     approveSession,
     rejectSession,
     approveRequest,
     rejectRequest,
+    approveSignRequest,
+    rejectSignRequest,
     disconnectSession,
     requestStatus,
     requestTxHash,
     requestError,
     resetRequestState,
+    signStatus,
+    signResult,
+    signError,
+    resetSignState,
   };
 
   return (

@@ -9,6 +9,7 @@ import { SwapPanel } from "@/components/SwapPanel";
 import { WalletConnectPanel } from "@/components/WalletConnectPanel";
 import { WCSessionProposal } from "@/components/WCSessionProposal";
 import { WCTransactionRequest } from "@/components/WCTransactionRequest";
+import { WCSignatureRequest } from "@/components/WCSignatureRequest";
 import { ActivityList } from "@/components/ActivityList";
 import { TokenList } from "@/components/TokenList";
 import { Dialog } from "@/components/ui/Dialog";
@@ -212,6 +213,7 @@ function Dashboard() {
 
         <WCSessionProposal />
         <WCTransactionRequest />
+        <WCSignatureRequest />
 
         {/* Tokens / Activity tabs */}
         <motion.div
