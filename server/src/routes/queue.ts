@@ -65,9 +65,13 @@ export function createQueueRouter(): IRouter {
         const port = Number(process.env.PORT) || 3001;
 
         try {
+          const agentSecret = process.env.AGENT_SECRET;
           const execRes = await fetch(`http://localhost:${port}/execute`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(agentSecret && { Authorization: `Bearer ${agentSecret}` }),
+            },
             body: JSON.stringify({ txId: pendingTx.id }),
           });
           const execResult = (await execRes.json()) as Record<string, unknown>;
