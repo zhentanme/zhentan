@@ -154,7 +154,8 @@ async function fetchDirectQuote(
   fromToken: string,
   toToken: string,
   amount: string,
-  fromAddress: string
+  fromAddress: string,
+  slippage: number
 ): Promise<NormalisedQuote | null> {
   const params = new URLSearchParams({
     fromChain: BSC_LIFI_KEY,
@@ -165,7 +166,7 @@ async function fetchDirectQuote(
     toAddress: fromAddress,
     fromAmount: amount,
     order: "CHEAPEST",
-    slippage: "0.05",
+    slippage: slippage.toString(),
     integrator: "zhentan",
     preferExchanges: "sushiswap",
   });
@@ -201,7 +202,8 @@ async function fetchBestRoute(
   fromToken: string,
   toToken: string,
   amount: string,
-  fromAddress: string
+  fromAddress: string,
+  slippage: number
 ): Promise<{ quote: NormalisedQuote; step: LiFiStep } | null> {
   const res = await fetch("https://li.quest/v1/advanced/routes", {
     method: "POST",
@@ -215,7 +217,7 @@ async function fetchBestRoute(
       fromAddress,
       toAddress: fromAddress,
       order: "CHEAPEST",
-      slippage: 0.05,
+      slippage,
       integrator: "zhentan",
       options: { exchanges: { allow: ["sushiswap"] } },
     }),
@@ -291,8 +293,11 @@ async function fetchStepTransaction(step: LiFiStep): Promise<NormalisedQuote | n
 export function createSwapRouter(): Router {
   const router = Router();
 
+  // Slippage ladder: start low, escalate for low-liquidity tokens
+  const SLIPPAGE_LADDER = [0.05, 0.1, 0.15, 0.2, 0.3, 0.49];
+
   router.get("/", async (req: Request, res: Response) => {
-    const { fromToken, toToken, amount, fromAddress } = req.query as Record<string, string>;
+    const { fromToken, toToken, amount, fromAddress, slippage: slippageParam } = req.query as Record<string, string>;
 
     if (!fromToken || !toToken || !amount || !fromAddress) {
       res.status(400).json({
@@ -301,12 +306,30 @@ export function createSwapRouter(): Router {
       return;
     }
 
+    // If caller provides a slippage hint, use only that value; otherwise auto-escalate
+    const slippageLadder = slippageParam
+      ? [Math.min(Math.max(parseFloat(slippageParam), 0.01), 0.49)]
+      : SLIPPAGE_LADDER;
+
     try {
-      // Run direct quote and advanced routes in parallel (mirrors Brewit bridge route)
-      const [directResult, routeResult] = await Promise.all([
-        fetchDirectQuote(fromToken, toToken, amount, fromAddress).catch(() => null),
-        fetchBestRoute(fromToken, toToken, amount, fromAddress).catch(() => null),
-      ]);
+      let directResult: NormalisedQuote | null = null;
+      let routeResult: { quote: NormalisedQuote; step: LiFiStep } | null = null;
+      let usedSlippage = slippageLadder[0];
+
+      for (const slippage of slippageLadder) {
+        usedSlippage = slippage;
+        [directResult, routeResult] = await Promise.all([
+          fetchDirectQuote(fromToken, toToken, amount, fromAddress, slippage).catch(() => null),
+          fetchBestRoute(fromToken, toToken, amount, fromAddress, slippage).catch(() => null),
+        ]);
+
+        if (directResult || routeResult) {
+          if (slippage > 0.05) {
+            console.log(`Swap: low-liquidity token — using escalated slippage ${(slippage * 100).toFixed(0)}%`);
+          }
+          break;
+        }
+      }
 
       if (!directResult && !routeResult) {
         res.status(400).json({ error: "No swap routes found for this token pair" });
@@ -341,7 +364,7 @@ export function createSwapRouter(): Router {
         return;
       }
 
-      res.json({ status: true, quote: finalQuote });
+      res.json({ status: true, quote: finalQuote, slippage: usedSlippage });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Internal server error";
       console.error("Swap quote error:", message);

@@ -116,6 +116,32 @@ interface SwapPanelProps {
 
 type SwapPhase = "form" | "swapping" | "success" | "error";
 
+const SLIPPAGE_LADDER = [0.05, 0.1, 0.15, 0.2, 0.3, 0.49];
+
+// Low-liquidity tokens that need a higher starting slippage (10% minimum).
+// Add token addresses here (lowercase) as needed.
+const LOW_LIQUIDITY_TOKENS = new Set([
+  "0x71da0ba87ffbfc41aab54e3dddb980293c8a7777", // ZHENTAN
+]);
+
+function isLowLiquiditySwap(from?: string | null, to?: string | null): boolean {
+  return (
+    LOW_LIQUIDITY_TOKENS.has(from?.toLowerCase() ?? "") ||
+    LOW_LIQUIDITY_TOKENS.has(to?.toLowerCase() ?? "")
+  );
+}
+
+function isSlippageError(msg: string): boolean {
+  const lower = msg.toLowerCase();
+  return (
+    lower.includes("slippage") ||
+    lower.includes("insufficient_output_amount") ||
+    lower.includes("too little received") ||
+    lower.includes("minreturn") ||
+    lower.includes("execution reverted")
+  );
+}
+
 export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
   const { wallet, safeAddress, getOwnerAccount, identityToken } = useAuth();
   const api = useApiClient();
@@ -142,6 +168,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
   const [phase, setPhase] = useState<SwapPhase>("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [swapStatus, setSwapStatus] = useState<string>("Processing swap");
   const [txHash, setTxHash] = useState<string | null>(null);
   const [executedAt, setExecutedAt] = useState<string | null>(null);
   const [fromSelectorOpen, setFromSelectorOpen] = useState(false);
@@ -211,6 +238,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           toToken: toToken.address ?? NATIVE_TOKEN_ADDRESS,
           amount: amountWei,
           fromAddress: safeAddress,
+          ...(isLowLiquiditySwap(fromToken.address, toToken.address) && { slippage: "0.1" }),
         });
         setQuote(fetchedQuote);
         setQuoteError(null);
@@ -281,34 +309,68 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
   };
 
   const handleSubmit = async () => {
-    if (!fromToken || !toToken || !quote || !wallet || !sellAmount) return;
+    if (!fromToken || !toToken || !quote || !wallet || !sellAmount || !safeAddress) return;
 
     setError(null);
     setLoading(true);
     setPhase("swapping");
+    setSwapStatus("Processing swap");
 
-    try {
-      const pendingTx = await proposeSwap({
-        fromToken,
-        toToken,
-        sellAmount,
-        quote,
-        ownerAddress: wallet.address,
-        getOwnerAccount,
-        amountUSD: quote.sellAmountUSD || undefined,
-        identityToken,
-      });
+    // Low-liq tokens start at 10%; others use whatever the quote was fetched with
+    const minSlippage = isLowLiquiditySwap(fromToken.address, toToken.address) ? 0.1 : 0.05;
+    const startSlippage = Math.max(quote.slippage ?? minSlippage, minSlippage);
+    const startIdx = Math.max(SLIPPAGE_LADDER.indexOf(startSlippage), 0);
 
-      const result = await api.execute.run(pendingTx.id);
-      setTxHash(result.txHash ?? null);
-      setExecutedAt(new Date().toISOString());
-      setPhase("success");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Swap failed");
-      setPhase("error");
-    } finally {
-      setLoading(false);
+    let activeQuote = quote;
+
+    for (let i = startIdx; i < SLIPPAGE_LADDER.length; i++) {
+      try {
+        if (i > startIdx) {
+          const pct = (SLIPPAGE_LADDER[i] * 100).toFixed(0);
+          setSwapStatus(`Retrying with ${pct}% slippage…`);
+          const amountWei = parseUnits(sellAmount, fromToken.decimals).toString();
+          activeQuote = await api.swap.getQuote({
+            fromToken: fromToken.address ?? NATIVE_TOKEN_ADDRESS,
+            toToken: toToken.address ?? NATIVE_TOKEN_ADDRESS,
+            amount: amountWei,
+            fromAddress: safeAddress,
+            slippage: SLIPPAGE_LADDER[i].toString(),
+          });
+          setQuote(activeQuote);
+        }
+
+        const pendingTx = await proposeSwap({
+          fromToken,
+          toToken,
+          sellAmount,
+          quote: activeQuote,
+          ownerAddress: wallet.address,
+          getOwnerAccount,
+          amountUSD: activeQuote.sellAmountUSD || undefined,
+          identityToken,
+        });
+
+        const result = await api.execute.run(pendingTx.id);
+        setTxHash(result.txHash ?? null);
+        setExecutedAt(new Date().toISOString());
+        setPhase("success");
+        setLoading(false);
+        return;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "";
+        if (isSlippageError(msg) && i < SLIPPAGE_LADDER.length - 1) {
+          continue;
+        }
+        setError(msg || "Swap failed");
+        setPhase("error");
+        setLoading(false);
+        return;
+      }
     }
+
+    setError("Swap failed: could not find a route even at maximum slippage");
+    setPhase("error");
+    setLoading(false);
   };
 
   const reset = () => {
@@ -318,6 +380,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
     setTxHash(null);
     setExecutedAt(null);
     setError(null);
+    setSwapStatus("Processing swap");
     setPhase("form");
   };
 
@@ -327,7 +390,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
       <div className="flex flex-col gap-6">
         <div className="flex flex-col items-center gap-4">
           <ThemeLoaderSpinner variant="transaction" />
-          <p className="text-sm font-semibold text-gold">Processing swap</p>
+          <p className="text-sm font-semibold text-gold">{swapStatus}</p>
           <p className="text-xs text-slate-500 uppercase tracking-widest">Executing on chain</p>
         </div>
         <div className="rounded-2xl bg-white/6 p-4 space-y-3">

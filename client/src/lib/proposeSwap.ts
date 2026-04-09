@@ -42,6 +42,7 @@ export interface SwapQuote {
   };
   approvalAddress: string;
   tool: { key: string; name: string; logoURI: string };
+  slippage?: number;
 }
 
 export interface ProposeSwapParams {
