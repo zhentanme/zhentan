@@ -15,6 +15,8 @@ export interface PendingTransaction {
   tradeReceived?: { symbol: string; amount: string; iconUrl: string };
   /** USD value of the primary transfer (from Zerion) */
   valueUSD?: number;
+  /** USD value at proposal time — used for cross-token pattern aggregations */
+  amountUSD?: string;
   to: string;
   amount: string;
   token: string;

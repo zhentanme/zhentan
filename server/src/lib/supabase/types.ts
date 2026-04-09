@@ -31,6 +31,7 @@ export interface TransactionRow {
   rejected: boolean;
   rejected_at: string | null;
   reject_reason: string | null;
+  amount_usd: string | null;
   executed_at: string | null;
   executed_by: string | null;
   tx_hash: string | null;

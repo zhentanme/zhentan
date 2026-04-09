@@ -135,7 +135,7 @@ export function analyzeRisk(
   const reasons: string[] = [];
   const triggeredRules: string[] = [];
 
-  const amount = parseFloat(tx.amount);
+  const amount = parseFloat(tx.amountUSD ?? tx.amount);
   const limits = patterns.globalLimits;
   const now = new Date();
   const hourUtc = now.getUTCHours();
@@ -173,12 +173,12 @@ export function analyzeRisk(
     if (avg > 0 && amount > avg + stddev * 3) {
       riskScore += 25;
       reasons.push(
-        `Amount ${tx.amount} is far above the usual range for this recipient (avg ${avg}, σ ${stddev.toFixed(2)})`
+        `Amount $${amount.toFixed(2)} is far above the usual range for this recipient (avg $${avg}, σ ${stddev.toFixed(2)})`
       );
     } else if (avg > 0 && amount > avg * 3) {
       riskScore += 15;
       reasons.push(
-        `Amount ${tx.amount} is ${(amount / avg).toFixed(1)}× the average (${avg})`
+        `Amount $${amount.toFixed(2)} is ${(amount / avg).toFixed(1)}× the average ($${avg})`
       );
     }
 
@@ -210,7 +210,7 @@ export function analyzeRisk(
   // ── 3. Single-tx amount limit ─────────────────────────────
   if (amount > parseFloat(limits.maxSingleTx)) {
     riskScore += 30;
-    reasons.push(`Amount ${tx.amount} exceeds single-tx limit of ${limits.maxSingleTx}`);
+    reasons.push(`Amount $${amount.toFixed(2)} exceeds single-tx limit of $${limits.maxSingleTx}`);
   }
 
   // ── 4. Velocity: daily volume ─────────────────────────────
@@ -218,7 +218,7 @@ export function analyzeRisk(
   if (dailyVolumeUsed + amount > parseFloat(limits.maxDailyVolume)) {
     riskScore += 20;
     reasons.push(
-      `Would exceed daily volume limit (${dailyVolumeUsed.toFixed(2)} + ${tx.amount} > ${limits.maxDailyVolume})`
+      `Would exceed daily volume limit ($${dailyVolumeUsed.toFixed(2)} + $${amount.toFixed(2)} > $${limits.maxDailyVolume})`
     );
   }
 
@@ -227,7 +227,7 @@ export function analyzeRisk(
   if (hourlyVolumeUsed + amount > parseFloat(limits.maxHourlyVolume)) {
     riskScore += 15;
     reasons.push(
-      `Would exceed hourly volume limit (${hourlyVolumeUsed.toFixed(2)} + ${tx.amount} > ${limits.maxHourlyVolume})`
+      `Would exceed hourly volume limit ($${hourlyVolumeUsed.toFixed(2)} + $${amount.toFixed(2)} > $${limits.maxHourlyVolume})`
     );
   }
 
@@ -236,7 +236,7 @@ export function analyzeRisk(
   if (weeklyVolumeUsed + amount > parseFloat(limits.maxWeeklyVolume)) {
     riskScore += 10;
     reasons.push(
-      `Would exceed weekly volume limit (${weeklyVolumeUsed.toFixed(2)} + ${tx.amount} > ${limits.maxWeeklyVolume})`
+      `Would exceed weekly volume limit ($${weeklyVolumeUsed.toFixed(2)} + $${amount.toFixed(2)} > $${limits.maxWeeklyVolume})`
     );
   }
 

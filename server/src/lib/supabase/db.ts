@@ -57,6 +57,7 @@ function rowToTx(row: TransactionRow): PendingTransaction {
     riskVerdict: row.risk_verdict ?? undefined,
     riskReasons: row.risk_reasons ?? undefined,
     screeningDisabled: row.screening_disabled,
+    amountUSD: row.amount_usd ?? undefined,
   };
 }
 
@@ -85,6 +86,7 @@ function txToRow(tx: PendingTransaction): TransactionRow {
     rejected: tx.rejected ?? false,
     rejected_at: tx.rejectedAt ?? null,
     reject_reason: tx.rejectReason ?? null,
+    amount_usd: tx.amountUSD ?? null,
     executed_at: tx.executedAt ?? null,
     executed_by: tx.executedBy ?? null,
     tx_hash: tx.txHash ?? null,
@@ -198,6 +200,7 @@ export async function updateTransaction(
     riskVerdict: "risk_verdict",
     riskReasons: "risk_reasons",
     screeningDisabled: "screening_disabled",
+    amountUSD: "amount_usd",
   };
 
   const row: Partial<TransactionRow> = {};
@@ -858,7 +861,7 @@ export async function recordTxOutcome(
     tx_id: tx.id,
     event_type: outcome,
     recipient_address: tx.to.toLowerCase(),
-    amount: tx.amount,
+    amount: tx.amountUSD ?? tx.amount,
     token_address: tx.tokenAddress?.toLowerCase() ?? null,
     token_symbol: tx.token ?? null,
     risk_score: opts?.riskScore ?? tx.riskScore ?? null,
@@ -881,7 +884,7 @@ export async function updatePatternsAfterExecution(
   tx: PendingTransaction
 ): Promise<void> {
   const safe = tx.safeAddress.toLowerCase();
-  const amount = parseFloat(tx.amount);
+  const amount = parseFloat(tx.amountUSD ?? tx.amount);
   const now = new Date();
   const hourUtc = now.getUTCHours();
   const dayOfWeek = now.getUTCDay();
@@ -986,7 +989,7 @@ async function _updateTokenPattern(
 ): Promise<void> {
   if (!tx.tokenAddress) return;
   const tokenAddress = tx.tokenAddress.toLowerCase();
-  const amount = parseFloat(tx.amount);
+  const amount = parseFloat(tx.amountUSD ?? tx.amount);
   const existing = await getTokenPattern(safe, tokenAddress);
   const n = existing?.total_tx_count ?? 0;
   const newN = n + 1;

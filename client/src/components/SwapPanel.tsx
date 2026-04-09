@@ -295,6 +295,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
         quote,
         ownerAddress: wallet.address,
         getOwnerAccount,
+        amountUSD: quote.sellAmountUSD || undefined,
         identityToken,
       });
 

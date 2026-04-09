@@ -174,6 +174,12 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
 
     try {
       // 1. Propose (sign with embedded wallet, save to queue)
+      const price = selectedToken?.price ?? 0;
+      const amountUSD =
+        price > 0 && parseFloat(amount) > 0
+          ? (parseFloat(amount) * price).toFixed(2)
+          : undefined;
+
       const pendingTx = await proposeTransaction({
         recipient: address,
         amount,
@@ -184,6 +190,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         tokenSymbol: selectedToken?.symbol,
         tokenIconUrl: selectedToken?.iconUrl ?? undefined,
         screeningDisabled: !screeningMode,
+        amountUSD,
         identityToken,
       });
 

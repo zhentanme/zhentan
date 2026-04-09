@@ -86,6 +86,12 @@ export function createQueueRouter(): IRouter {
               undefined,
               chatId
             );
+            recordTxOutcome(txWithRisk, "auto_approved", {
+              riskScore: risk.riskScore,
+              riskVerdict: risk.verdict,
+              riskReasons: risk.reasons,
+              triggeredRules: risk.triggeredRules,
+            }).catch((err) => console.error("Pattern record failed (auto_approved):", err));
             res.json({
               success: true,
               id: pendingTx.id,

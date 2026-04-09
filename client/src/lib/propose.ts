@@ -41,6 +41,7 @@ export async function proposeTransaction({
   tokenSymbol,
   tokenIconUrl,
   screeningDisabled,
+  amountUSD,
   identityToken,
 }: ProposeParams) {
   const pimlicoApiKey = requireEnv(process.env.NEXT_PUBLIC_PIMLICO_API_KEY, "NEXT_PUBLIC_PIMLICO_API_KEY");
@@ -132,6 +133,7 @@ export async function proposeTransaction({
     token: symbol,
     tokenAddress: isNative ? NATIVE_TOKEN_ADDRESS : tokenAddress,
     tokenIconUrl: tokenIconUrl ?? null,
+    ...(amountUSD && { amountUSD }),
     ...(screeningDisabled && { screeningDisabled: true }),
     proposedBy: ownerAccount.address,
     signatures: [ownerAccount.address],

@@ -51,6 +51,7 @@ export interface ProposeSwapParams {
   quote: SwapQuote;
   ownerAddress: string;
   getOwnerAccount: () => Promise<import("viem").LocalAccount | null>;
+  amountUSD?: string;
   identityToken?: string | null;
 }
 
@@ -66,6 +67,7 @@ export async function proposeSwap({
   quote,
   ownerAddress,
   getOwnerAccount,
+  amountUSD,
   identityToken,
 }: ProposeSwapParams) {
   const pimlicoApiKey = requireEnv(
@@ -166,6 +168,7 @@ export async function proposeSwap({
     token: `${fromToken.symbol} → ${toToken.symbol}`,
     tokenAddress: fromToken.address ?? NATIVE_TOKEN_ADDRESS,
     tokenIconUrl: fromToken.iconUrl ?? null,
+    ...(amountUSD && { amountUSD }),
     screeningDisabled: true,
     proposedBy: ownerAccount.address,
     signatures: [ownerAccount.address],

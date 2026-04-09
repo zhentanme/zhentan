@@ -22,6 +22,8 @@ export interface PendingTransaction {
   tradeReceived?: { symbol: string; amount: string; iconUrl: string };
   /** USD value of the primary transfer (from Zerion) */
   valueUSD?: number;
+  /** USD value at proposal time — used for cross-token pattern aggregations */
+  amountUSD?: string;
   to: string;
   amount: string;
   token: string;
@@ -198,6 +200,8 @@ export interface ProposeParams {
   tokenIconUrl?: string | null;
   /** When true, server skips risk analysis and auto-execute; client will call execute. */
   screeningDisabled?: boolean;
+  /** USD value at proposal time — for cross-token pattern aggregations */
+  amountUSD?: string;
   /** Privy identity token for authenticating the backend request */
   identityToken?: string | null;
 }

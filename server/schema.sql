@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   rejected            BOOLEAN NOT NULL DEFAULT false,
   rejected_at         TIMESTAMPTZ,
   reject_reason       TEXT,
+  -- USD value at proposal time (used for cross-token pattern aggregations)
+  amount_usd          TEXT,
   -- execution result
   executed_at         TIMESTAMPTZ,
   executed_by         TEXT,
