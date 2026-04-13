@@ -227,6 +227,24 @@ export async function getTransactionsByAddress(
   return (data ?? []).map(rowToTx);
 }
 
+export async function getLastInReviewTransaction(
+  safeAddress: string
+): Promise<PendingTransaction | null> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("safe_address", safeAddress.toLowerCase())
+    .eq("in_review", true)
+    .eq("rejected", false)
+    .is("executed_at", null)
+    .order("proposed_at", { ascending: false })
+    .limit(1)
+    .returns<TransactionRow[]>();
+
+  if (error) throw error;
+  return data && data.length > 0 ? rowToTx(data[0]) : null;
+}
+
 // ─────────────────────────────────────────────────────────────
 // User settings
 // ─────────────────────────────────────────────────────────────
@@ -1120,6 +1138,15 @@ export async function updateCampaignClaim(
 // ─────────────────────────────────────────────────────────────
 // User details
 // ─────────────────────────────────────────────────────────────
+
+export async function getUserByTelegramId(telegramId: string): Promise<UserDetailsRow | null> {
+  const { data } = await supabase
+    .from("user_details")
+    .select("*")
+    .eq("telegram_id", telegramId)
+    .maybeSingle();
+  return data ?? null;
+}
 
 export async function getUserByUsername(username: string): Promise<UserDetailsRow | null> {
   const { data } = await supabase

@@ -1,5 +1,6 @@
 import { Router, Request, Response, type IRouter } from "express";
-import { getTransaction, getRecipientProfile } from "../lib/supabase/index.js";
+import { getTransaction, getLastInReviewTransaction, getRecipientProfile } from "../lib/supabase/index.js";
+import { getSafeAddressFromCallerId } from "../lib/caller.js";
 
 const BSC_CHAIN_ID = "56";
 
@@ -147,11 +148,26 @@ export function createAnalyzeRouter(): IRouter {
   const router = Router();
 
   // GET /analyze/:id — deep security analysis for a transaction
+  // Use id = "latest" with ?safeAddress=0x... to analyze the most recent in-review tx
   router.get("/:id", async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
       const callerId = (req.query.callerId as string | undefined) || null;
       console.log("callerId", callerId);
+
+      let id = req.params.id;
+      if (id === "latest") {
+        const safeAddress = await getSafeAddressFromCallerId(callerId);
+        if (!safeAddress) {
+          res.status(400).json({ error: "Could not resolve Safe from callerId" });
+          return;
+        }
+        const latest = await getLastInReviewTransaction(safeAddress);
+        if (!latest) {
+          res.status(404).json({ error: "No in-review transaction found for this Safe" });
+          return;
+        }
+        id = latest.id;
+      }
 
       const tx = await getTransaction(id);
       if (!tx) {

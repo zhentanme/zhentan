@@ -17,21 +17,33 @@ import {
 import { deserializeUserOp } from "../lib/serialize.js";
 import {
   getTransaction,
+  getLastInReviewTransaction,
   updateTransaction,
   updatePatternsAfterExecution,
   recordTxOutcome,
 } from "../lib/supabase/index.js";
+import { getSafeAddressFromCallerId } from "../lib/caller.js";
 
 export function createExecuteRouter(): IRouter {
   const router = Router();
 
   router.post("/", async (req: Request, res: Response) => {
     try {
-      const { txId, callerId } = req.body ?? {};
-      console.log(callerId);
+      const { txId: rawTxId, callerId } = req.body ?? {};
+
+      let txId = rawTxId;
       if (!txId) {
-        res.status(400).json({ error: "Missing txId" });
-        return;
+        const safeAddress = await getSafeAddressFromCallerId(callerId);
+        if (!safeAddress) {
+          res.status(400).json({ error: "Missing txId and could not resolve Safe from callerId" });
+          return;
+        }
+        const latest = await getLastInReviewTransaction(safeAddress);
+        if (!latest) {
+          res.status(404).json({ error: "No in-review transaction found for this Safe" });
+          return;
+        }
+        txId = latest.id;
       }
 
       const agentPrivateKey = process.env.AGENT_PRIVATE_KEY;
@@ -127,6 +139,7 @@ export function createExecuteRouter(): IRouter {
 
       const executedTx = {
         ...tx,
+        inReview: false,
         executedAt: new Date().toISOString(),
         executedBy: agentAccount.address,
         txHash,
@@ -134,6 +147,7 @@ export function createExecuteRouter(): IRouter {
       };
 
       await updateTransaction(txId, {
+        inReview: false,
         executedAt: executedTx.executedAt,
         executedBy: executedTx.executedBy,
         txHash,
