@@ -56,6 +56,7 @@ export interface UserSettingsRow {
   screening_mode: boolean;
   last_check: string | null;
   telegram_chat_id: string | null;
+  bot_connected: boolean | null;
   decisions: unknown[];
   updated_at: string;
 }

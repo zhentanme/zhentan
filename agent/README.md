@@ -10,7 +10,7 @@ OpenClaw skill pack for **Zhentan** — a treasury monitor agent that watches pe
 |---|---|
 | **OpenClaw** | Installed and configured — [OpenClaw setup guide](https://github.com/anthropics/openclaw) |
 | **Node.js** | v18 or higher |
-| **Environment variables** | Same config as the [Zhentan server](../server/README.md): `QUEUE_PATH`, `INVOICE_QUEUE_PATH`, `AGENT_PRIVATE_KEY`, `PIMLICO_API_KEY`, etc. These must be set in the environment where OpenClaw runs. |
+| **Environment variables** | Same config as the [Zhentan server](../server/README.md): `QUEUE_PATH`, `AGENT_PRIVATE_KEY`, `PIMLICO_API_KEY`, etc. These must be set in the environment where OpenClaw runs. |
 
 ---
 

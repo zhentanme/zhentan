@@ -20,6 +20,7 @@ import { createTokensRouter } from "./routes/tokens.js";
 import { createPayoutRouter } from "./routes/payout.js";
 import { createSwapRouter } from "./routes/swap.js";
 import { editNotification } from "./notify.js";
+import { markBotConnectedByChatId } from "./lib/supabase/index.js";
 
 const app = express();
 
@@ -122,6 +123,33 @@ app.post("/notify-resolve", auth, async (req, res) => {
   } catch { /* ignore */ }
 
   editNotification(txId, message, chatId);
+  res.json({ ok: true });
+});
+
+// POST /telegram-webhook — called by Telegram when a user messages the bot.
+// Marks bot_connected = true for the safe address that has this chat_id stored.
+app.post("/telegram-webhook", async (req, res) => {
+  const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
+  if (WEBHOOK_SECRET) {
+    const secret = req.headers["x-telegram-bot-api-secret-token"];
+    if (secret !== WEBHOOK_SECRET) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+  }
+
+  const chatId = String(req.body?.message?.chat?.id ?? req.body?.callback_query?.from?.id ?? "");
+  if (!chatId || chatId === "undefined") {
+    res.json({ ok: true });
+    return;
+  }
+
+  try {
+    await markBotConnectedByChatId(chatId);
+  } catch (err) {
+    console.error("telegram-webhook: failed to mark bot_connected:", err);
+  }
+
   res.json({ ok: true });
 });
 

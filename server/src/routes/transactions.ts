@@ -4,8 +4,10 @@ import { getTransactionStatus } from "../lib/format.js";
 import {
   getTransactionsByAddress,
   getTransaction,
+  getLastInReviewTransaction,
   updateTransaction,
 } from "../lib/supabase/index.js";
+import { getSafeAddressFromCallerId } from "../lib/caller.js";
 import { fetchTransfers, type ZerionHistoryItem } from "../lib/zerion.js";
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -151,19 +153,39 @@ export function createTransactionsRouter(): IRouter {
   });
 
   // PATCH /transactions/:id — update inReview / rejected fields
+  // Use id = "latest" with safeAddress in body to target the most recent in-review tx
   router.patch("/:id", async (req: Request, res: Response) => {
     try {
-      const { id } = req.params;
-      const { action, reason } = req.body ?? {};
+      const { action, reason, callerId } = req.body ?? {};
 
       if (!action || !["review", "reject"].includes(action)) {
         res.status(400).json({ error: "action must be 'review' or 'reject'" });
         return;
       }
 
+      let id = req.params.id;
+      if (id === "latest") {
+        const safeAddress = await getSafeAddressFromCallerId(callerId);
+        if (!safeAddress) {
+          res.status(400).json({ error: "Could not resolve Safe from callerId" });
+          return;
+        }
+        const latest = await getLastInReviewTransaction(safeAddress);
+        if (!latest) {
+          res.status(404).json({ error: "No in-review transaction found for this Safe" });
+          return;
+        }
+        id = latest.id;
+      }
+
       const tx = await getTransaction(id);
       if (!tx) {
         res.status(404).json({ error: `Transaction not found: ${id}` });
+        return;
+      }
+
+      if (!tx.inReview) {
+        res.status(409).json({ error: `Transaction ${id} is not in review state` });
         return;
       }
 

@@ -154,11 +154,11 @@ export function createQueueRouter(): IRouter {
 
       const reviewButtons = [
         [
-          { text: "✅ Approve", callback_data: `approve ${pendingTx.id}` },
-          { text: "❌ Reject",  callback_data: `reject ${pendingTx.id}` },
+          { text: `✅ approve ${pendingTx.id}` },
+          { text: `❌ reject ${pendingTx.id}` },
         ],
         [
-          { text: "🔎 Deep Analyze", callback_data: `deep-analyze ${pendingTx.id}` },
+          { text: `🔎 deep-analyze ${pendingTx.id}` },
         ],
       ];
 

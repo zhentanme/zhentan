@@ -227,6 +227,24 @@ export async function getTransactionsByAddress(
   return (data ?? []).map(rowToTx);
 }
 
+export async function getLastInReviewTransaction(
+  safeAddress: string
+): Promise<PendingTransaction | null> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("safe_address", safeAddress.toLowerCase())
+    .eq("in_review", true)
+    .eq("rejected", false)
+    .is("executed_at", null)
+    .order("proposed_at", { ascending: false })
+    .limit(1)
+    .returns<TransactionRow[]>();
+
+  if (error) throw error;
+  return data && data.length > 0 ? rowToTx(data[0]) : null;
+}
+
 // ─────────────────────────────────────────────────────────────
 // User settings
 // ─────────────────────────────────────────────────────────────
@@ -235,6 +253,7 @@ const DEFAULT_USER_SETTINGS: Omit<UserSettingsRow, "safe_address" | "updated_at"
   screening_mode: false,
   last_check: null,
   telegram_chat_id: null,
+  bot_connected: null,
   decisions: [],
 };
 
@@ -275,6 +294,23 @@ export async function upsertUserSettings(
 export async function getTelegramChatId(safeAddress: string): Promise<string | undefined> {
   const settings = await getUserSettings(safeAddress);
   return settings.telegram_chat_id ?? undefined;
+}
+
+/**
+ * Marks bot_connected = true for whichever safe has the given telegram_chat_id.
+ * Called by the Telegram webhook when any message arrives from a known user.
+ * Returns true if a row was found and updated.
+ */
+export async function markBotConnectedByChatId(chatId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("user_settings")
+    .update({ bot_connected: true })
+    .eq("telegram_chat_id", chatId)
+    .select("safe_address")
+    .returns<{ safe_address: string }[]>();
+
+  if (error) throw error;
+  return (data ?? []).length > 0;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1120,6 +1156,15 @@ export async function updateCampaignClaim(
 // ─────────────────────────────────────────────────────────────
 // User details
 // ─────────────────────────────────────────────────────────────
+
+export async function getUserByTelegramId(telegramId: string): Promise<UserDetailsRow | null> {
+  const { data } = await supabase
+    .from("user_details")
+    .select("*")
+    .eq("telegram_id", telegramId)
+    .maybeSingle();
+  return data ?? null;
+}
 
 export async function getUserByUsername(username: string): Promise<UserDetailsRow | null> {
   const { data } = await supabase

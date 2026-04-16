@@ -3,9 +3,8 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "593960240";
 
 const TG_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
-interface InlineButton {
+interface ReplyButton {
   text: string;
-  callback_data: string;
 }
 
 // In-memory map of txId → Telegram messageId for editing notifications later
@@ -18,7 +17,7 @@ export function getNotificationMessageId(txId: string): string | undefined {
 
 export function notifyTelegram(
   message: string,
-  buttons?: InlineButton[][],
+  buttons?: ReplyButton[][],
   txId?: string,
   chatId?: string
 ): void {
@@ -29,7 +28,11 @@ export function notifyTelegram(
   };
 
   if (buttons) {
-    body.reply_markup = { inline_keyboard: buttons };
+    body.reply_markup = {
+      keyboard: buttons,
+      one_time_keyboard: true,
+      resize_keyboard: true,
+    };
   }
 
   fetch(`${TG_API}/sendMessage`, {

@@ -35,7 +35,6 @@ TELEGRAM_BOT_TOKEN=
 ZERION_API_KEY=
 PORT=3001
 QUEUE_PATH=./pending-queue.json
-INVOICE_QUEUE_PATH=./invoice-queue.json
 ```
 
 See `scripts/.env.example` and `server/.env.example` for full templates.

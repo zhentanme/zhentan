@@ -60,16 +60,26 @@ Your role is **conversational** — the server owns the deterministic pipeline.
 Run each command immediately, wait for the result, then report the actual outcome. Never fabricate results.
 
 ### approve `tx-XXX`
-When the owner says "approve tx-XXX" or taps ✅ Approve:
+When the owner says "approve tx-XXX" or taps ✅ approve tx-XXX:
 
+If a tx-id is provided:
 1. Co-sign and execute via the server:
 ```bash
 curl -s -X POST http://localhost:3001/execute \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
-  -d '{"txId":"tx-XXX", "callerId":"telegram:<origin.from>"}'
+  -d '{"txId":"tx-XXX","callerId":"telegram:<origin.from>"}'
 ```
-   Parse the JSON: on success `status` is `executed` and `txHash` is the on-chain hash; if `status` is `already_executed`, use the returned `txHash`. On failure the body includes `error`.
+
+If no tx-id is provided (e.g. bare "approve"), omit `txId` — the server resolves the most recent in-review transaction using the `callerId`:
+```bash
+curl -s -X POST http://localhost:3001/execute \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $AGENT_SECRET" \
+  -d '{"callerId":"telegram:<origin.from>"}'
+```
+
+Parse the JSON: on success `status` is `executed` and `txHash` is the on-chain hash; if `status` is `already_executed`, use the returned `txHash`. On failure the body includes `error`.
 
 2. Update the Telegram notification with the tx hash from step 1:
 ```bash
@@ -83,8 +93,9 @@ curl -s -X POST http://localhost:3001/notify-resolve \
 The tx-id includes the `tx-` prefix (e.g. `tx-cc34ee59`). Pass it exactly as written.
 
 ### reject `tx-XXX`
-When the owner says "reject tx-XXX" or taps ❌ Reject:
+When the owner says "reject tx-XXX" or taps ❌ reject tx-XXX:
 
+If a tx-id is provided:
 1. Mark rejected (optionally include a reason):
 ```bash
 curl -s -X PATCH http://localhost:3001/transactions/tx-XXX \
@@ -92,6 +103,15 @@ curl -s -X PATCH http://localhost:3001/transactions/tx-XXX \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"action":"reject","reason":"Rejected by owner","callerId":"telegram:<origin.from>"}'
 ```
+
+If no tx-id is provided (e.g. bare "reject"), use `latest` as the id — the server resolves the most recent in-review transaction using the `callerId`:
+```bash
+curl -s -X PATCH http://localhost:3001/transactions/latest \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $AGENT_SECRET" \
+  -d '{"action":"reject","reason":"Rejected by owner","callerId":"telegram:<origin.from>"}'
+```
+
 2. Update the Telegram notification:
 ```bash
 curl -s -X POST http://localhost:3001/notify-resolve \
@@ -173,10 +193,16 @@ curl -s -H "Authorization: Bearer $AGENT_SECRET" "http://localhost:3001/transact
 ### deep analyze `tx-XXX`
 Run immediately, wait for the response (5–15s), then report the actual findings.
 
-When the owner taps 🔎 Deep Analyze or asks "analyze tx-XXX", "is this safe?", "why was this flagged?":
+When the owner taps 🔎 deep-analyze tx-XXX or asks "analyze tx-XXX", "is this safe?", "why was this flagged?":
 
+If a tx-id is provided:
 ```bash
 curl -s -H "Authorization: Bearer $AGENT_SECRET" "http://localhost:3001/analyze/tx-XXX?callerId=telegram:<origin.from>"
+```
+
+If no tx-id is provided (e.g. bare "analyze" or "deep-analyze"), use `latest` — the server resolves the most recent in-review transaction using the `callerId`:
+```bash
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "http://localhost:3001/analyze/latest?callerId=telegram:<origin.from>"
 ```
 
 Parse the JSON and present:

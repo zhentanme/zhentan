@@ -31,6 +31,7 @@ export function createStatusRouter(): IRouter {
         lastCheck: settings.last_check,
         totalDecisions: (settings.decisions ?? []).length,
         telegramChatId: settings.telegram_chat_id,
+        botConnected: settings.bot_connected ?? false,
         patterns,
       });
     } catch (err) {

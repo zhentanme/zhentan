@@ -69,7 +69,7 @@ pnpm agent-sign      # agent-sign.js — agent co-signs and executes
 
 ### Environment variables
 - **Client**: `NEXT_PUBLIC_PIMLICO_API_KEY`, `NEXT_PUBLIC_AGENT_ADDRESS`, `NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_BACKEND_URL` (optional, for remote server)
-- **Server**: `QUEUE_PATH`, `INVOICE_QUEUE_PATH`, `AGENT_PRIVATE_KEY`, `PIMLICO_API_KEY`, `PORT` (default 3001), `CORS_ORIGIN`
+- **Server**: `QUEUE_PATH`, `AGENT_PRIVATE_KEY`, `PIMLICO_API_KEY`, `PORT` (default 3001), `CORS_ORIGIN`
 - **Scripts**: `PRIVATE_KEY`, `PIMLICO_API_KEY`, `RECIPIENT_ADDRESS`, `USDC_AMOUNT`, `USDC_CONTRACT_ADDRESS`, `OWNER_ADDRESS1`, `OWNER_ADDRESS2`, `SAFE_THRESHOLD`
 
 See `scripts/.env.example` and `server/.env.example` for templates.
