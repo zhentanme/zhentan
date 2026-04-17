@@ -42,7 +42,7 @@ export function createStatusRouter(): IRouter {
 
   // PATCH /status
   // Accepts: safe (required), plus any combination of:
-  //   User settings: screeningMode, telegramChatId
+  //   User settings: screeningMode, telegramChatId, botConnected
   //   Global limits: maxSingleTx, maxHourlyVolume, maxDailyVolume,
   //     maxWeeklyVolume, maxDailyTxCount, allowedHoursUTC, allowedDaysUTC,
   //     unknownRecipientAction, riskThresholdApprove, riskThresholdBlock,
@@ -54,6 +54,7 @@ export function createStatusRouter(): IRouter {
         // User settings fields
         screeningMode,
         telegramChatId,
+        botConnected,
         // Global limits fields
         maxSingleTx,
         maxHourlyVolume,
@@ -91,6 +92,14 @@ export function createStatusRouter(): IRouter {
           return;
         }
         settingsPatch.telegram_chat_id = telegramChatId || null;
+        hasSettingsUpdate = true;
+      }
+      if (botConnected !== undefined) {
+        if (typeof botConnected !== "boolean") {
+          res.status(400).json({ error: "botConnected must be a boolean" });
+          return;
+        }
+        settingsPatch.bot_connected = botConnected;
         hasSettingsUpdate = true;
       }
 
@@ -148,6 +157,7 @@ export function createStatusRouter(): IRouter {
       res.json({
         screeningMode: updatedSettings.screening_mode,
         telegramChatId: updatedSettings.telegram_chat_id,
+        botConnected: updatedSettings.bot_connected ?? false,
         limits: {
           maxSingleTx:             updatedLimits.max_single_tx,
           maxHourlyVolume:         updatedLimits.max_hourly_volume,

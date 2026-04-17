@@ -5,6 +5,7 @@ export interface StatusPatch {
   safe: string;
   screeningMode?: boolean;
   telegramChatId?: string;
+  botConnected?: boolean;
   maxSingleTx?: string;
   maxHourlyVolume?: string;
   maxDailyVolume?: string;
