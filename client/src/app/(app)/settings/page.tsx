@@ -383,7 +383,7 @@ function SettingsPageContent() {
                           <p className="text-[11px] text-slate-500 mt-1">
                             {!botConnected && (
                               <>
-                              Send a "hi" message to{" "}
+                              Send a "Connect to Zhentan" message to{" "}
                                 <a
                                   href="https://t.me/zhentanme_bot"
                                   target="_blank"
