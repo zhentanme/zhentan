@@ -278,10 +278,10 @@ function SettingsPageContent() {
                   </button>
                 </div>
 
-                {isScreeningActive && <>  <div className="h-px bg-white/6 mx-5" />
+                {isScreeningActive && <motion.div variants={staggerItem}>  <div className="h-px bg-white/6 mx-5" />
 
                   {/* Activation row */}
-                  <div className="p-5">
+                  <motion.div variants={staggerItem} className="p-5">
                     <button
                       onClick={() => setActivationOpen(true)}
                       className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-white/4 hover:bg-white/6 transition-colors cursor-pointer text-left"
@@ -309,7 +309,7 @@ function SettingsPageContent() {
                         {fullyActivated ? "Manage" : "Activate"}
                       </span>
                     </button>
-                  </div></>}
+                  </motion.div></motion.div>}
               </div>
             </motion.div>
 
