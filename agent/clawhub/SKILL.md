@@ -55,6 +55,30 @@ Your role is **conversational** — the server owns the deterministic pipeline.
 
 ---
 
+## First message — `/start`
+
+When a user opens the bot for the first time, Telegram delivers a `/start` message. Call `/bot-ping` with their chat ID to mark the bot as connected and retrieve their details:
+
+```bash
+curl -s -X POST https://api.zhentan.me/bot-ping \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $AGENT_SECRET" \
+  -d '{"chatId":"<origin.chat.id>"}'
+```
+
+**Response when user is found** (`found: true`):
+```json
+{ "ok": true, "found": true, "safeAddress": "0x...", "name": "Alice", "username": "alice" }
+```
+
+Use the returned details to greet them, for example:
+> "👋 Hey Alice! Zhentan is connected to your Safe `0xABCD…1234`. I'll notify you here for any transactions that need review. Send **help** to see what I can do."
+
+**Response when user is not found** (`found: false`): the user hasn't linked their Telegram account in the Zhentan app yet. Reply:
+> "👋 Hi! To connect your Safe, please link your Telegram account first from the Zhentan app settings."
+
+---
+
 ## Owner commands
 
 Run each command immediately, wait for the result, then report the actual outcome. Never fabricate results.
@@ -109,6 +133,27 @@ curl -s -X PATCH https://api.zhentan.me/transactions/tx-XXX \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"action":"review","reason":"Flagged for manual review","callerId":"telegram:<origin.from>"}'
 ```
+
+### get my profile
+When the user asks "who am I", "my wallet", "my details", "show my account", or anything about their own profile:
+
+```bash
+curl -s -H "Authorization: Bearer $AGENT_SECRET" \
+  "https://api.zhentan.me/me?chatId=<origin.chat.id>"
+```
+
+Response:
+```json
+{
+  "safeAddress": "0x...",
+  "signerAddress": "0x...",
+  "name": "Alice",
+  "username": "alice",
+  "email": "alice@example.com"
+}
+```
+
+Present the relevant fields clearly. If `email` is null, omit it.
 
 ### check pending
 Check if there are pending transactions for a Safe:

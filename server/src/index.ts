@@ -20,7 +20,7 @@ import { createTokensRouter } from "./routes/tokens.js";
 import { createPayoutRouter } from "./routes/payout.js";
 import { createSwapRouter } from "./routes/swap.js";
 import { editNotification } from "./notify.js";
-import { markBotConnectedByChatId } from "./lib/supabase/index.js";
+import { markBotConnectedByChatId, getUserByTelegramId } from "./lib/supabase/index.js";
 
 const app = express();
 
@@ -126,8 +126,72 @@ app.post("/notify-resolve", auth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /bot-ping — called by the OpenClaw agent on /start.
+// Marks bot_connected = true for the safe mapped to this chatId and returns user details
+// so the agent can craft a proper greeting.
+app.post("/bot-ping", async (req, res) => {
+  const chatId = String(req.body?.chatId ?? "");
+  if (!chatId) {
+    res.status(400).json({ error: "Missing chatId" });
+    return;
+  }
+
+  try {
+    const [user] = await Promise.all([
+      getUserByTelegramId(chatId),
+      markBotConnectedByChatId(chatId),
+    ]);
+
+    if (!user) {
+      // chatId not mapped to any user yet — they haven't linked Telegram in the app
+      res.json({ ok: true, found: false });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      found: true,
+      safeAddress: user.safe_address,
+      name: user.name,
+      username: user.username,
+    });
+  } catch (err) {
+    console.error("bot-ping: failed:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /me?chatId=<telegramChatId> — called by the agent to fetch user profile.
+// Returns name, email, username, safeAddress, signerAddress for the given Telegram chat ID.
+app.get("/me", auth, async (req, res) => {
+  const chatId = String(req.query.chatId ?? "");
+  if (!chatId) {
+    res.status(400).json({ error: "Missing chatId" });
+    return;
+  }
+
+  try {
+    const user = await getUserByTelegramId(chatId);
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    res.json({
+      safeAddress: user.safe_address,
+      signerAddress: user.signer_address,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+    });
+  } catch (err) {
+    console.error("GET /me failed:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
 // POST /telegram-webhook — called by Telegram when a user messages the bot.
-// Marks bot_connected = true for the safe address that has this chat_id stored.
+// Marks bot_connected = true for the safe address mapped to this chatId.
 app.post("/telegram-webhook", async (req, res) => {
   const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (WEBHOOK_SECRET) {

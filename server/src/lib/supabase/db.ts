@@ -313,6 +313,7 @@ export async function markBotConnectedByChatId(chatId: string): Promise<boolean>
   return (data ?? []).length > 0;
 }
 
+
 // ─────────────────────────────────────────────────────────────
 // Global limits
 // ─────────────────────────────────────────────────────────────

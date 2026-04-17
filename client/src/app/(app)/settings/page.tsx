@@ -45,8 +45,8 @@ function SettingsPageContent() {
   const [telegramLinked, setTelegramLinked] = useState(false);
   const [linkingTelegram, setLinkingTelegram] = useState(false);
   const [botConnected, setBotConnected] = useState(false);
-  const [botStarted, setBotStarted] = useState(false);
-  const [checkingBot, setCheckingBot] = useState(false);
+  const [botActivationInitiated, setBotActivationInitiated] = useState(false);
+  const [isCheckingBotConnection, setIsCheckingBotConnection] = useState(false);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { telegramUserId, privyUser, safeAddress } = useAuth();
   const api = useApiClient();
@@ -116,9 +116,9 @@ function SettingsPageContent() {
     }
   }, []);
 
-  const pollBotConnected = useCallback(async () => {
+  const checkBotConnection = useCallback(async () => {
     if (!safeAddress) return;
-    setCheckingBot(true);
+    setIsCheckingBotConnection(true);
     try {
       const connected = await api.status.checkBotConnected(safeAddress);
       if (connected) {
@@ -128,16 +128,16 @@ function SettingsPageContent() {
     } catch {
       // silent
     } finally {
-      setCheckingBot(false);
+      setIsCheckingBotConnection(false);
     }
   }, [safeAddress, api, stopPolling]);
 
-  const handleStart = useCallback(() => {
+  const handleStartBotActivation = useCallback(() => {
     window.open("https://t.me/zhentanme_bot", "_blank");
-    setBotStarted(true);
+    setBotActivationInitiated(true);
     // Begin polling every 4 seconds
-    pollIntervalRef.current = setInterval(pollBotConnected, 4000);
-  }, [pollBotConnected]);
+    pollIntervalRef.current = setInterval(checkBotConnection, 4000);
+  }, [checkBotConnection]);
 
   // Stop polling when bot connects or component unmounts
   useEffect(() => {
@@ -159,7 +159,7 @@ function SettingsPageContent() {
       }
       setTelegramLinked(false);
       setBotConnected(false);
-      setBotStarted(false);
+      setBotActivationInitiated(false);
       stopPolling();
       await api.status.update({ safe: safeAddress!, telegramChatId: "" });
       await api.users.upsert({ safeAddress: safeAddress!, telegramId: "" });
@@ -362,20 +362,20 @@ function SettingsPageContent() {
                                 <Circle className="h-3.5 w-3.5 text-slate-600 shrink-0" />
                               )}
                               <h4 className="text-xs font-medium text-white">
-                                Step 2 — Start the Bot
+                                Step 2 — Enable the Agent
                               </h4>
                             </div>
                      
                               <button
                   
-                                onClick={botStarted ? pollBotConnected : handleStart}
-                                disabled={checkingBot || !telegramLinked || botStarted}
+                                onClick={botActivationInitiated ? checkBotConnection : handleStartBotActivation}
+                                disabled={isCheckingBotConnection || !telegramLinked || botActivationInitiated}
                                 className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 hover:bg-blue-400/15 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-default shrink-0"
                               >
-                                {checkingBot && (
+                                {isCheckingBotConnection && (
                                   <Loader2 className="h-3 w-3 animate-spin inline mr-1" />
                                 )}
-                                {botStarted ? "Started" : "Start"}
+                                { botConnected ? "Connected" : botActivationInitiated ? "Started" : "Start"}
                               </button>
                         
                           </div>
@@ -383,7 +383,7 @@ function SettingsPageContent() {
                           <p className="text-[11px] text-slate-500 mt-1">
                             {!botConnected && (
                               <>
-                              Send any message to{" "}
+                              Send a "hi" message to{" "}
                                 <a
                                   href="https://t.me/zhentanme_bot"
                                   target="_blank"
