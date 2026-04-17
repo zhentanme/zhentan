@@ -7,7 +7,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Home, Settings, User, Bell, Shield, ShieldOff } from "lucide-react";
 import { clsx } from "clsx";
-import { useAuth } from "@/app/context/AuthContext";
+import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 
 const navItems = [
   { href: "/home", label: "Home", icon: Home },
@@ -19,9 +19,8 @@ const navItems = [
 export function TopBar() {
   const pathname = usePathname();
   const [queuedCount, setQueuedCount] = useState(0);
-  const [screeningMode, setScreeningMode] = useState(false);
   const api = useApiClient();
-  const { safeAddress } = useAuth();
+  const { isScreeningActive } = useScreeningStatus();
 
   const fetchQueuedCount = useCallback(async () => {
     try {
@@ -41,13 +40,6 @@ export function TopBar() {
     return () => clearInterval(interval);
   }, [fetchQueuedCount]);
 
-  useEffect(() => {
-    if (!safeAddress) return;
-    api.status.get(safeAddress)
-      .then((data) => setScreeningMode(data.screeningMode ?? false))
-      .catch(() => {});
-  }, [safeAddress, api]);
-
   return (
     <>
       {/* Mobile top bar — minimal */}
@@ -66,17 +58,17 @@ export function TopBar() {
           <div
             className={clsx(
               "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors",
-              screeningMode
+              isScreeningActive
                 ? "bg-gold/10 text-gold"
                 : "bg-white/6 text-slate-500"
             )}
           >
-            {screeningMode ? (
+            {isScreeningActive ? (
               <Shield className="h-3.5 w-3.5" />
             ) : (
               <ShieldOff className="h-3.5 w-3.5" />
             )}
-            {screeningMode ? "Protected" : "Unprotected"}
+            {isScreeningActive ? "Protected" : "Unprotected"}
           </div>
         </div>
       </header>
@@ -124,17 +116,17 @@ export function TopBar() {
           <div
             className={clsx(
               "flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition-colors",
-              screeningMode
+              isScreeningActive
                 ? "bg-gold/10 text-gold border border-gold/15"
                 : "bg-white/4 text-slate-500 border border-white/6"
             )}
           >
-            {screeningMode ? (
+            {isScreeningActive ? (
               <Shield className="h-3.5 w-3.5" />
             ) : (
               <ShieldOff className="h-3.5 w-3.5" />
             )}
-            Screening {screeningMode ? "ON" : "OFF"}
+            Screening {isScreeningActive ? "ON" : "OFF"}
           </div>
         </div>
       </header>
