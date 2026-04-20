@@ -78,8 +78,8 @@ function SettingsPageContent() {
           (acc?.subject as string);
         if (tgUserId) {
           setTelegramLinked(true);
-          api.status.update({ safe: safeAddress!, telegramChatId: String(tgUserId) }).catch(() => {});
-          api.users.upsert({ safeAddress: safeAddress!, telegramId: String(tgUserId) }).catch(() => {});
+          api.status.update({ safe: safeAddress!, telegramChatId: String(tgUserId) }).catch(() => { });
+          api.users.upsert({ safeAddress: safeAddress!, telegramId: String(tgUserId) }).catch(() => { });
         }
       }
       setLinkingTelegram(false);
@@ -155,7 +155,7 @@ function SettingsPageContent() {
     if (!prevFullyActivatedRef.current && fullyActivated && !screeningMode) {
       api.status.update({ safe: safeAddress, screeningMode: true })
         .then(() => setScreeningMode(true))
-        .catch(() => {});
+        .catch(() => { });
     }
     prevFullyActivatedRef.current = fullyActivated;
   }, [loading, fullyActivated, screeningMode, safeAddress, api]);
@@ -228,9 +228,8 @@ function SettingsPageContent() {
                 {/* Toggle row */}
                 <div className="flex items-center gap-4 p-5">
                   <div
-                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300 ${
-                      isScreeningActive ? "bg-gold/10" : "bg-white/6"
-                    }`}
+                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300 ${isScreeningActive ? "bg-gold/10" : "bg-white/6"
+                      }`}
                   >
                     {isScreeningActive ? (
                       <ShieldCheck className="h-5 w-5 text-gold" />
@@ -243,11 +242,10 @@ function SettingsPageContent() {
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-semibold text-white">Zhentan Mode</h3>
                       <span
-                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-all duration-300 ${
-                          isScreeningActive
+                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-all duration-300 ${isScreeningActive
                             ? "bg-gold/15 text-gold"
                             : "bg-white/6 text-slate-500"
-                        }`}
+                          }`}
                       >
                         {isScreeningActive ? "Active" : "Inactive"}
                       </span>
@@ -256,17 +254,16 @@ function SettingsPageContent() {
                       {isScreeningActive
                         ? "AI screening active"
                         : !fullyActivated
-                        ? "Setup required"
-                        : "Screening disabled"}
+                          ? "Setup required"
+                          : "Screening disabled"}
                     </p>
                   </div>
 
                   <button
                     onClick={handleToggle}
                     disabled={toggling}
-                    className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default ${
-                      isScreeningActive ? "bg-gold" : "bg-white/12"
-                    }`}
+                    className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default ${isScreeningActive ? "bg-gold" : "bg-white/12"
+                      }`}
                   >
                     {toggling ? (
                       <span className="absolute inset-0 flex items-center justify-center">
@@ -274,46 +271,45 @@ function SettingsPageContent() {
                       </span>
                     ) : (
                       <span
-                        className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${
-                          isScreeningActive ? "left-6" : "left-0.5"
-                        }`}
+                        className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${isScreeningActive ? "left-6" : "left-0.5"
+                          }`}
                       />
                     )}
                   </button>
                 </div>
 
-                <div className="h-px bg-white/6 mx-5" />
+                {isScreeningActive && <motion.div variants={staggerItem}>  <div className="h-px bg-white/6 mx-5" />
 
-                {/* Activation row */}
-                <div className="p-5">
-                  <button
-                    onClick={() => setActivationOpen(true)}
-                    className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-white/4 hover:bg-white/6 transition-colors cursor-pointer text-left"
-                  >
-                    {fullyActivated ? (
-                      <div className="w-8 h-8 rounded-xl bg-emerald-400/10 flex items-center justify-center shrink-0">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  {/* Activation row */}
+                  <motion.div variants={staggerItem} className="p-5">
+                    <button
+                      onClick={() => setActivationOpen(true)}
+                      className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-white/4 hover:bg-white/6 transition-colors cursor-pointer text-left"
+                    >
+                      {fullyActivated ? (
+                        <div className="w-8 h-8 rounded-xl bg-emerald-400/10 flex items-center justify-center shrink-0">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        </div>
+                      ) : (
+                        <div className="w-8 h-8 rounded-xl bg-amber-400/10 flex items-center justify-center shrink-0">
+                          <AlertCircle className="h-4 w-4 text-amber-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-white">
+                          {fullyActivated ? "Activated" : "Setup required"}
+                        </p>
+                        <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                          {fullyActivated
+                            ? `Notifications → ${tgDisplayName ?? "Telegram"}`
+                            : "Complete 2 steps to enable the agent"}
+                        </p>
                       </div>
-                    ) : (
-                      <div className="w-8 h-8 rounded-xl bg-amber-400/10 flex items-center justify-center shrink-0">
-                        <AlertCircle className="h-4 w-4 text-amber-400" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-white">
-                        {fullyActivated ? "Fully activated" : "Setup required"}
-                      </p>
-                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                        {fullyActivated
-                          ? `Notifications → ${tgDisplayName ?? "Telegram"}`
-                          : "Complete 2 steps to enable the agent"}
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 shrink-0">
-                      {fullyActivated ? "Manage" : "Activate"}
-                    </span>
-                  </button>
-                </div>
+                      <span className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 shrink-0">
+                        {fullyActivated ? "Manage" : "Activate"}
+                      </span>
+                    </button>
+                  </motion.div></motion.div>}
               </div>
             </motion.div>
 

@@ -108,23 +108,25 @@ function StepCard({
     >
       <div className="flex items-start gap-3">
         <StepIndicator step={step} state={state} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-slate-400 shrink-0">{icon}</span>
+        <div className="flex-1 min-w-0 flex flex-row justify-between items-start">
+        <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2 min-w-0">
+            
             <h4 className="text-sm font-semibold text-white truncate">{title}</h4>
           </div>
-          <div className="text-[11px] text-slate-400 mt-1 leading-relaxed min-h-[1.5em]">
+          <div className="text-[11px] text-slate-400 mt-1 leading-relaxed min-h-[1.5em] max-w-48">
             {state === "done"
               ? doneDescription
               : state === "running"
               ? runningDescription
               : idleDescription}
           </div>
+        </div>
           {state !== "done" && (
             <button
               onClick={onAction}
               disabled={actionLoading || disabled}
-              className="mt-3 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 hover:bg-blue-400/15 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-default inline-flex items-center gap-1.5"
+              className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 hover:bg-blue-400/15 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-default inline-flex items-center gap-1.5"
             >
               {actionLoading && <Loader2 className="h-3 w-3 animate-spin" />}
               {actionLabel}
@@ -241,7 +243,7 @@ export function ActivationDialog({
             transition={{ duration: 0.2 }}
             className="space-y-3"
           >
-            <p className="text-xs text-slate-400 leading-relaxed -mt-1 mb-1">
+            <p className="text-xs text-slate-400 leading-relaxed -mt-1 mb-4 text-center">
               Complete these 2 steps so your AI agent can notify you about
               transactions that need review.
             </p>
@@ -255,10 +257,10 @@ export function ActivationDialog({
               runningDescription="Waiting for you to finish linking in the Privy popup…"
               doneDescription={
                 <span className="text-emerald-400/90">
-                  Linked{tgDisplayName ? ` as ${tgDisplayName}` : ""}
+                  {tgDisplayName ? ` ${tgDisplayName}` : ""}
                 </span>
               }
-              actionLabel="Link Telegram"
+              actionLabel={linkingTelegram ? "Connecting..." : "Connect Telegram"}
               actionLoading={linkingTelegram}
               onAction={onLinkTelegram}
               rightSlot={
@@ -297,7 +299,7 @@ export function ActivationDialog({
               doneDescription={
                 <span className="text-emerald-400/90">Bot connected</span>
               }
-              actionLabel={botActivationInitiated ? "Check again" : "Open @zhentanme_bot"}
+              actionLabel={botActivationInitiated ? "Check again" : "Activate"}
               actionLoading={isCheckingBotConnection}
               onAction={
                 botActivationInitiated ? onCheckBotConnection : onStartBotActivation
@@ -305,16 +307,7 @@ export function ActivationDialog({
               disabled={step2Disabled}
             />
 
-            {telegramLinked && botConnected && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-400/5 border border-emerald-400/15 text-[11px] text-emerald-400/90"
-              >
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Zhentan is fully activated.
-              </motion.div>
-            )}
+           
           </motion.div>
         )}
       </AnimatePresence>
