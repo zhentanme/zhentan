@@ -163,6 +163,35 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
     fromToken?.decimals ?? 18,
   );
   const [quote, setQuote] = useState<SwapQuote | null>(null);
+
+  // Backfill USD fields when the quote source (e.g. PancakeSwap direct) doesn't
+  // compute them. fromToken.price / toToken.price are USD per token unit.
+  const enrichQuoteWithUSD = useCallback(
+    (q: SwapQuote, sellHumanAmount: string, from: TokenPosition | null, to: TokenPosition | null): SwapQuote => {
+      let { sellAmountUSD, buyAmountUSD } = q;
+
+      if (!sellAmountUSD && from?.price && from.price > 0) {
+        const sellNum = parseFloat(sellHumanAmount);
+        if (Number.isFinite(sellNum) && sellNum > 0) {
+          sellAmountUSD = (sellNum * from.price).toString();
+        }
+      }
+
+      if (!buyAmountUSD && to?.price && to.price > 0) {
+        try {
+          const buyNum = parseFloat(formatUnits(BigInt(q.buyAmount), to.decimals));
+          if (Number.isFinite(buyNum) && buyNum > 0) {
+            buyAmountUSD = (buyNum * to.price).toString();
+          }
+        } catch { /* leave empty on bad buyAmount */ }
+      }
+
+      return sellAmountUSD === q.sellAmountUSD && buyAmountUSD === q.buyAmountUSD
+        ? q
+        : { ...q, sellAmountUSD, buyAmountUSD };
+    },
+    []
+  );
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [phase, setPhase] = useState<SwapPhase>("form");
@@ -240,7 +269,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           fromAddress: safeAddress,
           ...(isLowLiquiditySwap(fromToken.address, toToken.address) && { slippage: "0.1" }),
         });
-        setQuote(fetchedQuote);
+        setQuote(enrichQuoteWithUSD(fetchedQuote, sellAmount, fromToken, toToken));
         setQuoteError(null);
       } catch (err) {
         setQuoteError(err instanceof Error ? err.message : "No route found");
@@ -336,6 +365,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             fromAddress: safeAddress,
             slippage: SLIPPAGE_LADDER[i].toString(),
           });
+          activeQuote = enrichQuoteWithUSD(activeQuote, sellAmount, fromToken, toToken) as typeof activeQuote;
           setQuote(activeQuote);
         }
 

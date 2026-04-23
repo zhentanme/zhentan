@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { getPancakeSwapQuote } from "../lib/pancakeswap.js";
 
 const BSC_CHAIN_ID = 56;
 const BSC_LIFI_KEY = "BSC";
@@ -297,7 +298,7 @@ export function createSwapRouter(): Router {
   const SLIPPAGE_LADDER = [0.05, 0.1, 0.15, 0.2, 0.3, 0.49];
 
   router.get("/", async (req: Request, res: Response) => {
-    const { fromToken, toToken, amount, fromAddress, slippage: slippageParam } = req.query as Record<string, string>;
+    const { fromToken, toToken, amount, fromAddress, slippage: slippageParam, dex } = req.query as Record<string, string>;
 
     if (!fromToken || !toToken || !amount || !fromAddress) {
       res.status(400).json({
@@ -311,7 +312,29 @@ export function createSwapRouter(): Router {
       ? [Math.min(Math.max(parseFloat(slippageParam), 0.01), 0.49)]
       : SLIPPAGE_LADDER;
 
+    const isPancakeExplicit = dex === "pancake" || dex === "pancakeswap";
+
     try {
+      // Explicit dex=pancake — bypass LiFi entirely
+      if (isPancakeExplicit) {
+        const pancakeSlippage = slippageLadder[0];
+        console.log(`Swap: dex=pancake explicit — using PancakeSwap smart router at ${(pancakeSlippage * 100).toFixed(0)}% slippage`);
+        const pancakeQuote = await getPancakeSwapQuote({
+          fromToken, toToken, amount, fromAddress, slippage: pancakeSlippage,
+        }).catch((err) => {
+          console.error("Pancake quote error:", err instanceof Error ? err.message : err);
+          return null;
+        });
+
+        if (!pancakeQuote) {
+          res.status(400).json({ error: "No PancakeSwap route found for this token pair" });
+          return;
+        }
+
+        res.json({ status: true, quote: pancakeQuote, slippage: pancakeSlippage });
+        return;
+      }
+
       let directResult: NormalisedQuote | null = null;
       let routeResult: { quote: NormalisedQuote; step: LiFiStep } | null = null;
       let usedSlippage = slippageLadder[0];
@@ -331,8 +354,23 @@ export function createSwapRouter(): Router {
         }
       }
 
+      // LiFi found nothing across the entire slippage ladder — try PancakeSwap directly
       if (!directResult && !routeResult) {
-        res.status(400).json({ error: "No swap routes found for this token pair" });
+        const pancakeSlippage = usedSlippage;
+        console.log(`Swap: LiFi exhausted — falling back to PancakeSwap at ${(pancakeSlippage * 100).toFixed(0)}% slippage`);
+        const pancakeQuote = await getPancakeSwapQuote({
+          fromToken, toToken, amount, fromAddress, slippage: pancakeSlippage,
+        }).catch((err) => {
+          console.error("Pancake fallback error:", err instanceof Error ? err.message : err);
+          return null;
+        });
+
+        if (!pancakeQuote) {
+          res.status(400).json({ error: "No swap routes found for this token pair" });
+          return;
+        }
+
+        res.json({ status: true, quote: pancakeQuote, slippage: pancakeSlippage });
         return;
       }
 
@@ -359,8 +397,22 @@ export function createSwapRouter(): Router {
         }
       }
 
+      // Final LiFi attempt failed to resolve an executable tx — try PancakeSwap
       if (!finalQuote) {
-        res.status(400).json({ error: "Failed to resolve executable transaction for swap" });
+        console.log("Swap: LiFi returned no executable transaction — falling back to PancakeSwap");
+        const pancakeQuote = await getPancakeSwapQuote({
+          fromToken, toToken, amount, fromAddress, slippage: usedSlippage,
+        }).catch((err) => {
+          console.error("Pancake fallback error:", err instanceof Error ? err.message : err);
+          return null;
+        });
+
+        if (!pancakeQuote) {
+          res.status(400).json({ error: "Failed to resolve executable transaction for swap" });
+          return;
+        }
+
+        res.json({ status: true, quote: pancakeQuote, slippage: usedSlippage });
         return;
       }
 
