@@ -2,14 +2,26 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Gift, Check, Loader2, AtSign, MessageCircle, Sparkles, ChevronRight } from "lucide-react";
+import { Check, Loader2, AtSign, MessageCircle, Sparkles, ChevronRight } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Dialog } from "@/components/ui/Dialog";
 import { useApiClient } from "@/lib/api/client";
 import type { CampaignStatus } from "@/lib/api/campaigns";
 import { ClaimAnimation, type ClaimAnimationPhase } from "@/components/ClaimAnimation";
 
-const CAMPAIGN_ID = "onboarding-genesis";
+const CAMPAIGN_ID = "flap-india-meetup";
+
+function formatTimeRemaining(endsAt: string | null): string | null {
+  if (!endsAt) return null;
+  const diffMs = new Date(endsAt).getTime() - Date.now();
+  if (diffMs <= 0) return "Ended";
+  const hours = Math.floor(diffMs / 3_600_000);
+  if (hours < 1) return "Ends in <1 hour";
+  if (hours < 24) return `Ends in ${hours} hour${hours === 1 ? "" : "s"}`;
+  const days = Math.floor(diffMs / 86_400_000);
+  return `Ends in ${days} day${days === 1 ? "" : "s"}`;
+}
 
 const TASK_LABELS: Record<
   string,
@@ -175,20 +187,26 @@ export function ClaimBanner({
                   boxShadow: "0 0 16px rgba(240,185,11,0.2)",
                 }}
               >
-                <Gift className="h-5 w-5 text-claw" />
+                <Image
+                  src="/flap-logo.png"
+                  alt="Flap"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 object-contain"
+                />
               </div>
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold text-white">Claim Free Tokens</p>
+                  <p className="text-sm font-bold text-white">Celebrating Flap India Meetup</p>
                   <Sparkles className="h-3 w-3 text-claw/70" />
                 </div>
                 <p className="text-xs text-claw/60 mt-0.5">
                   {alreadyClaimed
                     ? "Claimed"
                     : status
-                    ? `${status.claimsRemaining} of ${status.campaign.max_claims} spots remaining`
-                    : "Complete tasks · Limited spots"}
+                    ? formatTimeRemaining(status.campaign.ends_at) ?? "Complete tasks to claim"
+                    : "Complete tasks to claim"}
                 </p>
               </div>
 
@@ -213,7 +231,7 @@ export function ClaimBanner({
         onPhaseChange={handleAnimPhaseChange}
       />
 
-      <Dialog open={open} onClose={() => setOpen(false)} title="Claim Free Tokens">
+      <Dialog open={open} onClose={() => setOpen(false)} title="Claim Rewards">
         {loading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-5 w-5 text-slate-500 animate-spin" />
@@ -224,7 +242,7 @@ export function ClaimBanner({
               <p className="text-xs text-slate-500 text-center">
                 {alreadyClaimed
                   ? "You've already claimed"
-                  : `${status.claimsRemaining} of ${status.campaign.max_claims} spots remaining`}
+                  : formatTimeRemaining(status.campaign.ends_at) ?? "Complete tasks to claim"}
               </p>
             )}
 
