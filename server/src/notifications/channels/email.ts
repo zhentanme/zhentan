@@ -28,15 +28,25 @@ export const emailChannel: Channel<EmailMessage> = {
         Authorization: `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: FROM_EMAIL,
-        to: [user.email],
-        subject: message.subject,
-        template: {
-          id: message.templateId,
-          variables: message.variables ?? {},
-        },
-      }),
+      body: JSON.stringify(
+        message.templateId
+          ? {
+              from: FROM_EMAIL,
+              to: [user.email],
+              subject: message.subject,
+              template: {
+                id: message.templateId,
+                variables: message.variables ?? {},
+              },
+            }
+          : {
+              from: FROM_EMAIL,
+              to: [user.email],
+              subject: message.subject,
+              html: message.html,
+              ...(message.text && { text: message.text }),
+            }
+      ),
     });
 
     if (!res.ok) {

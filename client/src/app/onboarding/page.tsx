@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, AtSign, Check, MessageCircle, Loader2, X, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AuthGuard } from "@/components/AuthGuard";
+import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
 import { useLinkAccount, usePrivy } from "@privy-io/react-auth";
@@ -471,16 +471,7 @@ function OnboardingContent() {
         transition={{ type: "spring", bounce: 0.2 }}
         className="absolute top-8 left-1/2 -translate-x-1/2"
       >
-        <div className="relative w-[160px] h-[64px]">
-          <Image
-            src="/brand-kit/Lockup.png"
-            alt="Zhentan"
-            fill
-            className="object-contain drop-shadow-[0_0_28px_rgba(229,168,50,0.3)]"
-            priority
-            sizes="160px"
-          />
-        </div>
+        <BrandMark size="xl" className="gap-3" glow priority />
       </motion.div>
 
       {/* Card */}

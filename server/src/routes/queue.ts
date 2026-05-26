@@ -6,9 +6,11 @@ import {
   updateTransaction,
   getPatternsForSafe,
   getTelegramChatId,
+  getUserDetails,
   recordTxOutcome,
   incrementDailyStatsReview,
 } from "../lib/supabase/index.js";
+import { notify } from "../notifications/index.js";
 
 export function createQueueRouter(): IRouter {
   const router = Router();
@@ -77,15 +79,7 @@ export function createQueueRouter(): IRouter {
           const execResult = (await execRes.json()) as Record<string, unknown>;
 
           if (execResult.status === "executed") {
-            notifyTelegram(
-              `✅ Auto-approved and executed ${pendingTx.id}:\n` +
-                `${pendingTx.amount} ${pendingTx.token || "USDC"} → ${shortTo}\n` +
-                `Risk: ${risk.riskScore}/100 — ${risk.reasons.join(", ")}\n` +
-                `Explore: https://bscscan.com/tx/${execResult.txHash}`,
-              undefined,
-              undefined,
-              chatId
-            );
+            // tx_sent notification (TG + email) is fired by execute.ts
             recordTxOutcome(txWithRisk, "auto_approved", {
               riskScore: risk.riskScore,
               riskVerdict: risk.verdict,
@@ -183,6 +177,25 @@ export function createQueueRouter(): IRouter {
           chatId
         );
       }
+
+      // Email notification for REVIEW/BLOCK (TG is handled above with keyboard buttons)
+      getUserDetails(pendingTx.safeAddress ?? "")
+        .then((user) => {
+          if (!user) return;
+          const txPayload = {
+            txId: pendingTx.id,
+            amount: pendingTx.amount,
+            token: pendingTx.token || "USDC",
+            toAddress: pendingTx.to,
+            riskScore: risk.riskScore,
+            reasons: risk.reasons,
+          };
+          if (risk.verdict === "REVIEW") {
+            return notify("tx_review_needed", user, txPayload);
+          }
+          return notify("tx_blocked", user, txPayload);
+        })
+        .catch((err) => console.error("Email notify failed:", err));
 
       res.json({ success: true, id: pendingTx.id, risk });
     } catch (err) {

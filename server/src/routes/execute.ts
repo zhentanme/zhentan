@@ -21,8 +21,10 @@ import {
   updateTransaction,
   updatePatternsAfterExecution,
   recordTxOutcome,
+  getUserDetails,
 } from "../lib/supabase/index.js";
 import { getSafeAddressFromCallerId } from "../lib/caller.js";
+import { notify } from "../notifications/index.js";
 
 export function createExecuteRouter(): IRouter {
   const router = Router();
@@ -159,7 +161,7 @@ export function createExecuteRouter(): IRouter {
         success: receipt.success,
       });
 
-      // Fire-and-forget: learn from this execution (don't block the response)
+      // Fire-and-forget: learn from execution and notify the user
       Promise.all([
         updatePatternsAfterExecution(executedTx),
         recordTxOutcome(executedTx, "auto_approved", {
@@ -167,7 +169,19 @@ export function createExecuteRouter(): IRouter {
           riskVerdict: tx.riskVerdict,
           riskReasons: tx.riskReasons,
         }),
-      ]).catch((err) => console.error("Pattern update failed:", err));
+        getUserDetails(tx.safeAddress).then((user) => {
+          if (!user) return;
+          return notify("tx_sent", user, {
+            txId: tx.id,
+            amount: tx.amount,
+            token: tx.token || "USDC",
+            toAddress: tx.to,
+            txHash: String(txHash),
+            riskScore: tx.riskScore ?? undefined,
+            autoApproved: tx.riskVerdict === "APPROVE",
+          });
+        }),
+      ]).catch((err) => console.error("Post-execute tasks failed:", err));
 
       res.json({
         status: "executed",

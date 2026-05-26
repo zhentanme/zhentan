@@ -7,9 +7,9 @@ import {
   Bell,
   Settings,
   User,
-  ShieldCheck,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { BrandMark } from "@/components/BrandMark";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -28,11 +28,8 @@ export function Sidebar({ screeningMode }: SidebarProps) {
   return (
     <aside className="w-64 min-h-screen bg-white/3 flex flex-col">
       {/* Logo */}
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-gold/15 flex items-center justify-center shadow-[0_0_20px_-4px_rgba(229,168,50,0.25)]">
-          <ShieldCheck className="h-5 w-5 text-gold" />
-        </div>
-        <span className="text-lg font-bold text-gold">Zhentan</span>
+      <div className="p-6">
+        <BrandMark href="/" size="md" />
       </div>
 
       {/* Nav */}

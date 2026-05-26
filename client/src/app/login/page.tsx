@@ -1,11 +1,11 @@
 "use client";
 
 import { useRef, useEffect, useState } from "react";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion, useInView } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { BrandMark } from "@/components/BrandMark";
 import { ThemeLoader } from "@/components/ThemeLoader";
 import { useAuth } from "@/app/context/AuthContext";
 import { useOnboarding } from "@/lib/useOnboarding";
@@ -611,16 +611,9 @@ export default function LandingPage() {
           initial={{ opacity: 0, scale: 0.92, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ delay: 0.1, type: "spring", bounce: 0.3 }}
-          className="relative w-[220px] h-[88px] sm:w-[280px] sm:h-[112px] mb-10"
+          className="mb-10"
         >
-          <Image
-            src="/brand-kit/Lockup.png"
-            alt="Zhentan"
-            fill
-            className="object-contain drop-shadow-[0_0_28px_rgba(229,168,50,0.3)]"
-            priority
-            sizes="(max-width: 640px) 220px, 280px"
-          />
+          <BrandMark size="hero" className="gap-4" glow priority />
         </motion.div>
 
         {/* Card — contains headline, subtext, and button */}

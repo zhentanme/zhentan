@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useApiClient } from "@/lib/api/client";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Home, Settings, User, Bell, Shield, ShieldOff } from "lucide-react";
 import { clsx } from "clsx";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
+import { BrandMark } from "@/components/BrandMark";
 
 const navItems = [
   { href: "/home", label: "Home", icon: Home },
@@ -45,16 +45,7 @@ export function TopBar() {
       {/* Mobile top bar — minimal */}
       <header className="shrink-0 z-50 w-full safe-area-top sm:hidden">
         <div className="h-14 px-5 flex items-center justify-between">
-          <Link href="/home" className="flex items-center" aria-label="Zhentan">
-            <Image
-              src="/logo.png"
-              alt="Zhentan"
-              width={100}
-              height={32}
-              className="object-contain h-7 w-auto"
-              priority
-            />
-          </Link>
+          <BrandMark href="/home" size="sm" priority />
           <div
             className={clsx(
               "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors",
@@ -76,16 +67,7 @@ export function TopBar() {
       {/* Desktop top bar — full nav */}
       <header className="shrink-0 z-50 w-full backdrop-blur-xl border-b border-white/6 safe-area-top hidden sm:block">
         <div className="h-16 px-6 lg:px-8 flex items-center justify-between gap-4">
-          <Link href="/home" className="flex items-center shrink-0" aria-label="Zhentan">
-            <Image
-              src="/logo.png"
-              alt="Zhentan"
-              width={120}
-              height={40}
-              className="object-contain h-9 w-auto"
-              priority
-            />
-          </Link>
+          <BrandMark href="/home" size="lg" className="shrink-0" priority />
 
           <nav className="flex items-center gap-1 rounded-full bg-white/4 p-1 border border-white/6">
             {navItems.map((item) => {

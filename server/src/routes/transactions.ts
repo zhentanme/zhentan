@@ -6,8 +6,10 @@ import {
   getTransaction,
   getLastInReviewTransaction,
   updateTransaction,
+  getUserDetails,
 } from "../lib/supabase/index.js";
 import { getSafeAddressFromCallerId } from "../lib/caller.js";
+import { notify } from "../notifications/index.js";
 import { fetchTransfers, type ZerionHistoryItem } from "../lib/zerion.js";
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -203,6 +205,21 @@ export function createTransactionsRouter(): IRouter {
           rejectReason: reason ?? "Rejected by owner",
           inReview: false,
         });
+
+        // Email notification (TG confirmation is handled by notify-resolve editing the message)
+        getUserDetails(tx.safeAddress)
+          .then((user) => {
+            if (!user) return;
+            return notify("tx_rejected", user, {
+              txId: id,
+              amount: tx.amount,
+              token: tx.token || "USDC",
+              toAddress: tx.to,
+              rejectReason: reason ?? "Rejected by owner",
+            });
+          })
+          .catch((err) => console.error("tx_rejected notify failed:", err));
+
         res.json({ status: "rejected", txId: id, to: tx.to, amount: tx.amount });
       }
     } catch (err) {

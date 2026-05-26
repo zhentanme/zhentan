@@ -9,8 +9,12 @@ export interface TelegramMessage {
 
 export interface EmailMessage {
   subject: string;
-  templateId: string;
+  // Option A: Resend dashboard template
+  templateId?: string;
   variables?: Record<string, string | number | boolean>;
+  // Option B: inline HTML (used when templateId is not set)
+  html?: string;
+  text?: string;
 }
 
 export interface Channel<M> {

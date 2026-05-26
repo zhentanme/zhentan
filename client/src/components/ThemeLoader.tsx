@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowRightLeft } from "lucide-react";
-import authIcon from "./icons/icon.png";
 
 export type ThemeLoaderVariant = "auth" | "transaction" | "default";
 
@@ -26,7 +25,7 @@ const VARIANT_ICONS: Record<ThemeLoaderVariant, React.ReactNode> = {
   auth: (
     <div className="relative w-10 h-10">
       <Image
-        src={authIcon}
+        src="/icon.png"
         alt=""
         fill
         className="object-contain"

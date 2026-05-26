@@ -37,7 +37,8 @@ export function createNotificationsRouter(): IRouter {
         return;
       }
 
-      await notify(event as EventName, user, payload ?? {});
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await notify(event as EventName, user, (payload ?? {}) as any);
 
       res.json({
         ok: true,
