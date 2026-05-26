@@ -60,6 +60,13 @@ export interface TxRejectedPayload {
   rejectReason?: string;
 }
 
+export interface TxReceivedPayload {
+  amount: string;
+  token: string;
+  fromAddress: string;
+  txHash: string;
+}
+
 // ─── Event registry ───────────────────────────────────────────────────────────
 
 const ONBOARDING_TEMPLATE_ID = process.env.RESEND_ONBOARDING_TEMPLATE_ID;
@@ -254,6 +261,48 @@ export const EVENTS = {
       }),
     }),
   } satisfies EventDefinition<TxRejectedPayload>,
+  tx_received: {
+    name: "tx_received",
+
+    telegram: (_user, payload) => ({
+      text:
+        `💰 *Received* — +${payload.amount} ${payload.token}\n` +
+        `From: \`${payload.fromAddress}\`\n` +
+        `[View on BSCScan](${BSC_EXPLORER}/${payload.txHash})`,
+    }),
+
+    email: (_user, payload) => ({
+      subject: `+${payload.amount} ${payload.token} received`,
+      html: buildEmailHtml({
+        variant: "safe",
+        badgeText: "Received · Confirmed",
+        title: `You received +${payload.amount} ${payload.token}`,
+        subtitle:
+          "Funds have been credited to your Safe and are spendable now. No action needed.",
+        amount: payload.amount,
+        token: payload.token,
+        amountPositive: true,
+        kvRows: [
+          { key: "From", value: shortAddr(payload.fromAddress), mono: true },
+          { key: "Tx hash", value: shortAddr(payload.txHash), mono: true },
+        ],
+        buttons: [
+          {
+            text: "View on BscScan ↗",
+            href: `${BSC_EXPLORER}/${payload.txHash}`,
+            variant: "primary",
+          },
+          { text: "Open in Zhentan", href: APP_URL, variant: "ghost" },
+        ],
+        footerLinks: [
+          { text: "Open Zhentan", href: APP_URL },
+          { text: "Notification settings", href: `${APP_URL}/settings` },
+        ],
+        footerFine:
+          "You're receiving this because confirmed receipts are enabled for this Safe. Zhentan never asks for your seed phrase or private keys.",
+      }),
+    }),
+  } satisfies EventDefinition<TxReceivedPayload>,
 } as const;
 
 export type EventName = keyof typeof EVENTS;

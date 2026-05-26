@@ -1194,6 +1194,20 @@ export async function getUserBySignerAddress(signerAddress: string): Promise<Use
   return data ?? null;
 }
 
+/**
+ * Looks up a user by any address they own — safe_address or signer_address.
+ * Used to find a recipient when sending a Zhentan-to-Zhentan tx_received notification.
+ */
+export async function getUserByAddress(address: string): Promise<UserDetailsRow | null> {
+  const addr = address.toLowerCase();
+  const { data } = await supabase
+    .from("user_details")
+    .select("*")
+    .or(`safe_address.eq.${addr},signer_address.ilike.${addr}`)
+    .maybeSingle();
+  return data ?? null;
+}
+
 export async function upsertUserDetails(
   safeAddress: string,
   patch: Partial<Omit<UserDetailsRow, "safe_address" | "created_at" | "updated_at">>

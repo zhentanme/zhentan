@@ -22,6 +22,7 @@ import {
   updatePatternsAfterExecution,
   recordTxOutcome,
   getUserDetails,
+  getUserByAddress,
 } from "../lib/supabase/index.js";
 import { getSafeAddressFromCallerId } from "../lib/caller.js";
 import { notify } from "../notifications/index.js";
@@ -179,6 +180,17 @@ export function createExecuteRouter(): IRouter {
             txHash: String(txHash),
             riskScore: tx.riskScore ?? undefined,
             autoApproved: tx.riskVerdict === "APPROVE",
+          });
+        }),
+        getUserByAddress(tx.to).then((recipient) => {
+          if (!recipient) return;
+          // Skip if sender and recipient are the same Safe
+          if (recipient.safe_address.toLowerCase() === tx.safeAddress.toLowerCase()) return;
+          return notify("tx_received", recipient, {
+            amount: tx.amount,
+            token: tx.token || "USDC",
+            fromAddress: tx.safeAddress,
+            txHash: String(txHash),
           });
         }),
       ]).catch((err) => console.error("Post-execute tasks failed:", err));
