@@ -360,12 +360,12 @@ export function buildEmailHtml(opts: EmailOpts): string {
               letter-spacing:.22em;text-transform:uppercase;margin-top:3px;">You personal detective</div>
           </td>
           <td style="vertical-align:middle;text-align:right;">
-            <span style="display:inline-flex;align-items:center;gap:6px;
-              font-family:${FM};font-size:9.5px;color:#a89d80;letter-spacing:.16em;
-              text-transform:uppercase;padding:5px 10px;
-              border:1px solid rgba(196,148,40,.22);border-radius:99px;">
+            <span style="display:inline-block;font-family:${FM};font-size:9.5px;
+              color:#a89d80;letter-spacing:.16em;text-transform:uppercase;
+              padding:5px 10px;border:1px solid rgba(196,148,40,.22);border-radius:99px;">
               <span style="display:inline-block;width:5px;height:5px;border-radius:50%;
-                background:${GOLD_2};box-shadow:0 0 6px ${GOLD_2};"></span>BNB&nbsp;Chain
+                background:${GOLD_2};box-shadow:0 0 6px ${GOLD_2};
+                vertical-align:middle;margin-right:5px;margin-bottom:1px;"></span><span style="vertical-align:middle;">BNB&nbsp;Chain</span>
             </span>
           </td>
         </tr>
@@ -384,13 +384,12 @@ export function buildEmailHtml(opts: EmailOpts): string {
     <td class="z-body" style="padding:28px 28px 26px;background:#ffffff;">
 
       <!-- Badge -->
-      <span style="display:inline-flex;align-items:center;gap:8px;
-        padding:6px 12px 6px 10px;border-radius:6px;
+      <span style="display:inline-block;padding:6px 12px 6px 10px;border-radius:6px;
         background:${BADGE_BG[opts.variant]};color:${vc};
         font-family:${FD};font-size:11px;font-weight:700;
         letter-spacing:.14em;text-transform:uppercase;">
         <span style="display:inline-block;width:7px;height:7px;border-radius:50%;
-          background:${vc};flex-shrink:0;"></span>${opts.badgeText}
+          background:${vc};vertical-align:middle;margin-right:7px;margin-bottom:1px;"></span><span style="vertical-align:middle;">${opts.badgeText}</span>
       </span>
 
       <!-- Title -->
