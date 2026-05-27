@@ -55,5 +55,5 @@ export const config = {
    *   • Static files (images, fonts, favicon, etc.)
    *   • API routes (/api/*)
    */
-  matcher: ["/((?!_next/static|_next/image|api|.*\\.png$|brand-kit|manifest\\.json|sw\\.js|workbox-.*\\.js|swe-worker-.*\\.js).*)"],
+  matcher: ["/((?!_next/static|_next/image|api|.*\\.png$|.*\\.svg$|.*\\.ico$|.*\\.webp$|.*\\.jpg$|.*\\.jpeg$|brand-kit|manifest\\.json|sw\\.js|workbox-.*\\.js|swe-worker-.*\\.js).*)"],
 };
