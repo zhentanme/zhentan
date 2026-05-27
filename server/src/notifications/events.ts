@@ -27,6 +27,8 @@ export interface TxSentPayload {
   txId: string;
   amount: string;
   token: string;
+  tokenLogoUrl?: string;
+  amountUsd?: string;
   toAddress: string;
   txHash: string;
   riskScore?: number;
@@ -38,6 +40,8 @@ export interface TxReviewNeededPayload {
   txId: string;
   amount: string;
   token: string;
+  tokenLogoUrl?: string;
+  amountUsd?: string;
   toAddress: string;
   riskScore: number;
   reasons: string[];
@@ -47,6 +51,8 @@ export interface TxBlockedPayload {
   txId: string;
   amount: string;
   token: string;
+  tokenLogoUrl?: string;
+  amountUsd?: string;
   toAddress: string;
   riskScore: number;
   reasons: string[];
@@ -56,6 +62,8 @@ export interface TxRejectedPayload {
   txId: string;
   amount: string;
   token: string;
+  tokenLogoUrl?: string;
+  amountUsd?: string;
   toAddress: string;
   rejectReason?: string;
 }
@@ -63,6 +71,8 @@ export interface TxRejectedPayload {
 export interface TxReceivedPayload {
   amount: string;
   token: string;
+  tokenLogoUrl?: string;
+  amountUsd?: string;
   fromAddress: string;
   txHash: string;
 }
@@ -121,6 +131,8 @@ export const EVENTS = {
           : "Approved by 2 of 2 signers and sent on-chain.",
         amount: payload.amount,
         token: payload.token,
+        tokenLogoUrl: payload.tokenLogoUrl,
+        amountUsd: payload.amountUsd,
         amountNegative: true,
         amountGold: true,
         kvRows: [
@@ -163,6 +175,8 @@ export const EVENTS = {
           "Zhentan paused this transfer because it triggered policy review. Approve or reject from your Telegram bot or the app.",
         amount: payload.amount,
         token: payload.token,
+        tokenLogoUrl: payload.tokenLogoUrl,
+        amountUsd: payload.amountUsd,
         amountNegative: true,
         kvRows: [
           { key: "Action", value: "Transfer" },
@@ -201,6 +215,8 @@ export const EVENTS = {
           "Zhentan blocked this transfer. Your funds did not move and are safe in your Safe.",
         amount: payload.amount,
         token: payload.token,
+        tokenLogoUrl: payload.tokenLogoUrl,
+        amountUsd: payload.amountUsd,
         amountNegative: true,
         amountStrikethrough: true,
         kvRows: [
@@ -240,6 +256,8 @@ export const EVENTS = {
           "This transfer was rejected. Your funds did not move and are safe in your Safe.",
         amount: payload.amount,
         token: payload.token,
+        tokenLogoUrl: payload.tokenLogoUrl,
+        amountUsd: payload.amountUsd,
         amountNegative: true,
         amountStrikethrough: true,
         kvRows: [
@@ -276,11 +294,13 @@ export const EVENTS = {
       html: buildEmailHtml({
         variant: "safe",
         badgeText: "Received · Confirmed",
-        title: `You received +${payload.amount} ${payload.token}`,
+        title: `You received ${payload.amount} ${payload.token}`,
         subtitle:
           "Funds have been credited to your Safe and are spendable now. No action needed.",
         amount: payload.amount,
         token: payload.token,
+        tokenLogoUrl: payload.tokenLogoUrl,
+        amountUsd: payload.amountUsd,
         amountPositive: true,
         kvRows: [
           { key: "From", value: shortAddr(payload.fromAddress), mono: true },

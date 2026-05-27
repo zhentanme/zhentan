@@ -62,6 +62,10 @@ export interface EmailOpts {
   /** Amount hero — shown as a prominent number block. */
   amount: string;
   token: string;
+  /** URL for the token logo (16px circle). Optional. */
+  tokenLogoUrl?: string;
+  /** USD equivalent, e.g. "$12.34". Shown below the amount when provided. */
+  amountUsd?: string;
   /** Prepend "−" and show the amount as outgoing. */
   amountNegative?: boolean;
   /** Prepend "+" and show the amount as incoming (green). */
@@ -415,11 +419,23 @@ export function buildEmailHtml(opts: EmailOpts): string {
                     font-size:34px;letter-spacing:-.025em;line-height:1;
                     color:${amtNumColor};${amtNumExtra}">
                     ${amtPrefix}${opts.amount}</span>
+                  ${opts.tokenLogoUrl
+                    ? `<img src="${opts.tokenLogoUrl}" width="18" height="18" alt="${opts.token}"
+                        style="display:inline-block;width:18px;height:18px;border-radius:50%;
+                        vertical-align:middle;margin-left:10px;margin-bottom:2px;border:0;">`
+                    : ""}
                   <span class="z-amt-tk" style="font-family:${FM};font-size:13px;
                     color:${TEXT_2};letter-spacing:.04em;font-weight:500;
-                    margin-left:10px;">${opts.token}</span>
+                    margin-left:${opts.tokenLogoUrl ? "5px" : "10px"};">${opts.token}</span>
                 </td>
               </tr>
+              ${opts.amountUsd
+                ? `<tr><td style="padding-top:5px;">
+                    <span style="font-family:${FB};font-size:12.5px;color:${TEXT_DIM};">
+                      ${opts.amountUsd}
+                    </span>
+                  </td></tr>`
+                : ""}
             </table>
           </td>
         </tr>
