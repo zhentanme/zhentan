@@ -176,6 +176,8 @@ export function createExecuteRouter(): IRouter {
             txId: tx.id,
             amount: tx.amount,
             token: tx.token || "USDC",
+            tokenLogoUrl: tx.tokenIconUrl ?? undefined,
+            amountUsd: tx.amountUSD ? `$${tx.amountUSD}` : undefined,
             toAddress: tx.to,
             txHash: String(txHash),
             riskScore: tx.riskScore ?? undefined,
@@ -189,6 +191,8 @@ export function createExecuteRouter(): IRouter {
           return notify("tx_received", recipient, {
             amount: tx.amount,
             token: tx.token || "USDC",
+            tokenLogoUrl: tx.tokenIconUrl ?? undefined,
+            amountUsd: tx.amountUSD ? `$${tx.amountUSD}` : undefined,
             fromAddress: tx.safeAddress,
             txHash: String(txHash),
           });

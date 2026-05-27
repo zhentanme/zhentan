@@ -214,6 +214,8 @@ export function createTransactionsRouter(): IRouter {
               txId: id,
               amount: tx.amount,
               token: tx.token || "USDC",
+              tokenLogoUrl: tx.tokenIconUrl ?? undefined,
+              amountUsd: tx.amountUSD ? `$${tx.amountUSD}` : undefined,
               toAddress: tx.to,
               rejectReason: reason ?? "Rejected by owner",
             });

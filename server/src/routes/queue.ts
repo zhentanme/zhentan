@@ -186,6 +186,8 @@ export function createQueueRouter(): IRouter {
             txId: pendingTx.id,
             amount: pendingTx.amount,
             token: pendingTx.token || "USDC",
+            tokenLogoUrl: pendingTx.tokenIconUrl ?? undefined,
+            amountUsd: pendingTx.amountUSD ? `$${pendingTx.amountUSD}` : undefined,
             toAddress: pendingTx.to,
             riskScore: risk.riskScore,
             reasons: risk.reasons,
