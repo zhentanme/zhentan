@@ -290,13 +290,13 @@ export const EVENTS = {
     }),
 
     email: (_user, payload) => ({
-      subject: `+${payload.amount} ${payload.token} received`,
+      subject: `💰 ${payload.amount} ${payload.token} received`,
       html: buildEmailHtml({
         variant: "safe",
-        badgeText: "Received · Confirmed",
+        badgeText: "Received",
         title: `You received ${payload.amount} ${payload.token}`,
         subtitle:
-          "Funds have been credited to your Safe and are spendable now. No action needed.",
+          "Funds have been credited to your Zhentan account.",
         amount: payload.amount,
         token: payload.token,
         tokenLogoUrl: payload.tokenLogoUrl,
@@ -319,7 +319,7 @@ export const EVENTS = {
           { text: "Notification settings", href: `${APP_URL}/settings` },
         ],
         footerFine:
-          "You're receiving this because confirmed receipts are enabled for this Safe. Zhentan never asks for your seed phrase or private keys.",
+          "You're receiving this because confirmed receipts are enabled for this account.",
       }),
     }),
   } satisfies EventDefinition<TxReceivedPayload>,
