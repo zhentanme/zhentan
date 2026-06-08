@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { QueuedInvoice } from "@/types";
 import { truncateAddress, formatDate } from "@/lib/format";
+import { useApiClient } from "@/lib/api/client";
+import { BSC_EXPLORER_URL } from "@/lib/constants";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
 import { UsdcIcon } from "./icons/UsdcIcon";
@@ -13,16 +15,30 @@ import {
   XCircle,
   Clock,
   Send,
+  ShieldCheck,
+  ExternalLink,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { ThemeLoaderSpinner } from "./ThemeLoader";
 
 interface InvoiceDetailDialogProps {
   invoice: QueuedInvoice | null;
   open: boolean;
   onClose: () => void;
-  onApprove?: (invoice: QueuedInvoice) => Promise<void>;
+  onApprove?: (invoice: QueuedInvoice) => Promise<{ txId: string }>;
   onReject?: (invoice: QueuedInvoice, reason: string) => Promise<void>;
+  onRefresh?: () => void;
 }
+
+/** Active approval lifecycle once the user clicks "Approve & Send". */
+type ScreeningPhase =
+  | "idle"
+  | "proposing"
+  | "screening"
+  | "review"
+  | "executed"
+  | "rejected"
+  | "error";
 
 function StatusAnimation({ status }: { status: QueuedInvoice["status"] }) {
   const common = "rounded-2xl flex items-center justify-center";
@@ -128,22 +144,92 @@ export function InvoiceDetailDialog({
   onClose,
   onApprove,
   onReject,
+  onRefresh,
 }: InvoiceDetailDialogProps) {
-  const [approving, setApproving] = useState(false);
+  const api = useApiClient();
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
 
+  const [phase, setPhase] = useState<ScreeningPhase>("idle");
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [resultReason, setResultReason] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const cancelledRef = useRef(false);
+
   if (!invoice) return null;
+
+  const resetScreening = () => {
+    cancelledRef.current = true;
+    setPhase("idle");
+    setTxHash(null);
+    setResultReason(null);
+    setErrorMsg(null);
+  };
+
+  const handleClose = () => {
+    resetScreening();
+    setRejectReason("");
+    setShowRejectInput(false);
+    onClose();
+  };
+
+  // Poll the proposed transaction until it executes or is rejected. While the
+  // agent has it in review the user approves from Telegram, so we keep polling.
+  const pollScreening = async (txId: string) => {
+    const maxAttempts = 40; // ~2 min at 3s
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((r) => setTimeout(r, 3000));
+      if (cancelledRef.current) return;
+
+      let tx;
+      try {
+        tx = (await api.transactions.get(txId)).transaction;
+      } catch {
+        continue;
+      }
+      if (cancelledRef.current) return;
+
+      if (tx.txHash) {
+        setTxHash(tx.txHash);
+        setPhase("executed");
+        await api.invoices
+          .update({ id: invoice.id, status: "executed", txHash: tx.txHash })
+          .catch(() => {});
+        onRefresh?.();
+        return;
+      }
+      if (tx.rejected) {
+        const reason = tx.rejectReason || tx.reviewReason || "Blocked by screening";
+        setResultReason(reason);
+        setPhase("rejected");
+        await api.invoices
+          .update({ id: invoice.id, status: "rejected", rejectReason: reason })
+          .catch(() => {});
+        onRefresh?.();
+        return;
+      }
+      if (tx.inReview || tx.riskVerdict === "REVIEW") {
+        setPhase("review");
+      }
+    }
+    // Timed out — the agent still holds it for review. Leave invoice "approved".
+    setPhase("review");
+  };
 
   const handleApprove = async () => {
     if (!onApprove) return;
-    setApproving(true);
+    cancelledRef.current = false;
+    setErrorMsg(null);
+    setPhase("proposing");
     try {
-      await onApprove(invoice);
-      onClose();
-    } finally {
-      setApproving(false);
+      const { txId } = await onApprove(invoice);
+      if (cancelledRef.current) return;
+      setPhase("screening");
+      await pollScreening(txId);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Approval failed");
+      setPhase("error");
     }
   };
 
@@ -154,16 +240,33 @@ export function InvoiceDetailDialog({
       await onReject(invoice, rejectReason);
       setRejectReason("");
       setShowRejectInput(false);
-      onClose();
+      handleClose();
     } finally {
       setRejecting(false);
     }
   };
 
+  // Active approval lifecycle takes over the dialog with clear status messaging.
+  if (phase !== "idle") {
+    return (
+      <Dialog open={open} onClose={handleClose} title="Payment" className="max-w-md">
+        <ScreeningView
+          invoice={invoice}
+          phase={phase}
+          txHash={txHash}
+          resultReason={resultReason}
+          errorMsg={errorMsg}
+          onDone={handleClose}
+          onRetry={handleApprove}
+        />
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={handleClose}
       title="Invoice details"
       className="max-w-md"
     >
@@ -296,13 +399,19 @@ export function InvoiceDetailDialog({
         {/* Action buttons (only for queued invoices) */}
         {invoice.status === "queued" && (
           <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-2xl bg-gold/8 px-3 py-2.5 text-xs text-slate-300">
+              <ShieldCheck className="h-4 w-4 text-gold shrink-0" />
+              <span>
+                Zhentan screens this payment before it&rsquo;s sent. You may need
+                to confirm in Telegram.
+              </span>
+            </div>
             <Button
               onClick={handleApprove}
-              loading={approving}
               disabled={rejecting}
               className="w-full py-3.5"
             >
-              Approve & Send
+              Approve &amp; Send
             </Button>
 
             {showRejectInput ? (
@@ -318,7 +427,6 @@ export function InvoiceDetailDialog({
                   variant="secondary"
                   onClick={handleReject}
                   loading={rejecting}
-                  disabled={approving}
                   className="w-full py-3 text-red-400 hover:text-red-300"
                 >
                   Confirm Reject
@@ -328,7 +436,6 @@ export function InvoiceDetailDialog({
               <Button
                 variant="ghost"
                 onClick={() => setShowRejectInput(true)}
-                disabled={approving}
                 className="w-full py-3 text-red-400 hover:text-red-300"
               >
                 Reject
@@ -338,5 +445,172 @@ export function InvoiceDetailDialog({
         )}
       </div>
     </Dialog>
+  );
+}
+
+/** Renders the active approval lifecycle with clear, phase-specific messaging. */
+function ScreeningView({
+  invoice,
+  phase,
+  txHash,
+  resultReason,
+  errorMsg,
+  onDone,
+  onRetry,
+}: {
+  invoice: QueuedInvoice;
+  phase: Exclude<ScreeningPhase, "idle">;
+  txHash: string | null;
+  resultReason: string | null;
+  errorMsg: string | null;
+  onDone: () => void;
+  onRetry: () => void;
+}) {
+  const explorerUrl = txHash ? `${BSC_EXPLORER_URL}/tx/${txHash}` : null;
+
+  const copy: Record<
+    Exclude<ScreeningPhase, "idle">,
+    { title: string; subtitle: string }
+  > = {
+    proposing: {
+      title: "Proposing payment",
+      subtitle: "Awaiting your signature",
+    },
+    screening: {
+      title: "Screening payment",
+      subtitle: "Zhentan is analyzing this transaction",
+    },
+    review: {
+      title: "Pending review",
+      subtitle: "Approve in your Telegram chat to release the payment",
+    },
+    executed: { title: "Payment sent", subtitle: "Executed on BNB Chain" },
+    rejected: { title: "Payment blocked", subtitle: "Screening rejected this payment" },
+    error: { title: "Couldn’t propose payment", subtitle: "Please try again" },
+  };
+
+  const isLoading = phase === "proposing" || phase === "screening";
+  const { title, subtitle } = copy[phase];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col items-center gap-3 text-center">
+        {isLoading ? (
+          <ThemeLoaderSpinner variant="transaction" />
+        ) : phase === "review" ? (
+          <motion.div
+            className="w-20 h-20 rounded-2xl bg-amber-400/15 text-amber-400 flex items-center justify-center"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1, rotate: [0, 5, -5, 0] }}
+            transition={{
+              opacity: { duration: 0.3 },
+              scale: { type: "spring", bounce: 0.4 },
+              rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" },
+            }}
+          >
+            <Clock className="h-10 w-10" />
+          </motion.div>
+        ) : phase === "executed" ? (
+          <div className="w-20 h-20 rounded-2xl bg-gold/20 text-gold flex items-center justify-center">
+            <CheckCircle2 className="h-10 w-10" />
+          </div>
+        ) : (
+          <div className="w-20 h-20 rounded-2xl bg-red-400/15 text-red-400 flex items-center justify-center">
+            <XCircle className="h-10 w-10" />
+          </div>
+        )}
+        <div>
+          <p
+            className={clsx(
+              "text-sm font-semibold",
+              phase === "executed"
+                ? "text-gold"
+                : phase === "rejected" || phase === "error"
+                  ? "text-red-400"
+                  : phase === "review"
+                    ? "text-amber-400"
+                    : "text-gold"
+            )}
+          >
+            {title}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+        </div>
+      </div>
+
+      {/* Amount */}
+      <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
+        <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
+          <Send className="h-5 w-5" />
+        </div>
+        <UsdcIcon size={24} className="shrink-0 opacity-90" />
+        <span className="text-lg font-semibold text-white">
+          {invoice.amount} {invoice.token}
+        </span>
+      </div>
+
+      <dl className="space-y-3 text-sm">
+        <div className="flex justify-between gap-4">
+          <dt className="text-slate-500">To</dt>
+          <dd
+            className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
+            title={invoice.to}
+          >
+            {truncateAddress(invoice.to)}
+          </dd>
+        </div>
+      </dl>
+
+      {phase === "rejected" && resultReason && (
+        <div className="rounded-2xl bg-red-400/10 p-3">
+          <p className="text-xs text-red-400/70 mb-1">Reason</p>
+          <p className="text-sm text-red-400">{resultReason}</p>
+        </div>
+      )}
+
+      {phase === "error" && errorMsg && (
+        <div className="rounded-2xl bg-red-400/10 p-3">
+          <p className="text-sm text-red-400">{errorMsg}</p>
+        </div>
+      )}
+
+      {explorerUrl && (
+        <a
+          href={explorerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-1.5 text-xs text-gold hover:text-gold/80"
+        >
+          View on BscScan <ExternalLink className="h-3 w-3" />
+        </a>
+      )}
+
+      {phase === "error" ? (
+        <div className="space-y-2">
+          <Button onClick={onRetry} className="w-full py-3.5">
+            Try again
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={onDone}
+            className="w-full py-3 text-slate-400 hover:text-slate-200"
+          >
+            Close
+          </Button>
+        </div>
+      ) : isLoading ? (
+        <Button
+          variant="ghost"
+          onClick={onDone}
+          className="w-full py-3 text-slate-400 hover:text-slate-200"
+        >
+          Close
+        </Button>
+      ) : (
+        <Button onClick={onDone} className="w-full py-3.5">
+          Done
+        </Button>
+      )}
+    </div>
   );
 }

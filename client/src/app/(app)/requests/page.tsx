@@ -8,7 +8,8 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useSafeAddress } from "@/lib/useSafeAddress";
 import { proposeTransaction } from "@/lib/propose";
 import { useApiClient } from "@/lib/api/client";
-import type { QueuedInvoice, StatusResponse } from "@/types";
+import { findFallbackTokenBySymbol } from "@/lib/tokenFallbacks";
+import type { QueuedInvoice, TokenPosition } from "@/types";
 import { FileText, Bell } from "lucide-react";
 
 const staggerContainer = {
@@ -35,7 +36,7 @@ function RequestsPageContent() {
 
   const [invoices, setInvoices] = useState<QueuedInvoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [screeningMode, setScreeningMode] = useState(false);
+  const [tokens, setTokens] = useState<TokenPosition[]>([]);
 
   const fetchInvoices = useCallback(async () => {
     try {
@@ -48,11 +49,11 @@ function RequestsPageContent() {
     }
   }, [api]);
 
-  const fetchStatus = useCallback(async () => {
+  const fetchTokens = useCallback(async () => {
     if (!safeAddress) return;
     try {
-      const data: StatusResponse = await api.status.get(safeAddress);
-      setScreeningMode(data.screeningMode);
+      const data = await api.portfolio.get(safeAddress);
+      setTokens(data.tokens);
     } catch {
       // silent
     }
@@ -60,31 +61,52 @@ function RequestsPageContent() {
 
   useEffect(() => {
     fetchInvoices();
-    fetchStatus();
-  }, [fetchInvoices, fetchStatus]);
+    fetchTokens();
+  }, [fetchInvoices, fetchTokens]);
 
+  // Resolve an invoice's token (symbol only) to a contract address + decimals,
+  // preferring the user's portfolio and falling back to known BNB Chain tokens.
+  const resolveToken = useCallback(
+    (symbol: string) => {
+      const sym = symbol.trim().toLowerCase();
+      const fromPortfolio = tokens.find(
+        (t) => t.symbol.toLowerCase() === sym && t.address
+      );
+      if (fromPortfolio) return fromPortfolio;
+      return findFallbackTokenBySymbol(symbol);
+    },
+    [tokens]
+  );
+
+  // Approve = propose the payment. Invoices always go through screening by
+  // default (no screeningDisabled), so the agent co-signs after risk analysis.
+  // Returns the proposed tx id so the dialog can track screening progress.
   const handleApprove = useCallback(
-    async (invoice: QueuedInvoice) => {
+    async (invoice: QueuedInvoice): Promise<{ txId: string }> => {
       if (!user || !wallet) throw new Error("Please log in first");
+
+      const token = resolveToken(invoice.token);
+      if (!token?.address) {
+        throw new Error(`Unsupported token: ${invoice.token}`);
+      }
 
       const pendingTx = await proposeTransaction({
         recipient: invoice.to,
         amount: String(invoice.amount),
         ownerAddress: wallet.address,
         getOwnerAccount,
+        tokenAddress: token.address,
+        tokenDecimals: token.decimals,
+        tokenSymbol: token.symbol,
+        tokenIconUrl: token.iconUrl ?? undefined,
         identityToken,
       });
 
       await api.invoices.update({ id: invoice.id, status: "approved", txId: pendingTx.id });
-
-      if (!screeningMode) {
-        await api.execute.run(pendingTx.id);
-        await api.invoices.update({ id: invoice.id, status: "executed" });
-      }
-
       fetchInvoices();
+      return { txId: pendingTx.id };
     },
-    [user, wallet, getOwnerAccount, screeningMode, fetchInvoices, api]
+    [user, wallet, getOwnerAccount, identityToken, resolveToken, fetchInvoices, api]
   );
 
   const handleReject = useCallback(
@@ -147,6 +169,7 @@ function RequestsPageContent() {
                 loading={loading}
                 onApprove={handleApprove}
                 onReject={handleReject}
+                onRefresh={fetchInvoices}
               />
             </motion.div>
           )}

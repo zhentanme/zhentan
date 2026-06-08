@@ -35,8 +35,9 @@ const headerVariants = {
 interface InvoiceListProps {
   invoices: QueuedInvoice[];
   loading: boolean;
-  onApprove?: (invoice: QueuedInvoice) => Promise<void>;
+  onApprove?: (invoice: QueuedInvoice) => Promise<{ txId: string }>;
   onReject?: (invoice: QueuedInvoice, reason: string) => Promise<void>;
+  onRefresh?: () => void;
 }
 
 export function InvoiceList({
@@ -44,6 +45,7 @@ export function InvoiceList({
   loading,
   onApprove,
   onReject,
+  onRefresh,
 }: InvoiceListProps) {
   const [selectedInvoice, setSelectedInvoice] =
     useState<QueuedInvoice | null>(null);
@@ -108,6 +110,7 @@ export function InvoiceList({
         onClose={() => setSelectedInvoice(null)}
         onApprove={onApprove}
         onReject={onReject}
+        onRefresh={onRefresh}
       />
     </Card>
   );

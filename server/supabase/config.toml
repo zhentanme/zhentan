@@ -1,0 +1,11 @@
+# Supabase project config. `project_id` is the local project name; it is not the
+# remote project ref. The remote project is selected by `supabase link`.
+project_id = "zhentan"
+
+[db]
+# Postgres major version of your Supabase project (Settings → Database).
+major_version = 15
+
+[db.migrations]
+# Schema migrations live in ./migrations and apply in filename order.
+schema_paths = []

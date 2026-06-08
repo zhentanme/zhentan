@@ -79,6 +79,8 @@ export interface InvoiceParty {
 
 export interface QueuedInvoice {
   id: string;
+  /** Owner Safe address — invoices are scoped per-Safe. */
+  safeAddress?: string;
   to: string;
   amount: string;
   token: string;

@@ -1,6 +1,7 @@
 import { Router, Request, Response, type IRouter } from "express";
 import type { InvoiceStatus, QueuedInvoice } from "../types.js";
 import { getInvoices, getInvoice, createInvoice, updateInvoice } from "../lib/supabase/index.js";
+import { getSafeAddressFromCallerId } from "../lib/caller.js";
 import { randomUUID } from "crypto";
 
 const VALID_STATUSES: InvoiceStatus[] = [
@@ -24,8 +25,24 @@ export function createInvoicesRouter(): IRouter {
         return;
       }
 
+      // Resolve the owner Safe so the invoice is scoped to one user.
+      // Client calls carry req.user (Privy token); agent calls carry a
+      // "telegram:<id>" callerId we resolve to the user's Safe. Fall back to
+      // body.callerId so the agent path also works when auth is skipped in dev.
+      const safeAddress =
+        req.user?.safe_address ??
+        (await getSafeAddressFromCallerId(req.callerId ?? body.callerId));
+
+      if (!safeAddress) {
+        res.status(400).json({
+          error: "Could not resolve invoice owner. Provide a valid callerId (telegram:<id>) for a registered user.",
+        });
+        return;
+      }
+
       const invoice: QueuedInvoice = {
         id: `inv-${randomUUID().slice(0, 8)}`,
+        safeAddress,
         to,
         amount: String(amount),
         token,
@@ -50,9 +67,18 @@ export function createInvoicesRouter(): IRouter {
     }
   });
 
-  router.get("/", async (_req: Request, res: Response) => {
+  router.get("/", async (req: Request, res: Response) => {
     try {
-      const invoices = await getInvoices();
+      // Scope to a single user's Safe. Client calls use the authenticated
+      // user; agent calls may scope by a "telegram:<id>" callerId query.
+      // Unauthenticated callers (or users mid-onboarding) see nothing.
+      const safeAddress =
+        req.user?.safe_address ?? (await getSafeAddressFromCallerId(req.callerId));
+      if (!safeAddress) {
+        res.json({ invoices: [] });
+        return;
+      }
+      const invoices = await getInvoices(safeAddress);
       res.json({ invoices });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -78,6 +104,17 @@ export function createInvoicesRouter(): IRouter {
       const existing = await getInvoice(id);
       if (!existing) {
         res.status(404).json({ error: `Invoice not found: ${id}` });
+        return;
+      }
+
+      // Ownership: a client may only mutate invoices belonging to their own Safe.
+      // Agent calls (authenticated via AGENT_SECRET, no req.user) are exempt.
+      if (
+        req.user &&
+        existing.safeAddress &&
+        existing.safeAddress.toLowerCase() !== req.user.safe_address.toLowerCase()
+      ) {
+        res.status(403).json({ error: "Forbidden" });
         return;
       }
 

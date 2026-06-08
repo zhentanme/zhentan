@@ -1,5 +1,5 @@
 /**
- * DB row types (snake_case) — mirror schema.sql column names exactly.
+ * DB row types (snake_case) — mirror the supabase/migrations column names exactly.
  * App types (camelCase) live in src/types.ts; mappers in db.ts bridge the two.
  */
 
@@ -63,6 +63,7 @@ export interface UserSettingsRow {
 
 export interface InvoiceRow {
   id: string;
+  safe_address: string | null;
   to_address: string | null;
   amount: string | null;
   token: string | null;

@@ -98,6 +98,7 @@ function txToRow(tx: PendingTransaction): TransactionRow {
 function rowToInvoice(row: InvoiceRow): QueuedInvoice {
   return {
     id: row.id,
+    safeAddress: row.safe_address ?? undefined,
     to: row.to_address ?? "",
     amount: row.amount ?? "",
     token: row.token ?? "",
@@ -123,6 +124,7 @@ function rowToInvoice(row: InvoiceRow): QueuedInvoice {
 function invoiceToRow(inv: QueuedInvoice): InvoiceRow {
   return {
     id: inv.id,
+    safe_address: inv.safeAddress?.toLowerCase() ?? null,
     to_address: inv.to ?? null,
     amount: inv.amount ?? null,
     token: inv.token ?? null,
@@ -814,10 +816,11 @@ export async function getPatternsForSafe(safeAddress: string): Promise<PatternsF
 // Invoices
 // ─────────────────────────────────────────────────────────────
 
-export async function getInvoices(): Promise<QueuedInvoice[]> {
+export async function getInvoices(safeAddress: string): Promise<QueuedInvoice[]> {
   const { data, error } = await supabase
     .from("invoices")
     .select("*")
+    .eq("safe_address", safeAddress.toLowerCase())
     .order("queued_at", { ascending: false })
     .returns<InvoiceRow[]>();
 
