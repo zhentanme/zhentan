@@ -82,6 +82,18 @@ const FALLBACKS: Omit<TokenPosition, "usdValue" | "balance" | "price">[] = [
 ];
 
 /**
+ * Looks up a well-known BNB Chain token by symbol (case-insensitive) from the
+ * fallback list. Used to resolve a request's token (which carries only a
+ * symbol) to a contract address + decimals when it isn't in the portfolio.
+ */
+export function findFallbackTokenBySymbol(
+  symbol: string
+): Omit<TokenPosition, "usdValue" | "balance" | "price"> | undefined {
+  const target = symbol.trim().toLowerCase();
+  return FALLBACKS.find((t) => t.symbol.toLowerCase() === target);
+}
+
+/**
  * Pads `tokens` with zero-balance fallback entries so the list has at least
  * `minCount` items. Fallbacks already present in the portfolio are skipped.
  */

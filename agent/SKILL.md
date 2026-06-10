@@ -1,11 +1,12 @@
 ---
 name: zhentan
-description: Zhentan is your personal onchain security agent and co-signer. It monitors pending multisig transactions, screens them against behavioral patterns and security risk data, and auto-signs safe ones — blocking or flagging suspicious activity before it executes. Use when the user wants to review pending transactions, approve or reject a transaction, check risk scores, toggle screening mode, view transaction history, or queue and process an invoice.
+description: Zhentan is your personal onchain security agent and co-signer. It monitors pending multisig transactions, screens them against behavioral patterns and security risk data, and auto-signs safe ones — blocking or flagging suspicious activity before it executes. Use when the user wants to review pending transactions, approve or reject a transaction, check risk scores, toggle screening mode, view transaction history, or queue and process payment requests (invoices or transfer instructions).
 metadata:
   openclaw:
     requires:
       bins: ["curl"]
       env: ["AGENT_SECRET"]
+    optionalEnv: ["ZHENTAN_API_URL"]
     primaryEnv: "AGENT_SECRET"
 ---
 
@@ -33,7 +34,10 @@ Zhentan acts as an intelligent co-signer on your Safe smart account. It learns h
 
 Safe transactions are auto-signed and executed instantly. Borderline ones are surfaced for your review. Clearly malicious transactions are blocked outright.
 
-Base URL: `https://api.zhentan.me`
+**Base URL** — every `curl` below uses `${ZHENTAN_API_URL:-https://api.zhentan.me}`: the
+`ZHENTAN_API_URL` environment variable when set, falling back to production
+(`https://api.zhentan.me`). For local development set `ZHENTAN_API_URL=http://localhost:3001`;
+no edits to this file are needed. Copy the command templates exactly — the shell expands the default.
 
 ## How it works
 
@@ -55,6 +59,30 @@ Your role is **conversational** — the server owns the deterministic pipeline.
 
 ---
 
+## First message — `/start`
+
+When a user opens the bot for the first time, Telegram delivers a `/start` message. Call `/bot-ping` with their chat ID to mark the bot as connected and retrieve their details:
+
+```bash
+curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/bot-ping \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $AGENT_SECRET" \
+  -d '{"chatId":"<origin.chat.id>"}'
+```
+
+**Response when user is found** (`found: true`):
+```json
+{ "ok": true, "found": true, "safeAddress": "0x...", "name": "Alice", "username": "alice" }
+```
+
+Use the returned details to greet them, for example:
+> "👋 Hey Alice! Zhentan is connected to your Safe `0xABCD…1234`. I'll notify you here for any transactions that need review. Send **help** to see what I can do."
+
+**Response when user is not found** (`found: false`): the user hasn't linked their Telegram account in the Zhentan app yet. Reply:
+> "👋 Hi! To connect your Safe, please link your Telegram account first from the Zhentan app settings."
+
+---
+
 ## Owner commands
 
 Run each command immediately, wait for the result, then report the actual outcome. Never fabricate results.
@@ -65,7 +93,7 @@ When the owner says "approve tx-XXX" or taps ✅ approve tx-XXX:
 If a tx-id is provided:
 1. Co-sign and execute via the server:
 ```bash
-curl -s -X POST https://api.zhentan.me/execute \
+curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/execute \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"txId":"tx-XXX","callerId":"telegram:<origin.from>"}'
@@ -73,7 +101,7 @@ curl -s -X POST https://api.zhentan.me/execute \
 
 If no tx-id is provided (e.g. bare "approve"), omit `txId` — the server resolves the most recent in-review transaction using the `callerId`:
 ```bash
-curl -s -X POST https://api.zhentan.me/execute \
+curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/execute \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"callerId":"telegram:<origin.from>"}'
@@ -83,7 +111,7 @@ Parse the JSON: on success `status` is `executed` and `txHash` is the on-chain h
 
 2. Update the Telegram notification with the tx hash from step 1:
 ```bash
-curl -s -X POST https://api.zhentan.me/notify-resolve \
+curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/notify-resolve \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"txId":"tx-XXX","action":"approved","txHash":"THE_TX_HASH","callerId":"telegram:<origin.from>"}'
@@ -98,7 +126,7 @@ When the owner says "reject tx-XXX" or taps ❌ reject tx-XXX:
 If a tx-id is provided:
 1. Mark rejected (optionally include a reason):
 ```bash
-curl -s -X PATCH https://api.zhentan.me/transactions/tx-XXX \
+curl -s -X PATCH ${ZHENTAN_API_URL:-https://api.zhentan.me}/transactions/tx-XXX \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"action":"reject","reason":"Rejected by owner","callerId":"telegram:<origin.from>"}'
@@ -106,7 +134,7 @@ curl -s -X PATCH https://api.zhentan.me/transactions/tx-XXX \
 
 If no tx-id is provided (e.g. bare "reject"), use `latest` as the id — the server resolves the most recent in-review transaction using the `callerId`:
 ```bash
-curl -s -X PATCH https://api.zhentan.me/transactions/latest \
+curl -s -X PATCH ${ZHENTAN_API_URL:-https://api.zhentan.me}/transactions/latest \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"action":"reject","reason":"Rejected by owner","callerId":"telegram:<origin.from>"}'
@@ -114,7 +142,7 @@ curl -s -X PATCH https://api.zhentan.me/transactions/latest \
 
 2. Update the Telegram notification:
 ```bash
-curl -s -X POST https://api.zhentan.me/notify-resolve \
+curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/notify-resolve \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"txId":"tx-XXX","action":"rejected","callerId":"telegram:<origin.from>"}'
@@ -124,39 +152,60 @@ curl -s -X POST https://api.zhentan.me/notify-resolve \
 ### mark for review `tx-XXX`
 When you need to flag a transaction for manual review:
 ```bash
-curl -s -X PATCH https://api.zhentan.me/transactions/tx-XXX \
+curl -s -X PATCH ${ZHENTAN_API_URL:-https://api.zhentan.me}/transactions/tx-XXX \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"action":"review","reason":"Flagged for manual review","callerId":"telegram:<origin.from>"}'
 ```
 
+### get my profile
+When the user asks "who am I", "my wallet", "my details", "show my account", or anything about their own profile:
+
+```bash
+curl -s -H "Authorization: Bearer $AGENT_SECRET" \
+  "${ZHENTAN_API_URL:-https://api.zhentan.me}/me?chatId=<origin.chat.id>"
+```
+
+Response:
+```json
+{
+  "safeAddress": "0x...",
+  "signerAddress": "0x...",
+  "name": "Alice",
+  "username": "alice",
+  "email": "alice@example.com"
+}
+```
+
+Present the relevant fields clearly. If `email` is null, omit it.
+
 ### check pending
 Check if there are pending transactions for a Safe:
 ```bash
 # 1. Check screening mode
-curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/status?safe=0xSAFE_ADDRESS"
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "${ZHENTAN_API_URL:-https://api.zhentan.me}/status?safe=0xSAFE_ADDRESS"
 
 # 2. List transactions (filter client-side for !executedAt && !inReview && !rejected)
-curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/transactions?safeAddress=0xSAFE_ADDRESS"
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "${ZHENTAN_API_URL:-https://api.zhentan.me}/transactions?safeAddress=0xSAFE_ADDRESS"
 ```
 
 ### get status
 Get screening mode, patterns, and global limits for a Safe:
 ```bash
-curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/status?safe=0xSAFE_ADDRESS"
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "${ZHENTAN_API_URL:-https://api.zhentan.me}/status?safe=0xSAFE_ADDRESS"
 ```
 
 ### toggle screening
 Turn screening on or off for a Safe:
 ```bash
 # Turn on
-curl -s -X PATCH https://api.zhentan.me/status \
+curl -s -X PATCH ${ZHENTAN_API_URL:-https://api.zhentan.me}/status \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"safe":"0xSAFE_ADDRESS","screeningMode":true,"callerId":"telegram:<origin.from>"}'
 
 # Turn off
-curl -s -X PATCH https://api.zhentan.me/status \
+curl -s -X PATCH ${ZHENTAN_API_URL:-https://api.zhentan.me}/status \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"safe":"0xSAFE_ADDRESS","screeningMode":false,"callerId":"telegram:<origin.from>"}'
@@ -165,7 +214,7 @@ curl -s -X PATCH https://api.zhentan.me/status \
 ### update limits
 Update global limits for a Safe (any combination of fields):
 ```bash
-curl -s -X PATCH https://api.zhentan.me/status \
+curl -s -X PATCH ${ZHENTAN_API_URL:-https://api.zhentan.me}/status \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{
@@ -186,7 +235,7 @@ curl -s -X PATCH https://api.zhentan.me/status \
 ### quick risk score
 Fetch the stored risk score for a transaction (computed at queue time):
 ```bash
-curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/transactions/tx-XXX"
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "${ZHENTAN_API_URL:-https://api.zhentan.me}/transactions/tx-XXX"
 # Returns: riskScore, riskVerdict, riskReasons
 ```
 
@@ -197,12 +246,12 @@ When the owner taps 🔎 deep-analyze tx-XXX or asks "analyze tx-XXX", "is this 
 
 If a tx-id is provided:
 ```bash
-curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/analyze/tx-XXX?callerId=telegram:<origin.from>"
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "${ZHENTAN_API_URL:-https://api.zhentan.me}/analyze/tx-XXX?callerId=telegram:<origin.from>"
 ```
 
 If no tx-id is provided (e.g. bare "analyze" or "deep-analyze"), use `latest` — the server resolves the most recent in-review transaction using the `callerId`:
 ```bash
-curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/analyze/latest?callerId=telegram:<origin.from>"
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "${ZHENTAN_API_URL:-https://api.zhentan.me}/analyze/latest?callerId=telegram:<origin.from>"
 ```
 
 Parse the JSON and present:
@@ -216,7 +265,7 @@ Highlight red flags prominently. If `safe: true` and `totalFlags: 0`, reassure t
 ### behavioral event log
 View the event history for a Safe:
 ```bash
-curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/events?safe=0xSAFE_ADDRESS&limit=50"
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "${ZHENTAN_API_URL:-https://api.zhentan.me}/events?safe=0xSAFE_ADDRESS&limit=50"
 ```
 
 ---
@@ -225,12 +274,12 @@ curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/events?
 
 ### list rules
 ```bash
-curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/rules?safe=0xSAFE_ADDRESS"
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "${ZHENTAN_API_URL:-https://api.zhentan.me}/rules?safe=0xSAFE_ADDRESS"
 ```
 
 ### create rule
 ```bash
-curl -s -X POST https://api.zhentan.me/rules \
+curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/rules \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{
@@ -248,7 +297,7 @@ Valid `action`: `approve`, `review`, `block`
 
 ### update rule
 ```bash
-curl -s -X PATCH https://api.zhentan.me/rules/RULE_ID \
+curl -s -X PATCH ${ZHENTAN_API_URL:-https://api.zhentan.me}/rules/RULE_ID \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"isActive": false, "callerId": "telegram:<origin.from>"}'
@@ -256,49 +305,66 @@ curl -s -X PATCH https://api.zhentan.me/rules/RULE_ID \
 
 ### delete rule
 ```bash
-curl -s -X DELETE -H "Authorization: Bearer $AGENT_SECRET" https://api.zhentan.me/rules/RULE_ID
+curl -s -X DELETE -H "Authorization: Bearer $AGENT_SECRET" ${ZHENTAN_API_URL:-https://api.zhentan.me}/rules/RULE_ID
 ```
 
 ---
 
-## Invoice detection
+## Request detection (invoices & transfer instructions)
 
-When a user sends an invoice file or message:
+A **request** is any incoming payment ask: a parsed invoice file OR a general
+transfer instruction ("pay Alice 50 USDC", "send 0.1 BNB to 0x... tomorrow").
+Both are queued to the user's Zhentan dashboard for approval — never execute
+them directly.
+
+When a user sends an invoice file, payment message, or transfer instruction:
 
 1. Extract fields:
+   - **type** — `"invoice"` for invoice documents, `"transfer"` for general instructions
    - **to** (wallet address, required)
    - **amount** (required), **token** (default: USDC)
-   - **invoiceNumber**, **issueDate**, **dueDate**
-   - **billedFrom**, **billedTo** — `{name, email}` objects
-   - **services** — `[{description, quantity, rate, total}]`
+   - **description** — for transfers: the user's instruction in one sentence
+   - Invoice-only: **invoiceNumber**, **issueDate**, **dueDate**,
+     **billedFrom**/**billedTo** — `{name, email}` objects,
+     **services** — `[{description, quantity, rate, total}]`
    - **riskScore** (0–100) — assess based on: known vs unknown recipient (check `GET /status`), amount vs history, due date urgency
    - **riskNotes** — brief explanation
 
 2. Queue it:
 ```bash
-curl -s -X POST https://api.zhentan.me/invoices \
+# Invoice
+curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/requests \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
-  -d '{"to":"0x...","amount":"500","token":"USDC","invoiceNumber":"INV-001","riskScore":20,"sourceChannel":"telegram","callerId":"telegram:<origin.from>"}'
-```
+  -d '{"type":"invoice","to":"0x...","amount":"500","token":"USDC","invoiceNumber":"INV-001","riskScore":20,"sourceChannel":"telegram","callerId":"telegram:<origin.from>"}'
 
-3. Confirm: "Invoice [number] for [amount] [token] queued. Check your Zhentan dashboard to approve."
-
-If the invoice is missing a wallet address, ask the user to provide one.
-
-### list invoices
-```bash
-curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/invoices"
-```
-
-### update invoice status
-```bash
-curl -s -X PATCH https://api.zhentan.me/invoices \
+# General transfer instruction
+curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/requests \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
-  -d '{"id":"inv-XXXXXXXX","status":"approved","txId":"tx-XXX","callerId":"telegram:<origin.from>"}'
+  -d '{"type":"transfer","to":"0x...","amount":"50","token":"USDC","description":"Pay Alice 50 USDC for design work","riskScore":15,"sourceChannel":"telegram","callerId":"telegram:<origin.from>"}'
+```
+
+3. Confirm: "Request for [amount] [token] queued. Check your Zhentan dashboard to approve."
+
+If the request is missing a wallet address, ask the user to provide one.
+
+### list requests
+```bash
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "${ZHENTAN_API_URL:-https://api.zhentan.me}/requests?callerId=telegram:<origin.from>"
+```
+
+### update request status
+```bash
+curl -s -X PATCH ${ZHENTAN_API_URL:-https://api.zhentan.me}/requests \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $AGENT_SECRET" \
+  -d '{"id":"req-XXXXXXXX","status":"approved","txId":"tx-XXX","callerId":"telegram:<origin.from>"}'
 ```
 Valid `status`: `queued`, `approved`, `executed`, `rejected`
+Valid `type`: `invoice`, `transfer`
+
+(`/invoices` remains a legacy alias for `/requests`.)
 
 ---
 

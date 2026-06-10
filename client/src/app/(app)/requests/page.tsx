@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { InvoiceList } from "@/components/InvoiceList";
+import { RequestList } from "@/components/RequestList";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
 import { useSafeAddress } from "@/lib/useSafeAddress";
 import { proposeTransaction } from "@/lib/propose";
 import { useApiClient } from "@/lib/api/client";
-import type { QueuedInvoice, StatusResponse } from "@/types";
+import { findFallbackTokenBySymbol } from "@/lib/tokenFallbacks";
+import type { QueuedRequest, TokenPosition } from "@/types";
 import { FileText, Bell } from "lucide-react";
 
 const staggerContainer = {
@@ -33,14 +34,14 @@ function RequestsPageContent() {
   const { safeAddress, loading: safeLoading } = useSafeAddress(wallet?.address);
   const api = useApiClient();
 
-  const [invoices, setInvoices] = useState<QueuedInvoice[]>([]);
+  const [requests, setRequests] = useState<QueuedRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [screeningMode, setScreeningMode] = useState(false);
+  const [tokens, setTokens] = useState<TokenPosition[]>([]);
 
-  const fetchInvoices = useCallback(async () => {
+  const fetchRequests = useCallback(async () => {
     try {
-      const data = await api.invoices.list();
-      setInvoices(data.invoices);
+      const data = await api.requests.list();
+      setRequests(data.requests);
     } catch {
       // silent
     } finally {
@@ -48,51 +49,72 @@ function RequestsPageContent() {
     }
   }, [api]);
 
-  const fetchStatus = useCallback(async () => {
+  const fetchTokens = useCallback(async () => {
     if (!safeAddress) return;
     try {
-      const data: StatusResponse = await api.status.get(safeAddress);
-      setScreeningMode(data.screeningMode);
+      const data = await api.portfolio.get(safeAddress);
+      setTokens(data.tokens);
     } catch {
       // silent
     }
   }, [safeAddress, api]);
 
   useEffect(() => {
-    fetchInvoices();
-    fetchStatus();
-  }, [fetchInvoices, fetchStatus]);
+    fetchRequests();
+    fetchTokens();
+  }, [fetchRequests, fetchTokens]);
 
+  // Resolve a request's token (symbol only) to a contract address + decimals,
+  // preferring the user's portfolio and falling back to known BNB Chain tokens.
+  const resolveToken = useCallback(
+    (symbol: string) => {
+      const sym = symbol.trim().toLowerCase();
+      const fromPortfolio = tokens.find(
+        (t) => t.symbol.toLowerCase() === sym && t.address
+      );
+      if (fromPortfolio) return fromPortfolio;
+      return findFallbackTokenBySymbol(symbol);
+    },
+    [tokens]
+  );
+
+  // Approve = propose the payment. Requests always go through screening by
+  // default (no screeningDisabled), so the agent co-signs after risk analysis.
+  // Returns the proposed tx id so the dialog can track screening progress.
   const handleApprove = useCallback(
-    async (invoice: QueuedInvoice) => {
+    async (request: QueuedRequest): Promise<{ txId: string }> => {
       if (!user || !wallet) throw new Error("Please log in first");
 
+      const token = resolveToken(request.token);
+      if (!token?.address) {
+        throw new Error(`Unsupported token: ${request.token}`);
+      }
+
       const pendingTx = await proposeTransaction({
-        recipient: invoice.to,
-        amount: String(invoice.amount),
+        recipient: request.to,
+        amount: String(request.amount),
         ownerAddress: wallet.address,
         getOwnerAccount,
+        tokenAddress: token.address,
+        tokenDecimals: token.decimals,
+        tokenSymbol: token.symbol,
+        tokenIconUrl: token.iconUrl ?? undefined,
         identityToken,
       });
 
-      await api.invoices.update({ id: invoice.id, status: "approved", txId: pendingTx.id });
-
-      if (!screeningMode) {
-        await api.execute.run(pendingTx.id);
-        await api.invoices.update({ id: invoice.id, status: "executed" });
-      }
-
-      fetchInvoices();
+      await api.requests.update({ id: request.id, status: "approved", txId: pendingTx.id });
+      fetchRequests();
+      return { txId: pendingTx.id };
     },
-    [user, wallet, getOwnerAccount, screeningMode, fetchInvoices, api]
+    [user, wallet, getOwnerAccount, identityToken, resolveToken, fetchRequests, api]
   );
 
   const handleReject = useCallback(
-    async (invoice: QueuedInvoice, reason: string) => {
-      await api.invoices.update({ id: invoice.id, status: "rejected", rejectReason: reason || undefined });
-      fetchInvoices();
+    async (request: QueuedRequest, reason: string) => {
+      await api.requests.update({ id: request.id, status: "rejected", rejectReason: reason || undefined });
+      fetchRequests();
     },
-    [fetchInvoices, api]
+    [fetchRequests, api]
   );
 
   if (safeLoading || !safeAddress) {
@@ -126,7 +148,7 @@ function RequestsPageContent() {
             </div>
           </motion.div>
 
-          {!loading && invoices.length === 0 ? (
+          {!loading && requests.length === 0 ? (
             <motion.div variants={staggerItem}>
               <div className="py-16 rounded-2xl bg-white/2 border border-white/6">
                 <div className="flex flex-col items-center justify-center text-center">
@@ -135,18 +157,19 @@ function RequestsPageContent() {
                   </div>
                   <p className="text-sm font-medium text-slate-400">No requests yet</p>
                   <p className="mt-1 text-xs text-slate-600">
-                    Invoices via Telegram or WhatsApp appear here
+                    Invoices and payment requests via Telegram or WhatsApp appear here
                   </p>
                 </div>
               </div>
             </motion.div>
           ) : (
             <motion.div variants={staggerItem}>
-              <InvoiceList
-                invoices={invoices}
+              <RequestList
+                requests={requests}
                 loading={loading}
                 onApprove={handleApprove}
                 onReject={handleReject}
+                onRefresh={fetchRequests}
               />
             </motion.div>
           )}

@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import type { QueuedInvoice } from "@/types";
-import { InvoiceRow } from "./InvoiceRow";
-import { InvoiceDetailDialog } from "./InvoiceDetailDialog";
+import type { QueuedRequest } from "@/types";
+import { RequestRow } from "./RequestRow";
+import { RequestDetailDialog } from "./RequestDetailDialog";
 import { Card } from "./ui/Card";
 import { Skeleton } from "./ui/Skeleton";
-import { FileText } from "lucide-react";
+import { Bell } from "lucide-react";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -32,23 +32,25 @@ const headerVariants = {
   },
 };
 
-interface InvoiceListProps {
-  invoices: QueuedInvoice[];
+interface RequestListProps {
+  requests: QueuedRequest[];
   loading: boolean;
-  onApprove?: (invoice: QueuedInvoice) => Promise<void>;
-  onReject?: (invoice: QueuedInvoice, reason: string) => Promise<void>;
+  onApprove?: (request: QueuedRequest) => Promise<{ txId: string }>;
+  onReject?: (request: QueuedRequest, reason: string) => Promise<void>;
+  onRefresh?: () => void;
 }
 
-export function InvoiceList({
-  invoices,
+export function RequestList({
+  requests,
   loading,
   onApprove,
   onReject,
-}: InvoiceListProps) {
-  const [selectedInvoice, setSelectedInvoice] =
-    useState<QueuedInvoice | null>(null);
+  onRefresh,
+}: RequestListProps) {
+  const [selectedRequest, setSelectedRequest] =
+    useState<QueuedRequest | null>(null);
 
-  if (!loading && invoices.length === 0) return null;
+  if (!loading && requests.length === 0) return null;
 
   return (
     <Card className="p-6">
@@ -58,9 +60,9 @@ export function InvoiceList({
         animate="visible"
         variants={headerVariants}
       >
-        <FileText className="h-4 w-4 text-gold" />
+        <Bell className="h-4 w-4 text-gold" />
         <h2 className="text-sm font-semibold text-white tracking-wide">
-          <span className="text-gold">&rsaquo;</span> Invoices
+          <span className="text-gold">&rsaquo;</span> Requests
         </h2>
       </motion.div>
 
@@ -91,23 +93,24 @@ export function InvoiceList({
           animate="visible"
           variants={containerVariants}
         >
-          {invoices.map((inv, i) => (
-            <InvoiceRow
-              key={inv.id}
-              invoice={inv}
+          {requests.map((req, i) => (
+            <RequestRow
+              key={req.id}
+              request={req}
               index={i}
-              onClick={() => setSelectedInvoice(inv)}
+              onClick={() => setSelectedRequest(req)}
             />
           ))}
         </motion.div>
       )}
 
-      <InvoiceDetailDialog
-        invoice={selectedInvoice}
-        open={selectedInvoice !== null}
-        onClose={() => setSelectedInvoice(null)}
+      <RequestDetailDialog
+        request={selectedRequest}
+        open={selectedRequest !== null}
+        onClose={() => setSelectedRequest(null)}
         onApprove={onApprove}
         onReject={onReject}
+        onRefresh={onRefresh}
       />
     </Card>
   );

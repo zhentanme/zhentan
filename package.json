@@ -29,6 +29,7 @@
       "core-js",
       "esbuild",
       "keccak",
+      "supabase",
       "unrs-resolver",
       "utf-8-validate"
     ]

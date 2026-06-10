@@ -62,7 +62,10 @@ export interface QueueFile {
   pending: PendingTransaction[];
 }
 
-export type InvoiceStatus = "queued" | "approved" | "executed" | "rejected";
+export type RequestStatus = "queued" | "approved" | "executed" | "rejected";
+
+/** 'invoice' = parsed invoice document; 'transfer' = general transaction instruction */
+export type RequestType = "invoice" | "transfer";
 
 export interface InvoiceService {
   description: string;
@@ -77,11 +80,21 @@ export interface InvoiceParty {
   address?: string;
 }
 
-export interface QueuedInvoice {
+/**
+ * An incoming payment request routed through the agent — either a parsed
+ * invoice or a general transfer instruction. Invoice-specific fields are
+ * undefined for non-invoice requests.
+ */
+export interface QueuedRequest {
   id: string;
+  type: RequestType;
+  /** Owner Safe address — requests are scoped per-Safe. */
+  safeAddress?: string;
   to: string;
   amount: string;
   token: string;
+  /** Free-text instruction/summary from the agent (e.g. the user's original ask). */
+  description?: string;
   invoiceNumber?: string;
   issueDate?: string;
   dueDate?: string;
@@ -92,14 +105,10 @@ export interface QueuedInvoice {
   riskNotes?: string;
   sourceChannel: string;
   queuedAt: string;
-  status: InvoiceStatus;
+  status: RequestStatus;
   txId?: string;
   executedAt?: string;
   txHash?: string;
   rejectedAt?: string;
   rejectReason?: string;
-}
-
-export interface InvoiceQueueFile {
-  invoices: QueuedInvoice[];
 }

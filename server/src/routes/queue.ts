@@ -26,7 +26,16 @@ export function createQueueRouter(): IRouter {
         return;
       }
 
+
+      console.log("Received transaction for queue:", pendingTx);
+      try {
       await createTransaction(pendingTx);
+      } catch (err) { 
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        console.error("Failed to create transaction in DB:", msg);
+        res.status(500).json({ error: "Failed to save transaction" });
+        return;
+      }
 
       // When screening is disabled, only queue; client will call execute.
       if (pendingTx.screeningDisabled) {

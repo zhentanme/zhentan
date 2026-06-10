@@ -1,10 +1,12 @@
 import type { ApiFetchFn } from "./client";
-import type { QueuedInvoice, InvoiceStatus, InvoiceParty, InvoiceService } from "@/types";
+import type { QueuedRequest, RequestStatus, RequestType, InvoiceParty, InvoiceService } from "@/types";
 
-export interface CreateInvoiceBody {
+export interface CreateRequestBody {
+  type?: RequestType;
   to: string;
   amount: string;
   token: string;
+  description?: string;
   invoiceNumber?: string;
   issueDate?: string;
   dueDate?: string;
@@ -16,24 +18,24 @@ export interface CreateInvoiceBody {
   sourceChannel?: string;
 }
 
-export interface UpdateInvoiceBody {
+export interface UpdateRequestBody {
   id: string;
-  status: InvoiceStatus;
+  status: RequestStatus;
   rejectReason?: string;
   txId?: string;
   txHash?: string;
 }
 
-export function invoicesApi(req: ApiFetchFn) {
+export function requestsApi(req: ApiFetchFn) {
   return {
-    async list(): Promise<{ invoices: QueuedInvoice[] }> {
-      const res = await req("/invoices");
+    async list(): Promise<{ requests: QueuedRequest[] }> {
+      const res = await req("/requests");
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
 
-    async create(body: CreateInvoiceBody): Promise<{ status: string; id: string }> {
-      const res = await req("/invoices", {
+    async create(body: CreateRequestBody): Promise<{ status: string; id: string; type: RequestType }> {
+      const res = await req("/requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -42,8 +44,8 @@ export function invoicesApi(req: ApiFetchFn) {
       return res.json();
     },
 
-    async update(body: UpdateInvoiceBody): Promise<{ invoice: QueuedInvoice }> {
-      const res = await req("/invoices", {
+    async update(body: UpdateRequestBody): Promise<{ request: QueuedRequest }> {
+      const res = await req("/requests", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

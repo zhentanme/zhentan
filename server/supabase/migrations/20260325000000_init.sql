@@ -1,5 +1,4 @@
--- Zhentan Supabase Schema
--- Run this in your Supabase SQL editor to set up all tables.
+-- Zhentan baseline schema.
 -- All pattern tables are keyed by safe_address so every Safe wallet
 -- has its own fully isolated, learned behavioral profile.
 
