@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import type { QueuedInvoice } from "@/types";
+import type { QueuedRequest } from "@/types";
 import { truncateAddress, formatDate } from "@/lib/format";
 import { useApiClient } from "@/lib/api/client";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
@@ -11,6 +11,7 @@ import { Button } from "./ui/Button";
 import { UsdcIcon } from "./icons/UsdcIcon";
 import {
   FileText,
+  ArrowUpRight,
   CheckCircle2,
   XCircle,
   Clock,
@@ -21,12 +22,12 @@ import {
 import { clsx } from "clsx";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
 
-interface InvoiceDetailDialogProps {
-  invoice: QueuedInvoice | null;
+interface RequestDetailDialogProps {
+  request: QueuedRequest | null;
   open: boolean;
   onClose: () => void;
-  onApprove?: (invoice: QueuedInvoice) => Promise<{ txId: string }>;
-  onReject?: (invoice: QueuedInvoice, reason: string) => Promise<void>;
+  onApprove?: (request: QueuedRequest) => Promise<{ txId: string }>;
+  onReject?: (request: QueuedRequest, reason: string) => Promise<void>;
   onRefresh?: () => void;
 }
 
@@ -40,7 +41,7 @@ type ScreeningPhase =
   | "rejected"
   | "error";
 
-function StatusAnimation({ status }: { status: QueuedInvoice["status"] }) {
+function StatusAnimation({ status }: { status: QueuedRequest["status"] }) {
   const common = "rounded-2xl flex items-center justify-center";
   const size = "w-20 h-20";
 
@@ -131,21 +132,21 @@ function RiskBadge({ score }: { score: number }) {
   );
 }
 
-const statusLabels: Record<QueuedInvoice["status"], string> = {
+const statusLabels: Record<QueuedRequest["status"], string> = {
   queued: "Queued for Review",
   approved: "Approved",
   executed: "Executed",
   rejected: "Rejected",
 };
 
-export function InvoiceDetailDialog({
-  invoice,
+export function RequestDetailDialog({
+  request,
   open,
   onClose,
   onApprove,
   onReject,
   onRefresh,
-}: InvoiceDetailDialogProps) {
+}: RequestDetailDialogProps) {
   const api = useApiClient();
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -157,7 +158,9 @@ export function InvoiceDetailDialog({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const cancelledRef = useRef(false);
 
-  if (!invoice) return null;
+  if (!request) return null;
+
+  const isInvoice = request.type === "invoice";
 
   const resetScreening = () => {
     cancelledRef.current = true;
@@ -193,8 +196,8 @@ export function InvoiceDetailDialog({
       if (tx.txHash) {
         setTxHash(tx.txHash);
         setPhase("executed");
-        await api.invoices
-          .update({ id: invoice.id, status: "executed", txHash: tx.txHash })
+        await api.requests
+          .update({ id: request.id, status: "executed", txHash: tx.txHash })
           .catch(() => {});
         onRefresh?.();
         return;
@@ -203,8 +206,8 @@ export function InvoiceDetailDialog({
         const reason = tx.rejectReason || tx.reviewReason || "Blocked by screening";
         setResultReason(reason);
         setPhase("rejected");
-        await api.invoices
-          .update({ id: invoice.id, status: "rejected", rejectReason: reason })
+        await api.requests
+          .update({ id: request.id, status: "rejected", rejectReason: reason })
           .catch(() => {});
         onRefresh?.();
         return;
@@ -213,7 +216,7 @@ export function InvoiceDetailDialog({
         setPhase("review");
       }
     }
-    // Timed out — the agent still holds it for review. Leave invoice "approved".
+    // Timed out — the agent still holds it for review. Leave request "approved".
     setPhase("review");
   };
 
@@ -223,7 +226,7 @@ export function InvoiceDetailDialog({
     setErrorMsg(null);
     setPhase("proposing");
     try {
-      const { txId } = await onApprove(invoice);
+      const { txId } = await onApprove(request);
       if (cancelledRef.current) return;
       setPhase("screening");
       await pollScreening(txId);
@@ -237,7 +240,7 @@ export function InvoiceDetailDialog({
     if (!onReject) return;
     setRejecting(true);
     try {
-      await onReject(invoice, rejectReason);
+      await onReject(request, rejectReason);
       setRejectReason("");
       setShowRejectInput(false);
       handleClose();
@@ -251,7 +254,7 @@ export function InvoiceDetailDialog({
     return (
       <Dialog open={open} onClose={handleClose} title="Payment" className="max-w-md">
         <ScreeningView
-          invoice={invoice}
+          request={request}
           phase={phase}
           txHash={txHash}
           resultReason={resultReason}
@@ -267,76 +270,84 @@ export function InvoiceDetailDialog({
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Invoice details"
+      title={isInvoice ? "Invoice details" : "Payment request"}
       className="max-w-md"
     >
       <div className="space-y-6">
         {/* Status animation */}
         <div className="flex flex-col items-center gap-3">
-          <StatusAnimation status={invoice.status} />
+          <StatusAnimation status={request.status} />
           <span
             className={clsx(
               "text-sm font-semibold",
-              invoice.status === "executed" || invoice.status === "approved"
+              request.status === "executed" || request.status === "approved"
                 ? "text-gold"
-                : invoice.status === "rejected"
+                : request.status === "rejected"
                   ? "text-red-400"
                   : "text-amber-400"
             )}
           >
-            {statusLabels[invoice.status]}
+            {statusLabels[request.status]}
           </span>
         </div>
 
         {/* Amount row */}
         <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
           <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
-            <FileText className="h-5 w-5" />
+            {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
           </div>
           <UsdcIcon size={24} className="shrink-0 opacity-90" />
           <span className="text-lg font-semibold text-white">
-            {invoice.amount} {invoice.token}
+            {request.amount} {request.token}
           </span>
         </div>
 
-        {/* Invoice metadata */}
+        {/* Instruction from the agent (transfer requests) */}
+        {request.description && (
+          <div className="rounded-2xl bg-white/4 p-3">
+            <p className="text-xs text-slate-500 mb-1">Instruction</p>
+            <p className="text-sm text-slate-300">{request.description}</p>
+          </div>
+        )}
+
+        {/* Metadata */}
         <dl className="space-y-3 text-sm">
-          {invoice.invoiceNumber && (
+          {request.invoiceNumber && (
             <div className="flex justify-between gap-4">
               <dt className="text-slate-500">Invoice #</dt>
-              <dd className="text-slate-300">{invoice.invoiceNumber}</dd>
+              <dd className="text-slate-300">{request.invoiceNumber}</dd>
             </div>
           )}
-          {invoice.issueDate && (
+          {request.issueDate && (
             <div className="flex justify-between gap-4">
               <dt className="text-slate-500">Issue Date</dt>
-              <dd className="text-slate-300">{invoice.issueDate}</dd>
+              <dd className="text-slate-300">{request.issueDate}</dd>
             </div>
           )}
-          {invoice.dueDate && (
+          {request.dueDate && (
             <div className="flex justify-between gap-4">
               <dt className="text-slate-500">Due Date</dt>
-              <dd className="text-slate-300">{invoice.dueDate}</dd>
+              <dd className="text-slate-300">{request.dueDate}</dd>
             </div>
           )}
 
           <div className="flex justify-between gap-4">
             <dt className="text-slate-500">Queued</dt>
-            <dd className="text-slate-300">{formatDate(invoice.queuedAt)}</dd>
+            <dd className="text-slate-300">{formatDate(request.queuedAt)}</dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-slate-500">To</dt>
             <dd
               className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
-              title={invoice.to}
+              title={request.to}
             >
-              {truncateAddress(invoice.to)}
+              {truncateAddress(request.to)}
             </dd>
           </div>
         </dl>
 
-        {/* Services table */}
-        {invoice.services && invoice.services.length > 0 && (
+        {/* Services table (invoices) */}
+        {isInvoice && request.services && request.services.length > 0 && (
           <div>
             <p className="text-xs text-slate-500 mb-2">Services</p>
             <div className="rounded-2xl bg-white/4 overflow-x-auto scrollbar-hide -mx-1">
@@ -350,7 +361,7 @@ export function InvoiceDetailDialog({
                   </tr>
                 </thead>
                 <tbody>
-                  {invoice.services.map((svc, i) => (
+                  {request.services.map((svc, i) => (
                     <tr
                       key={i}
                       className="border-b border-white/[0.04] last:border-0"
@@ -376,28 +387,28 @@ export function InvoiceDetailDialog({
         )}
 
         {/* Risk assessment */}
-        {invoice.riskScore != null && (
+        {request.riskScore != null && (
           <div className="rounded-2xl bg-white/4 p-3">
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs text-slate-500">Risk Assessment</p>
-              <RiskBadge score={invoice.riskScore} />
+              <RiskBadge score={request.riskScore} />
             </div>
-            {invoice.riskNotes && (
-              <p className="text-xs text-slate-400">{invoice.riskNotes}</p>
+            {request.riskNotes && (
+              <p className="text-xs text-slate-400">{request.riskNotes}</p>
             )}
           </div>
         )}
 
         {/* Rejection info */}
-        {invoice.status === "rejected" && invoice.rejectReason && (
+        {request.status === "rejected" && request.rejectReason && (
           <div className="rounded-2xl bg-red-400/10 p-3">
             <p className="text-xs text-red-400/70 mb-1">Rejection Reason</p>
-            <p className="text-sm text-red-400">{invoice.rejectReason}</p>
+            <p className="text-sm text-red-400">{request.rejectReason}</p>
           </div>
         )}
 
-        {/* Action buttons (only for queued invoices) */}
-        {invoice.status === "queued" && (
+        {/* Action buttons (only for queued requests) */}
+        {request.status === "queued" && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 rounded-2xl bg-gold/8 px-3 py-2.5 text-xs text-slate-300">
               <ShieldCheck className="h-4 w-4 text-gold shrink-0" />
@@ -450,7 +461,7 @@ export function InvoiceDetailDialog({
 
 /** Renders the active approval lifecycle with clear, phase-specific messaging. */
 function ScreeningView({
-  invoice,
+  request,
   phase,
   txHash,
   resultReason,
@@ -458,7 +469,7 @@ function ScreeningView({
   onDone,
   onRetry,
 }: {
-  invoice: QueuedInvoice;
+  request: QueuedRequest;
   phase: Exclude<ScreeningPhase, "idle">;
   txHash: string | null;
   resultReason: string | null;
@@ -545,7 +556,7 @@ function ScreeningView({
         </div>
         <UsdcIcon size={24} className="shrink-0 opacity-90" />
         <span className="text-lg font-semibold text-white">
-          {invoice.amount} {invoice.token}
+          {request.amount} {request.token}
         </span>
       </div>
 
@@ -554,9 +565,9 @@ function ScreeningView({
           <dt className="text-slate-500">To</dt>
           <dd
             className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
-            title={invoice.to}
+            title={request.to}
           >
-            {truncateAddress(invoice.to)}
+            {truncateAddress(request.to)}
           </dd>
         </div>
       </dl>

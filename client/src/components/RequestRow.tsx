@@ -1,14 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { QueuedInvoice } from "@/types";
+import type { QueuedRequest } from "@/types";
 import { truncateAddress } from "@/lib/format";
 import { UsdcIcon } from "./icons/UsdcIcon";
-import { FileText } from "lucide-react";
+import { FileText, ArrowUpRight } from "lucide-react";
 import { clsx } from "clsx";
 
-interface InvoiceRowProps {
-  invoice: QueuedInvoice;
+interface RequestRowProps {
+  request: QueuedRequest;
   index?: number;
   onClick?: () => void;
 }
@@ -33,15 +33,15 @@ function RiskBadge({ score }: { score: number }) {
   );
 }
 
-function InvoiceStatusBadge({ status }: { status: QueuedInvoice["status"] }) {
-  const styles: Record<QueuedInvoice["status"], string> = {
+function RequestStatusBadge({ status }: { status: QueuedRequest["status"] }) {
+  const styles: Record<QueuedRequest["status"], string> = {
     queued: "bg-amber-400/15 text-amber-400",
     approved: "bg-gold/15 text-gold",
     executed: "bg-gold/15 text-gold",
     rejected: "bg-red-400/15 text-red-400",
   };
 
-  const labels: Record<QueuedInvoice["status"], string> = {
+  const labels: Record<QueuedRequest["status"], string> = {
     queued: "Queued",
     approved: "Approved",
     executed: "Executed",
@@ -60,7 +60,9 @@ function InvoiceStatusBadge({ status }: { status: QueuedInvoice["status"] }) {
   );
 }
 
-export function InvoiceRow({ invoice, index = 0, onClick }: InvoiceRowProps) {
+export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
+  const isInvoice = request.type === "invoice";
+
   return (
     <motion.div
       role={onClick ? "button" : undefined}
@@ -81,29 +83,37 @@ export function InvoiceRow({ invoice, index = 0, onClick }: InvoiceRowProps) {
       }}
     >
       <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center shrink-0 text-gold">
-        <FileText className="h-5 w-5" />
+        {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-slate-200 truncate inline-flex items-center gap-1.5">
             <UsdcIcon size={16} className="shrink-0 opacity-90" />
-            {invoice.amount} {invoice.token}
+            {request.amount} {request.token}
           </span>
-          <span className="text-slate-600">←</span>
+          <span className="text-slate-600">{isInvoice ? "←" : "→"}</span>
           <span className="text-sm text-slate-400 truncate">
-            {invoice.billedFrom?.name || truncateAddress(invoice.to)}
+            {request.billedFrom?.name || truncateAddress(request.to)}
           </span>
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-          {invoice.invoiceNumber && <span>{invoice.invoiceNumber}</span>}
-          {invoice.dueDate && <span>Due {invoice.dueDate}</span>}
-          {invoice.riskScore != null && <RiskBadge score={invoice.riskScore} />}
+          {isInvoice ? (
+            <>
+              {request.invoiceNumber && <span>{request.invoiceNumber}</span>}
+              {request.dueDate && <span>Due {request.dueDate}</span>}
+            </>
+          ) : (
+            request.description && (
+              <span className="truncate max-w-[220px]">{request.description}</span>
+            )
+          )}
+          {request.riskScore != null && <RiskBadge score={request.riskScore} />}
         </div>
       </div>
 
       <div className="shrink-0">
-        <InvoiceStatusBadge status={invoice.status} />
+        <RequestStatusBadge status={request.status} />
       </div>
     </motion.div>
   );

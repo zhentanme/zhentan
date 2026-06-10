@@ -7,7 +7,7 @@ import type { UserDetailsRow } from "./lib/supabase/types.js";
 import { createTransactionsRouter } from "./routes/transactions.js";
 import { createQueueRouter } from "./routes/queue.js";
 import { createExecuteRouter } from "./routes/execute.js";
-import { createInvoicesRouter } from "./routes/invoices.js";
+import { createRequestsRouter } from "./routes/requests.js";
 import { createPortfolioRouter } from "./routes/portfolio.js";
 import { createStatusRouter, getTelegramChatIdForSafe } from "./routes/status.js";
 import { createResolveRouter } from "./routes/resolve.js";
@@ -89,7 +89,9 @@ app.use("/events", createEventsRouter());          // public — client SSE stre
 app.use("/transactions", auth, createTransactionsRouter());
 app.use("/queue", auth, createQueueRouter());
 app.use("/execute", auth, createExecuteRouter());
-app.use("/invoices", auth, createInvoicesRouter());
+const requestsRouter = createRequestsRouter();
+app.use("/requests", auth, requestsRouter);
+app.use("/invoices", auth, requestsRouter); // legacy alias — deployed agent skill still calls /invoices
 app.use("/status", auth, createStatusRouter());
 app.use("/rules", auth, createRulesRouter());
 app.use("/resolve", auth, createResolveRouter());

@@ -61,12 +61,14 @@ export interface UserSettingsRow {
   updated_at: string;
 }
 
-export interface InvoiceRow {
+export interface RequestRow {
   id: string;
+  request_type: string | null;
   safe_address: string | null;
   to_address: string | null;
   amount: string | null;
   token: string | null;
+  description: string | null;
   invoice_number: string | null;
   issue_date: string | null;
   due_date: string | null;

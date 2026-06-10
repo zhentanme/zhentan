@@ -24,9 +24,9 @@ export function TopBar() {
 
   const fetchQueuedCount = useCallback(async () => {
     try {
-      const data = await api.invoices.list();
-      const count = (data.invoices || []).filter(
-        (inv: { status: string }) => inv.status === "queued"
+      const data = await api.requests.list();
+      const count = (data.requests || []).filter(
+        (r: { status: string }) => r.status === "queued"
       ).length;
       setQueuedCount(count);
     } catch {

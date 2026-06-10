@@ -83,7 +83,7 @@ const FALLBACKS: Omit<TokenPosition, "usdValue" | "balance" | "price">[] = [
 
 /**
  * Looks up a well-known BNB Chain token by symbol (case-insensitive) from the
- * fallback list. Used to resolve an invoice's token (which carries only a
+ * fallback list. Used to resolve a request's token (which carries only a
  * symbol) to a contract address + decimals when it isn't in the portfolio.
  */
 export function findFallbackTokenBySymbol(

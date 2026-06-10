@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { clsx } from "clsx";
@@ -24,6 +25,9 @@ export function Dialog({
   sheetOnMobile = true,
 }: DialogProps) {
   const isExitingRef = useRef(false);
+  // Portal target only exists on the client; gate rendering until mounted.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const handleEscape = useCallback(
     (e: KeyboardEvent) => {
@@ -42,7 +46,11 @@ export function Dialog({
     isExitingRef.current = true;
   }, [open, handleEscape]);
 
-  return (
+  // Render into document.body so `position: fixed` is relative to the viewport,
+  // not a transformed ancestor (framer-motion parents would otherwise clip it).
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -125,6 +133,7 @@ export function Dialog({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

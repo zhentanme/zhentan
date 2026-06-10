@@ -1,6 +1,6 @@
 ---
 name: zhentan
-description: Zhentan is your personal onchain security agent and co-signer. It monitors pending multisig transactions, screens them against behavioral patterns and security risk data, and auto-signs safe ones — blocking or flagging suspicious activity before it executes. Use when the user wants to review pending transactions, approve or reject a transaction, check risk scores, toggle screening mode, view transaction history, or queue and process an invoice.
+description: Zhentan is your personal onchain security agent and co-signer. It monitors pending multisig transactions, screens them against behavioral patterns and security risk data, and auto-signs safe ones — blocking or flagging suspicious activity before it executes. Use when the user wants to review pending transactions, approve or reject a transaction, check risk scores, toggle screening mode, view transaction history, or queue and process payment requests (invoices or transfer instructions).
 metadata:
   openclaw:
     requires:
@@ -261,44 +261,61 @@ curl -s -X DELETE -H "Authorization: Bearer $AGENT_SECRET" https://api.zhentan.m
 
 ---
 
-## Invoice detection
+## Request detection (invoices & transfer instructions)
 
-When a user sends an invoice file or message:
+A **request** is any incoming payment ask: a parsed invoice file OR a general
+transfer instruction ("pay Alice 50 USDC", "send 0.1 BNB to 0x... tomorrow").
+Both are queued to the user's Zhentan dashboard for approval — never execute
+them directly.
+
+When a user sends an invoice file, payment message, or transfer instruction:
 
 1. Extract fields:
+   - **type** — `"invoice"` for invoice documents, `"transfer"` for general instructions
    - **to** (wallet address, required)
    - **amount** (required), **token** (default: USDC)
-   - **invoiceNumber**, **issueDate**, **dueDate**
-   - **billedFrom**, **billedTo** — `{name, email}` objects
-   - **services** — `[{description, quantity, rate, total}]`
+   - **description** — for transfers: the user's instruction in one sentence
+   - Invoice-only: **invoiceNumber**, **issueDate**, **dueDate**,
+     **billedFrom**/**billedTo** — `{name, email}` objects,
+     **services** — `[{description, quantity, rate, total}]`
    - **riskScore** (0–100) — assess based on: known vs unknown recipient (check `GET /status`), amount vs history, due date urgency
    - **riskNotes** — brief explanation
 
 2. Queue it:
 ```bash
-curl -s -X POST https://api.zhentan.me/invoices \
+# Invoice
+curl -s -X POST https://api.zhentan.me/requests \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
-  -d '{"to":"0x...","amount":"500","token":"USDC","invoiceNumber":"INV-001","riskScore":20,"sourceChannel":"telegram","callerId":"telegram:<origin.from>"}'
-```
+  -d '{"type":"invoice","to":"0x...","amount":"500","token":"USDC","invoiceNumber":"INV-001","riskScore":20,"sourceChannel":"telegram","callerId":"telegram:<origin.from>"}'
 
-3. Confirm: "Invoice [number] for [amount] [token] queued. Check your Zhentan dashboard to approve."
-
-If the invoice is missing a wallet address, ask the user to provide one.
-
-### list invoices
-```bash
-curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/invoices"
-```
-
-### update invoice status
-```bash
-curl -s -X PATCH https://api.zhentan.me/invoices \
+# General transfer instruction
+curl -s -X POST https://api.zhentan.me/requests \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
-  -d '{"id":"inv-XXXXXXXX","status":"approved","txId":"tx-XXX","callerId":"telegram:<origin.from>"}'
+  -d '{"type":"transfer","to":"0x...","amount":"50","token":"USDC","description":"Pay Alice 50 USDC for design work","riskScore":15,"sourceChannel":"telegram","callerId":"telegram:<origin.from>"}'
+```
+
+3. Confirm: "Request for [amount] [token] queued. Check your Zhentan dashboard to approve."
+
+If the request is missing a wallet address, ask the user to provide one.
+
+### list requests
+```bash
+curl -s -H "Authorization: Bearer $AGENT_SECRET" "https://api.zhentan.me/requests?callerId=telegram:<origin.from>"
+```
+
+### update request status
+```bash
+curl -s -X PATCH https://api.zhentan.me/requests \
+  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer $AGENT_SECRET" \
+  -d '{"id":"req-XXXXXXXX","status":"approved","txId":"tx-XXX","callerId":"telegram:<origin.from>"}'
 ```
 Valid `status`: `queued`, `approved`, `executed`, `rejected`
+Valid `type`: `invoice`, `transfer`
+
+(`/invoices` remains a legacy alias for `/requests`.)
 
 ---
 

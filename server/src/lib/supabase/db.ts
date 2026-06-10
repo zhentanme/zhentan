@@ -7,7 +7,7 @@ import type {
   TransactionRow,
   UserDetailsRow,
   UserSettingsRow,
-  InvoiceRow,
+  RequestRow,
   GlobalLimitsRow,
   RecipientProfileRow,
   TimePatternRow,
@@ -19,7 +19,7 @@ import type {
   CampaignRow,
   CampaignClaimRow,
 } from "./types.js";
-import type { PendingTransaction, QueuedInvoice } from "../../types.js";
+import type { PendingTransaction, QueuedRequest } from "../../types.js";
 import type { PatternsFile } from "../../risk.js";
 
 // ─────────────────────────────────────────────────────────────
@@ -95,19 +95,21 @@ function txToRow(tx: PendingTransaction): TransactionRow {
   };
 }
 
-function rowToInvoice(row: InvoiceRow): QueuedInvoice {
+function rowToRequest(row: RequestRow): QueuedRequest {
   return {
     id: row.id,
+    type: row.request_type === "transfer" ? "transfer" : "invoice",
     safeAddress: row.safe_address ?? undefined,
     to: row.to_address ?? "",
     amount: row.amount ?? "",
     token: row.token ?? "",
+    description: row.description ?? undefined,
     invoiceNumber: row.invoice_number ?? undefined,
     issueDate: row.issue_date ?? undefined,
     dueDate: row.due_date ?? undefined,
-    billedFrom: (row.billed_from as unknown as QueuedInvoice["billedFrom"]) ?? undefined,
-    billedTo: (row.billed_to as unknown as QueuedInvoice["billedTo"]) ?? undefined,
-    services: (row.services as QueuedInvoice["services"]) ?? undefined,
+    billedFrom: (row.billed_from as unknown as QueuedRequest["billedFrom"]) ?? undefined,
+    billedTo: (row.billed_to as unknown as QueuedRequest["billedTo"]) ?? undefined,
+    services: (row.services as QueuedRequest["services"]) ?? undefined,
     riskScore: row.risk_score ?? undefined,
     riskNotes: row.risk_notes ?? undefined,
     sourceChannel: row.source_channel ?? "",
@@ -121,29 +123,31 @@ function rowToInvoice(row: InvoiceRow): QueuedInvoice {
   };
 }
 
-function invoiceToRow(inv: QueuedInvoice): InvoiceRow {
+function requestToRow(req: QueuedRequest): RequestRow {
   return {
-    id: inv.id,
-    safe_address: inv.safeAddress?.toLowerCase() ?? null,
-    to_address: inv.to ?? null,
-    amount: inv.amount ?? null,
-    token: inv.token ?? null,
-    invoice_number: inv.invoiceNumber ?? null,
-    issue_date: inv.issueDate ?? null,
-    due_date: inv.dueDate ?? null,
-    billed_from: (inv.billedFrom as unknown as Record<string, unknown>) ?? null,
-    billed_to: (inv.billedTo as unknown as Record<string, unknown>) ?? null,
-    services: inv.services ?? null,
-    risk_score: inv.riskScore ?? null,
-    risk_notes: inv.riskNotes ?? null,
-    source_channel: inv.sourceChannel ?? null,
-    queued_at: inv.queuedAt,
-    status: inv.status,
-    tx_id: inv.txId ?? null,
-    executed_at: inv.executedAt ?? null,
-    tx_hash: inv.txHash ?? null,
-    rejected_at: inv.rejectedAt ?? null,
-    reject_reason: inv.rejectReason ?? null,
+    id: req.id,
+    request_type: req.type ?? "invoice",
+    safe_address: req.safeAddress?.toLowerCase() ?? null,
+    to_address: req.to ?? null,
+    amount: req.amount ?? null,
+    token: req.token ?? null,
+    description: req.description ?? null,
+    invoice_number: req.invoiceNumber ?? null,
+    issue_date: req.issueDate ?? null,
+    due_date: req.dueDate ?? null,
+    billed_from: (req.billedFrom as unknown as Record<string, unknown>) ?? null,
+    billed_to: (req.billedTo as unknown as Record<string, unknown>) ?? null,
+    services: req.services ?? null,
+    risk_score: req.riskScore ?? null,
+    risk_notes: req.riskNotes ?? null,
+    source_channel: req.sourceChannel ?? null,
+    queued_at: req.queuedAt,
+    status: req.status,
+    tx_id: req.txId ?? null,
+    executed_at: req.executedAt ?? null,
+    tx_hash: req.txHash ?? null,
+    rejected_at: req.rejectedAt ?? null,
+    reject_reason: req.rejectReason ?? null,
   };
 }
 
@@ -813,45 +817,45 @@ export async function getPatternsForSafe(safeAddress: string): Promise<PatternsF
 }
 
 // ─────────────────────────────────────────────────────────────
-// Invoices
+// Requests (invoices & general transfer instructions)
 // ─────────────────────────────────────────────────────────────
 
-export async function getInvoices(safeAddress: string): Promise<QueuedInvoice[]> {
+export async function getRequests(safeAddress: string): Promise<QueuedRequest[]> {
   const { data, error } = await supabase
-    .from("invoices")
+    .from("requests")
     .select("*")
     .eq("safe_address", safeAddress.toLowerCase())
     .order("queued_at", { ascending: false })
-    .returns<InvoiceRow[]>();
+    .returns<RequestRow[]>();
 
   if (error) throw error;
-  return (data ?? []).map(rowToInvoice);
+  return (data ?? []).map(rowToRequest);
 }
 
-export async function getInvoice(id: string): Promise<QueuedInvoice | null> {
+export async function getRequest(id: string): Promise<QueuedRequest | null> {
   const { data, error } = await supabase
-    .from("invoices")
+    .from("requests")
     .select("*")
     .eq("id", id)
-    .single<InvoiceRow>();
+    .single<RequestRow>();
 
   if (error) {
     if (error.code === "PGRST116") return null;
     throw error;
   }
-  return data ? rowToInvoice(data) : null;
+  return data ? rowToRequest(data) : null;
 }
 
-export async function createInvoice(invoice: QueuedInvoice): Promise<void> {
-  const { error } = await supabase.from("invoices").insert(invoiceToRow(invoice));
+export async function createRequest(request: QueuedRequest): Promise<void> {
+  const { error } = await supabase.from("requests").insert(requestToRow(request));
   if (error) throw error;
 }
 
-export async function updateInvoice(
+export async function updateRequest(
   id: string,
-  patch: Partial<QueuedInvoice>
-): Promise<QueuedInvoice> {
-  const rowPatch: Partial<InvoiceRow> = {};
+  patch: Partial<QueuedRequest>
+): Promise<QueuedRequest> {
+  const rowPatch: Partial<RequestRow> = {};
   if (patch.status !== undefined)       rowPatch.status        = patch.status;
   if (patch.txId !== undefined)         rowPatch.tx_id         = patch.txId;
   if (patch.txHash !== undefined)       rowPatch.tx_hash       = patch.txHash;
@@ -860,14 +864,14 @@ export async function updateInvoice(
   if (patch.rejectReason !== undefined) rowPatch.reject_reason = patch.rejectReason;
 
   const { data, error } = await supabase
-    .from("invoices")
+    .from("requests")
     .update(rowPatch)
     .eq("id", id)
     .select()
-    .single<InvoiceRow>();
+    .single<RequestRow>();
 
   if (error) throw error;
-  return rowToInvoice(data!);
+  return rowToRequest(data!);
 }
 
 // ─────────────────────────────────────────────────────────────
