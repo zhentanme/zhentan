@@ -187,4 +187,105 @@ export function registerTransactionTools(server: McpServer) {
       }
     },
   );
+
+  server.registerTool(
+    "list_transactions",
+    {
+      title: "List transactions for a Safe",
+      description:
+        "List transactions for a Safe address (newest first), trimmed to the essentials. " +
+        'Use for "check pending" / "show my transactions". Set onlyOpen to true to show only ' +
+        "transactions that have not executed and are not rejected.",
+      inputSchema: {
+        safeAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "must be a 0x… EVM address"),
+        onlyOpen: z.boolean().optional().describe("true = only not-yet-executed, not-rejected transactions"),
+      },
+    },
+    async ({ safeAddress, onlyOpen }) => {
+      try {
+        const { transactions } = await callApi<{ transactions: Record<string, unknown>[] }>(
+          "GET",
+          `/transactions?safeAddress=${encodeURIComponent(safeAddress)}`,
+        );
+        let list = (transactions ?? []).map((t) => ({
+          id: t.id,
+          status: t.status,
+          to: t.to,
+          amount: t.amount,
+          token: t.token,
+          proposedAt: t.proposedAt,
+          riskScore: t.riskScore,
+          riskVerdict: t.riskVerdict,
+          inReview: t.inReview,
+          rejected: t.rejected,
+          executedAt: t.executedAt,
+          txHash: t.txHash,
+        }));
+        if (onlyOpen) {
+          list = list.filter((t) => !t.executedAt && !t.rejected && t.id);
+        }
+        return ok({ count: list.length, transactions: list });
+      } catch (err) {
+        return failFrom(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "analyze_transaction",
+    {
+      title: "Deep security analysis",
+      description:
+        "Run a deep security analysis of a transaction: recipient history, address security (GoPlus), " +
+        "token safety, honeypot simulation, and an overall verdict with flags. " +
+        "Omit txId to analyze the user's most recent in-review transaction (callerId required in that case). " +
+        "External scanners are involved — this can take ~20 seconds.",
+      inputSchema: {
+        txId: TX_ID.optional(),
+        callerId: CALLER_ID.optional(),
+      },
+    },
+    async ({ txId, callerId }) => {
+      if (!txId && !callerId) {
+        return fail("Provide txId, or callerId so the server can resolve the latest in-review transaction.");
+      }
+      try {
+        const id = txId ?? "latest";
+        const query = callerId ? `?callerId=${encodeURIComponent(callerId)}` : "";
+        const result = await callApi("GET", `/analyze/${encodeURIComponent(id)}${query}`, undefined, 60_000);
+        return ok(result);
+      } catch (err) {
+        return failFrom(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "resolve_notification",
+    {
+      title: "Resolve Telegram notification",
+      description:
+        "Update the pending Telegram notification message after a transaction was approved or rejected. " +
+        "Call this right after execute_transaction succeeds (action approved, include txHash) or after " +
+        "reject_transaction (action rejected).",
+      inputSchema: {
+        txId: TX_ID,
+        action: z.enum(["approved", "rejected"]),
+        txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/).optional().describe("On-chain hash (for approved)"),
+        safeAddress: z
+          .string()
+          .regex(/^0x[a-fA-F0-9]{40}$/)
+          .optional()
+          .describe("Safe address — helps locate the chat if the message cache was lost"),
+      },
+    },
+    async (args) => {
+      try {
+        const result = await callApi("POST", "/notify-resolve", { ...args });
+        return ok(result);
+      } catch (err) {
+        return failFrom(err);
+      }
+    },
+  );
 }

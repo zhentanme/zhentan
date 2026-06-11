@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { registerTransactionTools } from "./tools/transactions.js";
 import { registerRequestTools } from "./tools/requests.js";
 import { registerScreeningTools } from "./tools/screening.js";
+import { registerProfileTools } from "./tools/profile.js";
 
 /**
  * Build the Zhentan MCP server with all tools registered.
@@ -19,6 +20,7 @@ export function buildServer(): McpServer {
   registerTransactionTools(server);
   registerRequestTools(server);
   registerScreeningTools(server);
+  registerProfileTools(server);
 
   return server;
 }

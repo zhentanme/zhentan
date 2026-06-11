@@ -44,4 +44,30 @@ export function registerScreeningTools(server: McpServer) {
       }
     },
   );
+
+  server.registerTool(
+    "get_screening_status",
+    {
+      title: "Get screening status",
+      description:
+        "Fetch the screening configuration for a Safe: screening mode on/off, limits, thresholds, " +
+        "telegram connection state. Set includePatterns to true to also return the learned behavioral " +
+        "patterns (recipients, tokens, time grid) — large output, only when needed.",
+      inputSchema: {
+        safe: ADDRESS.describe("The user's Safe address"),
+        includePatterns: z.boolean().optional().describe("Include learned behavioral patterns (large)"),
+      },
+    },
+    async ({ safe, includePatterns }) => {
+      try {
+        const result = await callApi<Record<string, unknown>>("GET", `/status?safe=${encodeURIComponent(safe)}`);
+        if (!includePatterns) {
+          delete result.patterns;
+        }
+        return ok(result);
+      } catch (err) {
+        return failFrom(err);
+      }
+    },
+  );
 }

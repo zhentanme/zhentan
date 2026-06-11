@@ -18,10 +18,20 @@ and the secret lives in this process's env where the model can never see it.
 | `reject_transaction` | `PATCH /transactions/{id\|latest}` | structurally cannot touch `/execute` |
 | `review_transaction` | `PATCH /transactions/{id\|latest}` | |
 | `check_transaction_status` | `GET /transactions/:id` | status, txHash, risk verdict/reasons |
+| `list_transactions` | `GET /transactions?safeAddress=` | trimmed fields; `onlyOpen` filter for "check pending" |
+| `analyze_transaction` | `GET /analyze/{id\|latest}` | deep analysis (GoPlus, honeypot); 60s budget |
+| `resolve_notification` | `POST /notify-resolve` | closes the approve/reject loop (edits the Telegram message) |
 | `queue_request` | `POST /requests` | invoice or transfer instruction; address/amount validated |
 | `list_requests` | `GET /requests?callerId=` | per-user scope |
 | `update_request_status` | `PATCH /requests` | bookkeeping only |
 | `update_screening_settings` | `PATCH /status` | screening toggle + limits/thresholds |
+| `get_screening_status` | `GET /status?safe=` | config + optional learned patterns (`includePatterns`) |
+| `handle_bot_start` | `POST /bot-ping` | /start onboarding; marks bot connected, returns greeting details |
+| `get_user_profile` | `GET /me?chatId=` | friendly guidance when Telegram isn't linked |
+
+Still curl-only (by design for now): rules CRUD (`/rules`) and the behavioral
+event log (`/events`). `POST /queue` is intentionally excluded — proposing
+signed transactions is the owner app's job, never the agent's.
 
 ## Build
 
