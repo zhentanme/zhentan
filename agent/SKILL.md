@@ -22,6 +22,13 @@ Authorization: Bearer $AGENT_SECRET
 ```
 Always add `-H "Authorization: Bearer $AGENT_SECRET"` to every `curl` call.
 
+> 🔑 **The exec sandbox does not carry environment variables.** Prefix every `curl`
+> command with `. "$HOME/.nanobot/workspace/.env";` (or the equivalent path to your
+> workspace `.env`) so the shell loads `AGENT_SECRET` and `ZHENTAN_API_URL` itself.
+> Never read the `.env` file's contents and never substitute a literal secret value
+> into a command — the shell does the substitution. If a call returns "Unauthorized",
+> the `.env` is missing or stale; report that to the user instead of debugging the secret.
+
 **2. Caller identity** — identifies which Telegram user triggered the action. Extract the numeric user ID from your session context (`origin.from`) and build:
 ```json
 "callerId": "telegram:<origin.from>"
@@ -90,10 +97,16 @@ Run each command immediately, wait for the result, then report the actual outcom
 ### approve `tx-XXX`
 When the owner says "approve tx-XXX" or taps ✅ approve tx-XXX:
 
+> ⏱️ `/execute` waits for on-chain inclusion and can take up to ~2 minutes. Run this
+> curl with the exec tool's `timeout` parameter set to **180** — the default 60s kills
+> the call mid-execution. If it still times out or returns empty, do NOT re-call
+> `/execute` (it usually completed server-side) — check the outcome with
+> `GET /transactions/{txId}` and report the real status.
+
 If a tx-id is provided:
 1. Co-sign and execute via the server:
 ```bash
-curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/execute \
+curl -s --max-time 150 -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/execute \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"txId":"tx-XXX","callerId":"telegram:<origin.from>"}'
@@ -101,7 +114,7 @@ curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/execute \
 
 If no tx-id is provided (e.g. bare "approve"), omit `txId` — the server resolves the most recent in-review transaction using the `callerId`:
 ```bash
-curl -s -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/execute \
+curl -s --max-time 150 -X POST ${ZHENTAN_API_URL:-https://api.zhentan.me}/execute \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $AGENT_SECRET" \
   -d '{"callerId":"telegram:<origin.from>"}'
