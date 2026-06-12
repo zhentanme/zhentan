@@ -29,10 +29,13 @@ and the secret lives in this process's env where the model can never see it.
 | `handle_bot_start` | `POST /bot-ping` | /start onboarding; marks bot connected, returns greeting details |
 | `get_user_profile` | `GET /me?chatId=` | friendly guidance when Telegram isn't linked |
 | `resolve_recipient` | `GET /resolve?name=` | generic: 0x address, ENS (.eth), SPACE ID (.bnb), or Zhentan username — same resolver as the UI |
+| `list_rules` / `create_rule` / `update_rule` / `delete_rule` | `/rules` | screening rules CRUD; delete is a soft-delete |
+| `get_event_log` | `GET /events?safe=` | behavioral audit trail (max 500) |
 
-Still curl-only (by design for now): rules CRUD (`/rules`) and the behavioral
-event log (`/events`). `POST /queue` is intentionally excluded — proposing
-signed transactions is the owner app's job, never the agent's.
+This covers the agent's full surface — the agent is **curl-free**; the markdown
+skill is now a pure playbook referencing these tools. `POST /queue` is
+intentionally excluded — proposing signed transactions is the owner app's job,
+never the agent's.
 
 ## Build
 
