@@ -28,6 +28,7 @@ and the secret lives in this process's env where the model can never see it.
 | `get_screening_status` | `GET /status?safe=` | config + optional learned patterns (`includePatterns`) |
 | `handle_bot_start` | `POST /bot-ping` | /start onboarding; marks bot connected, returns greeting details |
 | `get_user_profile` | `GET /me?chatId=` | friendly guidance when Telegram isn't linked |
+| `resolve_recipient` | `GET /resolve?name=` | generic: 0x address, ENS (.eth), SPACE ID (.bnb), or Zhentan username — same resolver as the UI |
 
 Still curl-only (by design for now): rules CRUD (`/rules`) and the behavioral
 event log (`/events`). `POST /queue` is intentionally excluded — proposing
