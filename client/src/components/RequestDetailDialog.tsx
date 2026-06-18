@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
+import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
 
 interface RequestDetailDialogProps {
   request: QueuedRequest | null;
@@ -509,26 +510,11 @@ function ScreeningView({
         {isLoading ? (
           <ThemeLoaderSpinner variant="transaction" />
         ) : phase === "review" ? (
-          <motion.div
-            className="w-20 h-20 rounded-2xl bg-watch/15 text-watch flex items-center justify-center"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1, rotate: [0, 5, -5, 0] }}
-            transition={{
-              opacity: { duration: 0.3 },
-              scale: { type: "spring", bounce: 0.4 },
-              rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" },
-            }}
-          >
-            <Clock className="h-10 w-10" />
-          </motion.div>
+          <ReviewAnimation size={80} />
         ) : phase === "executed" ? (
-          <div className="w-20 h-20 rounded-2xl bg-gold/20 text-gold flex items-center justify-center">
-            <CheckCircle2 className="h-10 w-10" />
-          </div>
+          <ExecutedAnimation size={80} />
         ) : (
-          <div className="w-20 h-20 rounded-2xl bg-danger/15 text-danger flex items-center justify-center">
-            <XCircle className="h-10 w-10" />
-          </div>
+          <RejectedAnimation size={80} />
         )}
         <div>
           <p

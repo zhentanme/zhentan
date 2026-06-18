@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { TransactionWithStatus } from "@/types";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { Dialog } from "./ui/Dialog";
+import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -260,67 +261,14 @@ function RiskDetailsSection({
 // ── Status animation ──────────────────────────────────────────────────────────
 
 function StatusAnimation({ status }: { status: TransactionWithStatus["status"] }) {
-  const common = "rounded-2xl flex items-center justify-center";
-  const size = "w-20 h-20";
-
   switch (status) {
     case "pending":
-      return (
-        <motion.div
-          className={`${size} ${common} bg-watch/15 text-watch`}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1, rotate: [0, 5, -5, 0] }}
-          transition={{
-            opacity: { duration: 0.3 },
-            scale: { type: "spring", bounce: 0.4 },
-            rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" },
-          }}
-        >
-          <Clock className="h-10 w-10" />
-        </motion.div>
-      );
     case "in_review":
-      return (
-        <motion.div
-          className={`${size} ${common} bg-gold/15 text-gold`}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: [1, 1.05, 1], opacity: 1 }}
-          transition={{
-            opacity: { duration: 0.3 },
-            scale: { repeat: Infinity, duration: 1.5, ease: "easeInOut" },
-          }}
-        >
-          <Search className="h-10 w-10" />
-        </motion.div>
-      );
+      return <ReviewAnimation size={80} />;
     case "executed":
-      return (
-        <motion.div
-          className={`${size} ${common} bg-safe/20 text-gold`}
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: [0, 1.2, 1], opacity: 1 }}
-          transition={{ duration: 0.5, scale: { times: [0, 0.6, 1], duration: 0.5 } }}
-        >
-          <span className="relative w-12 h-12 flex items-center justify-center">
-            <Image src="/bsc-yellow.png" alt="BNB Chain" width={48} height={48} className="object-contain" />
-          </span>
-        </motion.div>
-      );
+      return <ExecutedAnimation size={80} />;
     case "rejected":
-      return (
-        <motion.div
-          className={`${size} ${common} bg-danger/15 text-danger`}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1, x: [0, -6, 6, -4, 4, 0] }}
-          transition={{
-            opacity: { duration: 0.3 },
-            scale: { type: "spring", bounce: 0.3 },
-            x: { duration: 0.4 },
-          }}
-        >
-          <XCircle className="h-10 w-10" />
-        </motion.div>
-      );
+      return <RejectedAnimation size={80} />;
   }
 }
 

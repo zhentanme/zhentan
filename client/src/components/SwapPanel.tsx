@@ -8,6 +8,7 @@ import { Dialog } from "./ui/Dialog";
 import { TokenRow } from "./TokenRow";
 import { useAuth } from "@/app/context/AuthContext";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
+import { ExecutedAnimation } from "./animations/StatusAnimation";
 import {
   ArrowDownUp,
   ChevronDown,
@@ -450,10 +451,8 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-2xl bg-gold/20 text-gold flex items-center justify-center">
-            <CheckCircle2 className="h-10 w-10" />
-          </div>
-          <span className="text-sm font-semibold text-gold">Executed</span>
+          <ExecutedAnimation size={80} />
+          <span className="text-sm font-semibold text-safe">Executed</span>
         </div>
         <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
           <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold shrink-0">

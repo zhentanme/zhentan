@@ -9,6 +9,7 @@ import { proposeTransaction } from "@/lib/propose";
 import { useAuth } from "@/app/context/AuthContext";
 import { UsdcIcon } from "./icons/UsdcIcon";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
+import { ExecutedAnimation, ReviewAnimation } from "./animations/StatusAnimation";
 import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, MessageCircle, X, UserRound } from "lucide-react";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
@@ -303,18 +304,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
-          <motion.div
-            className="w-20 h-20 rounded-2xl bg-watch/15 text-watch flex items-center justify-center"
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1, rotate: [0, 5, -5, 0] }}
-            transition={{
-              opacity: { duration: 0.3 },
-              scale: { type: "spring", bounce: 0.4 },
-              rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" },
-            }}
-          >
-            <Clock className="h-10 w-10" />
-          </motion.div>
+          <ReviewAnimation size={80} />
           <span className="text-sm font-semibold text-watch">{statusLabel(tx.status)}</span>
         </div>
         <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
@@ -406,10 +396,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-2xl bg-gold/20 text-gold flex items-center justify-center">
-            <CheckCircle2 className="h-10 w-10" />
-          </div>
-          <span className="text-sm font-semibold text-gold">Executed</span>
+          <ExecutedAnimation size={80} />
+          <span className="text-sm font-semibold text-safe">Executed</span>
         </div>
         <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
           <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">

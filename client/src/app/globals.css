@@ -389,3 +389,105 @@
   background-size: 200% 100%;
   animation: shimmer 1.8s linear infinite;
 }
+
+/* ── Transaction-state animations ─────────────────────────────
+   Executed (safe/green), In review (watch/amber hourglass),
+   Rejected (danger/red). Pure SVG + CSS keyframes.
+   ───────────────────────────────────────────────────────────── */
+.a-success,
+.a-review,
+.a-reject {
+  position: relative;
+}
+.a-success svg,
+.a-review svg,
+.a-reject svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Executed / success */
+.a-success .ring-bg { fill: none; stroke: rgba(63, 190, 118, 0.16); stroke-width: 2; }
+.a-success .ring {
+  fill: none; stroke: var(--safe); stroke-width: 2.5; stroke-linecap: round;
+  stroke-dasharray: 314; stroke-dashoffset: 314;
+  transform: rotate(-90deg); transform-origin: 50% 50%;
+  animation: success-ring 2.6s cubic-bezier(0.22, 0.9, 0.35, 1) infinite;
+}
+.a-success .disc {
+  fill: var(--safe); opacity: 0; transform: scale(0); transform-origin: 50% 50%;
+  animation: success-disc 2.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+.a-success .check {
+  fill: none; stroke: var(--ink-950); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 80; stroke-dashoffset: 80;
+  animation: success-check 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+.a-success .pulse {
+  fill: none; stroke: var(--safe); stroke-width: 1.5; opacity: 0; transform-origin: 50% 50%;
+  animation: success-pulse 2.6s ease-out infinite;
+}
+.a-success.once .ring,
+.a-success.once .disc,
+.a-success.once .check,
+.a-success.once .pulse { animation-iteration-count: 1; animation-fill-mode: forwards; }
+
+@keyframes success-ring { 0% { stroke-dashoffset: 314; } 35% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; } }
+@keyframes success-disc { 0%, 32% { transform: scale(0); opacity: 0; } 44% { transform: scale(1.08); opacity: 1; } 52% { transform: scale(1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes success-check { 0%, 50% { stroke-dashoffset: 80; } 66% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; } }
+@keyframes success-pulse { 0%, 42% { transform: scale(0.6); opacity: 0; } 50% { opacity: 0.55; } 72% { transform: scale(1.35); opacity: 0; } 100% { transform: scale(1.35); opacity: 0; } }
+
+/* In review — hourglass with draining sand */
+.a-review { overflow: hidden; }
+.a-review .hg-ring { fill: none; stroke: rgba(240, 179, 60, 0.16); stroke-width: 1.5; }
+.a-review .hg-frame { fill: none; stroke: var(--watch); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.a-review .hg-glass { fill: rgba(240, 179, 60, 0.08); stroke: none; }
+.a-review .hg-body { transform-box: fill-box; transform-origin: center; animation: review-flip 4s cubic-bezier(0.7, 0, 0.3, 1) infinite; }
+.a-review .sand-top { fill: var(--watch); transform-origin: 50% 50%; animation: sand-drain 4s linear infinite; }
+.a-review .sand-bot { fill: var(--watch); transform-origin: 50% 50%; animation: sand-fill 4s linear infinite; }
+.a-review .sand-stream { stroke: var(--watch); stroke-width: 1.5; stroke-linecap: round; fill: none; animation: sand-stream 4s linear infinite; }
+.a-review .grain-dot { fill: var(--watch); animation: grain-fall 1s linear infinite; }
+.a-review .grain-dot.g2 { animation-delay: -0.33s; }
+.a-review .grain-dot.g3 { animation-delay: -0.66s; }
+
+@keyframes review-flip { 0%, 45% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } 95%, 100% { transform: rotate(180deg); } }
+@keyframes sand-drain { 0% { transform: scaleY(1); } 45% { transform: scaleY(0.05); } 50% { transform: scaleY(0); } 100% { transform: scaleY(0); } }
+@keyframes sand-fill { 0% { transform: scaleY(0); } 45% { transform: scaleY(0.95); } 50% { transform: scaleY(1); } 100% { transform: scaleY(1); } }
+@keyframes sand-stream { 0%, 45% { opacity: 0.9; } 50%, 100% { opacity: 0; } }
+@keyframes grain-fall { 0% { transform: translateY(-6px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(20px); opacity: 0; } }
+
+/* Rejected */
+.a-reject { overflow: hidden; }
+.a-reject .ring-bg { fill: none; stroke: rgba(229, 82, 79, 0.16); stroke-width: 2; }
+.a-reject .ring {
+  fill: none; stroke: var(--danger); stroke-width: 2.5; stroke-linecap: round;
+  stroke-dasharray: 314; stroke-dashoffset: 314;
+  transform: rotate(-90deg); transform-origin: 50% 50%;
+  animation: success-ring 2.6s cubic-bezier(0.22, 0.9, 0.35, 1) infinite;
+}
+.a-reject .disc {
+  fill: var(--danger); opacity: 0; transform: scale(0); transform-origin: 50% 50%;
+  animation: reject-disc 2.6s cubic-bezier(0.34, 1.56, 0.64, 1) infinite;
+}
+.a-reject .x-stroke {
+  fill: none; stroke: var(--ink-950); stroke-width: 5; stroke-linecap: round;
+  stroke-dasharray: 56; stroke-dashoffset: 56;
+  animation: reject-x 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+.a-reject .x-stroke.b { animation-delay: 0.08s; }
+.a-reject .pulse {
+  fill: none; stroke: var(--danger); stroke-width: 1.5; opacity: 0; transform-origin: 50% 50%;
+  animation: success-pulse 2.6s ease-out infinite;
+}
+.a-reject.once .ring,
+.a-reject.once .disc,
+.a-reject.once .x-stroke,
+.a-reject.once .pulse { animation-iteration-count: 1; animation-fill-mode: forwards; }
+
+@keyframes reject-disc { 0%, 32% { transform: scale(0); opacity: 0; } 44% { transform: scale(1.08); opacity: 1; } 52% { transform: scale(0.96); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes reject-x { 0%, 50% { stroke-dashoffset: 56; } 72% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .a-success *, .a-review *, .a-reject * { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; }
+}
