@@ -138,6 +138,30 @@ export function createTransactionsRouter(): IRouter {
     }
   });
 
+  // GET /transactions/db — Zhentan DB records only, no Zerion enrichment.
+  // Cheap + fast: powers the co-sign rail / badges (pending review + recent
+  // decisions) without paying the multi-second Zerion history merge that "/"
+  // incurs. Must be registered before "/:id" so it isn't matched as an id.
+  router.get("/db", async (req: Request, res: Response) => {
+    try {
+      const safeAddress = req.query.safeAddress as string;
+      if (!safeAddress || !ADDRESS_RE.test(safeAddress)) {
+        res.status(400).json({ error: "Missing or invalid safeAddress" });
+        return;
+      }
+      const txs = await getTransactionsByAddress(safeAddress);
+      const transactions: TransactionWithStatus[] = txs.map((tx) => ({
+        ...tx,
+        source: "zhentan-only",
+        status: getTransactionStatus(tx),
+      }));
+      res.json({ transactions });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      res.status(500).json({ error: message });
+    }
+  });
+
   // GET /transactions/:id — fetch a single transaction
   router.get("/:id", async (req: Request, res: Response) => {
     try {

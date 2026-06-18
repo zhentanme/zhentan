@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { clsx } from "clsx";
 import { ArrowUpRight, Bot, ShieldCheck } from "lucide-react";
-import { useApiClient } from "@/lib/api/client";
-import { useAuth } from "@/app/context/AuthContext";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
-import { truncateAddress, statusLabel, timeAgo } from "@/lib/format";
-import type { TransactionWithStatus, TransactionStatus, QueuedRequest } from "@/types";
+import { useActivityData } from "@/app/context/ActivityDataContext";
+import { truncateAddress, statusLabel, timeAgo, formatTokenAmount } from "@/lib/format";
+import type { TransactionStatus } from "@/types";
 
 const SIGNAL: Record<TransactionStatus, { tone: string; dot: string }> = {
   pending: { tone: "text-watch", dot: "bg-watch" },
@@ -30,51 +29,29 @@ type PendingItem = {
 const MAX_PENDING = 4;
 
 export function RightRail() {
-  const api = useApiClient();
-  const { safeAddress } = useAuth();
   const { isScreeningActive } = useScreeningStatus();
-  const [pending, setPending] = useState<PendingItem[]>([]);
-  const [decisions, setDecisions] = useState<TransactionWithStatus[]>([]);
+  const { requests, transactions, loading } = useActivityData();
 
-  const refresh = useCallback(async () => {
-    let queuedItems: PendingItem[] = [];
-    try {
-      const r = await api.requests.list();
-      queuedItems = ((r.requests || []) as QueuedRequest[])
-        .filter((x) => x.status === "queued")
-        .map((x) => ({ id: x.id, kind: "queued" as const, amount: x.amount, token: x.token, time: x.queuedAt }));
-    } catch {
-      /* silent */
-    }
-    if (!safeAddress) {
-      setPending(queuedItems);
-      return;
-    }
-    try {
-      const t = await api.transactions.list(safeAddress);
-      const txs = t.transactions || [];
-      const reviewItems: PendingItem[] = txs
-        .filter((x) => x.status === "in_review")
-        .map((x) => ({ id: x.id, kind: "review" as const, amount: x.amount, token: x.token, time: x.proposedAt }));
-      setPending(
-        [...reviewItems, ...queuedItems].sort(
-          (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
-        )
-      );
-      setDecisions(
-        txs.filter((x) => x.status === "executed" || x.status === "rejected").slice(0, 6)
-      );
-    } catch {
-      setPending(queuedItems);
-    }
-  }, [api, safeAddress]);
+  // "Needs your review" = in-review txs (you proposed) + queued requests (agent
+  // proposed), newest first. Both derive from the shared activity feed.
+  const pending = useMemo<PendingItem[]>(() => {
+    const reviewItems: PendingItem[] = transactions
+      .filter((x) => x.status === "in_review")
+      .map((x) => ({ id: x.id, kind: "review", amount: x.amount, token: x.token, time: x.proposedAt }));
+    const queuedItems: PendingItem[] = requests
+      .filter((x) => x.status === "queued")
+      .map((x) => ({ id: x.id, kind: "queued", amount: x.amount, token: x.token, time: x.queuedAt }));
+    return [...reviewItems, ...queuedItems].sort(
+      (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
+    );
+  }, [transactions, requests]);
 
-  useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 30_000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+  const decisions = useMemo(
+    () => transactions.filter((x) => x.status === "executed" || x.status === "rejected").slice(0, 6),
+    [transactions]
+  );
 
+  const initialLoading = loading && pending.length === 0 && decisions.length === 0;
   const shown = pending.slice(0, MAX_PENDING);
   const overflow = pending.length - shown.length;
 
@@ -119,7 +96,19 @@ export function RightRail() {
       </div>
 
       <div className="px-3">
-        {pending.length === 0 ? (
+        {initialLoading ? (
+          <div className="rounded-md border border-border overflow-hidden divide-y divide-border">
+            {[0, 1].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                <span className="h-8 w-8 rounded-md bg-foreground/[0.06] animate-pulse shrink-0" />
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <span className="block h-3 w-20 rounded bg-foreground/[0.06] animate-pulse" />
+                  <span className="block h-2.5 w-28 rounded bg-foreground/[0.04] animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : pending.length === 0 ? (
           <div className="relative mx-1 rounded-md border border-border bg-foreground/[0.02] p-5 flex flex-col items-center text-center overflow-hidden">
             <div className="relative mb-3 h-12 w-12 flex items-center justify-center">
               <span className="absolute inset-0 rounded-pill border border-safe/40 opacity-0 [animation:sonar_2.4s_ease-out_infinite]" />
@@ -142,7 +131,7 @@ export function RightRail() {
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-foreground/90 truncate tabular-nums">
-                      {item.amount} {item.token}
+                      {formatTokenAmount(item.amount)} {item.token}
                     </p>
                     <p className="text-[11px] text-muted-foreground truncate">
                       {isQueued ? "Agent proposed" : "You proposed"} · {timeAgo(item.time)}
@@ -186,7 +175,19 @@ export function RightRail() {
         <p className="eyebrow text-muted-foreground/70">Recent decisions</p>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4">
-        {decisions.length === 0 ? (
+        {initialLoading ? (
+          <div className="space-y-0.5">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+                <span className="h-1.5 w-1.5 rounded-pill bg-foreground/[0.08] shrink-0" />
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <span className="block h-3 w-24 rounded bg-foreground/[0.06] animate-pulse" />
+                  <span className="block h-2.5 w-32 rounded bg-foreground/[0.04] animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : decisions.length === 0 ? (
           <p className="px-3 py-6 text-center text-xs text-muted-foreground">No decisions yet.</p>
         ) : (
           <div className="space-y-0.5">
@@ -207,10 +208,10 @@ export function RightRail() {
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-foreground/90 truncate flex items-center gap-1 tabular-nums">
                       <ArrowUpRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                      {tx.amount} {tx.token ?? ""}
+                      {formatTokenAmount(tx.amount)} {tx.token ?? ""}
                     </p>
                     <p className="text-[11px] font-mono text-muted-foreground truncate">
-                      {truncateAddress(tx.to, 14)}
+                      {tx.to ? truncateAddress(tx.to, 14) : "—"}
                     </p>
                   </div>
                   <span className={clsx("text-[10px] font-mono uppercase tracking-wider", sig.tone)}>

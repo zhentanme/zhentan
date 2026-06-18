@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { RequestList } from "@/components/RequestList";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
+import { useActivityData } from "@/app/context/ActivityDataContext";
 import { useSafeAddress } from "@/lib/useSafeAddress";
 import { proposeTransaction } from "@/lib/propose";
 import { useApiClient } from "@/lib/api/client";
@@ -34,20 +35,10 @@ function RequestsPageContent() {
   const { safeAddress, loading: safeLoading } = useSafeAddress(wallet?.address);
   const api = useApiClient();
 
-  const [requests, setRequests] = useState<QueuedRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Requests come from the shared activity feed so this page, the nav badges and
+  // the co-sign rail stay in sync (and a single poll backs all of them).
+  const { requests, loading, refresh: refreshRequests } = useActivityData();
   const [tokens, setTokens] = useState<TokenPosition[]>([]);
-
-  const fetchRequests = useCallback(async () => {
-    try {
-      const data = await api.requests.list();
-      setRequests(data.requests);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  }, [api]);
 
   const fetchTokens = useCallback(async () => {
     if (!safeAddress) return;
@@ -60,9 +51,8 @@ function RequestsPageContent() {
   }, [safeAddress, api]);
 
   useEffect(() => {
-    fetchRequests();
     fetchTokens();
-  }, [fetchRequests, fetchTokens]);
+  }, [fetchTokens]);
 
   // Resolve a request's token (symbol only) to a contract address + decimals,
   // preferring the user's portfolio and falling back to known BNB Chain tokens.
@@ -103,18 +93,18 @@ function RequestsPageContent() {
       });
 
       await api.requests.update({ id: request.id, status: "approved", txId: pendingTx.id });
-      fetchRequests();
+      refreshRequests();
       return { txId: pendingTx.id };
     },
-    [user, wallet, getOwnerAccount, identityToken, resolveToken, fetchRequests, api]
+    [user, wallet, getOwnerAccount, identityToken, resolveToken, refreshRequests, api]
   );
 
   const handleReject = useCallback(
     async (request: QueuedRequest, reason: string) => {
       await api.requests.update({ id: request.id, status: "rejected", rejectReason: reason || undefined });
-      fetchRequests();
+      refreshRequests();
     },
-    [fetchRequests, api]
+    [refreshRequests, api]
   );
 
   if (safeLoading || !safeAddress) {
@@ -169,7 +159,7 @@ function RequestsPageContent() {
                 loading={loading}
                 onApprove={handleApprove}
                 onReject={handleReject}
-                onRefresh={fetchRequests}
+                onRefresh={refreshRequests}
               />
             </motion.div>
           )}

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useApiClient } from "@/lib/api/client";
 import { usePathname } from "next/navigation";
 import { Home, Settings, User, Bell, Shield, ShieldOff } from "lucide-react";
 import { clsx } from "clsx";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
+import { useActivityData } from "@/app/context/ActivityDataContext";
 import { BrandMark } from "@/components/BrandMark";
 
 export const navItems = [
@@ -18,27 +17,8 @@ export const navItems = [
 
 export function TopBar() {
   const pathname = usePathname();
-  const [queuedCount, setQueuedCount] = useState(0);
-  const api = useApiClient();
   const { isScreeningActive } = useScreeningStatus();
-
-  const fetchQueuedCount = useCallback(async () => {
-    try {
-      const data = await api.requests.list();
-      const count = (data.requests || []).filter(
-        (r: { status: string }) => r.status === "queued"
-      ).length;
-      setQueuedCount(count);
-    } catch {
-      // silent
-    }
-  }, [api]);
-
-  useEffect(() => {
-    fetchQueuedCount();
-    const interval = setInterval(fetchQueuedCount, 30_000);
-    return () => clearInterval(interval);
-  }, [fetchQueuedCount]);
+  const { queuedCount } = useActivityData();
 
   return (
     <>

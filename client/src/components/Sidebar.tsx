@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Shield, ShieldOff, LogOut, Copy, Check } from "lucide-react";
@@ -8,35 +8,17 @@ import { clsx } from "clsx";
 import { motion } from "framer-motion";
 import { BrandMark } from "@/components/BrandMark";
 import { navItems } from "@/components/TopBar";
-import { useApiClient } from "@/lib/api/client";
 import { useAuth } from "@/app/context/AuthContext";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
+import { useActivityData } from "@/app/context/ActivityDataContext";
 import { truncateAddress } from "@/lib/format";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const api = useApiClient();
   const { safeAddress, user, logout } = useAuth();
   const { isScreeningActive } = useScreeningStatus();
-  const [queuedCount, setQueuedCount] = useState(0);
+  const { queuedCount } = useActivityData();
   const [copied, setCopied] = useState(false);
-
-  const fetchQueuedCount = useCallback(async () => {
-    try {
-      const data = await api.requests.list();
-      setQueuedCount(
-        (data.requests || []).filter((r: { status: string }) => r.status === "queued").length
-      );
-    } catch {
-      // silent
-    }
-  }, [api]);
-
-  useEffect(() => {
-    fetchQueuedCount();
-    const interval = setInterval(fetchQueuedCount, 30_000);
-    return () => clearInterval(interval);
-  }, [fetchQueuedCount]);
 
   const copyAddress = () => {
     if (!safeAddress) return;
