@@ -14,7 +14,7 @@ export function Input({ label, suffix, className, ...props }: InputProps) {
       <div className="relative">
         <input
           className={clsx(
-            "w-full rounded-2xl bg-foreground/6 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-foreground/8 transition-all",
+            "w-full rounded-md bg-foreground/6 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-foreground/8 transition-all",
             suffix && "pr-20",
             className
           )}

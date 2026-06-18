@@ -17,7 +17,7 @@ export function Button({
   return (
     <button
       className={clsx(
-        "inline-flex items-center justify-center gap-2.5 rounded-pill px-5 sm:px-6 py-3 sm:py-3.5 text-base font-semibold tracking-tight transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-h-[2.75rem] touch-manipulation",
+        "inline-flex items-center justify-center gap-2.5 rounded-md px-5 sm:px-6 py-3 sm:py-3.5 text-base font-semibold tracking-tight transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-h-[2.75rem] touch-manipulation",
         variant === "primary" &&
           "bg-gradient-to-br from-gold-light to-gold-500 text-ink-900 shadow-[0_8px_24px_-6px_rgba(196,148,40,0.45)] hover:brightness-105 active:brightness-95",
         variant === "secondary" &&

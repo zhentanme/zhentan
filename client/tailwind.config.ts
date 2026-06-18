@@ -84,14 +84,14 @@ const config: Config = {
         },
       },
       borderRadius: {
-        xs: "var(--r-xs)",
-        sm: "var(--r-sm)",
-        md: "var(--r-md)",
-        lg: "var(--r-lg)",
-        xl: "var(--r-lg)",
-        "2xl": "calc(var(--r-lg) + 6px)",
-        "3xl": "calc(var(--r-lg) + 12px)",
-        pill: "var(--r-pill)",
+        xs: "var(--r-xs)",        /* 4  — chips */
+        sm: "var(--r-sm)",        /* 8  — small controls */
+        md: "var(--r-md)",        /* 14 — buttons, inputs, tiles, cards */
+        lg: "var(--r-lg)",        /* 22 — big panels / hero surfaces */
+        xl: "var(--r-md)",        /* 14 — collapsed: no overshoot past the card radius */
+        "2xl": "var(--r-md)",     /* 14 */
+        "3xl": "18px",
+        pill: "var(--r-pill)",    /* 999 — pills, dots, avatars */
       },
       fontFamily: {
         sans: ["var(--font-manrope)", "ui-sans-serif", "system-ui", "sans-serif"],

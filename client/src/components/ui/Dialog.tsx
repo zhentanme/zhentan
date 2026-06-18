@@ -122,7 +122,7 @@ export function Dialog({
                 aria-label="Close"
                 onClick={onClose}
                 className={clsx(
-                  "p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-colors",
+                  "p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-colors",
                   title ? "absolute right-0 top-1/2 -translate-y-1/2" : "ml-auto"
                 )}
               >
