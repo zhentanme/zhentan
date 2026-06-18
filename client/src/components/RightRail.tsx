@@ -48,7 +48,13 @@ export function RightRail() {
   }, [refresh]);
 
   return (
-    <aside className="fixed inset-y-0 right-0 z-40 hidden xl:flex w-[22rem] flex-col border-l border-border bg-card/30 backdrop-blur-xl">
+    <aside
+      className="fixed inset-y-0 right-0 z-40 hidden xl:flex w-[22rem] flex-col border-l border-border"
+      style={{
+        background:
+          "radial-gradient(90% 55% at 50% 42%, rgba(196,148,40,0.10) 0%, rgba(196,148,40,0.03) 30%, transparent 62%), var(--ink-950)",
+      }}
+    >
       {/* Header */}
       <div className="px-6 h-16 flex items-center justify-between border-b border-border">
         <div>
