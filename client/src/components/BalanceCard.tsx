@@ -170,10 +170,10 @@ export function BalanceCard({
                 "w-9 h-9 rounded-md flex items-center justify-center border transition-colors",
                 action.active
                   ? "bg-gold/15 border-gold/40 text-gold"
-                  : "bg-foreground/[0.03] border-border text-muted-foreground group-hover:border-gold/30 group-hover:text-gold"
+                  : "bg-foreground/[0.03] border-border text-foreground/80 group-hover:border-gold/30 group-hover:text-gold"
               )}
             >
-              <action.icon className="h-4 w-4" />
+              <action.icon className="h-[18px] w-[18px]" strokeWidth={2.25} />
             </span>
             <span
               className={clsx(
