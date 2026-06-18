@@ -49,7 +49,7 @@ function StatusAnimation({ status }: { status: QueuedRequest["status"] }) {
     case "queued":
       return (
         <motion.div
-          className={`${size} ${common} bg-amber-400/15 text-amber-400`}
+          className={`${size} ${common} bg-watch/15 text-watch`}
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{
             scale: 1,
@@ -96,7 +96,7 @@ function StatusAnimation({ status }: { status: QueuedRequest["status"] }) {
     case "rejected":
       return (
         <motion.div
-          className={`${size} ${common} bg-red-400/15 text-red-400`}
+          className={`${size} ${common} bg-danger/15 text-danger`}
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1, x: [0, -6, 6, -4, 4, 0] }}
           transition={{
@@ -116,8 +116,8 @@ function RiskBadge({ score }: { score: number }) {
     score < 40
       ? "bg-gold/15 text-gold"
       : score <= 70
-        ? "bg-amber-400/15 text-amber-400"
-        : "bg-red-400/15 text-red-400";
+        ? "bg-watch/15 text-watch"
+        : "bg-danger/15 text-danger";
   const label = score < 40 ? "Low" : score <= 70 ? "Medium" : "High";
 
   return (
@@ -283,8 +283,8 @@ export function RequestDetailDialog({
               request.status === "executed" || request.status === "approved"
                 ? "text-gold"
                 : request.status === "rejected"
-                  ? "text-red-400"
-                  : "text-amber-400"
+                  ? "text-danger"
+                  : "text-watch"
             )}
           >
             {statusLabels[request.status]}
@@ -292,21 +292,21 @@ export function RequestDetailDialog({
         </div>
 
         {/* Amount row */}
-        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
             {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
           </div>
           <UsdcIcon size={24} className="shrink-0 opacity-90" />
-          <span className="text-lg font-semibold text-white">
+          <span className="text-lg font-semibold text-foreground">
             {request.amount} {request.token}
           </span>
         </div>
 
         {/* Instruction from the agent (transfer requests) */}
         {request.description && (
-          <div className="rounded-2xl bg-white/4 p-3">
-            <p className="text-xs text-slate-500 mb-1">Instruction</p>
-            <p className="text-sm text-slate-300">{request.description}</p>
+          <div className="rounded-2xl bg-foreground/4 p-3">
+            <p className="text-xs text-muted-foreground/80 mb-1">Instruction</p>
+            <p className="text-sm text-foreground/80">{request.description}</p>
           </div>
         )}
 
@@ -314,31 +314,31 @@ export function RequestDetailDialog({
         <dl className="space-y-3 text-sm">
           {request.invoiceNumber && (
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Invoice #</dt>
-              <dd className="text-slate-300">{request.invoiceNumber}</dd>
+              <dt className="text-muted-foreground/80">Invoice #</dt>
+              <dd className="text-foreground/80">{request.invoiceNumber}</dd>
             </div>
           )}
           {request.issueDate && (
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Issue Date</dt>
-              <dd className="text-slate-300">{request.issueDate}</dd>
+              <dt className="text-muted-foreground/80">Issue Date</dt>
+              <dd className="text-foreground/80">{request.issueDate}</dd>
             </div>
           )}
           {request.dueDate && (
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Due Date</dt>
-              <dd className="text-slate-300">{request.dueDate}</dd>
+              <dt className="text-muted-foreground/80">Due Date</dt>
+              <dd className="text-foreground/80">{request.dueDate}</dd>
             </div>
           )}
 
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">Queued</dt>
-            <dd className="text-slate-300">{formatDate(request.queuedAt)}</dd>
+            <dt className="text-muted-foreground/80">Queued</dt>
+            <dd className="text-foreground/80">{formatDate(request.queuedAt)}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">To</dt>
+            <dt className="text-muted-foreground/80">To</dt>
             <dd
-              className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
+              className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
               title={request.to}
             >
               {truncateAddress(request.to)}
@@ -349,11 +349,11 @@ export function RequestDetailDialog({
         {/* Services table (invoices) */}
         {isInvoice && request.services && request.services.length > 0 && (
           <div>
-            <p className="text-xs text-slate-500 mb-2">Services</p>
-            <div className="rounded-2xl bg-white/4 overflow-x-auto scrollbar-hide -mx-1">
+            <p className="text-xs text-muted-foreground/80 mb-2">Services</p>
+            <div className="rounded-2xl bg-foreground/4 overflow-x-auto scrollbar-hide -mx-1">
               <table className="w-full text-sm min-w-[280px]">
                 <thead>
-                  <tr className="text-left text-xs text-slate-500 border-b border-white/6">
+                  <tr className="text-left text-xs text-muted-foreground/80 border-b border-foreground/6">
                     <th className="px-2 sm:px-3 py-2 font-medium">Description</th>
                     <th className="px-2 sm:px-3 py-2 font-medium text-right whitespace-nowrap">Qty</th>
                     <th className="px-2 sm:px-3 py-2 font-medium text-right whitespace-nowrap">Rate</th>
@@ -364,18 +364,18 @@ export function RequestDetailDialog({
                   {request.services.map((svc, i) => (
                     <tr
                       key={i}
-                      className="border-b border-white/[0.04] last:border-0"
+                      className="border-b border-foreground/[0.04] last:border-0"
                     >
-                      <td className="px-2 sm:px-3 py-2 text-slate-300 min-w-0">
+                      <td className="px-2 sm:px-3 py-2 text-foreground/80 min-w-0">
                         {svc.description}
                       </td>
-                      <td className="px-2 sm:px-3 py-2 text-slate-400 text-right whitespace-nowrap">
+                      <td className="px-2 sm:px-3 py-2 text-muted-foreground text-right whitespace-nowrap">
                         {svc.qty}
                       </td>
-                      <td className="px-2 sm:px-3 py-2 text-slate-400 text-right whitespace-nowrap">
+                      <td className="px-2 sm:px-3 py-2 text-muted-foreground text-right whitespace-nowrap">
                         {svc.rate}
                       </td>
-                      <td className="px-2 sm:px-3 py-2 text-slate-200 text-right whitespace-nowrap">
+                      <td className="px-2 sm:px-3 py-2 text-foreground text-right whitespace-nowrap">
                         {svc.total}
                       </td>
                     </tr>
@@ -388,29 +388,29 @@ export function RequestDetailDialog({
 
         {/* Risk assessment */}
         {request.riskScore != null && (
-          <div className="rounded-2xl bg-white/4 p-3">
+          <div className="rounded-2xl bg-foreground/4 p-3">
             <div className="flex items-center justify-between mb-1">
-              <p className="text-xs text-slate-500">Risk Assessment</p>
+              <p className="text-xs text-muted-foreground/80">Risk Assessment</p>
               <RiskBadge score={request.riskScore} />
             </div>
             {request.riskNotes && (
-              <p className="text-xs text-slate-400">{request.riskNotes}</p>
+              <p className="text-xs text-muted-foreground">{request.riskNotes}</p>
             )}
           </div>
         )}
 
         {/* Rejection info */}
         {request.status === "rejected" && request.rejectReason && (
-          <div className="rounded-2xl bg-red-400/10 p-3">
-            <p className="text-xs text-red-400/70 mb-1">Rejection Reason</p>
-            <p className="text-sm text-red-400">{request.rejectReason}</p>
+          <div className="rounded-2xl bg-danger/10 p-3">
+            <p className="text-xs text-danger/70 mb-1">Rejection Reason</p>
+            <p className="text-sm text-danger">{request.rejectReason}</p>
           </div>
         )}
 
         {/* Action buttons (only for queued requests) */}
         {request.status === "queued" && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 rounded-2xl bg-gold/8 px-3 py-2.5 text-xs text-slate-300">
+            <div className="flex items-center gap-2 rounded-2xl bg-gold/8 px-3 py-2.5 text-xs text-foreground/80">
               <ShieldCheck className="h-4 w-4 text-gold shrink-0" />
               <span>
                 Zhentan screens this payment before it&rsquo;s sent. You may need
@@ -432,13 +432,13 @@ export function RequestDetailDialog({
                   placeholder="Reason (optional)"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full rounded-2xl bg-white/6 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-400/40 transition-all"
+                  className="w-full rounded-2xl bg-foreground/6 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-danger/40 transition-all"
                 />
                 <Button
                   variant="secondary"
                   onClick={handleReject}
                   loading={rejecting}
-                  className="w-full py-3 text-red-400 hover:text-red-300"
+                  className="w-full py-3 text-danger hover:text-danger"
                 >
                   Confirm Reject
                 </Button>
@@ -447,7 +447,7 @@ export function RequestDetailDialog({
               <Button
                 variant="ghost"
                 onClick={() => setShowRejectInput(true)}
-                className="w-full py-3 text-red-400 hover:text-red-300"
+                className="w-full py-3 text-danger hover:text-danger"
               >
                 Reject
               </Button>
@@ -510,7 +510,7 @@ function ScreeningView({
           <ThemeLoaderSpinner variant="transaction" />
         ) : phase === "review" ? (
           <motion.div
-            className="w-20 h-20 rounded-2xl bg-amber-400/15 text-amber-400 flex items-center justify-center"
+            className="w-20 h-20 rounded-2xl bg-watch/15 text-watch flex items-center justify-center"
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1, rotate: [0, 5, -5, 0] }}
             transition={{
@@ -526,7 +526,7 @@ function ScreeningView({
             <CheckCircle2 className="h-10 w-10" />
           </div>
         ) : (
-          <div className="w-20 h-20 rounded-2xl bg-red-400/15 text-red-400 flex items-center justify-center">
+          <div className="w-20 h-20 rounded-2xl bg-danger/15 text-danger flex items-center justify-center">
             <XCircle className="h-10 w-10" />
           </div>
         )}
@@ -537,34 +537,34 @@ function ScreeningView({
               phase === "executed"
                 ? "text-gold"
                 : phase === "rejected" || phase === "error"
-                  ? "text-red-400"
+                  ? "text-danger"
                   : phase === "review"
-                    ? "text-amber-400"
+                    ? "text-watch"
                     : "text-gold"
             )}
           >
             {title}
           </p>
-          <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+          <p className="mt-1 text-xs text-muted-foreground/80">{subtitle}</p>
         </div>
       </div>
 
       {/* Amount */}
-      <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
-        <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
+      <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
+        <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
           <Send className="h-5 w-5" />
         </div>
         <UsdcIcon size={24} className="shrink-0 opacity-90" />
-        <span className="text-lg font-semibold text-white">
+        <span className="text-lg font-semibold text-foreground">
           {request.amount} {request.token}
         </span>
       </div>
 
       <dl className="space-y-3 text-sm">
         <div className="flex justify-between gap-4">
-          <dt className="text-slate-500">To</dt>
+          <dt className="text-muted-foreground/80">To</dt>
           <dd
-            className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
+            className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
             title={request.to}
           >
             {truncateAddress(request.to)}
@@ -573,15 +573,15 @@ function ScreeningView({
       </dl>
 
       {phase === "rejected" && resultReason && (
-        <div className="rounded-2xl bg-red-400/10 p-3">
-          <p className="text-xs text-red-400/70 mb-1">Reason</p>
-          <p className="text-sm text-red-400">{resultReason}</p>
+        <div className="rounded-2xl bg-danger/10 p-3">
+          <p className="text-xs text-danger/70 mb-1">Reason</p>
+          <p className="text-sm text-danger">{resultReason}</p>
         </div>
       )}
 
       {phase === "error" && errorMsg && (
-        <div className="rounded-2xl bg-red-400/10 p-3">
-          <p className="text-sm text-red-400">{errorMsg}</p>
+        <div className="rounded-2xl bg-danger/10 p-3">
+          <p className="text-sm text-danger">{errorMsg}</p>
         </div>
       )}
 
@@ -604,7 +604,7 @@ function ScreeningView({
           <Button
             variant="ghost"
             onClick={onDone}
-            className="w-full py-3 text-slate-400 hover:text-slate-200"
+            className="w-full py-3 text-muted-foreground hover:text-foreground"
           >
             Close
           </Button>
@@ -613,7 +613,7 @@ function ScreeningView({
         <Button
           variant="ghost"
           onClick={onDone}
-          className="w-full py-3 text-slate-400 hover:text-slate-200"
+          className="w-full py-3 text-muted-foreground hover:text-foreground"
         >
           Close
         </Button>

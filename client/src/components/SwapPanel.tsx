@@ -421,21 +421,21 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
         <div className="flex flex-col items-center gap-4">
           <ThemeLoaderSpinner variant="transaction" />
           <p className="text-sm font-semibold text-gold">{swapStatus}</p>
-          <p className="text-xs text-slate-500 uppercase tracking-widest">Executing on chain</p>
+          <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Executing on chain</p>
         </div>
-        <div className="rounded-2xl bg-white/6 p-4 space-y-3">
+        <div className="rounded-2xl bg-foreground/6 p-4 space-y-3">
           <div className="flex items-center gap-3">
             <TokenIcon token={fromToken} />
-            <span className="text-base font-semibold text-white">
+            <span className="text-base font-semibold text-foreground">
               {sellAmount} {fromToken?.symbol}
             </span>
           </div>
           <div className="flex items-center pl-1">
-            <ArrowDownUp className="h-4 w-4 text-slate-600 ml-3" />
+            <ArrowDownUp className="h-4 w-4 text-muted-foreground/60 ml-3" />
           </div>
           <div className="flex items-center gap-3">
             <TokenIcon token={toToken} />
-            <span className="text-base font-semibold text-white">
+            <span className="text-base font-semibold text-foreground">
               ~{parseFloat(buyAmountFormatted).toFixed(4)} {toToken?.symbol}
             </span>
           </div>
@@ -455,32 +455,32 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           </div>
           <span className="text-sm font-semibold text-gold">Executed</span>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold shrink-0">
+        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold shrink-0">
             <ArrowDownUp className="h-5 w-5" />
           </div>
           <TokenIcon token={fromToken} />
           <div className="flex-1 min-w-0">
-            <p className="text-lg font-semibold text-white">{sellAmount} {fromToken?.symbol}</p>
-            <p className="text-sm text-slate-400">→ ~{parseFloat(buyAmountFormatted).toFixed(4)} {toToken?.symbol}</p>
+            <p className="text-lg font-semibold text-foreground">{sellAmount} {fromToken?.symbol}</p>
+            <p className="text-sm text-muted-foreground">→ ~{parseFloat(buyAmountFormatted).toFixed(4)} {toToken?.symbol}</p>
           </div>
         </div>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between items-center gap-4">
-            <dt className="text-slate-500">Via</dt>
+            <dt className="text-muted-foreground/80">Via</dt>
             <dd className="flex items-center gap-1.5">
               {quote?.tool?.logoURI && (
-                <span className="relative w-4 h-4 rounded-full overflow-hidden bg-white/10 shrink-0">
+                <span className="relative w-4 h-4 rounded-full overflow-hidden bg-foreground/10 shrink-0">
                   <Image src={quote.tool.logoURI} alt="" width={16} height={16} className="object-cover" unoptimized />
                 </span>
               )}
-              <span className="text-slate-200">{quote?.tool?.name ?? "LiFi"}</span>
+              <span className="text-foreground">{quote?.tool?.name ?? "LiFi"}</span>
             </dd>
           </div>
           {executedAt && (
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Executed</dt>
-              <dd className="text-slate-300">{formatDate(executedAt)}</dd>
+              <dt className="text-muted-foreground/80">Executed</dt>
+              <dd className="text-foreground/80">{formatDate(executedAt)}</dd>
             </div>
           )}
         </dl>
@@ -489,7 +489,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             href={explorerUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-white/8 text-slate-300 hover:text-white hover:bg-white/12 transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
           >
             <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
@@ -509,11 +509,11 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-2xl bg-red-400/15 text-red-400 flex items-center justify-center">
+          <div className="w-20 h-20 rounded-2xl bg-danger/15 text-danger flex items-center justify-center">
             <ArrowDownUp className="h-10 w-10" />
           </div>
-          <span className="text-sm font-semibold text-red-400">Swap Failed</span>
-          {error && <p className="text-xs text-slate-500 text-center">Swap Failed, Please try again</p>}
+          <span className="text-sm font-semibold text-danger">Swap Failed</span>
+          {error && <p className="text-xs text-muted-foreground/80 text-center">Swap Failed, Please try again</p>}
         </div>
         <Button type="button" variant="secondary" onClick={reset} className="w-full py-3.5">
           Try Again
@@ -539,12 +539,12 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
       >
         <div className="flex items-center gap-2 mb-4">
           <Coins className="h-4 w-4 text-gold" />
-          <h2 className="text-sm font-semibold text-white tracking-wide">
+          <h2 className="text-sm font-semibold text-foreground tracking-wide">
             <span className="text-gold">›</span> Your tokens
           </h2>
         </div>
         {sellableTokens.length === 0 ? (
-          <p className="text-sm text-slate-500 text-center py-8">No tokens with balance</p>
+          <p className="text-sm text-muted-foreground/80 text-center py-8">No tokens with balance</p>
         ) : (
           <div className="space-y-1 -mx-1">
             {sellableTokens.map((t, i) => (
@@ -574,20 +574,20 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
       >
         {/* Search input */}
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/80 pointer-events-none" />
           <input
             type="text"
             value={tokenSearch}
             onChange={(e) => handleTokenSearch(e.target.value)}
             placeholder="Search by name or address…"
-            className="w-full rounded-xl bg-white/6 border border-white/8 pl-9 pr-9 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-gold/30 focus:bg-white/8 transition-all"
+            className="w-full rounded-xl bg-foreground/6 border border-foreground/8 pl-9 pr-9 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-gold/30 focus:bg-foreground/8 transition-all"
             autoFocus
           />
           {tokenSearch && (
             <button
               type="button"
               onClick={() => handleTokenSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 hover:text-foreground/80 transition-colors"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -595,13 +595,13 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
         </div>
 
         {searchLoading ? (
-          <div className="flex items-center justify-center py-10 gap-2 text-slate-500">
+          <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground/80">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span className="text-sm">Searching…</span>
           </div>
         ) : tokenSearch.trim() ? (
           searchResults.length === 0 ? (
-            <p className="text-sm text-slate-500 text-center py-10">No tokens found</p>
+            <p className="text-sm text-muted-foreground/80 text-center py-10">No tokens found</p>
           ) : (
             <div className="space-y-1 -mx-1">
               {searchResults.map((t, i) => (
@@ -624,7 +624,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           <>
             <div className="flex items-center gap-2 mb-3">
               <Coins className="h-4 w-4 text-gold" />
-              <h2 className="text-sm font-semibold text-white tracking-wide">
+              <h2 className="text-sm font-semibold text-foreground tracking-wide">
                 <span className="text-gold">›</span> Popular on BNB Chain
               </h2>
             </div>
@@ -650,15 +650,15 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
 
       <div className="flex flex-col gap-3">
         {/* Sell row */}
-        <div className="rounded-2xl bg-white/6 px-4 pt-3 pb-3">
-          <label className="block text-xs font-medium text-slate-500 mb-2">
+        <div className="rounded-2xl bg-foreground/6 px-4 pt-3 pb-3">
+          <label className="block text-xs font-medium text-muted-foreground/80 mb-2">
             You&apos;re selling
           </label>
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1">
                 {amountMode === "usd" && (
-                  <span className="text-3xl font-semibold text-white">$</span>
+                  <span className="text-3xl font-semibold text-foreground">$</span>
                 )}
                 <input
                   type="number"
@@ -668,14 +668,14 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
                   placeholder="0.00"
                   value={sellInputValue}
                   onChange={(e) => setSellInput(e.target.value)}
-                  className="min-w-0 w-full bg-transparent border-0 text-3xl font-semibold text-white placeholder-slate-600 focus:outline-none focus:ring-0 touch-manipulation"
+                  className="min-w-0 w-full bg-transparent border-0 text-3xl font-semibold text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-0 touch-manipulation"
                 />
               </div>
               {sellSecondary ? (
                 <button
                   type="button"
                   onClick={toggleAmountMode}
-                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors cursor-pointer mt-0.5 text-left"
+                  className="text-xs text-muted-foreground/80 hover:text-foreground/80 transition-colors cursor-pointer mt-0.5 text-left"
                 >
                   {sellSecondary}
                 </button>
@@ -683,7 +683,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
                 <button
                   type="button"
                   onClick={toggleAmountMode}
-                  className="text-xs text-slate-600 hover:text-slate-400 transition-colors cursor-pointer mt-0.5 text-left"
+                  className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer mt-0.5 text-left"
                 >
                   {amountMode === "token" ? "Switch to $" : `Switch to ${fromToken.symbol}`}
                 </button>
@@ -692,13 +692,13 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             <button
               type="button"
               onClick={() => setFromSelectorOpen(true)}
-              className="flex items-center gap-2 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/8 px-3 py-2 transition-colors cursor-pointer shrink-0"
+              className="flex items-center gap-2 rounded-2xl bg-foreground/8 hover:bg-foreground/14 border border-foreground/8 px-3 py-2 transition-colors cursor-pointer shrink-0"
             >
               <TokenIcon token={fromToken} size="sm" />
-              <span className="text-sm font-semibold text-white">
+              <span className="text-sm font-semibold text-foreground">
                 {fromToken ? fromToken.symbol : "Select"}
               </span>
-              <ChevronDown className="h-4 w-4 text-slate-400" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
           {fromToken && (
@@ -734,7 +734,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground/80">
                 {formatTokenAmount(fromToken.balance, { raw: true })} {fromToken.symbol}
                 {fromToken.usdValue != null &&
                   ` · $${fromToken.usdValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
@@ -742,7 +742,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             </div>
           )}
           {insufficientFunds && (
-            <p className="text-xs text-red-400 mt-1">Insufficient funds</p>
+            <p className="text-xs text-danger mt-1">Insufficient funds</p>
           )}
         </div>
 
@@ -751,85 +751,85 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           <button
             type="button"
             onClick={handleSwapTokens}
-            className="w-9 h-9 rounded-full bg-[#0f0f14] border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:border-white/20 transition-colors cursor-pointer z-10"
+            className="w-9 h-9 rounded-full bg-card border border-foreground/10 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors cursor-pointer z-10"
           >
             <ArrowDownUp className="h-4 w-4" />
           </button>
         </div>
 
         {/* Buy row */}
-        <div className="rounded-2xl bg-white/4 px-4 pt-3 pb-3">
-          <label className="block text-xs font-medium text-slate-500 mb-2">
+        <div className="rounded-2xl bg-foreground/4 px-4 pt-3 pb-3">
+          <label className="block text-xs font-medium text-muted-foreground/80 mb-2">
             You&apos;re buying
           </label>
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               {quoteLoading ? (
-                <span className="text-3xl font-semibold text-slate-600 animate-pulse">…</span>
+                <span className="text-3xl font-semibold text-muted-foreground/60 animate-pulse">…</span>
               ) : buyAmountFormatted && toToken ? (
-                <span className="text-3xl font-semibold text-white/80">
+                <span className="text-3xl font-semibold text-foreground/80">
                   ~{parseFloat(buyAmountFormatted).toFixed(4)}
                 </span>
               ) : (
-                <span className="text-3xl font-semibold text-slate-600">0.00</span>
+                <span className="text-3xl font-semibold text-muted-foreground/60">0.00</span>
               )}
             </div>
             <button
               type="button"
               onClick={() => setToSelectorOpen(true)}
-              className="flex items-center gap-2 rounded-2xl bg-white/8 hover:bg-white/14 border border-white/8 px-3 py-2 transition-colors cursor-pointer shrink-0"
+              className="flex items-center gap-2 rounded-2xl bg-foreground/8 hover:bg-foreground/14 border border-foreground/8 px-3 py-2 transition-colors cursor-pointer shrink-0"
             >
               <TokenIcon token={toToken} size="sm" />
-              <span className="text-sm font-semibold text-white">
+              <span className="text-sm font-semibold text-foreground">
                 {toToken ? toToken.symbol : "Select"}
               </span>
-              <ChevronDown className="h-4 w-4 text-slate-400" />
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
           {quote?.buyAmountUSD && (
-            <p className="text-xs text-slate-500 mt-2">
+            <p className="text-xs text-muted-foreground/80 mt-2">
               ≈ ${parseFloat(quote.buyAmountUSD).toFixed(2)}
             </p>
           )}
           {quoteError && (
-            <p className="text-xs text-amber-400 mt-2">{quoteError}</p>
+            <p className="text-xs text-watch mt-2">{quoteError}</p>
           )}
         </div>
 
         {/* Quote info */}
         {quote && fromToken && toToken && (
           <motion.div
-            className="rounded-2xl bg-white/4 border border-white/6 px-4 py-3 space-y-2 text-sm"
+            className="rounded-2xl bg-foreground/4 border border-foreground/6 px-4 py-3 space-y-2 text-sm"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
           >
             <div className="flex justify-between items-center">
-              <span className="text-slate-500">Via</span>
+              <span className="text-muted-foreground/80">Via</span>
               <div className="flex items-center gap-1.5">
                 {quote.tool?.logoURI && (
-                  <span className="relative w-4 h-4 rounded-full overflow-hidden bg-white/10 shrink-0">
+                  <span className="relative w-4 h-4 rounded-full overflow-hidden bg-foreground/10 shrink-0">
                     <Image src={quote.tool.logoURI} alt="" width={16} height={16} className="object-cover" unoptimized />
                   </span>
                 )}
-                <span className="text-slate-300">{quote.tool?.name ?? "LiFi"}</span>
+                <span className="text-foreground/80">{quote.tool?.name ?? "LiFi"}</span>
               </div>
             </div>
             {quote.sellAmountUSD && (
               <div className="flex justify-between items-center">
-                <span className="text-slate-500">Sell value</span>
-                <span className="text-slate-300">${parseFloat(quote.sellAmountUSD).toFixed(2)}</span>
+                <span className="text-muted-foreground/80">Sell value</span>
+                <span className="text-foreground/80">${parseFloat(quote.sellAmountUSD).toFixed(2)}</span>
               </div>
             )}
             {quote.buyAmountUSD && (
               <div className="flex justify-between items-center">
-                <span className="text-slate-500">Buy value</span>
-                <span className="text-slate-300">${parseFloat(quote.buyAmountUSD).toFixed(2)}</span>
+                <span className="text-muted-foreground/80">Buy value</span>
+                <span className="text-foreground/80">${parseFloat(quote.buyAmountUSD).toFixed(2)}</span>
               </div>
             )}
           </motion.div>
         )}
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
 
         <Button
           type="button"
@@ -869,16 +869,16 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
 function TokenIcon({ token, size = "md" }: { token: TokenPosition | null; size?: "sm" | "md" }) {
   const dim = size === "sm" ? "w-6 h-6" : "w-8 h-8";
   const px = size === "sm" ? 24 : 32;
-  if (!token) return <div className={`${dim} rounded-full bg-white/10 shrink-0`} />;
+  if (!token) return <div className={`${dim} rounded-full bg-foreground/10 shrink-0`} />;
   if (token.iconUrl) {
     return (
-      <span className={`relative ${dim} shrink-0 rounded-full overflow-hidden bg-white/10`}>
+      <span className={`relative ${dim} shrink-0 rounded-full overflow-hidden bg-foreground/10`}>
         <Image src={token.iconUrl} alt="" width={px} height={px} className="object-cover" unoptimized />
       </span>
     );
   }
   return (
-    <span className={`${dim} shrink-0 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-gold`}>
+    <span className={`${dim} shrink-0 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold text-gold`}>
       {token.symbol.slice(0, 2)}
     </span>
   );

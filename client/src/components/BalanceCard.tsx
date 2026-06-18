@@ -100,7 +100,7 @@ export function BalanceCard({
     >
       {/* Greeting */}
       <motion.p
-        className="text-sm font-medium text-slate-400 mb-1"
+        className="text-sm font-medium text-muted-foreground mb-1"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1 }}
@@ -114,7 +114,7 @@ export function BalanceCard({
           <Skeleton className="h-12 w-44 rounded-2xl" />
         ) : (
           <motion.h1
-            className="text-5xl sm:text-6xl font-bold gradient-text tracking-tight"
+            className="text-5xl sm:text-6xl font-mono font-semibold gradient-text tracking-tight tabular-nums"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.15, duration: 0.5 }}
@@ -129,7 +129,7 @@ export function BalanceCard({
             onClick={onRefresh}
             disabled={loading}
             aria-label="Refresh"
-            className="p-2 rounded-full text-slate-500 hover:text-white hover:bg-white/8 transition-colors disabled:opacity-40 cursor-pointer disabled:cursor-default"
+            className="p-2 rounded-full text-muted-foreground/80 hover:text-foreground hover:bg-foreground/8 transition-colors disabled:opacity-40 cursor-pointer disabled:cursor-default"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </button>
@@ -148,16 +148,16 @@ export function BalanceCard({
           <span
             className={`text-sm font-semibold tabular-nums ${
               portfolioPercentChange24h > 0
-                ? "text-emerald-400"
+                ? "text-safe"
                 : portfolioPercentChange24h < 0
-                  ? "text-red-400"
-                  : "text-slate-500"
+                  ? "text-danger"
+                  : "text-muted-foreground/80"
             }`}
           >
             {portfolioPercentChange24h > 0 ? "+" : ""}
             {portfolioPercentChange24h.toFixed(2)}%
           </span>
-          <span className="text-xs text-slate-600">24h</span>
+          <span className="text-xs text-muted-foreground/60">24h</span>
         </motion.div>
       )}
       {/* {(portfolioPercentChange24h == null || loading) && <div className="h-4 mb-4" />} */}
@@ -165,15 +165,15 @@ export function BalanceCard({
       {/* Address chip */}
       <button
         onClick={copyAddress}
-        className="flex items-center gap-1.5 rounded-full bg-white/6 border border-white/6 px-3 py-1.5 mb-4 hover:bg-white/10 transition-all touch-manipulation cursor-pointer"
+        className="flex items-center gap-1.5 rounded-full bg-foreground/6 border border-foreground/6 px-3 py-1.5 mb-4 hover:bg-foreground/10 transition-all touch-manipulation cursor-pointer"
       >
-        <span className="text-xs font-mono text-slate-500">
+        <span className="text-xs font-mono text-muted-foreground/80">
           {truncateAddress(safeAddress)}
         </span>
         {copied ? (
           <Check className="h-3 w-3 text-gold" />
         ) : (
-          <Copy className="h-3 w-3 text-slate-500" />
+          <Copy className="h-3 w-3 text-muted-foreground/80" />
         )}
       </button>
 
@@ -194,15 +194,15 @@ export function BalanceCard({
             <div
               className={`w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center transition-all ${
                 action.active
-                  ? "bg-gold text-black shadow-[0_4px_24px_-4px_rgba(229,168,50,0.5)]"
-                  : "bg-white/[0.07] text-slate-300 group-hover:bg-white/12 group-hover:text-white border border-white/6"
+                  ? "bg-gradient-to-br from-gold-light to-gold-500 text-ink-900 shadow-[0_8px_24px_-6px_rgba(196,148,40,0.5)]"
+                  : "bg-foreground/[0.07] text-foreground/80 group-hover:bg-foreground/12 group-hover:text-foreground border border-border"
               }`}
             >
               <action.icon className="h-6 w-6" />
             </div>
             <span
               className={`text-xs font-medium ${
-                action.active ? "text-gold" : "text-slate-400"
+                action.active ? "text-gold" : "text-muted-foreground"
               }`}
             >
               {action.label}

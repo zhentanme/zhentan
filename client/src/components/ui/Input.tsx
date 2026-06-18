@@ -9,19 +9,19 @@ export function Input({ label, suffix, className, ...props }: InputProps) {
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="text-sm font-medium text-slate-400">{label}</label>
+        <label className="text-sm font-medium text-muted-foreground">{label}</label>
       )}
       <div className="relative">
         <input
           className={clsx(
-            "w-full rounded-2xl bg-white/6 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-white/8 transition-all",
+            "w-full rounded-2xl bg-foreground/6 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-foreground/8 transition-all",
             suffix && "pr-20",
             className
           )}
           {...props}
         />
         {suffix && (
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-sm font-medium text-slate-400">
+          <span className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
             {suffix}
           </span>
         )}

@@ -61,7 +61,7 @@ export function RequestList({
         variants={headerVariants}
       >
         <Bell className="h-4 w-4 text-gold" />
-        <h2 className="text-sm font-semibold text-white tracking-wide">
+        <h2 className="text-sm font-semibold text-foreground tracking-wide">
           <span className="text-gold">&rsaquo;</span> Requests
         </h2>
       </motion.div>

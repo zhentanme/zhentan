@@ -21,7 +21,7 @@ export default function PrivyProvider({ children }: { children: React.ReactNode 
         loginMethods: ["google"],
         appearance: {
           theme: "dark",
-          accentColor: "#e5a832",
+          accentColor: "#c49428",
         },
       }}
     >

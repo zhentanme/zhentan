@@ -16,7 +16,7 @@ function BurstEffect() {
         <motion.div
           key={i}
           className="absolute rounded-full"
-          style={{ borderColor: "rgba(240,185,11,0.8)", borderStyle: "solid" }}
+          style={{ borderColor: "rgba(196,148,40,0.8)", borderStyle: "solid" }}
           initial={{ width: 48, height: 48, opacity: 1 }}
           animate={{ width: [48, 900], height: [48, 900], opacity: [0.85, 0], borderWidth: [6, 1] }}
           transition={{ duration: 1.4, delay: i * 0.22, ease: "easeOut" }}
@@ -25,7 +25,7 @@ function BurstEffect() {
       {/* Central flash */}
       <motion.div
         className="absolute w-40 h-40 rounded-full"
-        style={{ background: "radial-gradient(circle, rgba(240,185,11,0.9) 0%, rgba(240,185,11,0) 70%)" }}
+        style={{ background: "radial-gradient(circle, rgba(196,148,40,0.9) 0%, rgba(196,148,40,0) 70%)" }}
         initial={{ scale: 0.4, opacity: 1 }}
         animate={{ scale: [0.4, 7, 0], opacity: [1, 0.6, 0] }}
         transition={{ duration: 1.1, ease: "easeOut" }}
@@ -100,12 +100,12 @@ function TokenCounter({
     >
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at center, rgba(240,185,11,0.1) 0%, transparent 65%)" }}
+        style={{ background: "radial-gradient(ellipse at center, rgba(196,148,40,0.1) 0%, transparent 65%)" }}
       />
       <div className="relative text-center select-none">
         <motion.p
           className="text-xs font-semibold uppercase tracking-[0.2em] mb-6"
-          style={{ color: "rgba(240,185,11,0.6)" }}
+          style={{ color: "rgba(196,148,40,0.6)" }}
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
@@ -116,12 +116,12 @@ function TokenCounter({
           className="text-[96px] leading-none font-bold text-claw tabular-nums"
           animate={{ scale: [1, 1.06, 1] }}
           transition={{ duration: 0.35, repeat: Infinity, ease: "easeInOut" }}
-          style={{ textShadow: "0 0 60px rgba(240,185,11,0.5)" }}
+          style={{ textShadow: "0 0 60px rgba(196,148,40,0.5)" }}
         >
           {count.toLocaleString()}
         </motion.div>
         <motion.p
-          className="text-2xl font-semibold text-white mt-3"
+          className="text-2xl font-semibold text-foreground mt-3"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -146,7 +146,7 @@ function CompleteScreen({ tokenAmount, tokenSymbol }: { tokenAmount: number; tok
     >
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at center, rgba(240,185,11,0.12) 0%, transparent 65%)" }}
+        style={{ background: "radial-gradient(ellipse at center, rgba(196,148,40,0.12) 0%, transparent 65%)" }}
       />
       <motion.div
         className="relative text-center"
@@ -157,14 +157,14 @@ function CompleteScreen({ tokenAmount, tokenSymbol }: { tokenAmount: number; tok
         <motion.div
           className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6"
           style={{
-            background: "rgba(240,185,11,0.15)",
-            boxShadow: "0 0 0 1px rgba(240,185,11,0.25)",
+            background: "rgba(196,148,40,0.15)",
+            boxShadow: "0 0 0 1px rgba(196,148,40,0.25)",
           }}
           animate={{
             boxShadow: [
-              "0 0 40px rgba(240,185,11,0.3), 0 0 0 1px rgba(240,185,11,0.25)",
-              "0 0 70px rgba(240,185,11,0.55), 0 0 0 1px rgba(240,185,11,0.4)",
-              "0 0 40px rgba(240,185,11,0.3), 0 0 0 1px rgba(240,185,11,0.25)",
+              "0 0 40px rgba(196,148,40,0.3), 0 0 0 1px rgba(196,148,40,0.25)",
+              "0 0 70px rgba(196,148,40,0.55), 0 0 0 1px rgba(196,148,40,0.4)",
+              "0 0 40px rgba(196,148,40,0.3), 0 0 0 1px rgba(196,148,40,0.25)",
             ],
           }}
           transition={{ duration: 1.6, repeat: Infinity }}
@@ -173,11 +173,11 @@ function CompleteScreen({ tokenAmount, tokenSymbol }: { tokenAmount: number; tok
         </motion.div>
         <motion.div
           className="text-6xl font-bold text-claw mb-2"
-          style={{ textShadow: "0 0 40px rgba(240,185,11,0.6)" }}
+          style={{ textShadow: "0 0 40px rgba(196,148,40,0.6)" }}
         >
           {tokenAmount.toLocaleString()}
         </motion.div>
-        <div className="text-2xl font-semibold text-white mb-2">{tokenSymbol}</div>
+        <div className="text-2xl font-semibold text-foreground mb-2">{tokenSymbol}</div>
         <div className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
           Claimed
         </div>

@@ -1,53 +1,103 @@
 @config "../../tailwind.config.ts";
 @import "tailwindcss";
 
-/* Light mode */
+/* ─────────────────────────────────────────────────────────────
+   Zhentan brand tokens
+   Gold = brand accent only. Ink = neutrals. Green/amber/red = state.
+   Dark is the canonical mode; light is a faithful parchment variant.
+   ───────────────────────────────────────────────────────────── */
 :root {
-  --background: #fbfbfb;
-  --foreground: #171717;
-  --card: #ffffff;
-  --card-foreground: #171717;
-  --popover: #ffffff;
-  --popover-foreground: #171717;
-  --primary: #c9942a;
-  --primary-foreground: #ffffff;
-  --secondary: #f0f0f0;
-  --secondary-foreground: #2e2e2e;
-  --muted: #f0f0f0;
-  --muted-foreground: #737373;
-  --accent: #f0f0f0;
-  --accent-foreground: #2e2e2e;
-  --destructive: #dc2626;
-  --border: #e5e5e5;
-  --input: #e5e5e5;
-  --ring: #c9942a;
-  --radius: 0.625rem;
-  --surface: #f5f5f5;
-  --surface-light: #fafafa;
+  /* Gold ramp (brand accent) */
+  --gold-50: #faf2da;
+  --gold-100: #f3e3ad;
+  --gold-200: #ecd17f;
+  --gold-300: #e8b93a;
+  --gold-400: #f5d060;
+  --gold-500: #c49428;
+  --gold-700: #7a5c18;
+  --gold-900: #3a2b0b;
+
+  /* Ink ramp (neutrals) */
+  --ink-0: #fbfbf7;
+  --ink-100: #e5e6dd;
+  --ink-200: #c8cbbe;
+  --ink-300: #8e938a;
+  --ink-500: #4a4f49;
+  --ink-700: #1f2421;
+  --ink-800: #14181a;
+  --ink-900: #0a0d0e;
+  --ink-950: #06090a;
+
+  /* Functional signals (transaction state, NOT brand) */
+  --safe: #3fbe76;
+  --watch: #f0b33c;
+  --danger: #e5524f;
+
+  /* Gold derivatives */
+  --gold-line: rgba(196, 148, 40, 0.16);
+  --gold-line2: rgba(196, 148, 40, 0.3);
+  --gold-glow: rgba(196, 148, 40, 0.12);
+  --gold-glow2: rgba(196, 148, 40, 0.05);
+
+  /* Radii */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 22px;
+  --r-pill: 999px;
+  --radius: 14px;
+
+  /* Font families (bound by next/font in the root layout) */
+  --font-sans: var(--font-manrope, ui-sans-serif, system-ui, sans-serif);
+  --font-mono: var(--font-jetbrains, ui-monospace, "SF Mono", Menlo, monospace);
 }
 
-/* Dark mode */
+/* Light mode — parchment + ink */
+:root {
+  --background: var(--ink-0);
+  --foreground: #14181a;
+  --card: #ffffff;
+  --card-foreground: #14181a;
+  --popover: #ffffff;
+  --popover-foreground: #14181a;
+  --primary: #c49428;
+  --primary-foreground: #0a0d0e;
+  --secondary: #eceadf;
+  --secondary-foreground: #1f2421;
+  --muted: #eceadf;
+  --muted-foreground: #4a4f49;
+  --accent: #eceadf;
+  --accent-foreground: #1f2421;
+  --destructive: #e5524f;
+  --border: rgba(31, 36, 33, 0.12);
+  --input: rgba(31, 36, 33, 0.16);
+  --ring: #c49428;
+  --surface: #f3f1ea;
+  --surface-light: #faf9f5;
+}
+
+/* Dark mode — ink canvas, gold accent (canonical) */
 .dark {
-  --background: #000000;
-  --foreground: #fafafa;
-  --card: #0f0f14;
-  --card-foreground: #fafafa;
-  --popover: #0f0f14;
-  --popover-foreground: #fafafa;
-  --primary: #e5a832;
-  --primary-foreground: #141414;
-  --secondary: #1c1c1c;
-  --secondary-foreground: #e0e0e0;
-  --muted: #222222;
-  --muted-foreground: #8a8a8a;
-  --accent: #222222;
-  --accent-foreground: #fafafa;
-  --destructive: #ef4444;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.15);
-  --ring: #e5a832;
-  --surface: #0f0f14;
-  --surface-light: #16161d;
+  --background: var(--ink-900);
+  --foreground: var(--ink-0);
+  --card: var(--ink-800);
+  --card-foreground: var(--ink-0);
+  --popover: var(--ink-800);
+  --popover-foreground: var(--ink-0);
+  --primary: #c49428;
+  --primary-foreground: #0a0d0e;
+  --secondary: var(--ink-700);
+  --secondary-foreground: var(--ink-100);
+  --muted: var(--ink-700);
+  --muted-foreground: var(--ink-300);
+  --accent: var(--ink-700);
+  --accent-foreground: var(--ink-0);
+  --destructive: #e5524f;
+  --border: var(--gold-line);
+  --input: var(--gold-line2);
+  --ring: #c49428;
+  --surface: var(--ink-800);
+  --surface-light: var(--ink-700);
 }
 
 @layer base {
@@ -64,6 +114,14 @@
   }
   html {
     -webkit-tap-highlight-color: transparent;
+  }
+  /* Mono for the precision layer: addresses, hashes, amounts, eyebrows */
+  .font-mono,
+  code,
+  kbd,
+  samp,
+  pre {
+    font-feature-settings: "tnum" 1;
   }
 }
 
@@ -89,53 +147,56 @@
   touch-action: manipulation;
 }
 
+/* Monospace eyebrow / label — uppercase precision text */
+.eyebrow {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.6875rem;
+  font-weight: 500;
+}
+
 @layer components {
-  /* Glassmorphism card — matching landing page */
+  /* Surface card — ink panel with gold hairline */
   .glass-card {
-    background: linear-gradient(
-      135deg,
-      rgba(229, 168, 50, 0.04) 0%,
-      rgba(15, 15, 20, 0.8) 100%
-    );
-    border: 1px solid rgba(229, 168, 50, 0.08);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-radius: 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
     position: relative;
     overflow: hidden;
   }
 
   .glass-card:hover {
-    border-color: rgba(229, 168, 50, 0.15);
-    background: linear-gradient(
-      135deg,
-      rgba(229, 168, 50, 0.06) 0%,
-      rgba(15, 15, 20, 0.9) 100%
-    );
+    border-color: var(--gold-line2);
   }
 
-  .gradient-text {
+  /* Gold gradient text — logo/accents only */
+  .gradient-text,
+  .text-gold-gradient {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(90deg, #f5d042 0%, #e5a832 40%, #b8861f 80%, #f5e6a3 100%);
+    background-image: linear-gradient(135deg, #f7d978 0%, #ecc24a 50%, #c8992c 100%);
   }
 
-  /* Logo-style text: grey (left) to white (right) */
+  /* Wordmark text — bright on dark, deep on light */
   .logo-text {
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-image: linear-gradient(90deg, #94a3b8 0%, #cbd5e1 40%, #f1f5f9 100%);
-    font-weight: 500;
+    background-image: linear-gradient(135deg, #f7d978 0%, #ecc24a 50%, #c8992c 100%);
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
 
-  /* Debit-card style balance card */
+  /* Balance card — deep ink with a gold wash */
   .balance-card {
-    background: linear-gradient(145deg, rgba(23, 20, 12, 0.95) 0%, rgba(35, 30, 15, 0.98) 40%, rgba(28, 24, 12, 0.95) 100%);
+    background:
+      radial-gradient(120% 120% at 0% 0%, rgba(196, 148, 40, 0.1) 0%, transparent 55%),
+      linear-gradient(160deg, var(--ink-800) 0%, var(--ink-900) 100%);
     box-shadow:
-      0 0 0 1px rgba(229, 168, 50, 0.12),
-      0 24px 48px -12px rgba(0, 0, 0, 0.45),
-      0 12px 24px -8px rgba(229, 168, 50, 0.15);
-    border-radius: 24px;
+      0 0 0 1px var(--gold-line),
+      0 24px 60px -18px rgba(0, 0, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    border-radius: var(--r-lg);
     position: relative;
     overflow: hidden;
   }
@@ -144,25 +205,21 @@
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.06) 0%,
-      transparent 50%,
-      rgba(34, 197, 94, 0.04) 100%
-    );
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 45%);
     pointer-events: none;
     border-radius: inherit;
   }
 
+  /* Gold chip detail */
   .balance-card-chip {
     width: 40px;
     height: 32px;
     border-radius: 6px;
-    background: linear-gradient(145deg, #d4a853 0%, #b8860b 25%, #8b6914 75%, #6b5344 100%);
+    background: linear-gradient(145deg, #f7d978 0%, #ecc24a 35%, #c8992c 75%, #7a5c18 100%);
     box-shadow:
-      inset 1px 1px 0 rgba(255, 255, 255, 0.35),
-      inset -1px -1px 0 rgba(0, 0, 0, 0.2),
-      0 1px 2px rgba(0, 0, 0, 0.2);
+      inset 1px 1px 0 rgba(255, 255, 255, 0.4),
+      inset -1px -1px 0 rgba(0, 0, 0, 0.25),
+      0 1px 2px rgba(0, 0, 0, 0.25);
     position: relative;
   }
 
@@ -175,87 +232,66 @@
       105deg,
       transparent,
       transparent 2px,
-      rgba(0, 0, 0, 0.03) 2px,
-      rgba(0, 0, 0, 0.03) 3px
+      rgba(0, 0, 0, 0.06) 2px,
+      rgba(0, 0, 0, 0.06) 3px
     );
     pointer-events: none;
   }
 }
 
 @layer utilities {
-  /* Gold gradient text utility */
-  .text-gold-gradient {
-    background: linear-gradient(
-      90deg,
-      #f5d042,
-      #f0b90b 40%,
-      #d4a506 80%,
-      #f5e6a3
-    );
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
   /* Glow effects */
   .glow-gold {
     box-shadow:
-      0 0 40px rgba(229, 168, 50, 0.15),
-      0 0 80px rgba(229, 168, 50, 0.05);
+      0 0 40px var(--gold-glow),
+      0 0 80px var(--gold-glow2);
   }
 
   .glow-gold-strong {
     box-shadow:
-      0 0 30px rgba(229, 168, 50, 0.25),
-      0 0 60px rgba(229, 168, 50, 0.1);
+      0 0 30px rgba(196, 148, 40, 0.22),
+      0 0 60px rgba(196, 148, 40, 0.08);
   }
 
-  /* Risk score bar */
+  /* Risk score bar — green (pass) → amber (review) → red (block) */
   .risk-bar {
     background: linear-gradient(
       90deg,
-      #22c55e 0%,
-      #22c55e 40%,
-      #eab308 40%,
-      #eab308 70%,
-      #ef4444 70%,
-      #ef4444 100%
+      var(--safe) 0%,
+      var(--safe) 40%,
+      var(--watch) 40%,
+      var(--watch) 70%,
+      var(--danger) 70%,
+      var(--danger) 100%
     );
+  }
+
+  /* Status dot with soft glow */
+  .signal-dot {
+    box-shadow: 0 0 8px currentColor;
   }
 }
 
-/* Hero background gradient — from landing page */
+/* Hero background gradient — gold wash over ink */
 .hero-gradient {
   background:
-    radial-gradient(
-      ellipse 80% 60% at 50% -10%,
-      rgba(229, 168, 50, 0.12) 0%,
-      transparent 60%
-    ),
-    radial-gradient(
-      ellipse 60% 40% at 80% 50%,
-      rgba(229, 168, 50, 0.05) 0%,
-      transparent 50%
-    ),
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(196, 148, 40, 0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 50%, rgba(196, 148, 40, 0.05) 0%, transparent 50%),
     var(--background);
 }
 
 /* Subtle hero gradient — for balance section */
 .hero-gradient-subtle {
   background:
-    radial-gradient(
-      ellipse 120% 80% at 50% 20%,
-      rgba(229, 168, 50, 0.06) 0%,
-      transparent 70%
-    ),
+    radial-gradient(ellipse 120% 80% at 50% 20%, rgba(196, 148, 40, 0.06) 0%, transparent 70%),
     transparent;
 }
 
 /* Grid pattern overlay */
 .grid-pattern {
   background-image:
-    linear-gradient(rgba(229, 168, 50, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(229, 168, 50, 0.03) 1px, transparent 1px);
+    linear-gradient(rgba(196, 148, 40, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(196, 148, 40, 0.03) 1px, transparent 1px);
   background-size: 60px 60px;
 }
 
@@ -272,22 +308,22 @@
 
 :root .glass {
   background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(31, 36, 33, 0.08);
 }
 
 :root .glass-strong {
   background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(31, 36, 33, 0.1);
 }
 
 .dark .glass {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(20, 24, 26, 0.55);
+  border: 1px solid var(--gold-line);
 }
 
 .dark .glass-strong {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(20, 24, 26, 0.78);
+  border: 1px solid var(--gold-line2);
 }
 
 /* Scrollbar styling */
@@ -296,14 +332,60 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(229, 168, 50, 0.2);
-  border-radius: 3px;
+  background: rgba(196, 148, 40, 0.22);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(229, 168, 50, 0.4);
+  background: rgba(196, 148, 40, 0.42);
+}
+
+/* ── Motion primitives (reference UX feel) ───────────────────── */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes sonar {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@keyframes signal-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.animate-signal-pulse {
+  animation: signal-pulse 2.2s ease-in-out infinite;
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--secondary) 0%,
+    rgba(196, 148, 40, 0.1) 50%,
+    var(--secondary) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
 }

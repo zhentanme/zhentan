@@ -224,7 +224,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
   function TokenIcon({ token, iconUrl }: { token: string; iconUrl?: string | null }) {
     if (iconUrl) {
       return (
-        <span className="relative w-8 h-8 shrink-0 rounded-full overflow-hidden bg-white/10">
+        <span className="relative w-8 h-8 shrink-0 rounded-full overflow-hidden bg-foreground/10">
           <Image src={iconUrl} alt="" width={32} height={32} className="object-cover" unoptimized />
         </span>
       );
@@ -271,25 +271,25 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         <div className="flex flex-col items-center gap-4">
           <ThemeLoaderSpinner variant="transaction" />
           <p className="text-sm font-semibold text-gold">Proposing transaction</p>
-          <p className="text-xs text-slate-500 uppercase tracking-widest">Awaiting your signature</p>
+          <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Awaiting your signature</p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
           <TokenIcon token={selectedToken?.symbol ?? "USDC"} iconUrl={selectedToken?.iconUrl} />
-          <span className="text-lg font-semibold text-white">{amount} {selectedToken?.symbol ?? "USDC"}</span>
+          <span className="text-lg font-semibold text-foreground">{amount} {selectedToken?.symbol ?? "USDC"}</span>
         </div>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">To</dt>
-            <dd className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
+            <dt className="text-muted-foreground/80">To</dt>
+            <dd className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
               {truncateAddress(toAddress)}
             </dd>
           </div>
         </dl>
         {onClose && (
-          <Button type="button" variant="ghost" onClick={onClose} className="w-full py-3 text-slate-400 hover:text-slate-200">
+          <Button type="button" variant="ghost" onClick={onClose} className="w-full py-3 text-muted-foreground hover:text-foreground">
             Close
           </Button>
         )}
@@ -304,7 +304,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
           <motion.div
-            className="w-20 h-20 rounded-2xl bg-amber-400/15 text-amber-400 flex items-center justify-center"
+            className="w-20 h-20 rounded-2xl bg-watch/15 text-watch flex items-center justify-center"
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1, rotate: [0, 5, -5, 0] }}
             transition={{
@@ -315,29 +315,29 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           >
             <Clock className="h-10 w-10" />
           </motion.div>
-          <span className="text-sm font-semibold text-amber-400">{statusLabel(tx.status)}</span>
+          <span className="text-sm font-semibold text-watch">{statusLabel(tx.status)}</span>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
           <TokenIcon token={tx.token} iconUrl={tx.tokenIconUrl} />
-          <span className="text-lg font-semibold text-white">{tx.amount} {tx.token}</span>
+          <span className="text-lg font-semibold text-foreground">{tx.amount} {tx.token}</span>
         </div>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">To</dt>
-            <dd className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={tx.to}>
+            <dt className="text-muted-foreground/80">To</dt>
+            <dd className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={tx.to}>
               {truncateAddress(tx.to)}
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">Proposed</dt>
-            <dd className="text-slate-300">{formatDate(tx.proposedAt)}</dd>
+            <dt className="text-muted-foreground/80">Proposed</dt>
+            <dd className="text-foreground/80">{formatDate(tx.proposedAt)}</dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">Signatures</dt>
-            <dd className="text-slate-300">
+            <dt className="text-muted-foreground/80">Signatures</dt>
+            <dd className="text-foreground/80">
               {tx.signatures.length} of {tx.threshold}
             </dd>
           </div>
@@ -367,21 +367,21 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         <div className="flex flex-col items-center gap-4">
           <ThemeLoaderSpinner variant="transaction" />
           <p className="text-sm font-semibold text-gold">Processing transaction</p>
-          <p className="text-xs text-slate-500 uppercase tracking-widest">Sending on chain</p>
+          <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Sending on chain</p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
           <TokenIcon token={selectedToken?.symbol ?? "USDC"} iconUrl={selectedToken?.iconUrl} />
-          <span className="text-lg font-semibold text-white">
+          <span className="text-lg font-semibold text-foreground">
             {amount} {selectedToken?.symbol ?? "USDC"}
           </span>
         </div>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">To</dt>
-            <dd className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
+            <dt className="text-muted-foreground/80">To</dt>
+            <dd className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
               {truncateAddress(toAddress)}
             </dd>
           </div>
@@ -391,7 +391,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             type="button"
             variant="ghost"
             onClick={onClose}
-            className="w-full py-3 text-slate-400 hover:text-slate-200"
+            className="w-full py-3 text-muted-foreground hover:text-foreground"
           >
             Close
           </Button>
@@ -411,23 +411,23 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           </div>
           <span className="text-sm font-semibold text-gold">Executed</span>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
           <TokenIcon token={token} iconUrl={executedResult.tokenIconUrl} />
-          <span className="text-lg font-semibold text-white">{amt} {token}</span>
+          <span className="text-lg font-semibold text-foreground">{amt} {token}</span>
         </div>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">To</dt>
-            <dd className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={to}>
+            <dt className="text-muted-foreground/80">To</dt>
+            <dd className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={to}>
               {truncateAddress(to)}
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-slate-500">Executed</dt>
-            <dd className="text-slate-300">{formatDate(executedAt)}</dd>
+            <dt className="text-muted-foreground/80">Executed</dt>
+            <dd className="text-foreground/80">{formatDate(executedAt)}</dd>
           </div>
         </dl>
         {explorerTxUrl && (
@@ -435,7 +435,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             href={explorerTxUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-white/8 text-slate-300 hover:text-white hover:bg-white/12 transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
           >
             <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
@@ -470,20 +470,20 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       sheetOnMobile
     >
       <div className="flex flex-col items-center gap-5 py-2">
-        <div className="w-16 h-16 rounded-2xl bg-blue-400/10 flex items-center justify-center">
-          <MessageCircle className="h-8 w-8 text-blue-400" />
+        <div className="w-16 h-16 rounded-2xl bg-gold/10 flex items-center justify-center">
+          <MessageCircle className="h-8 w-8 text-gold" />
         </div>
         <div className="text-center space-y-2">
-          <p className="text-sm text-slate-300 leading-relaxed">
+          <p className="text-sm text-foreground/80 leading-relaxed">
             AI screening is active. Telegram must be connected so the agent can notify you when a transaction needs review.
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground/80">
             Message{" "}
             <a
               href="https://t.me/zhentan_clawbot"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400/80 hover:text-blue-400 transition-colors"
+              className="text-gold/80 hover:text-gold transition-colors"
             >
               @zhentan_clawbot
             </a>{" "}
@@ -503,7 +503,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         <button
           type="button"
           onClick={() => setShowTgRequiredModal(false)}
-          className="text-xs text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+          className="text-xs text-muted-foreground/80 hover:text-foreground/80 transition-colors cursor-pointer"
         >
           Cancel
         </button>
@@ -512,12 +512,12 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       {/* You're sending - big amount */}
       <div>
-        <label className="block text-sm font-medium text-slate-400 mb-2">
+        <label className="block text-sm font-medium text-muted-foreground mb-2">
           You&apos;re sending
         </label>
         <div className="flex items-center gap-1">
           {amountMode === "usd" && (
-            <span className="text-3xl sm:text-4xl md:text-5xl font-semibold text-white">$</span>
+            <span className="text-3xl sm:text-4xl md:text-5xl font-semibold text-foreground">$</span>
           )}
           <input
             type="number"
@@ -527,14 +527,14 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             placeholder="0.00"
             value={amountInputValue}
             onChange={(e) => setAmountInput(e.target.value)}
-            className="w-full bg-transparent border-0 rounded-2xl py-2 text-3xl sm:text-4xl md:text-5xl font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-0 touch-manipulation"
+            className="w-full bg-transparent border-0 rounded-2xl py-2 text-3xl sm:text-4xl md:text-5xl font-semibold text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 touch-manipulation"
           />
         </div>
         {amountSecondary ? (
           <button
             type="button"
             onClick={toggleAmountMode}
-            className="text-xs text-slate-500 hover:text-slate-300 transition-colors cursor-pointer mt-1 text-left"
+            className="text-xs text-muted-foreground/80 hover:text-foreground/80 transition-colors cursor-pointer mt-1 text-left"
           >
             {amountSecondary}
           </button>
@@ -542,13 +542,13 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           <button
             type="button"
             onClick={toggleAmountMode}
-            className="text-xs text-slate-600 hover:text-slate-400 transition-colors cursor-pointer mt-1 text-left"
+            className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors cursor-pointer mt-1 text-left"
           >
             {amountMode === "token" ? "Switch to $" : `Switch to ${selectedToken.symbol}`}
           </button>
         ) : null}
         <div className="mt-2 flex items-center justify-between">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground/80">
             Balance: {selectedToken ? `${formatTokenAmount(selectedToken.balance, { raw: true })} ${selectedToken.symbol}` : "--"}
           </p>
           <button
@@ -561,48 +561,48 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           </button>
         </div>
         {insufficientFunds && (
-          <p className="text-sm text-red-400 mt-1">Insufficient funds</p>
+          <p className="text-sm text-danger mt-1">Insufficient funds</p>
         )}
       </div>
 
       {/* Token selector */}
       <div>
-        <label className="block text-sm font-medium text-slate-400 mb-2">
+        <label className="block text-sm font-medium text-muted-foreground mb-2">
           Token
         </label>
         <button
           type="button"
           onClick={() => setTokenSelectorOpen(true)}
-          className="w-full flex items-center gap-3 rounded-2xl bg-white/6 p-4 text-left hover:bg-white/8 transition-colors min-h-11 touch-manipulation cursor-pointer"
+          className="w-full flex items-center gap-3 rounded-2xl bg-foreground/6 p-4 text-left hover:bg-foreground/8 transition-colors min-h-11 touch-manipulation cursor-pointer"
         >
           {selectedToken ? (
             <>
               {selectedToken.iconUrl ? (
-                <span className="relative w-8 h-8 shrink-0 rounded-full overflow-hidden bg-white/10">
+                <span className="relative w-8 h-8 shrink-0 rounded-full overflow-hidden bg-foreground/10">
                   <Image src={selectedToken.iconUrl} alt="" width={32} height={32} className="object-cover" unoptimized />
                 </span>
               ) : (
-                <span className="w-8 h-8 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-gold">
+                <span className="w-8 h-8 shrink-0 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-bold text-gold">
                   {selectedToken.symbol.slice(0, 2)}
                 </span>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-white">{selectedToken.symbol}</p>
-                <p className="text-sm text-slate-400">
+                <p className="text-base font-semibold text-foreground">{selectedToken.symbol}</p>
+                <p className="text-sm text-muted-foreground">
                   {formatTokenAmount(selectedToken.balance, { raw: true })} {selectedToken.symbol}
                   {selectedToken.usdValue != null && ` · $${selectedToken.usdValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </p>
               </div>
-              <ChevronDown className="h-5 w-5 text-slate-500 shrink-0" aria-hidden />
+              <ChevronDown className="h-5 w-5 text-muted-foreground/80 shrink-0" aria-hidden />
             </>
           ) : (
             <>
               <UsdcIcon size={32} className="shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-base font-semibold text-white">Select token</p>
-                <p className="text-sm text-slate-400">{sendableTokens.length === 0 ? "No sendable tokens" : "Tap to choose"}</p>
+                <p className="text-base font-semibold text-foreground">Select token</p>
+                <p className="text-sm text-muted-foreground">{sendableTokens.length === 0 ? "No sendable tokens" : "Tap to choose"}</p>
               </div>
-              <ChevronDown className="h-5 w-5 text-slate-500 shrink-0" aria-hidden />
+              <ChevronDown className="h-5 w-5 text-muted-foreground/80 shrink-0" aria-hidden />
             </>
           )}
         </button>
@@ -616,12 +616,12 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       >
         <div className="flex items-center gap-2 mb-4">
           <Coins className="h-4 w-4 text-gold" />
-          <h2 className="text-sm font-semibold text-white tracking-wide">
+          <h2 className="text-sm font-semibold text-foreground tracking-wide">
             <span className="text-gold">›</span> Tokens
           </h2>
         </div>
         {sendableTokens.length === 0 ? (
-          <p className="text-sm text-slate-500 text-center py-8">No sendable tokens on BNB Chain</p>
+          <p className="text-sm text-muted-foreground/80 text-center py-8">No sendable tokens on BNB Chain</p>
         ) : (
           <div className="space-y-1 -mx-1">
             {sendableTokens.map((t, i) => (
@@ -642,12 +642,12 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
 
       {/* To - recipient with ENS/address */}
       <div>
-        <label className="block text-sm font-medium text-slate-400 mb-2">
+        <label className="block text-sm font-medium text-muted-foreground mb-2">
           To
         </label>
         {resolvedAddress && !resolving ? (
-          <div className="w-full flex items-center gap-3 rounded-2xl bg-white/6 px-3.5 py-3 border border-white/[0.07]">
-            <span className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-slate-300">
+          <div className="w-full flex items-center gap-3 rounded-2xl bg-foreground/6 px-3.5 py-3 border border-foreground/[0.07]">
+            <span className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden bg-foreground/10 flex items-center justify-center text-foreground/80">
               {resolvedAvatar ? (
                 <Image
                   src={resolvedAvatar}
@@ -665,20 +665,20 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               {resolveSource !== "address" ? (
                 <>
                   <div className="flex items-center gap-2 min-w-0">
-                    <p className="text-white text-base sm:text-sm font-semibold truncate">
+                    <p className="text-foreground text-base sm:text-sm font-semibold truncate">
                       {resolvedName ?? recipient}
                     </p>
                     {resolveSource === "zhentan" && (
                       <span className="relative inline-flex group text-claw">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex items-center gap-1.5 rounded-md bg-slate-900 text-slate-100 border border-white/10 px-2 py-1 text-[10px] whitespace-nowrap z-20 shadow-lg">
+                        <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex items-center gap-1.5 rounded-md bg-ink-900 text-foreground border border-foreground/10 px-2 py-1 text-[10px] whitespace-nowrap z-20 shadow-lg">
                           Zhentan User
                         </span>
                       </span>
                     )}
                   </div>
                   <p
-                    className="text-slate-400 text-sm truncate font-mono"
+                    className="text-muted-foreground text-sm truncate font-mono"
                     title={resolvedAddress}
                   >
                     {recipientAddressLabel(resolvedAddress)}
@@ -686,7 +686,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
                 </>
               ) : (
                 <p
-                  className="text-white text-base sm:text-sm truncate font-mono"
+                  className="text-foreground text-base sm:text-sm truncate font-mono"
                   title={resolvedAddress}
                 >
                   {recipientAddressLabel(resolvedAddress)}
@@ -697,7 +697,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               type="button"
               aria-label="Remove recipient"
               onClick={clearRecipient}
-              className="h-7 w-7 rounded-full text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+              className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground hover:bg-foreground/10 flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
@@ -708,19 +708,19 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             placeholder="Address, .eth, .bnb or Zhentan username"
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
-            className="w-full rounded-2xl bg-white/6 px-4 py-3.5 text-base sm:text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-claw/40 focus:bg-white/8 transition-all min-h-11 touch-manipulation"
+            className="w-full rounded-2xl bg-foreground/6 px-4 py-3.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-claw/40 focus:bg-foreground/8 transition-all min-h-11 touch-manipulation"
           />
         )}
         {resolving && (
-          <p className="text-xs text-slate-500 mt-1">Resolving…</p>
+          <p className="text-xs text-muted-foreground/80 mt-1">Resolving…</p>
         )}
         {resolveError && !resolving && recipient.trim() && !recipient.startsWith("0x") && (
-          <p className="text-xs text-amber-400 mt-1">{resolveError}</p>
+          <p className="text-xs text-watch mt-1">{resolveError}</p>
         )}
       </div>
 
       {error && (
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-danger">{error}</p>
       )}
 
       <Button

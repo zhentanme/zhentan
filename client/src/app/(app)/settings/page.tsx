@@ -217,40 +217,40 @@ function SettingsPageContent() {
                 <Settings className="h-[18px] w-[18px] text-gold" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-white">Settings</h1>
-                <p className="text-xs text-slate-500">Screening & agent configuration</p>
+                <h1 className="text-lg font-semibold text-foreground">Settings</h1>
+                <p className="text-xs text-muted-foreground/80">Screening & agent configuration</p>
               </div>
             </motion.div>
 
             {/* Zhentan Mode + Plan (combined) */}
             <motion.div variants={staggerItem}>
-              <div className="rounded-2xl bg-white/2 border border-white/6 overflow-hidden">
+              <div className="rounded-2xl bg-foreground/2 border border-foreground/6 overflow-hidden">
                 {/* Toggle row */}
                 <div className="flex items-center gap-4 p-5">
                   <div
-                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300 ${isScreeningActive ? "bg-gold/10" : "bg-white/6"
+                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300 ${isScreeningActive ? "bg-gold/10" : "bg-foreground/6"
                       }`}
                   >
                     {isScreeningActive ? (
                       <ShieldCheck className="h-5 w-5 text-gold" />
                     ) : (
-                      <ShieldOff className="h-5 w-5 text-slate-500" />
+                      <ShieldOff className="h-5 w-5 text-muted-foreground/80" />
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-white">Zhentan Mode</h3>
+                      <h3 className="text-sm font-semibold text-foreground">Zhentan Mode</h3>
                       <span
                         className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-all duration-300 ${isScreeningActive
                             ? "bg-gold/15 text-gold"
-                            : "bg-white/6 text-slate-500"
+                            : "bg-foreground/6 text-muted-foreground/80"
                           }`}
                       >
                         {isScreeningActive ? "Active" : "Inactive"}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <p className="text-xs text-muted-foreground/80 mt-0.5">
                       {isScreeningActive
                         ? "AI screening active"
                         : !fullyActivated
@@ -262,12 +262,12 @@ function SettingsPageContent() {
                   <button
                     onClick={handleToggle}
                     disabled={toggling}
-                    className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default ${isScreeningActive ? "bg-gold" : "bg-white/12"
+                    className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default ${isScreeningActive ? "bg-gold" : "bg-foreground/12"
                       }`}
                   >
                     {toggling ? (
                       <span className="absolute inset-0 flex items-center justify-center">
-                        <Loader2 className="h-3 w-3 animate-spin text-white" />
+                        <Loader2 className="h-3 w-3 animate-spin text-foreground" />
                       </span>
                     ) : (
                       <span
@@ -278,34 +278,34 @@ function SettingsPageContent() {
                   </button>
                 </div>
 
-                {isScreeningActive && <motion.div variants={staggerItem}>  <div className="h-px bg-white/6 mx-5" />
+                {isScreeningActive && <motion.div variants={staggerItem}>  <div className="h-px bg-foreground/6 mx-5" />
 
                   {/* Activation row */}
                   <motion.div variants={staggerItem} className="p-5">
                     <button
                       onClick={() => setActivationOpen(true)}
-                      className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-white/4 hover:bg-white/6 transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-foreground/4 hover:bg-foreground/6 transition-colors cursor-pointer text-left"
                     >
                       {fullyActivated ? (
-                        <div className="w-8 h-8 rounded-xl bg-emerald-400/10 flex items-center justify-center shrink-0">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        <div className="w-8 h-8 rounded-xl bg-safe/10 flex items-center justify-center shrink-0">
+                          <CheckCircle2 className="h-4 w-4 text-safe" />
                         </div>
                       ) : (
-                        <div className="w-8 h-8 rounded-xl bg-amber-400/10 flex items-center justify-center shrink-0">
-                          <AlertCircle className="h-4 w-4 text-amber-400" />
+                        <div className="w-8 h-8 rounded-xl bg-watch/10 flex items-center justify-center shrink-0">
+                          <AlertCircle className="h-4 w-4 text-watch" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-white">
+                        <p className="text-xs font-semibold text-foreground">
                           {fullyActivated ? "Activated" : "Setup required"}
                         </p>
-                        <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                        <p className="text-[11px] text-muted-foreground/80 truncate mt-0.5">
                           {fullyActivated
                             ? `Notifications → ${tgDisplayName ?? "Telegram"}`
                             : "Complete 2 steps to enable the agent"}
                         </p>
                       </div>
-                      <span className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 shrink-0">
+                      <span className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-gold/10 text-gold shrink-0">
                         {fullyActivated ? "Manage" : "Activate"}
                       </span>
                     </button>
@@ -321,10 +321,10 @@ function SettingsPageContent() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.3, type: "spring" as const, bounce: 0.15 }}
-                  className="rounded-2xl p-4 bg-amber-400/6 border border-amber-400/10"
+                  className="rounded-2xl p-4 bg-watch/6 border border-watch/10"
                 >
-                  <p className="text-xs text-amber-400/90 leading-relaxed">
-                    <strong className="text-amber-400">Warning:</strong>{" "}
+                  <p className="text-xs text-watch/90 leading-relaxed">
+                    <strong className="text-watch">Warning:</strong>{" "}
                     Transactions will execute immediately without AI review. Make
                     sure you trust all destinations.
                   </p>
@@ -334,48 +334,48 @@ function SettingsPageContent() {
 
             {/* Upgrade Plans */}
             <motion.div variants={staggerItem}>
-              <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mb-3 px-1">
+              <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-widest mb-3 px-1">
                 Upgrade
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Advanced Plan */}
-                <div className="p-4 rounded-2xl bg-white/2 border border-white/6 opacity-50 pointer-events-none">
+                <div className="p-4 rounded-2xl bg-foreground/2 border border-foreground/6 opacity-50 pointer-events-none">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-purple-400/[0.08] flex items-center justify-center">
-                        <Rocket className="h-4 w-4 text-purple-400" />
+                      <div className="w-9 h-9 rounded-xl bg-gold/[0.08] flex items-center justify-center">
+                        <Rocket className="h-4 w-4 text-gold" />
                       </div>
-                      <h4 className="text-sm font-semibold text-white">Advanced</h4>
+                      <h4 className="text-sm font-semibold text-foreground">Advanced</h4>
                     </div>
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-400/[0.08] text-purple-400">
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gold/[0.08] text-gold">
                       Soon
                     </span>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-400/[0.06] text-[11px] font-mono text-purple-300/80">
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gold/[0.06] text-[11px] font-mono text-gold-300/80">
                     Claude Sonnet 4.5
                   </span>
-                  <p className="text-[11px] text-slate-500 mt-2.5 leading-relaxed">
+                  <p className="text-[11px] text-muted-foreground/80 mt-2.5 leading-relaxed">
                     Dedicated OpenClaw instance with advanced AI model
                   </p>
                 </div>
 
                 {/* Self-hosted Plan */}
-                <div className="p-4 rounded-2xl bg-white/2 border border-white/6 opacity-50 pointer-events-none">
+                <div className="p-4 rounded-2xl bg-foreground/2 border border-foreground/6 opacity-50 pointer-events-none">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-white/[0.05] flex items-center justify-center">
-                        <Server className="h-4 w-4 text-slate-400" />
+                      <div className="w-9 h-9 rounded-xl bg-foreground/[0.05] flex items-center justify-center">
+                        <Server className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      <h4 className="text-sm font-semibold text-white">Self-hosted</h4>
+                      <h4 className="text-sm font-semibold text-foreground">Self-hosted</h4>
                     </div>
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-400/[0.08] text-purple-400">
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gold/[0.08] text-gold">
                       Soon
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                  <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
                     Run your own OpenClaw agent
                   </p>
-                  <div className="flex items-center gap-1 mt-2.5 text-[11px] text-slate-500">
+                  <div className="flex items-center gap-1 mt-2.5 text-[11px] text-muted-foreground/80">
                     <ExternalLink className="h-3 w-3" />
                     docs.openclaw.ai
                   </div>

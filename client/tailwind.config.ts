@@ -20,8 +20,6 @@ const config: Config = {
         primary: {
           DEFAULT: "var(--primary)",
           foreground: "var(--primary-foreground)",
-          400: "#38bdf8",
-          500: "#0ea5e9",
         },
         secondary: {
           DEFAULT: "var(--secondary)",
@@ -34,8 +32,6 @@ const config: Config = {
         accent: {
           DEFAULT: "var(--accent)",
           foreground: "var(--accent-foreground)",
-          teal: "#2dd4bf",
-          indigo: "#818cf8",
         },
         destructive: {
           DEFAULT: "var(--destructive)",
@@ -45,31 +41,62 @@ const config: Config = {
         ring: "var(--ring)",
         surface: "var(--surface)",
         "surface-light": "var(--surface-light)",
-        /* Brand gold — matching landing page */
+
+        /* Gold — brand accent ramp */
         gold: {
-          DEFAULT: "#e5a832",
-          light: "#f0c05a",
-          dark: "#b8861f",
+          DEFAULT: "#c49428",
+          light: "#f5d060",
+          dark: "#7a5c18",
+          50: "#faf2da",
+          100: "#f3e3ad",
+          200: "#ecd17f",
+          300: "#e8b93a",
+          400: "#f5d060",
+          500: "#c49428",
+          700: "#7a5c18",
+          900: "#3a2b0b",
         },
-        /* Backward-compatible alias */
+
+        /* Ink — neutral ramp */
+        ink: {
+          0: "#fbfbf7",
+          100: "#e5e6dd",
+          200: "#c8cbbe",
+          300: "#8e938a",
+          500: "#4a4f49",
+          700: "#1f2421",
+          800: "#14181a",
+          900: "#0a0d0e",
+          950: "#06090a",
+        },
+
+        /* Functional signals — transaction state (NOT brand) */
+        safe: "#3fbe76",
+        watch: "#f0b33c",
+        danger: "#e5524f",
+
+        /* Backward-compatible alias → gold */
         claw: {
-          DEFAULT: "#e5a832",
-          400: "#f0c05a",
-          500: "#e5a832",
-          600: "#b8861f",
+          DEFAULT: "#c49428",
+          400: "#f5d060",
+          500: "#c49428",
+          600: "#7a5c18",
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) * 0.8)",
-        sm: "calc(var(--radius) * 0.6)",
-        xl: "calc(var(--radius) * 1.4)",
-        "2xl": "calc(var(--radius) * 1.8)",
-        "3xl": "calc(var(--radius) * 2.2)",
+        xs: "var(--r-xs)",
+        sm: "var(--r-sm)",
+        md: "var(--r-md)",
+        lg: "var(--r-lg)",
+        xl: "var(--r-lg)",
+        "2xl": "calc(var(--r-lg) + 6px)",
+        "3xl": "calc(var(--r-lg) + 12px)",
+        pill: "var(--r-pill)",
       },
       fontFamily: {
-        sans: ["var(--font-kumbh-sans)", "Inter", "system-ui", "sans-serif"],
-        display: ["var(--font-ojuju)", "var(--font-kumbh-sans)", "system-ui", "sans-serif"],
+        sans: ["var(--font-manrope)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-manrope)", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["var(--font-jetbrains)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
     },
   },

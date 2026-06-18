@@ -28,14 +28,14 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
   const row = (
     <motion.div
       className={`flex items-center gap-3 px-4 py-3.5 transition-colors ${
-        onClick ? "cursor-pointer active:bg-white/4" : ""
-      } hover:bg-white/3 ${selected ? "bg-gold/[0.06]" : ""} ${!hideZeroBalance && token.placeholder ? "opacity-35" : ""}`}
+        onClick ? "cursor-pointer active:bg-foreground/4" : ""
+      } hover:bg-foreground/3 ${selected ? "bg-gold/[0.06]" : ""} ${!hideZeroBalance && token.placeholder ? "opacity-35" : ""}`}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: hideZeroBalance ? 1 : token.placeholder ? 0.35 : 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.35, type: "spring", bounce: 0.1 }}
     >
       {/* Token icon */}
-      <div className="w-10 h-10 rounded-xl bg-white/6 flex items-center justify-center shrink-0 overflow-hidden">
+      <div className="w-10 h-10 rounded-xl bg-foreground/6 flex items-center justify-center shrink-0 overflow-hidden">
         {token.iconUrl ? (
           <Image
             src={token.iconUrl}
@@ -55,7 +55,7 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
       {/* Name + symbol */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-semibold text-white truncate">
+          <span className="text-sm font-semibold text-foreground truncate">
             {token.name}
           </span>
           {token.verified && (
@@ -63,7 +63,7 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
           )}
         </div>
         {showBalance && (
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs font-mono text-muted-foreground/80 mt-0.5 tabular-nums">
             {balanceStr} {token.symbol}
           </p>
         )}
@@ -72,11 +72,11 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
       {/* Value */}
       <div className="shrink-0 text-right flex items-center gap-2">
         {usdStr != null ? (
-          <span className="text-sm font-semibold text-white tabular-nums">{usdStr}</span>
+          <span className="text-sm font-mono font-semibold text-foreground tabular-nums">{usdStr}</span>
         ) : token.placeholder ? (
-          <span className="text-sm font-semibold text-white tabular-nums">$0</span>
+          <span className="text-sm font-mono font-semibold text-foreground tabular-nums">$0</span>
         ) : !hideZeroBalance ? (
-          <span className="text-sm text-slate-500 tabular-nums">
+          <span className="text-sm font-mono text-muted-foreground/80 tabular-nums">
             {balanceStr} {token.symbol}
           </span>
         ) : null}

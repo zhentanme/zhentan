@@ -29,7 +29,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
               ? "w-8 bg-gold"
               : i < current
               ? "w-4 bg-gold/40"
-              : "w-4 bg-white/10"
+              : "w-4 bg-foreground/10"
           }`}
         />
       ))}
@@ -120,26 +120,26 @@ function UsernameStep({
             onChange={(e) => handleChange(e.target.value)}
             placeholder="johndoe"
             maxLength={20}
-            className="w-full rounded-2xl bg-white/6 pl-9 pr-10 py-3.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-white/8 transition-all"
+            className="w-full rounded-2xl bg-foreground/6 pl-9 pr-10 py-3.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-foreground/8 transition-all"
           />
           {isValid && (
             <span className="absolute right-4 top-1/2 -translate-y-1/2">
               {checking ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-500" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground/80" />
               ) : taken ? (
-                <X className="w-3.5 h-3.5 text-red-400" />
+                <X className="w-3.5 h-3.5 text-danger" />
               ) : (
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <Check className="w-3.5 h-3.5 text-safe" />
               )}
             </span>
           )}
         </div>
 
         {username.length > 0 && username.length < 3 && (
-          <p className="text-xs text-amber-400/80 pl-1">At least 3 characters</p>
+          <p className="text-xs text-watch/80 pl-1">At least 3 characters</p>
         )}
-        {taken && <p className="text-xs text-red-400 pl-1">Username already taken</p>}
-        {error && <p className="text-xs text-red-400 pl-1">{error}</p>}
+        {taken && <p className="text-xs text-danger pl-1">Username already taken</p>}
+        {error && <p className="text-xs text-danger pl-1">{error}</p>}
 
         <Button onClick={handleSave} disabled={!isValid || saving || taken || checking} className="w-full">
           {saving ? (
@@ -267,21 +267,21 @@ function ConnectStep({
               <button
                 onClick={() => { setLinking(true); linkTelegram(); }}
                 disabled={linking}
-                className="w-full flex items-center gap-4 rounded-2xl px-5 py-4 border border-white/8 bg-white/4 hover:bg-white/6 hover:border-white/12 transition-all duration-200 disabled:opacity-60 disabled:cursor-default"
+                className="w-full flex items-center gap-4 rounded-2xl px-5 py-4 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 hover:border-foreground/12 transition-all duration-200 disabled:opacity-60 disabled:cursor-default"
               >
-                <div className="w-10 h-10 rounded-xl bg-white/6 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-foreground/6 flex items-center justify-center shrink-0">
                   {linking
-                    ? <Loader2 className="h-5 w-5 text-slate-400 animate-spin" />
-                    : <TelegramIcon className="h-5 w-5 text-slate-400" />
+                    ? <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                    : <TelegramIcon className="h-5 w-5 text-muted-foreground" />
                   }
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-semibold text-slate-200">Connect Telegram</p>
+                  <p className="text-sm font-semibold text-foreground">Connect Telegram</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {linking ? "Opening Telegram..." : "Review alerts & approve transactions"}
                   </p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-500 shrink-0" />
+                <ArrowRight className="h-4 w-4 text-muted-foreground/80 shrink-0" />
               </button>
             </motion.div>
           ) : (
@@ -293,14 +293,14 @@ function ConnectStep({
               exit={{ opacity: 0, y: -6 }}
               transition={{ type: "spring", bounce: 0.1 }}
             >
-              <div className="flex flex-row justify-between items-center gap-4 rounded-2xl px-5 py-4 border border-white/8 bg-white/4">
-                <div className="w-10 h-10 rounded-xl bg-white/6 flex items-center justify-center shrink-0">
-                  <TelegramIcon className="h-5 w-5 text-slate-400" />
+              <div className="flex flex-row justify-between items-center gap-4 rounded-2xl px-5 py-4 border border-foreground/8 bg-foreground/4">
+                <div className="w-10 h-10 rounded-xl bg-foreground/6 flex items-center justify-center shrink-0">
+                  <TelegramIcon className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-slate-200">Telegram</p>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-emerald-400/15 text-emerald-400">
+                    <p className="text-sm font-semibold text-foreground">Telegram</p>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-safe/15 text-safe">
                       Connected
                     </span>
                   </div>
@@ -311,7 +311,7 @@ function ConnectStep({
                 <button
                 onClick={handleDisconnect}
                 disabled={unlinking}
-                className="flex items-center justify-center gap-1.5 py-1.5 text-xs text-slate-500 hover:text-red-400 transition-colors"
+                className="flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground/80 hover:text-danger transition-colors"
               >
                 {unlinking ? <Loader2 className="h-5 w-5 animate-spin" /> : <XIcon className="h-5 w-5" />}
                 
@@ -375,7 +375,7 @@ function DoneStep({
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.15, type: "spring", bounce: 0.4 }}
-        className="w-16 h-16 rounded-full bg-gold flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(229,168,50,0.3)]"
+        className="w-16 h-16 rounded-full bg-gold flex items-center justify-center mb-6 shadow-[0_0_40px_rgba(196,148,40,0.3)]"
       >
         <Check className="w-8 h-8 text-black" />
       </motion.div>
@@ -460,7 +460,7 @@ function OnboardingContent() {
   if (!stepReady) return null;
 
   return (
-    <div className="min-h-screen hero-gradient text-white flex flex-col items-center justify-center px-4 relative">
+    <div className="min-h-screen hero-gradient text-foreground flex flex-col items-center justify-center px-4 relative">
       {/* Background grid */}
       <div className="absolute inset-0 grid-pattern opacity-40 pointer-events-none" />
 

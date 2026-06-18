@@ -16,15 +16,15 @@ interface RequestRowProps {
 function RiskBadge({ score }: { score: number }) {
   const color =
     score < 40
-      ? "bg-gold/15 text-gold"
+      ? "bg-safe/15 text-safe"
       : score <= 70
-        ? "bg-amber-400/15 text-amber-400"
-        : "bg-red-400/15 text-red-400";
+        ? "bg-watch/15 text-watch"
+        : "bg-danger/15 text-danger";
 
   return (
     <span
       className={clsx(
-        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium",
+        "inline-flex items-center px-2 py-0.5 rounded-pill text-[10px] font-mono uppercase tracking-wide",
         color
       )}
     >
@@ -35,10 +35,10 @@ function RiskBadge({ score }: { score: number }) {
 
 function RequestStatusBadge({ status }: { status: QueuedRequest["status"] }) {
   const styles: Record<QueuedRequest["status"], string> = {
-    queued: "bg-amber-400/15 text-amber-400",
-    approved: "bg-gold/15 text-gold",
-    executed: "bg-gold/15 text-gold",
-    rejected: "bg-red-400/15 text-red-400",
+    queued: "bg-watch/15 text-watch",
+    approved: "bg-safe/15 text-safe",
+    executed: "bg-safe/15 text-safe",
+    rejected: "bg-danger/15 text-danger",
   };
 
   const labels: Record<QueuedRequest["status"], string> = {
@@ -51,7 +51,7 @@ function RequestStatusBadge({ status }: { status: QueuedRequest["status"] }) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium",
+        "inline-flex items-center px-3 py-1 rounded-pill text-[11px] font-mono uppercase tracking-wider",
         styles[status]
       )}
     >
@@ -70,7 +70,7 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
       className={clsx(
-        "flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:bg-white/6 rounded-2xl transition-all min-h-[3.5rem] touch-manipulation",
+        "flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:bg-foreground/6 rounded-2xl transition-all min-h-[3.5rem] touch-manipulation",
         onClick && "cursor-pointer"
       )}
       initial={{ opacity: 0, y: 30, scale: 0.98 }}
@@ -82,22 +82,22 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
         bounce: 0.15,
       }}
     >
-      <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center shrink-0 text-gold">
+      <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center shrink-0 text-gold">
         {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-slate-200 truncate inline-flex items-center gap-1.5">
+          <span className="text-sm font-medium text-foreground truncate inline-flex items-center gap-1.5">
             <UsdcIcon size={16} className="shrink-0 opacity-90" />
             {request.amount} {request.token}
           </span>
-          <span className="text-slate-600">{isInvoice ? "←" : "→"}</span>
-          <span className="text-sm text-slate-400 truncate">
+          <span className="text-muted-foreground/60">{isInvoice ? "←" : "→"}</span>
+          <span className="text-sm text-muted-foreground truncate">
             {request.billedFrom?.name || truncateAddress(request.to)}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground/80 mt-0.5">
           {isInvoice ? (
             <>
               {request.invoiceNumber && <span>{request.invoiceNumber}</span>}

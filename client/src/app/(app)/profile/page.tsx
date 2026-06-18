@@ -181,27 +181,27 @@ function ProfilePageContent() {
                   </div>
                 )}
                 <div className="flex flex-col items-center gap-2">
-                  <p className="text-sm font-semibold text-white truncate">
+                  <p className="text-sm font-semibold text-foreground truncate">
                     {!user.name || user.name === "" || user.name === "null"
                       ? "Signed in as"
                       : user.name}
                   </p>
                   {user.email && (
-                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                    <p className="text-xs text-muted-foreground/80 truncate mt-0.5">
                       {user.email}
                     </p>
                   )}
                   {/* Safe Address */}
                   <div className="flex items-center gap-2">
-                    <Wallet className="h-3.5 w-3.5 text-slate-500 shrink-0 invisible" />
-                    <Wallet className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                    <span className="font-mono text-xs text-slate-300 truncate min-w-0">
+                    <Wallet className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0 invisible" />
+                    <Wallet className="h-3.5 w-3.5 text-muted-foreground/80 shrink-0" />
+                    <span className="font-mono text-xs text-foreground/80 truncate min-w-0">
                       {truncateAddress(safeAddress)}
                     </span>
                     <div className="flex items-center gap-0.5 ml-auto shrink-0">
                       <button
                         onClick={copyAddress}
-                        className="p-1.5 rounded-lg hover:bg-white/8 text-slate-500 hover:text-white transition-all cursor-pointer"
+                        className="p-1.5 rounded-lg hover:bg-foreground/8 text-muted-foreground/80 hover:text-foreground transition-all cursor-pointer"
                         aria-label="Copy safe address"
                       >
                         {copied ? (
@@ -214,7 +214,7 @@ function ProfilePageContent() {
                         href={`https://app.safe.global/home?safe=bnb:${safeAddress}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="p-1.5 rounded-lg hover:bg-white/8 text-slate-500 hover:text-white transition-all"
+                        className="p-1.5 rounded-lg hover:bg-foreground/8 text-muted-foreground/80 hover:text-foreground transition-all"
                         aria-label="Open in Safe"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -228,22 +228,22 @@ function ProfilePageContent() {
 
           {/* Username Section */}
           <motion.div variants={staggerItem}>
-            <div className="relative rounded-2xl overflow-hidden bg-white/6 shadow-[0_0_0_1px_rgba(240,185,11,0.12),0_12px_40px_-12px_rgba(240,185,11,0.08)]">
+            <div className="relative rounded-2xl overflow-hidden bg-foreground/6 shadow-[0_0_0_1px_rgba(196,148,40,0.12),0_12px_40px_-12px_rgba(196,148,40,0.08)]">
               <div
                 className="h-px"
                 style={{
                   background:
-                    "linear-gradient(90deg, transparent, rgba(240,185,11,0.4), transparent)",
+                    "linear-gradient(90deg, transparent, rgba(196,148,40,0.4), transparent)",
                 }}
               />
               <div className="p-5">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-2xl bg-claw/10 shadow-[0_0_10px_rgba(240,185,11,0.1)] flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-2xl bg-claw/10 shadow-[0_0_10px_rgba(196,148,40,0.1)] flex items-center justify-center shrink-0">
                     <AtSign className="h-[18px] w-[18px] text-claw" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-semibold text-white">Username</h2>
-                    <p className="text-xs text-white/40">
+                    <h2 className="text-sm font-semibold text-foreground">Username</h2>
+                    <p className="text-xs text-foreground/40">
                       Resolves to your Zhentan address
                     </p>
                   </div>
@@ -257,17 +257,17 @@ function ProfilePageContent() {
                         value={usernameInput}
                         onChange={(e) => handleUsernameInputChange(e.target.value)}
                         placeholder="Enter username"
-                        className="w-full bg-white/6 border border-white/10 rounded-xl px-3 py-2 pr-8 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-claw/50"
+                        className="w-full bg-foreground/6 border border-foreground/10 rounded-xl px-3 py-2 pr-8 text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-claw/50"
                         onKeyDown={(e) => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") { setUsernameEditing(false); setUsernameInput(username ?? ""); setUsernameError(null); setUsernameTaken(false); } }}
                       />
                       {usernameInput.trim().length >= 3 && (
                         <span className="absolute right-3 top-1/2 -translate-y-1/2">
                           {usernameChecking ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/80" />
                           ) : usernameTaken ? (
-                            <X className="h-3.5 w-3.5 text-red-400" />
+                            <X className="h-3.5 w-3.5 text-danger" />
                           ) : (
-                            <Check className="h-3.5 w-3.5 text-emerald-400" />
+                            <Check className="h-3.5 w-3.5 text-safe" />
                           )}
                         </span>
                       )}
@@ -283,7 +283,7 @@ function ProfilePageContent() {
                       </button>
                       <button
                         onClick={() => { setUsernameEditing(false); setUsernameInput(username ?? ""); setUsernameError(null); setUsernameTaken(false); }}
-                        className="flex-1 py-2 rounded-xl bg-white/6 text-white/60 text-xs cursor-pointer"
+                        className="flex-1 py-2 rounded-xl bg-foreground/6 text-foreground/60 text-xs cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -294,10 +294,10 @@ function ProfilePageContent() {
                     onClick={() => setUsernameEditing(true)}
                     className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors group cursor-pointer"
                   >
-                    <span className={`text-sm ${username ? "text-white" : "text-white/30"}`}>
+                    <span className={`text-sm ${username ? "text-foreground" : "text-foreground/30"}`}>
                       {username ? `@${username}` : "Set a username"}
                     </span>
-                    <Pencil className="h-3.5 w-3.5 text-white/30 group-hover:text-claw/60 transition-colors" />
+                    <Pencil className="h-3.5 w-3.5 text-foreground/30 group-hover:text-claw/60 transition-colors" />
                   </button>
                 )}
               </div>
@@ -315,7 +315,7 @@ function ProfilePageContent() {
                 await logout();
                 router.replace("/login");
               }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-sm font-medium text-red-400 bg-white/2 border border-white/6 hover:border-red-400/20 hover:bg-red-500/4 transition-all"
+              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-sm font-medium text-danger bg-foreground/2 border border-foreground/6 hover:border-danger/20 hover:bg-danger/4 transition-all"
             >
               <LogOut className="h-4 w-4" />
               Log out

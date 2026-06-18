@@ -38,9 +38,9 @@ function StepIndicator({ step, state }: { step: number; state: StepState }) {
         initial={{ scale: 0, rotate: -30 }}
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: "spring", bounce: 0.5, duration: 0.5 }}
-        className="w-10 h-10 rounded-2xl bg-emerald-400/15 flex items-center justify-center shrink-0"
+        className="w-10 h-10 rounded-2xl bg-safe/15 flex items-center justify-center shrink-0"
       >
-        <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+        <CheckCircle2 className="h-5 w-5 text-safe" />
       </motion.div>
     );
   }
@@ -49,20 +49,20 @@ function StepIndicator({ step, state }: { step: number; state: StepState }) {
     return (
       <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
         <motion.div
-          className="absolute inset-0 rounded-2xl border-2 border-blue-400/40"
+          className="absolute inset-0 rounded-2xl border-2 border-gold/40"
           animate={{ scale: [1, 1.25], opacity: [0.6, 0] }}
           transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
         />
-        <div className="relative w-10 h-10 rounded-2xl bg-blue-400/10 flex items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+        <div className="relative w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-gold" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-10 h-10 rounded-2xl bg-white/6 flex items-center justify-center shrink-0">
-      <span className="text-sm font-semibold text-slate-400">{step}</span>
+    <div className="w-10 h-10 rounded-2xl bg-foreground/6 flex items-center justify-center shrink-0">
+      <span className="text-sm font-semibold text-muted-foreground">{step}</span>
     </div>
   );
 }
@@ -100,9 +100,9 @@ function StepCard({
     <div
       className={clsx(
         "p-4 rounded-2xl border transition-colors duration-300",
-        state === "done" && "bg-emerald-400/5 border-emerald-400/20",
-        state === "running" && "bg-blue-400/5 border-blue-400/20",
-        state === "idle" && "bg-white/2 border-white/6",
+        state === "done" && "bg-safe/5 border-safe/20",
+        state === "running" && "bg-gold/5 border-gold/20",
+        state === "idle" && "bg-foreground/2 border-foreground/6",
         disabled && "opacity-40 pointer-events-none"
       )}
     >
@@ -112,9 +112,9 @@ function StepCard({
         <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2 min-w-0">
             
-            <h4 className="text-sm font-semibold text-white truncate">{title}</h4>
+            <h4 className="text-sm font-semibold text-foreground truncate">{title}</h4>
           </div>
-          <div className="text-[11px] text-slate-400 mt-1 leading-relaxed min-h-[1.5em] max-w-48">
+          <div className="text-[11px] text-muted-foreground mt-1 leading-relaxed min-h-[1.5em] max-w-48">
             {state === "done"
               ? doneDescription
               : state === "running"
@@ -126,7 +126,7 @@ function StepCard({
             <button
               onClick={onAction}
               disabled={actionLoading || disabled}
-              className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 hover:bg-blue-400/15 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-default inline-flex items-center gap-1.5"
+              className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-gold/10 text-gold hover:bg-gold/15 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-default inline-flex items-center gap-1.5"
             >
               {actionLoading && <Loader2 className="h-3 w-3 animate-spin" />}
               {actionLabel}
@@ -151,12 +151,12 @@ function SuccessSplash({ onDone }: { onDone: () => void }) {
     >
       <div className="relative w-20 h-20 flex items-center justify-center mb-4">
         <motion.div
-          className="absolute inset-0 rounded-full border-2 border-emerald-400/60"
+          className="absolute inset-0 rounded-full border-2 border-safe/60"
           animate={{ scale: [1, 1.5], opacity: [0.6, 0] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
         />
         <motion.div
-          className="absolute inset-2 rounded-full border-2 border-emerald-400/40"
+          className="absolute inset-2 rounded-full border-2 border-safe/40"
           animate={{ scale: [1, 1.4], opacity: [0.5, 0] }}
           transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.3 }}
         />
@@ -164,18 +164,18 @@ function SuccessSplash({ onDone }: { onDone: () => void }) {
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", bounce: 0.5, duration: 0.6 }}
-          className="relative w-16 h-16 rounded-full bg-emerald-400/15 flex items-center justify-center"
+          className="relative w-16 h-16 rounded-full bg-safe/15 flex items-center justify-center"
         >
-          <ShieldCheck className="h-8 w-8 text-emerald-400" />
+          <ShieldCheck className="h-8 w-8 text-safe" />
         </motion.div>
       </div>
-      <h3 className="text-lg font-semibold text-white">Zhentan Activated</h3>
-      <p className="text-xs text-slate-400 mt-1.5 text-center">
+      <h3 className="text-lg font-semibold text-foreground">Zhentan Activated</h3>
+      <p className="text-xs text-muted-foreground mt-1.5 text-center">
         Your AI agent is ready to screen transactions
       </p>
       <button
         onClick={onDone}
-        className="mt-6 px-5 py-2 text-xs font-semibold rounded-xl bg-emerald-400/15 text-emerald-400 hover:bg-emerald-400/20 transition-all cursor-pointer"
+        className="mt-6 px-5 py-2 text-xs font-semibold rounded-xl bg-safe/15 text-safe hover:bg-safe/20 transition-all cursor-pointer"
       >
         Done
       </button>
@@ -243,7 +243,7 @@ export function ActivationDialog({
             transition={{ duration: 0.2 }}
             className="space-y-3"
           >
-            <p className="text-xs text-slate-400 leading-relaxed -mt-1 mb-4 text-center">
+            <p className="text-xs text-muted-foreground leading-relaxed -mt-1 mb-4 text-center">
               Complete these 2 steps so your AI agent can notify you about
               transactions that need review.
             </p>
@@ -256,7 +256,7 @@ export function ActivationDialog({
               idleDescription="Connect your Telegram account to receive notifications."
               runningDescription="Waiting for you to finish linking in the Privy popup…"
               doneDescription={
-                <span className="text-emerald-400/90">
+                <span className="text-safe/90">
                   {tgDisplayName ? ` ${tgDisplayName}` : ""}
                 </span>
               }
@@ -267,7 +267,7 @@ export function ActivationDialog({
                 telegramLinked ? (
                   <button
                     onClick={onUnlinkTelegram}
-                    className="px-2 py-1 text-[11px] font-medium rounded-lg bg-white/6 text-red-400 hover:bg-white/10 transition-all cursor-pointer flex items-center gap-1"
+                    className="px-2 py-1 text-[11px] font-medium rounded-lg bg-foreground/6 text-danger hover:bg-foreground/10 transition-all cursor-pointer flex items-center gap-1"
                   >
                     <XIcon className="h-3 w-3" />
                     Unlink
@@ -289,7 +289,7 @@ export function ActivationDialog({
                     href="https://t.me/zhentanme_bot"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400/90 hover:text-blue-400 transition-colors"
+                    className="text-gold/90 hover:text-gold transition-colors"
                   >
                     @zhentanme_bot
                   </a>
@@ -297,7 +297,7 @@ export function ActivationDialog({
                 </>
               }
               doneDescription={
-                <span className="text-emerald-400/90">Bot connected</span>
+                <span className="text-safe/90">Bot connected</span>
               }
               actionLabel={botActivationInitiated ? "Check again" : "Activate"}
               actionLoading={isCheckingBotConnection}

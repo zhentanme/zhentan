@@ -158,9 +158,9 @@ export function ClaimBanner({
             className={`w-full relative overflow-hidden rounded-2xl text-left focus:outline-none group cursor-pointer ${className ?? "mx-4 lg:mx-0"}${hideWhenClaimed ? " mb-4" : ""}`}
             style={{
               background:
-                "linear-gradient(135deg, rgba(240,185,11,0.12) 0%, rgba(240,185,11,0.05) 50%, rgba(240,185,11,0.10) 100%)",
+                "linear-gradient(135deg, rgba(196,148,40,0.12) 0%, rgba(196,148,40,0.05) 50%, rgba(196,148,40,0.10) 100%)",
               boxShadow:
-                "0 0 0 1px rgba(240,185,11,0.25), 0 8px 32px -8px rgba(240,185,11,0.20)",
+                "0 0 0 1px rgba(196,148,40,0.25), 0 8px 32px -8px rgba(196,148,40,0.20)",
             }}
           >
             {/* Shimmer line */}
@@ -168,14 +168,14 @@ export function ClaimBanner({
               className="absolute inset-x-0 top-0 h-px"
               style={{
                 background:
-                  "linear-gradient(90deg, transparent 0%, rgba(240,185,11,0.6) 50%, transparent 100%)",
+                  "linear-gradient(90deg, transparent 0%, rgba(196,148,40,0.6) 50%, transparent 100%)",
               }}
             />
             {/* Glow orb */}
             <div
               className="absolute -top-6 -right-6 w-24 h-24 rounded-full pointer-events-none"
               style={{
-                background: "radial-gradient(circle, rgba(240,185,11,0.15) 0%, transparent 70%)",
+                background: "radial-gradient(circle, rgba(196,148,40,0.15) 0%, transparent 70%)",
               }}
             />
 
@@ -183,8 +183,8 @@ export function ClaimBanner({
               <div
                 className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
                 style={{
-                  background: "rgba(240,185,11,0.15)",
-                  boxShadow: "0 0 16px rgba(240,185,11,0.2)",
+                  background: "rgba(196,148,40,0.15)",
+                  boxShadow: "0 0 16px rgba(196,148,40,0.2)",
                 }}
               >
                 <Image
@@ -198,7 +198,7 @@ export function ClaimBanner({
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold text-white">Celebrating Flap India Meetup</p>
+                  <p className="text-sm font-bold text-foreground">Celebrating Flap India Meetup</p>
                   <Sparkles className="h-3 w-3 text-claw/70" />
                 </div>
                 <p className="text-xs text-claw/60 mt-0.5">
@@ -215,7 +215,7 @@ export function ClaimBanner({
                   Claimed
                 </span>
               ) : (
-                <span className="text-[11px] font-semibold text-black bg-claw px-3 py-1.5 rounded-full shrink-0 shadow-[0_0_12px_rgba(240,185,11,0.4)] group-hover:bg-claw/90 transition-colors">
+                <span className="text-[11px] font-semibold text-black bg-claw px-3 py-1.5 rounded-full shrink-0 shadow-[0_0_12px_rgba(196,148,40,0.4)] group-hover:bg-claw/90 transition-colors">
                   Claim
                 </span>
               )}
@@ -234,12 +234,12 @@ export function ClaimBanner({
       <Dialog open={open} onClose={() => setOpen(false)} title="Claim Rewards">
         {loading ? (
           <div className="flex justify-center py-8">
-            <Loader2 className="h-5 w-5 text-slate-500 animate-spin" />
+            <Loader2 className="h-5 w-5 text-muted-foreground/80 animate-spin" />
           </div>
         ) : (
           <div className="space-y-4">
             {status && (
-              <p className="text-xs text-slate-500 text-center">
+              <p className="text-xs text-muted-foreground/80 text-center">
                 {alreadyClaimed
                   ? "You've already claimed"
                   : formatTimeRemaining(status.campaign.ends_at) ?? "Complete tasks to claim"}
@@ -248,7 +248,7 @@ export function ClaimBanner({
 
             {/* Tasks */}
             <div className="space-y-2">
-              <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest px-1">
+              <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-widest px-1">
                 Tasks
               </p>
               {status &&
@@ -264,15 +264,15 @@ export function ClaimBanner({
                     return met ? (
                       <div
                         key={key}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-white/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)]"
+                        className="flex items-center gap-3 p-3 rounded-xl bg-foreground/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)]"
                       >
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-claw/10 shadow-[0_0_8px_rgba(240,185,11,0.15)]">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-claw/10 shadow-[0_0_8px_rgba(196,148,40,0.15)]">
                           <Icon className="h-4 w-4 text-claw" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-white">{def?.label ?? key}</p>
+                          <p className="text-sm text-foreground">{def?.label ?? key}</p>
                           {def?.subtext && (
-                            <p className="text-xs text-slate-500 mt-0.5">
+                            <p className="text-xs text-muted-foreground/80 mt-0.5">
                               {def.subtext}
                             </p>
                           )}
@@ -284,20 +284,20 @@ export function ClaimBanner({
                         key={key}
                         type="button"
                         onClick={handleTaskClick}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] hover:bg-white/6 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] transition-colors text-left cursor-pointer"
+                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-foreground/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] hover:bg-foreground/6 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] transition-colors text-left cursor-pointer"
                       >
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white/4">
-                          <Icon className="h-4 w-4 text-slate-600" />
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-foreground/4">
+                          <Icon className="h-4 w-4 text-muted-foreground/60" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-slate-300">{def?.label ?? key}</p>
+                          <p className="text-sm text-foreground/80">{def?.label ?? key}</p>
                           {def?.subtext && (
-                            <p className="text-xs text-slate-500 mt-0.5">
+                            <p className="text-xs text-muted-foreground/80 mt-0.5">
                               {def.subtext}
                             </p>
                           )}
                         </div>
-                        <ChevronRight className="h-4 w-4 text-slate-600 shrink-0" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0" />
                       </button>
                     );
                   })}
@@ -305,13 +305,13 @@ export function ClaimBanner({
 
             {/* Claimed state */}
             {alreadyClaimed && (
-              <div className="p-3 rounded-xl bg-claw/5 shadow-[0_0_0_1px_rgba(240,185,11,0.1)] text-center">
+              <div className="p-3 rounded-xl bg-claw/5 shadow-[0_0_0_1px_rgba(196,148,40,0.1)] text-center">
                 <p className="text-sm font-medium text-claw">
                   {status!.userClaim!.token_amount
                     ? `${status!.userClaim!.token_amount} $ZHENTAN tokens claimed`
                     : "Tokens claimed"}
                 </p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-muted-foreground/80 mt-0.5">
                   {status!.userClaim!.status === "paid" ? "" : "Payout pending"}
                 </p>
               </div>
@@ -321,13 +321,13 @@ export function ClaimBanner({
             {!alreadyClaimed && (
               <>
                 {claimError && (
-                  <p className="text-xs text-red-400 px-1">{claimError}</p>
+                  <p className="text-xs text-danger px-1">{claimError}</p>
                 )}
                 <button
                   type="button"
                   onClick={handleClaim}
                   disabled={claiming || !allTasksMet || noSpotsLeft}
-                  className="w-full py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-claw text-black hover:bg-claw/90 shadow-[0_0_20px_rgba(240,185,11,0.25)]"
+                  className="w-full py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-claw text-black hover:bg-claw/90 shadow-[0_0_20px_rgba(196,148,40,0.25)]"
                 >
                   {claiming ? (
                     <span className="flex items-center justify-center gap-2">

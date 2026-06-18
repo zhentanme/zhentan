@@ -35,7 +35,7 @@ export function PrivyLoginButton() {
     return (
       <div className="flex items-center gap-3">
         <div className="text-sm">
-          <span className="text-slate-400">Connected: </span>
+          <span className="text-muted-foreground">Connected: </span>
           <span className="font-mono text-gold">{truncateAddress(wallet.address)}</span>
         </div>
         <Button variant="ghost" onClick={logout} className="p-2">

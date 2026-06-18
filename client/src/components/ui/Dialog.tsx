@@ -79,7 +79,7 @@ export function Dialog({
             aria-labelledby={title ? "dialog-title" : undefined}
             className={clsx(
               "relative w-full max-w-md overflow-y-auto overflow-x-hidden",
-              "bg-[#0f0f14] shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]",
+              "bg-card shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]",
               "flex flex-col",
               sheetOnMobile
                 ? "max-h-[90vh] sm:max-h-[85vh] rounded-t-2xl sm:rounded-2xl p-4 sm:p-6"
@@ -105,14 +105,14 @@ export function Dialog({
             {/* Drag handle on mobile for bottom sheet */}
             {sheetOnMobile && (
               <div className="sm:hidden flex justify-center pt-1 pb-2 -mx-4">
-                <div className="w-10 h-1 rounded-full bg-white/20" aria-hidden />
+                <div className="w-10 h-1 rounded-full bg-foreground/20" aria-hidden />
               </div>
             )}
             <div className={clsx("relative flex items-center", title ? "mb-5" : "mb-0")}>
               {title && (
                 <h2
                   id="dialog-title"
-                  className="flex-1 text-center text-sm font-semibold text-white tracking-wide"
+                  className="flex-1 text-center text-xs font-mono uppercase tracking-[0.14em] text-foreground"
                 >
                   {title}
                 </h2>
@@ -122,7 +122,7 @@ export function Dialog({
                 aria-label="Close"
                 onClick={onClose}
                 className={clsx(
-                  "p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors",
+                  "p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-colors",
                   title ? "absolute right-0 top-1/2 -translate-y-1/2" : "ml-auto"
                 )}
               >

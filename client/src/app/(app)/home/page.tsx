@@ -227,8 +227,8 @@ function Dashboard() {
               onClick={() => setListTab("tokens")}
               className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                 listTab === "tokens"
-                  ? "text-white"
-                  : "text-slate-500 hover:text-slate-300"
+                  ? "text-foreground"
+                  : "text-muted-foreground/80 hover:text-foreground/80"
               }`}
             >
               Tokens
@@ -245,8 +245,8 @@ function Dashboard() {
               onClick={() => setListTab("activity")}
               className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                 listTab === "activity"
-                  ? "text-white"
-                  : "text-slate-500 hover:text-slate-300"
+                  ? "text-foreground"
+                  : "text-muted-foreground/80 hover:text-foreground/80"
               }`}
             >
               Activity
@@ -261,7 +261,7 @@ function Dashboard() {
           </div>
 
           {/* Content */}
-          <div className="flex-1 min-h-0 rounded-2xl bg-white/2 border border-white/6 overflow-hidden">
+          <div className="flex-1 min-h-0 rounded-2xl bg-foreground/2 border border-foreground/6 overflow-hidden">
             <div className="h-full overflow-y-auto">
               {listTab === "tokens" ? (
                 <TokenList tokens={tokens} loading={balanceLoading} embedded />

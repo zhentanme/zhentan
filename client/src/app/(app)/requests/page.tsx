@@ -143,20 +143,20 @@ function RequestsPageContent() {
               <Bell className="h-[18px] w-[18px] text-gold" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-white">Requests</h1>
-              <p className="text-xs text-slate-500">Invoices & payment approvals</p>
+              <h1 className="text-lg font-semibold text-foreground">Requests</h1>
+              <p className="text-xs text-muted-foreground/80">Invoices & payment approvals</p>
             </div>
           </motion.div>
 
           {!loading && requests.length === 0 ? (
             <motion.div variants={staggerItem}>
-              <div className="py-16 rounded-2xl bg-white/2 border border-white/6">
+              <div className="py-16 rounded-2xl bg-foreground/2 border border-foreground/6">
                 <div className="flex flex-col items-center justify-center text-center">
-                  <div className="mb-4 w-12 h-12 rounded-2xl bg-white/6 flex items-center justify-center text-slate-500">
+                  <div className="mb-4 w-12 h-12 rounded-2xl bg-foreground/6 flex items-center justify-center text-muted-foreground/80">
                     <FileText className="h-6 w-6" />
                   </div>
-                  <p className="text-sm font-medium text-slate-400">No requests yet</p>
-                  <p className="mt-1 text-xs text-slate-600">
+                  <p className="text-sm font-medium text-muted-foreground">No requests yet</p>
+                  <p className="mt-1 text-xs text-muted-foreground/60">
                     Invoices and payment requests via Telegram or WhatsApp appear here
                   </p>
                 </div>
