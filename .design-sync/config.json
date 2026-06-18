@@ -1,0 +1,49 @@
+{
+  "projectId": "ef5a195d-69a0-4a18-b060-cb4c8f672c24",
+  "shape": "package",
+  "pkg": "zhentan-client",
+  "globalName": "ZhentanUI",
+  "entry": "client/.ds-dist/ds.mjs",
+  "tsconfig": "tsconfig.json",
+  "cssEntry": ".ds-styles.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "runtimeFontPrefixes": [
+    "Manrope",
+    "JetBrains"
+  ],
+  "overrides": {
+    "Dialog": {
+      "cardMode": "single",
+      "viewport": "460x560"
+    }
+  },
+  "componentSrcMap": {
+    "Button": "src/components/ui/Button.tsx",
+    "Card": "src/components/ui/Card.tsx",
+    "Input": "src/components/ui/Input.tsx",
+    "Skeleton": "src/components/ui/Skeleton.tsx",
+    "Spinner": "src/components/ui/Spinner.tsx",
+    "Dialog": "src/components/ui/Dialog.tsx",
+    "StatusBadge": "src/components/StatusBadge.tsx",
+    "TwinTick": "src/components/BrandMark.tsx",
+    "BrandMarkSprite": "src/components/BrandMark.tsx",
+    "ExecutedAnimation": "src/components/animations/StatusAnimation.tsx",
+    "ReviewAnimation": "src/components/animations/StatusAnimation.tsx",
+    "RejectedAnimation": "src/components/animations/StatusAnimation.tsx"
+  },
+  "dtsPropsFor": {
+    "Button": "variant?: \"primary\" | \"secondary\" | \"ghost\"; loading?: boolean; children?: React.ReactNode; className?: string; disabled?: boolean; type?: \"button\" | \"submit\" | \"reset\"; onClick?: React.MouseEventHandler<HTMLButtonElement>;",
+    "Card": "children: React.ReactNode; className?: string;",
+    "Input": "label?: string; suffix?: React.ReactNode; className?: string; placeholder?: string; value?: string; defaultValue?: string; type?: string; disabled?: boolean; onChange?: React.ChangeEventHandler<HTMLInputElement>;",
+    "Skeleton": "className?: string;",
+    "Spinner": "className?: string; size?: number;",
+    "Dialog": "open: boolean; onClose: () => void; title?: string; children: React.ReactNode; className?: string; sheetOnMobile?: boolean;",
+    "StatusBadge": "status: \"pending\" | \"in_review\" | \"executed\" | \"rejected\";",
+    "TwinTick": "size?: number; halo?: string; className?: string; style?: React.CSSProperties;",
+    "BrandMarkSprite": "",
+    "ExecutedAnimation": "size?: number; loop?: boolean;",
+    "ReviewAnimation": "size?: number;",
+    "RejectedAnimation": "size?: number; loop?: boolean;"
+  },
+  "buildCmd": "bash .design-sync/build-inputs.sh"
+}
