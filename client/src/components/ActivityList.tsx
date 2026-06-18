@@ -7,13 +7,12 @@ import { TransactionRow } from "./TransactionRow";
 import { TransactionDetailDialog } from "./TransactionDetailDialog";
 import { Skeleton } from "./ui/Skeleton";
 import { Activity } from "lucide-react";
+import { dayLabel } from "@/lib/format";
 
 function groupByDate(txs: TransactionWithStatus[]): { dateLabel: string; items: TransactionWithStatus[] }[] {
   const map = new Map<string, TransactionWithStatus[]>();
   for (const tx of txs) {
-    const label = new Date(tx.proposedAt).toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric",
-    });
+    const label = dayLabel(tx.proposedAt);
     if (!map.has(label)) map.set(label, []);
     map.get(label)!.push(tx);
   }

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import type { TransactionWithStatus } from "@/types";
-import { truncateAddress, formatTokenAmount } from "@/lib/format";
+import { truncateAddress, formatTokenAmount, timeAgo } from "@/lib/format";
 import { StatusBadge } from "./StatusBadge";
 import {
   ArrowUpRight,
@@ -28,17 +28,17 @@ interface OpConfig {
 }
 
 const OP_CONFIG: Record<string, OpConfig> = {
-  receive:  { Icon: ArrowDownLeft,   label: "Receive",  sign: "+", iconColor: "text-safe" },
-  send:     { Icon: ArrowUpRight,    label: "Send",     sign: "-", iconColor: "text-muted-foreground"   },
-  trade:    { Icon: Repeat2,         label: "Trade",    sign: "+", iconColor: "text-muted-foreground"  },
-  approve:  { Icon: ShieldCheck,     label: "Approve",  sign: "",  iconColor: "text-gold"        },
-  execute:  { Icon: Zap,             label: "Execute",  sign: "",  iconColor: "text-gold"        },
-  deposit:  { Icon: ArrowDownToLine, label: "Deposit",  sign: "-", iconColor: "text-muted-foreground"   },
-  withdraw: { Icon: ArrowUpFromLine, label: "Withdraw", sign: "+", iconColor: "text-safe" },
-  borrow:   { Icon: ArrowDownLeft,   label: "Borrow",   sign: "+", iconColor: "text-safe" },
-  repay:    { Icon: ArrowUpRight,    label: "Repay",    sign: "-", iconColor: "text-muted-foreground"   },
-  mint:     { Icon: ArrowDownLeft,   label: "Mint",     sign: "+", iconColor: "text-safe" },
-  burn:     { Icon: ArrowUpRight,    label: "Burn",     sign: "-", iconColor: "text-muted-foreground"   },
+  receive:  { Icon: ArrowDownLeft,   label: "Receive",  sign: "+", iconColor: "text-safe"   },
+  send:     { Icon: ArrowUpRight,    label: "Send",     sign: "-", iconColor: "text-danger" },
+  trade:    { Icon: Repeat2,         label: "Trade",    sign: "+", iconColor: "text-watch"  },
+  approve:  { Icon: ShieldCheck,     label: "Approve",  sign: "",  iconColor: "text-gold"   },
+  execute:  { Icon: Zap,             label: "Execute",  sign: "",  iconColor: "text-gold"   },
+  deposit:  { Icon: ArrowDownToLine, label: "Deposit",  sign: "-", iconColor: "text-danger" },
+  withdraw: { Icon: ArrowUpFromLine, label: "Withdraw", sign: "+", iconColor: "text-safe"   },
+  borrow:   { Icon: ArrowDownLeft,   label: "Borrow",   sign: "+", iconColor: "text-safe"   },
+  repay:    { Icon: ArrowUpRight,    label: "Repay",    sign: "-", iconColor: "text-danger" },
+  mint:     { Icon: ArrowDownLeft,   label: "Mint",     sign: "+", iconColor: "text-safe"   },
+  burn:     { Icon: ArrowUpRight,    label: "Burn",     sign: "-", iconColor: "text-danger" },
 };
 
 const FALLBACK_CONFIG: OpConfig = {
@@ -51,14 +51,6 @@ function getConfig(tx: TransactionWithStatus): OpConfig {
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
 
 function formatUsd(n?: number): string {
   if (!n || n === 0) return "";
@@ -152,7 +144,7 @@ interface TransactionRowProps {
 export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) {
   const config = getConfig(tx);
   const { Icon, label, iconColor } = config;
-  const time = formatTime(tx.proposedAt);
+  const time = timeAgo(tx.proposedAt);
 
   // Counterparty address — skip for ops where it's not meaningful
   const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
@@ -167,7 +159,7 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
       className={`flex items-center gap-3 px-4 sm:px-6 py-4 transition-colors hover:bg-foreground/3 ${
         onClick ? "cursor-pointer active:bg-foreground/4" : ""
-      } touch-manipulation`}
+      } ${tx.status === "rejected" ? "opacity-55" : ""} touch-manipulation`}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.3, type: "spring", bounce: 0.1 }}
