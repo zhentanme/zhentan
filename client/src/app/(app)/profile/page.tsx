@@ -121,7 +121,7 @@ function ProfilePageContent() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <main className="flex-1 w-full max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 overflow-y-auto pb-24 sm:pb-10">
+      <main className="flex-1 w-full px-4 sm:px-8 lg:px-10 py-6 sm:py-8 overflow-y-auto pb-24 sm:pb-10">
         <motion.div
           variants={staggerContainer}
           initial="hidden"

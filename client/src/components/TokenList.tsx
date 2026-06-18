@@ -30,7 +30,7 @@ export function TokenList({ tokens, loading, embedded }: TokenListProps) {
       {loading ? (
         <div className="space-y-0.5">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-3.5">
+            <div key={i} className="flex items-center gap-3 px-4 sm:px-6 py-4">
               <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
               <div className="flex-1 min-w-0 space-y-2">
                 <Skeleton className="h-4 w-20" />

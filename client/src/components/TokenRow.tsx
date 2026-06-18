@@ -36,7 +36,8 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
   const row = (
     <motion.div
       className={clsx(
-        "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 transition-colors",
+        "grid items-center gap-4 sm:gap-8 px-4 sm:px-6 py-4 transition-colors",
+        "grid-cols-[2.5rem_minmax(0,1fr)_auto] sm:grid-cols-[2.5rem_minmax(0,1.6fr)_minmax(0,1fr)_auto]",
         onClick && "cursor-pointer active:bg-foreground/[0.04]",
         "hover:bg-foreground/[0.025]",
         selected && "bg-gold/[0.06]",
@@ -73,22 +74,24 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
         </p>
       </div>
 
-      {/* Balance/price + value */}
-      <div className="flex items-center gap-5 sm:gap-8">
-        {/* Holdings + unit price (desktop) */}
-        {showBalance && (
-          <div className="hidden sm:flex flex-col items-end">
-            <span className="text-[13px] font-mono text-foreground/90 tabular-nums">
-              {balanceStr}
-            </span>
-            <span className="text-[11px] font-mono text-muted-foreground/70 tabular-nums mt-0.5">
-              {formatPrice(token.price)}
-            </span>
-          </div>
-        )}
+      {/* Holdings + unit price (own column on desktop) */}
+      {showBalance ? (
+        <div className="hidden sm:flex flex-col min-w-0">
+          <span className="text-[13px] font-mono text-foreground/90 tabular-nums truncate">
+            {balanceStr}
+          </span>
+          <span className="text-[11px] font-mono text-muted-foreground/70 tabular-nums mt-0.5">
+            {formatPrice(token.price)}
+          </span>
+        </div>
+      ) : (
+        <div className="hidden sm:block" />
+      )}
 
-        {/* USD value (or mobile holdings fallback) */}
-        <div className="flex flex-col items-end min-w-[3.5rem]">
+      {/* USD value */}
+      <div className="flex flex-col items-end min-w-[3.5rem]">
+        <div className="flex items-center gap-2">
+          {selected && <CheckCircle2 className="h-4 w-4 text-gold shrink-0" />}
           {usdStr != null ? (
             <span className="text-sm font-mono font-semibold text-foreground tabular-nums">{usdStr}</span>
           ) : (
@@ -96,14 +99,12 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
               {balanceStr} {token.symbol}
             </span>
           )}
-          {showBalance && usdStr != null && (
-            <span className="sm:hidden text-[11px] font-mono text-muted-foreground/70 tabular-nums mt-0.5">
-              {balanceStr} {token.symbol}
-            </span>
-          )}
         </div>
-
-        {selected && <CheckCircle2 className="h-5 w-5 text-gold shrink-0" />}
+        {showBalance && usdStr != null && (
+          <span className="sm:hidden text-[11px] font-mono text-muted-foreground/70 tabular-nums mt-0.5">
+            {balanceStr} {token.symbol}
+          </span>
+        )}
       </div>
     </motion.div>
   );

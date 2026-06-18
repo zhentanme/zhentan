@@ -108,7 +108,7 @@ function Dashboard() {
   return (
     <div className="flex flex-col h-screen bg-background">
 
-      <main className="flex-1 flex flex-col min-h-0 w-full max-w-3xl mx-auto overflow-y-auto pb-24 sm:pb-8 px-4 sm:px-6 pt-2 sm:pt-6">
+      <main className="flex-1 flex flex-col min-h-0 w-full overflow-y-auto pb-24 sm:pb-8 px-4 sm:px-8 lg:px-10 pt-2 sm:pt-6">
         {/* Claim banner */}
         <div className="mb-4">
         <ClaimBanner

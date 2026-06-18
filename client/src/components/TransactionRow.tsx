@@ -165,7 +165,7 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
-      className={`flex items-center gap-3 px-4 py-3 transition-colors hover:bg-foreground/3 ${
+      className={`flex items-center gap-3 px-4 sm:px-6 py-4 transition-colors hover:bg-foreground/3 ${
         onClick ? "cursor-pointer active:bg-foreground/4" : ""
       } touch-manipulation`}
       initial={{ opacity: 0, y: 8 }}
