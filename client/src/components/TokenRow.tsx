@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import type { TokenPosition } from "@/types";
 import { formatTokenAmount } from "@/lib/format";
 import { CheckCircle2 } from "lucide-react";
+import { clsx } from "clsx";
 
 interface TokenRowProps {
   token: TokenPosition;
@@ -19,23 +20,34 @@ function formatUsd(value: number): string {
   return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function formatPrice(value: number): string {
+  if (value === 0) return "$0";
+  if (value < 0.01) return `$${value.toPrecision(2)}`;
+  if (value >= 1000) return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance = false }: TokenRowProps & { hideZeroBalance?: boolean }) {
-  const usdStr = token.usdValue != null ? formatUsd(token.usdValue) : null;
+  const usdStr = token.usdValue != null ? formatUsd(token.usdValue) : token.placeholder ? "$0" : null;
   const balanceNum = parseFloat(token.balance) || 0;
   const balanceStr = formatTokenAmount(token.balance);
   const showBalance = hideZeroBalance ? balanceNum > 0 : true;
 
   const row = (
     <motion.div
-      className={`flex items-center gap-3 px-4 py-3.5 transition-colors ${
-        onClick ? "cursor-pointer active:bg-foreground/4" : ""
-      } hover:bg-foreground/3 ${selected ? "bg-gold/[0.06]" : ""} ${!hideZeroBalance && token.placeholder ? "opacity-35" : ""}`}
+      className={clsx(
+        "grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3.5 transition-colors",
+        onClick && "cursor-pointer active:bg-foreground/[0.04]",
+        "hover:bg-foreground/[0.025]",
+        selected && "bg-gold/[0.06]",
+        !hideZeroBalance && token.placeholder && "opacity-35"
+      )}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: hideZeroBalance ? 1 : token.placeholder ? 0.35 : 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.35, type: "spring", bounce: 0.1 }}
     >
       {/* Token icon */}
-      <div className="w-10 h-10 rounded-xl bg-foreground/6 flex items-center justify-center shrink-0 overflow-hidden">
+      <div className="w-10 h-10 rounded-pill bg-foreground/6 flex items-center justify-center shrink-0 overflow-hidden">
         {token.iconUrl ? (
           <Image
             src={token.iconUrl}
@@ -46,43 +58,52 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
             unoptimized
           />
         ) : (
-          <span className="text-xs font-bold text-gold">
-            {token.symbol.slice(0, 2)}
-          </span>
+          <span className="text-xs font-bold text-gold">{token.symbol.slice(0, 2)}</span>
         )}
       </div>
 
       {/* Name + symbol */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="text-sm font-semibold text-foreground truncate">
-            {token.name}
-          </span>
-          {token.verified && (
-            <CheckCircle2 className="h-3.5 w-3.5 text-gold shrink-0" />
-          )}
+          <span className="text-sm font-semibold text-foreground truncate">{token.name}</span>
+          {token.verified && <CheckCircle2 className="h-3.5 w-3.5 text-gold shrink-0" />}
         </div>
-        {showBalance && (
-          <p className="text-xs font-mono text-muted-foreground/80 mt-0.5 tabular-nums">
-            {balanceStr} {token.symbol}
-          </p>
-        )}
+        <p className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground/80 mt-0.5">
+          {token.symbol}
+        </p>
       </div>
 
-      {/* Value */}
-      <div className="shrink-0 text-right flex items-center gap-2">
-        {usdStr != null ? (
-          <span className="text-sm font-mono font-semibold text-foreground tabular-nums">{usdStr}</span>
-        ) : token.placeholder ? (
-          <span className="text-sm font-mono font-semibold text-foreground tabular-nums">$0</span>
-        ) : !hideZeroBalance ? (
-          <span className="text-sm font-mono text-muted-foreground/80 tabular-nums">
-            {balanceStr} {token.symbol}
-          </span>
-        ) : null}
-        {selected && (
-          <CheckCircle2 className="h-5 w-5 text-gold shrink-0" />
+      {/* Balance/price + value */}
+      <div className="flex items-center gap-5 sm:gap-8">
+        {/* Holdings + unit price (desktop) */}
+        {showBalance && (
+          <div className="hidden sm:flex flex-col items-end">
+            <span className="text-[13px] font-mono text-foreground/90 tabular-nums">
+              {balanceStr}
+            </span>
+            <span className="text-[11px] font-mono text-muted-foreground/70 tabular-nums mt-0.5">
+              {formatPrice(token.price)}
+            </span>
+          </div>
         )}
+
+        {/* USD value (or mobile holdings fallback) */}
+        <div className="flex flex-col items-end min-w-[3.5rem]">
+          {usdStr != null ? (
+            <span className="text-sm font-mono font-semibold text-foreground tabular-nums">{usdStr}</span>
+          ) : (
+            <span className="text-sm font-mono text-muted-foreground/80 tabular-nums">
+              {balanceStr} {token.symbol}
+            </span>
+          )}
+          {showBalance && usdStr != null && (
+            <span className="sm:hidden text-[11px] font-mono text-muted-foreground/70 tabular-nums mt-0.5">
+              {balanceStr} {token.symbol}
+            </span>
+          )}
+        </div>
+
+        {selected && <CheckCircle2 className="h-5 w-5 text-gold shrink-0" />}
       </div>
     </motion.div>
   );

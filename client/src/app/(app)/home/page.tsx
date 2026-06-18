@@ -108,9 +108,9 @@ function Dashboard() {
   return (
     <div className="flex flex-col h-screen bg-background">
 
-      <main className="flex-1 flex flex-col min-h-0 w-full max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
+      <main className="flex-1 flex flex-col min-h-0 w-full max-w-3xl mx-auto overflow-y-auto pb-24 sm:pb-8 px-4 sm:px-6 pt-2 sm:pt-6">
         {/* Claim banner */}
-        <div className="px-4 sm:px-0">
+        <div className="mb-4">
         <ClaimBanner
           safeAddress={safeAddress}
           telegramUserId={telegramUserId}
@@ -125,7 +125,7 @@ function Dashboard() {
         </div>
 
         {/* Hero balance section */}
-        <div className="shrink-0 hero-gradient-subtle">
+        <div className="shrink-0">
           <BalanceCard
             portfolioTotalUsd={portfolioTotalUsd}
             portfolioPercentChange24h={portfolioPercentChange24h}
@@ -213,55 +213,47 @@ function Dashboard() {
         <WCSessionProposal />
         <WCTransactionRequest />
 
-        {/* Tokens / Activity tabs */}
+        {/* Assets / Activity segment tabs */}
         <motion.div
-          className="flex-1 min-h-0 flex flex-col mx-4 sm:mx-0"
+          className="flex-1 min-h-0 flex flex-col mt-9"
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
+          transition={{ delay: 0.38, duration: 0.35 }}
         >
-          {/* Tab bar */}
-          <div className="flex items-center gap-1 mb-3">
-            <button
-              type="button"
-              onClick={() => setListTab("tokens")}
-              className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                listTab === "tokens"
-                  ? "text-foreground"
-                  : "text-muted-foreground/80 hover:text-foreground/80"
-              }`}
-            >
-              Tokens
-              {listTab === "tokens" && (
-                <motion.div
-                  className="absolute bottom-0 left-2 right-2 h-0.5 bg-gold rounded-full"
-                  layoutId="tab-indicator"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
-                />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setListTab("activity")}
-              className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-                listTab === "activity"
-                  ? "text-foreground"
-                  : "text-muted-foreground/80 hover:text-foreground/80"
-              }`}
-            >
-              Activity
-              {listTab === "activity" && (
-                <motion.div
-                  className="absolute bottom-0 left-2 right-2 h-0.5 bg-gold rounded-full"
-                  layoutId="tab-indicator"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
-                />
-              )}
-            </button>
+          {/* Segment tab bar */}
+          <div className="flex items-center gap-7 border-b border-border">
+            {([
+              { key: "tokens", label: "Assets", count: tokens.length },
+              { key: "activity", label: "Activity", count: transactions.length },
+            ] as const).map((tab) => {
+              const active = listTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setListTab(tab.key)}
+                  className={`relative -mb-px flex items-center gap-2 py-3 text-sm font-semibold transition-colors cursor-pointer ${
+                    active ? "text-gold" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {tab.label}
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-pill bg-foreground/[0.06] text-muted-foreground tabular-nums">
+                    {tab.count}
+                  </span>
+                  {active && (
+                    <motion.span
+                      className="absolute bottom-0 left-0 right-0 h-0.5 rounded-pill bg-gold"
+                      layoutId="tab-indicator"
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Content */}
-          <div className="flex-1 min-h-0 rounded-2xl bg-foreground/2 border border-foreground/6 overflow-hidden">
+          {/* Content panel */}
+          <div className="flex-1 min-h-0 mt-4 rounded-lg bg-card border border-border overflow-hidden">
             <div className="h-full overflow-y-auto">
               {listTab === "tokens" ? (
                 <TokenList tokens={tokens} loading={balanceLoading} embedded />
