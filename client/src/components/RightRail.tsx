@@ -4,12 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { clsx } from "clsx";
-import { ArrowUpRight, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Bot, ShieldCheck } from "lucide-react";
 import { useApiClient } from "@/lib/api/client";
 import { useAuth } from "@/app/context/AuthContext";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
-import { truncateAddress, statusLabel } from "@/lib/format";
-import type { TransactionWithStatus, TransactionStatus } from "@/types";
+import { truncateAddress, statusLabel, timeAgo } from "@/lib/format";
+import type { TransactionWithStatus, TransactionStatus, QueuedRequest } from "@/types";
 
 const SIGNAL: Record<TransactionStatus, { tone: string; dot: string }> = {
   pending: { tone: "text-watch", dot: "bg-watch" },
@@ -18,26 +18,54 @@ const SIGNAL: Record<TransactionStatus, { tone: string; dot: string }> = {
   rejected: { tone: "text-danger", dot: "bg-danger" },
 };
 
+/** A unit of work that needs the user: agent-proposed (queued) or user-initiated (in review). */
+type PendingItem = {
+  id: string;
+  kind: "queued" | "review";
+  amount: string;
+  token: string;
+  time: string;
+};
+
+const MAX_PENDING = 4;
+
 export function RightRail() {
   const api = useApiClient();
   const { safeAddress } = useAuth();
   const { isScreeningActive } = useScreeningStatus();
-  const [queued, setQueued] = useState(0);
-  const [recent, setRecent] = useState<TransactionWithStatus[]>([]);
+  const [pending, setPending] = useState<PendingItem[]>([]);
+  const [decisions, setDecisions] = useState<TransactionWithStatus[]>([]);
 
   const refresh = useCallback(async () => {
+    let queuedItems: PendingItem[] = [];
     try {
       const r = await api.requests.list();
-      setQueued((r.requests || []).filter((x: { status: string }) => x.status === "queued").length);
+      queuedItems = ((r.requests || []) as QueuedRequest[])
+        .filter((x) => x.status === "queued")
+        .map((x) => ({ id: x.id, kind: "queued" as const, amount: x.amount, token: x.token, time: x.queuedAt }));
     } catch {
       /* silent */
     }
-    if (!safeAddress) return;
+    if (!safeAddress) {
+      setPending(queuedItems);
+      return;
+    }
     try {
       const t = await api.transactions.list(safeAddress);
-      setRecent((t.transactions || []).slice(0, 6));
+      const txs = t.transactions || [];
+      const reviewItems: PendingItem[] = txs
+        .filter((x) => x.status === "in_review")
+        .map((x) => ({ id: x.id, kind: "review" as const, amount: x.amount, token: x.token, time: x.proposedAt }));
+      setPending(
+        [...reviewItems, ...queuedItems].sort(
+          (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
+        )
+      );
+      setDecisions(
+        txs.filter((x) => x.status === "executed" || x.status === "rejected").slice(0, 6)
+      );
     } catch {
-      /* silent */
+      setPending(queuedItems);
     }
   }, [api, safeAddress]);
 
@@ -46,6 +74,9 @@ export function RightRail() {
     const interval = setInterval(refresh, 30_000);
     return () => clearInterval(interval);
   }, [refresh]);
+
+  const shown = pending.slice(0, MAX_PENDING);
+  const overflow = pending.length - shown.length;
 
   return (
     <aside
@@ -77,26 +108,19 @@ export function RightRail() {
         </span>
       </div>
 
-      {/* Pending review card */}
-      <div className="p-4">
-        {queued > 0 ? (
-          <Link
-            href="/requests"
-            className="block rounded-md border border-watch/30 bg-watch/8 p-4 transition-colors hover:bg-watch/12"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-watch">Awaiting your review</span>
-              <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-pill bg-watch text-[11px] font-bold text-ink-900">
-                {queued}
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {queued === 1 ? "1 request needs" : `${queued} requests need`} a co-signature.
-              <span className="text-watch"> Open →</span>
-            </p>
-          </Link>
-        ) : (
-          <div className="relative rounded-md border border-border bg-foreground/[0.02] p-5 flex flex-col items-center text-center overflow-hidden">
+      {/* Needs your review — both queued (agent) and in-review (you) */}
+      <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+        <p className="eyebrow text-muted-foreground/70">Needs your review</p>
+        {pending.length > 0 && (
+          <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-pill bg-watch text-[10px] font-bold text-ink-900">
+            {pending.length}
+          </span>
+        )}
+      </div>
+
+      <div className="px-3">
+        {pending.length === 0 ? (
+          <div className="relative mx-1 rounded-md border border-border bg-foreground/[0.02] p-5 flex flex-col items-center text-center overflow-hidden">
             <div className="relative mb-3 h-12 w-12 flex items-center justify-center">
               <span className="absolute inset-0 rounded-pill border border-safe/40 opacity-0 [animation:sonar_2.4s_ease-out_infinite]" />
               <span className="absolute inset-0 rounded-pill border border-safe/40 opacity-0 [animation:sonar_2.4s_ease-out_0.8s_infinite]" />
@@ -107,31 +131,81 @@ export function RightRail() {
               Nothing pending. The agent signs matches instantly.
             </p>
           </div>
+        ) : (
+          <div className="rounded-md border border-watch/25 bg-watch/[0.06] overflow-hidden divide-y divide-border">
+            {shown.map((item, i) => {
+              const isQueued = item.kind === "queued";
+              const inner = (
+                <>
+                  <span className="h-8 w-8 rounded-md bg-watch/12 text-watch flex items-center justify-center shrink-0">
+                    {isQueued ? <Bot className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-foreground/90 truncate tabular-nums">
+                      {item.amount} {item.token}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {isQueued ? "Agent proposed" : "You proposed"} · {timeAgo(item.time)}
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-watch shrink-0">
+                    {isQueued ? "Queued" : "Review"}
+                  </span>
+                </>
+              );
+              return (
+                <motion.div
+                  key={`${item.kind}-${item.id}`}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.05, duration: 0.25 }}
+                >
+                  {isQueued ? (
+                    <Link href="/requests" className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-watch/10">
+                      {inner}
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-3 px-3 py-2.5">{inner}</div>
+                  )}
+                </motion.div>
+              );
+            })}
+
+            <Link
+              href="/requests"
+              className="flex items-center justify-center gap-1 px-3 py-2 text-[11px] font-mono uppercase tracking-wider text-watch hover:bg-watch/10 transition-colors"
+            >
+              {overflow > 0 ? `+${overflow} more · Open queue` : "Open queue"} →
+            </Link>
+          </div>
         )}
       </div>
 
-      {/* Recent decisions */}
-      <div className="px-4 pb-2">
-        <p className="eyebrow text-muted-foreground/70 mb-1">Recent decisions</p>
+      {/* Recent decisions — resolved transactions only */}
+      <div className="px-4 pt-5 pb-2">
+        <p className="eyebrow text-muted-foreground/70">Recent decisions</p>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4">
-        {recent.length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-muted-foreground">No activity yet.</p>
+        {decisions.length === 0 ? (
+          <p className="px-3 py-6 text-center text-xs text-muted-foreground">No decisions yet.</p>
         ) : (
           <div className="space-y-0.5">
-            {recent.map((tx, i) => {
+            {decisions.map((tx, i) => {
               const sig = SIGNAL[tx.status] ?? SIGNAL.pending;
               return (
                 <motion.div
-                  key={`${tx.to}-${i}`}
+                  key={`${tx.id}-${i}`}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05, duration: 0.3 }}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-foreground/[0.03] transition-colors"
+                  className={clsx(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-foreground/[0.03] transition-colors",
+                    tx.status === "rejected" && "opacity-55"
+                  )}
                 >
                   <span className={clsx("h-1.5 w-1.5 rounded-pill shrink-0 signal-dot", sig.dot)} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-foreground/90 truncate flex items-center gap-1">
+                    <p className="text-xs font-medium text-foreground/90 truncate flex items-center gap-1 tabular-nums">
                       <ArrowUpRight className="h-3 w-3 text-muted-foreground shrink-0" />
                       {tx.amount} {tx.token ?? ""}
                     </p>
