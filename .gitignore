@@ -25,3 +25,12 @@ client/public/sw.js.map
 client/public/swe-worker-*.js
 client/public/workbox-*.js
 client/public/workbox-*.js.map
+
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+client/.ds-styles.css
+.design-sync/dist/
+client/.ds-dist/
