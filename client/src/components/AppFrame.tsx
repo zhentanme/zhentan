@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { clsx } from "clsx";
 import { Sidebar } from "@/components/Sidebar";
 import { RightRail } from "@/components/RightRail";
 import { TopBar } from "@/components/TopBar";
@@ -17,7 +16,9 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background">
       <Sidebar />
       {showRail && <RightRail />}
-      <div className={clsx("lg:pl-64", showRail && "xl:pr-[22rem]")}>
+      {/* Reserve the rail's gutter on every route so each page's content band
+          ends at the same line — whether or not the rail is rendered. */}
+      <div className="lg:pl-64 xl:pr-[22rem]">
         <TopBar />
         {children}
       </div>

@@ -33,6 +33,16 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
   const balanceStr = formatTokenAmount(token.balance);
   const showBalance = hideZeroBalance ? balanceNum > 0 : true;
 
+  // 24h PnL for this holding — absolute USD change with direction from the
+  // percent (falling back to the dollar sign). Hidden for placeholders / dust.
+  const change = token.priceChange1d;
+  const pct = token.pricePercentChange1d;
+  const pnlUp = pct != null ? pct >= 0 : change != null ? change >= 0 : null;
+  const pnlStr =
+    change != null && !token.placeholder && balanceNum > 0
+      ? `${change >= 0 ? "+" : "−"}${formatUsd(Math.abs(change))}`
+      : null;
+
   const row = (
     <motion.div
       className={clsx(
@@ -100,6 +110,18 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
             </span>
           )}
         </div>
+        {/* 24h PnL — desktop */}
+        {pnlStr != null && (
+          <span
+            className={clsx(
+              "hidden sm:block text-[11px] font-mono tabular-nums mt-0.5",
+              pnlUp ? "text-safe" : "text-danger"
+            )}
+          >
+            {pnlStr}
+          </span>
+        )}
+        {/* Holdings — mobile (holdings column is hidden on small screens) */}
         {showBalance && usdStr != null && (
           <span className="sm:hidden text-[11px] font-mono text-muted-foreground/70 tabular-nums mt-0.5">
             {balanceStr} {token.symbol}
