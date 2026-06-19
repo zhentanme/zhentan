@@ -82,6 +82,9 @@ function mergeWithZerion(tx: TransactionWithStatus, z: ZerionHistoryItem): Trans
   };
 }
 
+/** Cap on how many (newest-first) transactions any list endpoint returns. */
+const MAX_TRANSACTIONS = 100;
+
 export function createTransactionsRouter(): IRouter {
   const router = Router();
 
@@ -126,10 +129,10 @@ export function createTransactionsRouter(): IRouter {
         .filter((z) => !ourHashes.has(z.hash.toLowerCase()))
         .map((z) => zerionOnlyToActivity(z, safeAddress));
 
-      // Merge and sort newest-first
-      const transactions = [...ourActivity, ...zerionOnlyActivity].sort(
-        (a, b) => new Date(b.proposedAt).getTime() - new Date(a.proposedAt).getTime()
-      );
+      // Merge, sort newest-first, cap at the 100 most recent
+      const transactions = [...ourActivity, ...zerionOnlyActivity]
+        .sort((a, b) => new Date(b.proposedAt).getTime() - new Date(a.proposedAt).getTime())
+        .slice(0, MAX_TRANSACTIONS);
 
       res.json({ transactions });
     } catch (err) {
@@ -150,11 +153,14 @@ export function createTransactionsRouter(): IRouter {
         return;
       }
       const txs = await getTransactionsByAddress(safeAddress);
-      const transactions: TransactionWithStatus[] = txs.map((tx) => ({
-        ...tx,
-        source: "zhentan-only",
-        status: getTransactionStatus(tx),
-      }));
+      const transactions: TransactionWithStatus[] = txs
+        .map((tx) => ({
+          ...tx,
+          source: "zhentan-only" as const,
+          status: getTransactionStatus(tx),
+        }))
+        .sort((a, b) => new Date(b.proposedAt).getTime() - new Date(a.proposedAt).getTime())
+        .slice(0, MAX_TRANSACTIONS);
       res.json({ transactions });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";

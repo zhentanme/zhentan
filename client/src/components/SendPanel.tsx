@@ -7,9 +7,11 @@ import { motion } from "framer-motion";
 import { Button } from "./ui/Button";
 import { proposeTransaction } from "@/lib/propose";
 import { useAuth } from "@/app/context/AuthContext";
+import { useActivityData } from "@/app/context/ActivityDataContext";
+import { useLiveTransaction } from "@/hooks/useLiveTransaction";
 import { UsdcIcon } from "./icons/UsdcIcon";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
-import { ExecutedAnimation, ReviewAnimation } from "./animations/StatusAnimation";
+import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
 import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, MessageCircle, X, UserRound } from "lucide-react";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
@@ -31,6 +33,7 @@ interface SendPanelProps {
 export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, screeningMode = true }: SendPanelProps) {
   const { user, wallet, getOwnerAccount, telegramUserId, identityToken } = useAuth();
   const api = useApiClient();
+  const { addOptimisticTransaction } = useActivityData();
   const router = useRouter();
   const [showTgRequiredModal, setShowTgRequiredModal] = useState(false);
   const [recipient, setRecipient] = useState("");
@@ -42,7 +45,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sendPhase, setSendPhase] = useState<"form" | "proposing" | "proposed" | "sending" | "success">("form");
+  const [sendPhase, setSendPhase] = useState<"form" | "proposing" | "proposed" | "sending" | "success" | "rejected">("form");
   const [proposedTx, setProposedTx] = useState<TransactionWithStatus | null>(null);
   const [executedResult, setExecutedResult] = useState<{
     to: string;
@@ -82,6 +85,32 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
   const insufficientFunds = amountNum > 0 && amountNum > balanceNum;
 
   useEffect(() => { resetAmount(); }, [selectedToken?.id]);
+
+  // Live-track the proposed tx so the "Proposed" screen transitions in place when
+  // the agent (or the owner via Telegram) resolves it — no waiting on a refresh.
+  const liveProposed = useLiveTransaction(
+    sendPhase === "proposed" && proposedTx ? proposedTx.id : null
+  );
+  useEffect(() => {
+    if (!liveProposed) return;
+    if (liveProposed.status === "executed") {
+      setExecutedResult({
+        to: liveProposed.to,
+        amount: liveProposed.amount,
+        token: liveProposed.token,
+        txHash: liveProposed.txHash ?? "",
+        executedAt: liveProposed.executedAt ?? new Date().toISOString(),
+        tokenIconUrl: liveProposed.tokenIconUrl ?? undefined,
+      });
+      setSendPhase("success");
+    } else if (liveProposed.status === "rejected") {
+      setProposedTx((prev) => (prev ? { ...prev, ...liveProposed } : liveProposed));
+      setSendPhase("rejected");
+    } else if (liveProposed.status === "in_review") {
+      // Agent flagged it for review — keep the pending screen but reflect the update.
+      setProposedTx((prev) => (prev ? { ...prev, ...liveProposed } : liveProposed));
+    }
+  }, [liveProposed]);
 
   const resolveRecipient = useCallback(async (value: string) => {
     const trimmed = value.trim();
@@ -211,7 +240,10 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         });
         setSendPhase("success");
       } else {
-        setProposedTx({ ...pendingTx, status: "pending" });
+        const optimistic: TransactionWithStatus = { ...pendingTx, status: "pending" };
+        setProposedTx(optimistic);
+        // Surface it in the rail/activity immediately, ahead of the next poll.
+        addOptimisticTransaction(optimistic);
         setSendPhase("proposed");
       }
     } catch (err) {
@@ -390,7 +422,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     );
   }
 
-  if (!screeningMode && sendPhase === "success" && executedResult) {
+  if (sendPhase === "success" && executedResult) {
     const { to, amount: amt, token, txHash, executedAt } = executedResult;
     const explorerTxUrl = txHash ? `${BSC_EXPLORER_URL}/tx/${txHash}` : null;
     return (
@@ -437,6 +469,53 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           onClick={() => {
             setSendPhase("form");
             setExecutedResult(null);
+            clearRecipient();
+            resetAmount();
+            onSuccess();
+          }}
+          className="w-full py-3.5"
+        >
+          Done
+        </Button>
+      </div>
+    );
+  }
+
+  // Screening ON: blocked/rejected by the agent
+  if (sendPhase === "rejected" && proposedTx) {
+    const tx = proposedTx;
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center gap-3">
+          <RejectedAnimation size={80} />
+          <span className="text-sm font-semibold text-danger">Blocked</span>
+        </div>
+        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+            <ArrowUpRight className="h-5 w-5" />
+          </div>
+          <TokenIcon token={tx.token} iconUrl={tx.tokenIconUrl} />
+          <span className="text-lg font-semibold text-foreground">{tx.amount} {tx.token}</span>
+        </div>
+        <dl className="space-y-3 text-sm">
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground/80">To</dt>
+            <dd className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={tx.to}>
+              {truncateAddress(tx.to)}
+            </dd>
+          </div>
+          {tx.rejectReason && (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground/80 shrink-0">Reason</dt>
+              <dd className="text-danger text-right min-w-0">{tx.rejectReason}</dd>
+            </div>
+          )}
+        </dl>
+        <Button
+          type="button"
+          onClick={() => {
+            setSendPhase("form");
+            setProposedTx(null);
             clearRecipient();
             resetAmount();
             onSuccess();

@@ -17,6 +17,7 @@ import { ThemeLoader } from "@/components/ThemeLoader";
 import { ClaimBanner } from "@/components/ClaimBanner";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { padTokensWithFallbacks } from "@/lib/tokenFallbacks";
 import type { TransactionWithStatus, StatusResponse, TokenPosition, PortfolioResponse } from "@/types";
 
@@ -81,6 +82,16 @@ function Dashboard() {
     fetchStatus();
     api.users.get(safeAddress).then((d) => setUsername(d?.username ?? null)).catch(() => {});
   }, [safeAddress, fetchPortfolio, fetchTransactions, fetchStatus, api]);
+
+  // Keep the dashboard live. Portfolio + status refresh on a calm cadence; the
+  // activity list speeds up while a tx is mid-flight so a pending send flips to
+  // executed/rejected within seconds. A focused tab refetches immediately.
+  const hasPendingTx = transactions.some(
+    (t) => t.status === "pending" || t.status === "in_review"
+  );
+  useAutoRefresh(fetchPortfolio, 30_000);
+  useAutoRefresh(fetchStatus, 30_000);
+  useAutoRefresh(fetchTransactions, hasPendingTx ? 8_000 : 30_000);
 
   const handleSendSuccess = () => {
     setSendOpen(false);

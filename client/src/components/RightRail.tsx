@@ -17,6 +17,10 @@ import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
 import { truncateAddress, timeAgo, formatTokenAmount } from "@/lib/format";
 import { TwinTick } from "@/components/BrandMark";
+import { TransactionDetailDialog } from "@/components/TransactionDetailDialog";
+import { RequestDetailDialog } from "@/components/RequestDetailDialog";
+import { useRequestActions } from "@/hooks/useRequestActions";
+import type { TransactionWithStatus, QueuedRequest } from "@/types";
 
 /* ── Rolling agent readout — rotating idle messages ─────────────── */
 
@@ -85,7 +89,11 @@ function RollingReadout({ isActive }: { isActive: boolean }) {
 function LiveReadout({ isActive }: { isActive: boolean }) {
   return (
     <div className="p-3 pt-4 flex-1 flex min-h-0">
-      <div className="relative flex-1 overflow-hidden rounded-xl bg-foreground/[0.03] border border-border">
+      <Link
+        href="/settings"
+        aria-label="Agent screening settings"
+        className="group relative flex-1 overflow-hidden rounded-xl bg-foreground/[0.03] border border-border transition-colors hover:bg-foreground/[0.05] hover:border-gold/25"
+      >
         {/* Gold top-edge accent */}
         <div
           className="absolute top-0 left-0 right-0 h-px"
@@ -120,7 +128,7 @@ function LiveReadout({ isActive }: { isActive: boolean }) {
           {/* Rolling agent text */}
           <RollingReadout isActive={isActive} />
         </div>
-      </div>
+      </Link>
     </div>
   );
 }
@@ -136,6 +144,7 @@ function PendingCard({
   meta,
   note,
   risk,
+  onClick,
 }: {
   kind: "queued" | "review";
   amount: string;
@@ -145,6 +154,8 @@ function PendingCard({
   meta?: string;
   note: string;
   risk?: number | null;
+  /** When set, the whole card is clickable (opens the detail dialog) and no CTA is shown. */
+  onClick?: () => void;
 }) {
   const isQueued = kind === "queued";
   const accentRgba = isQueued
@@ -157,7 +168,15 @@ function PendingCard({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.28 }}
-      className="relative overflow-hidden rounded-xl bg-foreground/[0.04] border border-border"
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
+      className={clsx(
+        "relative overflow-hidden rounded-xl bg-foreground/[0.04] border border-border",
+        onClick &&
+          "cursor-pointer transition-colors hover:bg-foreground/[0.06] hover:border-gold/25"
+      )}
     >
       {/* Top accent gradient line */}
       <div
@@ -212,19 +231,19 @@ function PendingCard({
           </span>
         </div>
 
-        {/* CTA */}
-        <Link
-          href="/requests"
-          className={clsx(
-            "mt-3 w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold transition-colors",
-            isQueued
-              ? "bg-watch/[0.13] text-watch hover:bg-watch/20"
-              : "bg-gold/[0.13] text-gold-light hover:bg-gold/20"
-          )}
-        >
-          {isQueued ? "Screen & accept" : "Approve & send"}
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
+        {/* CTA → full queue. Agent-proposed only; the user-proposed card just
+            opens the detail dialog. The card itself opens a dialog (onClick), so
+            stop propagation here to let the button navigate instead. */}
+        {isQueued && (
+          <Link
+            href="/requests"
+            onClick={(e) => e.stopPropagation()}
+            className="mt-3 w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold transition-colors bg-watch/[0.13] text-watch hover:bg-watch/20"
+          >
+            Screen &amp; accept
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        )}
       </div>
     </motion.div>
   );
@@ -235,6 +254,9 @@ function PendingCard({
 export function RightRail() {
   const { isScreeningActive } = useScreeningStatus();
   const { requests, transactions } = useActivityData();
+  const { handleApprove, handleReject, refresh } = useRequestActions();
+  const [selectedTx, setSelectedTx] = useState<TransactionWithStatus | null>(null);
+  const [selectedRequest, setSelectedRequest] = useState<QueuedRequest | null>(null);
 
   // Most recent agent-proposed request (queued)
   const lastQueued = useMemo(() => {
@@ -277,8 +299,12 @@ export function RightRail() {
           "radial-gradient(90% 55% at 50% 42%, rgba(196,148,40,0.10) 0%, rgba(196,148,40,0.03) 30%, transparent 62%), var(--ink-950)",
       }}
     >
-      {/* Agent status header */}
-      <div className="px-5 pt-[18px] pb-4 border-b border-border shrink-0">
+      {/* Agent status header — opens screening settings */}
+      <Link
+        href="/settings"
+        aria-label="Agent screening settings"
+        className="block px-5 pt-[18px] pb-4 border-b border-border shrink-0 transition-colors hover:bg-foreground/[0.03]"
+      >
         <div className="flex items-center gap-3">
           <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
             {isScreeningActive && (
@@ -325,14 +351,31 @@ export function RightRail() {
             {isScreeningActive ? "Live" : "Off"}
           </span>
         </div>
-      </div>
+      </Link>
 
       {/* Pending section */}
-      <div className={clsx(!hasPending && "flex-1 min-h-0 flex flex-col")}>
+      <div className={clsx("flex flex-col min-h-0", !hasPending && "flex-1")}>
+        <AnimatePresence mode="wait">
         {!hasPending ? (
-          <LiveReadout isActive={isScreeningActive} />
+          <motion.div
+            key="rail-empty"
+            className="flex-1 flex min-h-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <LiveReadout isActive={isScreeningActive} />
+          </motion.div>
         ) : (
-          <div className="px-3 pt-4 pb-2 flex flex-col gap-3">
+          <motion.div
+            key="rail-pending"
+            className="px-3 pt-4 pb-2 flex flex-col gap-3"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
             {lastQueued && (
               <PendingCard
                 kind="queued"
@@ -355,6 +398,7 @@ export function RightRail() {
                     : "Agent prepared this — review before you sign.")
                 }
                 risk={lastQueued.riskScore}
+                onClick={() => setSelectedRequest(lastQueued)}
               />
             )}
             {lastReview && (
@@ -370,6 +414,7 @@ export function RightRail() {
                   `Agent screened${lastReview.riskScore != null ? ` · risk ${lastReview.riskScore}` : ""} — needs your approval.`
                 }
                 risk={lastReview.riskScore}
+                onClick={() => setSelectedTx(lastReview)}
               />
             )}
             <Link
@@ -379,8 +424,9 @@ export function RightRail() {
               Open full queue
               <ArrowRight className="h-3 w-3" />
             </Link>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </div>
 
       {/* Agent decisions stream */}
@@ -401,13 +447,15 @@ export function RightRail() {
             {decisions.map((tx, i) => {
               const rejected = tx.status === "rejected";
               return (
-                <motion.div
+                <motion.button
                   key={`${tx.id}-${i}`}
+                  type="button"
+                  onClick={() => setSelectedTx(tx)}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05, duration: 0.3 }}
                   className={clsx(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-foreground/[0.03] transition-colors",
+                    "w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-foreground/[0.04] transition-colors cursor-pointer",
                     rejected && "opacity-55"
                   )}
                 >
@@ -432,14 +480,29 @@ export function RightRail() {
                       rejected ? "text-danger" : "text-safe"
                     )}
                   >
-                    {rejected ? "Blocked" : "Auto-signed"}
+                    {rejected ? "Blocked" : "Approved"}
                   </span>
-                </motion.div>
+                </motion.button>
               );
             })}
           </div>
         </>
       )}
+
+      <TransactionDetailDialog
+        tx={selectedTx}
+        open={selectedTx !== null}
+        onClose={() => setSelectedTx(null)}
+      />
+
+      <RequestDetailDialog
+        request={selectedRequest}
+        open={selectedRequest !== null}
+        onClose={() => setSelectedRequest(null)}
+        onApprove={handleApprove}
+        onReject={handleReject}
+        onRefresh={refresh}
+      />
     </aside>
   );
 }

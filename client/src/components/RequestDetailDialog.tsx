@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import type { QueuedRequest } from "@/types";
 import { truncateAddress, formatDate } from "@/lib/format";
 import { useApiClient } from "@/lib/api/client";
@@ -12,11 +13,11 @@ import { UsdcIcon } from "./icons/UsdcIcon";
 import {
   FileText,
   ArrowUpRight,
-  CheckCircle2,
-  XCircle,
-  Clock,
   Send,
   ShieldCheck,
+  ShieldAlert,
+  ChevronDown,
+  ChevronUp,
   ExternalLink,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -42,94 +43,126 @@ type ScreeningPhase =
   | "rejected"
   | "error";
 
+/** Polished status visuals shared with the activity (transaction) dialog. */
 function StatusAnimation({ status }: { status: QueuedRequest["status"] }) {
-  const common = "rounded-2xl flex items-center justify-center";
-  const size = "w-20 h-20";
-
   switch (status) {
     case "queued":
-      return (
-        <motion.div
-          className={`${size} ${common} bg-watch/15 text-watch`}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{
-            scale: 1,
-            opacity: 1,
-            rotate: [0, 5, -5, 0],
-          }}
-          transition={{
-            opacity: { duration: 0.3 },
-            scale: { type: "spring", bounce: 0.4 },
-            rotate: { repeat: Infinity, duration: 2, ease: "easeInOut" },
-          }}
-        >
-          <Clock className="h-10 w-10" />
-        </motion.div>
-      );
     case "approved":
-      return (
-        <motion.div
-          className={`${size} ${common} bg-gold/15 text-gold`}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: [1, 1.05, 1], opacity: 1 }}
-          transition={{
-            opacity: { duration: 0.3 },
-            scale: { repeat: Infinity, duration: 1.5, ease: "easeInOut" },
-          }}
-        >
-          <Send className="h-10 w-10" />
-        </motion.div>
-      );
+      return <ReviewAnimation size={80} />;
     case "executed":
-      return (
-        <motion.div
-          className={`${size} ${common} bg-gold/20 text-gold`}
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: [0, 1.2, 1], opacity: 1 }}
-          transition={{
-            duration: 0.5,
-            scale: { times: [0, 0.6, 1], duration: 0.5 },
-          }}
-        >
-          <CheckCircle2 className="h-10 w-10" />
-        </motion.div>
-      );
+      return <ExecutedAnimation size={80} />;
     case "rejected":
-      return (
-        <motion.div
-          className={`${size} ${common} bg-danger/15 text-danger`}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1, x: [0, -6, 6, -4, 4, 0] }}
-          transition={{
-            opacity: { duration: 0.3 },
-            scale: { type: "spring", bounce: 0.3 },
-            x: { duration: 0.4 },
-          }}
-        >
-          <XCircle className="h-10 w-10" />
-        </motion.div>
-      );
+      return <RejectedAnimation size={80} />;
   }
 }
 
-function RiskBadge({ score }: { score: number }) {
-  const color =
-    score < 40
-      ? "bg-gold/15 text-gold"
-      : score <= 70
-        ? "bg-watch/15 text-watch"
-        : "bg-danger/15 text-danger";
-  const label = score < 40 ? "Low" : score <= 70 ? "Medium" : "High";
+/** Severity bucket → tailwind text/bg classes (mirrors TransactionDetailDialog). */
+function severity(score: number): { tone: "safe" | "watch" | "danger"; text: string; bg: string; label: string } {
+  if (score >= 70) return { tone: "danger", text: "text-danger", bg: "bg-danger", label: "High" };
+  if (score >= 40) return { tone: "watch", text: "text-watch", bg: "bg-watch", label: "Medium" };
+  return { tone: "safe", text: "text-safe", bg: "bg-safe", label: "Low" };
+}
+
+/**
+ * Expandable "View analysis" panel — same treatment as the activity dialog,
+ * adapted to request fields (riskScore + free-text riskNotes, plus the
+ * rejection reason for blocked requests).
+ */
+function RequestAnalysisSection({
+  riskScore,
+  riskNotes,
+  rejectReason,
+}: {
+  riskScore?: number;
+  riskNotes?: string;
+  rejectReason?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const sev = riskScore != null ? severity(riskScore) : null;
 
   return (
-    <span
-      className={clsx(
-        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
-        color
-      )}
-    >
-      {label} ({score})
-    </span>
+    <div className="rounded-2xl bg-foreground/6 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        aria-expanded={expanded}
+        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-foreground/6 transition-colors cursor-pointer"
+      >
+        <ShieldAlert className="h-4 w-4 text-watch/90 shrink-0" />
+        <span className="text-sm font-medium text-foreground flex-1">View analysis</span>
+        {sev && (
+          <span className={`font-mono text-xs font-semibold ${sev.text}`}>
+            {riskScore}
+            <span className="text-muted-foreground/60">/100</span>
+          </span>
+        )}
+        {expanded ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground/80 shrink-0" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground/80 shrink-0" />
+        )}
+      </button>
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="border-t border-foreground/10"
+          >
+            <div className="px-4 py-3.5 space-y-3.5 text-sm">
+              {/* Risk score + bar */}
+              {riskScore != null && sev && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-muted-foreground/80">Risk score</span>
+                    <span className={`font-mono font-semibold ${sev.text}`}>
+                      {riskScore}
+                      <span className="text-muted-foreground/60">/100</span>
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-pill bg-foreground/10 overflow-hidden">
+                    <motion.span
+                      className={`block h-full rounded-pill ${sev.bg}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, Math.max(0, riskScore))}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Verdict / level */}
+              {sev && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground/80">Verdict</span>
+                  <span className={`font-mono uppercase tracking-wide text-xs font-semibold ${sev.text}`}>
+                    {sev.label}
+                  </span>
+                </div>
+              )}
+
+              {/* Agent notes */}
+              {riskNotes && (
+                <div>
+                  <span className="text-muted-foreground/80 block mb-1">Message</span>
+                  <p className="text-foreground/85 leading-relaxed">{riskNotes}</p>
+                </div>
+              )}
+
+              {/* Rejection reason */}
+              {rejectReason && (
+                <div>
+                  <span className="text-muted-foreground/80 block mb-1">Rejection reason</span>
+                  <p className="text-danger leading-relaxed">{rejectReason}</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -275,32 +308,45 @@ export function RequestDetailDialog({
       className="max-w-md"
     >
       <div className="space-y-6">
-        {/* Status animation */}
-        <div className="flex flex-col items-center gap-3">
-          <StatusAnimation status={request.status} />
-          <span
-            className={clsx(
-              "text-sm font-semibold",
-              request.status === "executed" || request.status === "approved"
-                ? "text-gold"
-                : request.status === "rejected"
-                  ? "text-danger"
-                  : "text-watch"
-            )}
+        {/* Status animation — morphs in place when the status changes */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={request.status}
+            className="flex flex-col items-center gap-3"
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.92 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
           >
-            {statusLabels[request.status]}
-          </span>
-        </div>
+            <StatusAnimation status={request.status} />
+            <span
+              className={clsx(
+                "text-sm font-semibold",
+                request.status === "executed" || request.status === "approved"
+                  ? "text-gold"
+                  : request.status === "rejected"
+                    ? "text-danger"
+                    : "text-watch"
+              )}
+            >
+              {statusLabels[request.status]}
+            </span>
+          </motion.div>
+        </AnimatePresence>
 
-        {/* Amount row */}
-        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+        {/* Hero amount — op icon + token avatar + amount (mirrors activity dialog) */}
+        <div className="rounded-2xl bg-foreground/6 p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
             {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
           </div>
-          <UsdcIcon size={24} className="shrink-0 opacity-90" />
-          <span className="text-lg font-semibold text-foreground">
-            {request.amount} {request.token}
-          </span>
+          <div className="w-9 h-9 rounded-full bg-foreground/8 flex items-center justify-center shrink-0 overflow-hidden">
+            <UsdcIcon size={22} className="opacity-90" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-base font-semibold text-foreground">
+              {request.amount} {request.token}
+            </p>
+          </div>
         </div>
 
         {/* Instruction from the agent (transfer requests) */}
@@ -336,13 +382,24 @@ export function RequestDetailDialog({
             <dt className="text-muted-foreground/80">Queued</dt>
             <dd className="text-foreground/80">{formatDate(request.queuedAt)}</dd>
           </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground/80">To</dt>
-            <dd
-              className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
-              title={request.to}
-            >
-              {truncateAddress(request.to)}
+          {request.executedAt && (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground/80">Executed</dt>
+              <dd className="text-foreground/80 truncate min-w-0">{formatDate(request.executedAt)}</dd>
+            </div>
+          )}
+          <div className="flex justify-between gap-2 sm:gap-4">
+            <dt className="text-muted-foreground/80 shrink-0">{isInvoice ? "Pay to" : "To"}</dt>
+            <dd className="min-w-0 max-w-[50%] sm:max-w-[200px] truncate" title={request.to}>
+              <a
+                href={`${BSC_EXPLORER_URL}/address/${request.to}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-2 font-mono text-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline truncate"
+              >
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-foreground" />
+                <span className="truncate">{truncateAddress(request.to, 10)}</span>
+              </a>
             </dd>
           </div>
         </dl>
@@ -387,25 +444,33 @@ export function RequestDetailDialog({
           </div>
         )}
 
-        {/* Risk assessment */}
-        {request.riskScore != null && (
-          <div className="rounded-2xl bg-foreground/4 p-3">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs text-muted-foreground/80">Risk Assessment</p>
-              <RiskBadge score={request.riskScore} />
-            </div>
-            {request.riskNotes && (
-              <p className="text-xs text-muted-foreground">{request.riskNotes}</p>
-            )}
-          </div>
+        {/* Agent analysis — expandable: score, verdict, notes, rejection reason */}
+        {(request.riskScore != null ||
+          request.riskNotes ||
+          (request.status === "rejected" && request.rejectReason)) && (
+          <RequestAnalysisSection
+            riskScore={request.riskScore}
+            riskNotes={request.riskNotes}
+            rejectReason={request.status === "rejected" ? request.rejectReason : undefined}
+          />
         )}
 
-        {/* Rejection info */}
-        {request.status === "rejected" && request.rejectReason && (
-          <div className="rounded-2xl bg-danger/10 p-3">
-            <p className="text-xs text-danger/70 mb-1">Rejection Reason</p>
-            <p className="text-sm text-danger">{request.rejectReason}</p>
-          </div>
+        {/* BSCScan explorer link — executed requests */}
+        {request.txHash && (
+          <motion.a
+            href={`${BSC_EXPLORER_URL}/tx/${request.txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <span className="relative w-[18px] h-[18px] shrink-0">
+              <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
+            </span>
+            View on BSC Explorer
+            <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+          </motion.a>
         )}
 
         {/* Action buttons (only for queued requests) */}
