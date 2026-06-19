@@ -2,7 +2,7 @@
 name: zhentan
 description: Zhentan is your personal onchain security agent and co-signer. It monitors pending multisig transactions, screens them against behavioral patterns and security risk data, and auto-signs safe ones — blocking or flagging suspicious activity before it executes. Use when the user wants to review pending transactions, approve or reject a transaction, check risk scores, toggle screening mode, view transaction history, or queue and process an invoice.
 metadata:
-  openclaw:
+  nanobot:
     requires:
       bins: ["curl"]
       env: ["AGENT_SECRET"]

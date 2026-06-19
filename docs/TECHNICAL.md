@@ -13,7 +13,7 @@ Zhentan is composed of three independently runnable components:
 |-----------|------|
 | `client/` | Next.js 14 frontend — onboarding, dashboard, send/receive, WalletConnect, invoices |
 | `server/` | Express API — inline risk analysis, Zerion portfolio |
-| `zhentan-skills/` | OpenClaw skill pack — conversational agent layer: responds to owner commands, runs deep analysis, signs approved txs, records patterns, handles invoices |
+| `zhentan-skills/` | NanoBot/Hermes skill pack — conversational agent layer: responds to owner commands, runs deep analysis, signs approved txs, records patterns, handles invoices |
 
 ```mermaid
 flowchart TD
@@ -21,7 +21,7 @@ flowchart TD
     D[DApp e.g. PancakeSwap] -->|WalletConnect| C
     C -->|POST /queue — user signs 1-of-2| S[Server :3001]
     S -->|analyzeRisk inline| R{Risk Score}
-    R -->|< 40 APPROVE| OC[OpenClaw Agent]
+    R -->|< 40 APPROVE| OC[NanoBot/Hermes Agent]
     R -->|40-70 REVIEW| OC
     R -->|> 70 BLOCK| OC
     OC -->|REVIEW: deep-analyze| EXT[GoPlus / Honeypot.is]
@@ -54,8 +54,8 @@ flowchart TD
 - File-based JSON storage to share with agent: `pending-queue.json`, `invoice-queue.json`, `state.json`, `patterns.json`
 
 **Zhentan Skills (`zhentan-skills/`)**
-- OpenClaw skill pack. The agent's role is **conversational** — the server handles the deterministic pipeline (inline risk scoring, auto-execute on APPROVE). The agent responds to owner commands via Telegram and provides analysis when asked.
-- Activated by symlinking the skills directory into OpenClaw's workspace and restarting the gateway (no cron setup required).
+- NanoBot/Hermes skill pack. The agent's role is **conversational** — the server handles the deterministic pipeline (inline risk scoring, auto-execute on APPROVE). The agent responds to owner commands via Telegram and provides analysis when asked.
+- Activated by symlinking the skills directory into NanoBot/Hermes's workspace and restarting the gateway (no cron setup required).
 - **Owner commands via Telegram:**
   - `approve <tx-id>` — runs `sign-and-execute`, then `record-pattern`, updates TG message with tx hash
   - `reject <tx-id>` — runs `reject-tx`, updates TG message
@@ -97,7 +97,7 @@ Score thresholds:
 sequenceDiagram
     participant C as Client
     participant S as Server
-    participant OC as OpenClaw Agent
+    participant OC as NanoBot/Hermes Agent
     participant EXT as GoPlus / Honeypot.is
     participant TG as Telegram
     participant B as Bundler
@@ -136,7 +136,7 @@ sequenceDiagram
 |------|---------|
 | Node.js | 18+ |
 | npm | 9+ |
-| OpenClaw CLI | latest |
+| NanoBot/Hermes CLI | latest |
 
 Accounts needed:
 - [Privy](https://privy.io) — app ID for embedded wallets
@@ -191,18 +191,18 @@ cd client && npm run dev
 # → http://localhost:3000
 ```
 
-### Running the OpenClaw Agent
+### Running the NanoBot/Hermes Agent
 
 ```bash
-# 1. Symlink the skills into OpenClaw's workspace
-mkdir -p ~/.openclaw/workspace/skills
-ln -sf "$(pwd)/zhentan-skills" ~/.openclaw/workspace/skills/zhentan
+# 1. Symlink the skills into NanoBot/Hermes's workspace
+mkdir -p ~/.nanobot/workspace/skills
+ln -sf "$(pwd)/zhentan-skills" ~/.nanobot/workspace/skills/zhentan
 
-# 2. Restart the OpenClaw gateway
-openclaw gateway restart
+# 2. Restart the NanoBot/Hermes gateway
+nanobot gateway restart
 
 # 3. Verify the skill is detected
-openclaw skills check
+nanobot skills check
 ```
 
 ### Verify It Works

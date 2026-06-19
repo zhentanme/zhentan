@@ -9,7 +9,7 @@ description: System overview, component breakdown, and data flow.
 |-----------|------|
 | `client/` | Next.js 14 frontend — onboarding, dashboard, send/receive, WalletConnect, invoices |
 | `server/` | Express API — inline risk analysis, queue management, Zerion portfolio |
-| `agent/` | OpenClaw skill pack — Telegram commands, deep analysis, 2nd signature, pattern recording |
+| `agent/` | NanoBot/Hermes skill pack — Telegram commands, deep analysis, 2nd signature, pattern recording |
 
 ```mermaid
 flowchart TD
@@ -17,7 +17,7 @@ flowchart TD
     D[DApp e.g. PancakeSwap] -->|WalletConnect| C
     C -->|POST /queue — user signs 1-of-2| S[Server :3001]
     S -->|analyzeRisk inline| R{Risk Score}
-    R -->|< 40 APPROVE| OC[OpenClaw Agent]
+    R -->|< 40 APPROVE| OC[NanoBot/Hermes Agent]
     R -->|40-70 REVIEW| OC
     R -->|> 70 BLOCK| OC
     OC -->|REVIEW: deep-analyze| EXT[GoPlus / Honeypot.is]
@@ -47,7 +47,7 @@ flowchart TD
 
 ## Agent
 
-- **OpenClaw skill pack** — holds the 2nd signing key
+- **NanoBot/Hermes skill pack** — holds the 2nd signing key
 - Responds to Telegram commands from the owner
 - Runs deep analysis (GoPlus + Honeypot.is) on REVIEW-tier transactions
 - Records patterns after every confirmed transaction
@@ -58,7 +58,7 @@ flowchart TD
 sequenceDiagram
     participant C as Client
     participant S as Server
-    participant OC as OpenClaw Agent
+    participant OC as NanoBot/Hermes Agent
     participant EXT as GoPlus / Honeypot.is
     participant TG as Telegram
     participant B as Bundler
@@ -107,4 +107,4 @@ sequenceDiagram
 | Auth | Privy (embedded wallets + Google OAuth) |
 | Blockchain libs | viem, permissionless.js |
 | Backend | Express, tsx (dev), PM2 (production) |
-| AI Agent | OpenClaw with Qwen3-235B / Claude Sonnet 4.5 via OpenRouter |
+| AI Agent | NanoBot/Hermes with Qwen3-235B / Claude Sonnet 4.5 via OpenRouter |

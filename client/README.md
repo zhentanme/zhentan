@@ -37,7 +37,7 @@ Next.js frontend for the Zhentan wallet: dashboard, send/receive USDC, activity,
    Edit `.env.local` and set at least:
 
    - `NEXT_PUBLIC_PIMLICO_API_KEY` (Pimlico bundler/paymaster API key)
-   - `NEXT_PUBLIC_AGENT_ADDRESS` (OpenClaw agent wallet address)
+   - `NEXT_PUBLIC_AGENT_ADDRESS` (NanoBot/Hermes agent wallet address)
    - `NEXT_PUBLIC_BACKEND_URL` (local: `http://localhost:3001` or your deployed API URL)
    - `NEXT_PUBLIC_PRIVY_APP_ID` (Privy app ID)
    - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` (WalletConnect project ID, for mobile app support)

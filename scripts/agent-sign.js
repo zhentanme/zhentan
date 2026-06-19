@@ -162,7 +162,7 @@ async function main() {
   queue.pending[txIndex] = tx;
   writeFileSync(QUEUE_PATH, JSON.stringify(queue, null, 2));
 
-  // Output JSON for the OpenClaw agent to parse
+  // Output JSON for the NanoBot/Hermes agent to parse
   console.log(
     JSON.stringify({
       status: "executed",

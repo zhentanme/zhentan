@@ -352,7 +352,7 @@ function SettingsPageContent() {
                       Claude Sonnet 4.5
                     </span>
                     <p className="text-[11px] text-muted-foreground/80 mt-2.5 leading-relaxed">
-                      Dedicated OpenClaw instance with advanced AI model
+                      Dedicated NanoBot/Hermes instance with advanced AI model
                     </p>
                   </div>
 
@@ -370,11 +370,11 @@ function SettingsPageContent() {
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
-                      Run your own OpenClaw agent
+                      Run your own NanoBot/Hermes agent
                     </p>
                     <div className="flex items-center gap-1 mt-2.5 text-[11px] font-mono text-muted-foreground/80">
                       <ExternalLink className="h-3 w-3" />
-                      docs.openclaw.ai
+                      docs.zhentan.me 
                     </div>
                   </div>
                 </div>
@@ -386,16 +386,6 @@ function SettingsPageContent() {
                   <span className="eyebrow text-muted-foreground/60">App</span>
                 </div>
                 <div className="mt-1">
-                  <div className="flex items-center justify-between gap-6 py-4 border-b border-dashed border-border">
-                    <div className="min-w-0">
-                      <p className="eyebrow text-muted-foreground">Network</p>
-                      <p className="text-xs text-muted-foreground/60 mt-1">Chain the agent co-signs on</p>
-                    </div>
-                    <span className="inline-flex items-center gap-2 text-[13px] font-medium text-foreground shrink-0">
-                      <span className="h-1.5 w-1.5 rounded-pill bg-safe signal-dot" />
-                      BNB Chain · Mainnet
-                    </span>
-                  </div>
                   <div className="flex items-center justify-between gap-6 py-4">
                     <div className="min-w-0">
                       <p className="eyebrow text-muted-foreground">Block explorer</p>

@@ -1,6 +1,6 @@
 # Onchain Activity — BNB Chain
 
-All transactions below are ERC-4337 UserOperations submitted to EntryPoint v0.7, gasless via Pimlico paymaster. Each was co-signed by the Zhentan OpenClaw agent after passing through the screening pipeline.
+All transactions below are ERC-4337 UserOperations submitted to EntryPoint v0.7, gasless via Pimlico paymaster. Each was co-signed by the Zhentan NanoBot/Hermes agent after passing through the screening pipeline.
 
 ---
 

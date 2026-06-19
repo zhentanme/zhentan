@@ -124,7 +124,7 @@ export default function LoginPage() {
           <div className="mt-7 flex items-center gap-3 font-mono text-[11px] tracking-[0.12em] uppercase text-muted-foreground/70">
             <span>Secured by Safe</span>
             <span aria-hidden>·</span>
-            <span>OpenClaw on BNB Chain</span>
+            <span>NanoBot/Hermes on BNB Chain</span>
           </div>
         </motion.div>
 

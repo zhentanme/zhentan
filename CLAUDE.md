@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is Zhentan
 
-Zhentan is a personalized wallet assistant with AI-powered transaction screening. It uses a Safe multisig (2-of-2) on BNB Chain where the user is one signer and an OpenClaw AI agent is the other. The agent analyzes transactions against learned behavioral patterns and either auto-approves, sends for review (via Telegram/WhatsApp), or blocks suspicious activity.
+Zhentan is a personalized wallet assistant with AI-powered transaction screening. It uses a Safe multisig (2-of-2) on BNB Chain where the user is one signer and an NanoBot/Hermes AI agent is the other. The agent analyzes transactions against learned behavioral patterns and either auto-approves, sends for review (via Telegram/WhatsApp), or blocks suspicious activity.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ Three components work together:
 
 - **`client/`** — Next.js 14 frontend. Privy authentication (Google OAuth + embedded wallets), Safe smart account creation, transaction proposal (owner signs 1 of 2). Has its own API routes for local dev; in production calls the Express server.
 - **`server/`** — Express API for queue management and execution. Required when client deploys to read-only filesystems (Vercel). Routes: `/queue`, `/execute`, `/transactions`, `/invoices`, `/health`. Reads/writes JSON queue files.
-- **`agent/`** — OpenClaw skill pack (`zhentan-agent`). Agent runs on a cron (every 10s), picks up pending transactions, scores risk, and decides: APPROVE (risk < 40), REVIEW (40-70), or BLOCK (> 70). Skills: `check-pending`, `analyze-risk`, `sign-and-execute`, `mark-review`, `reject-tx`, `record-pattern`, `toggle-screening`, `queue-invoice`, `get-status`.
+- **`agent/`** — NanoBot/Hermes skill pack (`zhentan-agent`). Agent runs on a cron (every 10s), picks up pending transactions, scores risk, and decides: APPROVE (risk < 40), REVIEW (40-70), or BLOCK (> 70). Skills: `check-pending`, `analyze-risk`, `sign-and-execute`, `mark-review`, `reject-tx`, `record-pattern`, `toggle-screening`, `queue-invoice`, `get-status`.
 
 Transaction flow: User signs in client → queued to `pending-queue.json` → agent analyzes → agent co-signs (2 of 2) → submitted to Pimlico bundler → gasless execution on BNB Chain via ERC-4337.
 
@@ -60,7 +60,7 @@ pnpm agent-sign      # agent-sign.js — agent co-signs and executes
 - **Auth**: Privy (embedded wallets + Google OAuth)
 - **Blockchain libs**: viem, permissionless.js
 - **Backend**: Express, tsx (dev), PM2 (production)
-- **AI Agent**: OpenClaw with Qwen3-235B / Claude Sonnet 4.5 via OpenRouter
+- **AI Agent**: NanoBot/Hermes with Qwen3-235B / Claude Sonnet 4.5 via OpenRouter
 
 ## Key Configuration
 
@@ -85,5 +85,5 @@ See `scripts/.env.example` and `server/.env.example` for templates.
 ## Known Issues
 
 - **USDC decimals discrepancy**: `client/src/lib/constants.ts` declares `USDC_DECIMALS = 18`, but scripts use 6 decimals. BSC mainnet USDC uses 18 decimals; other chains may differ.
-- **Queue file paths**: Scripts default to `~/.openclaw/workspace/skills/zhentan/pending-queue.json`. Override with `QUEUE_PATH` env var.
-- **Live demo** at zhentan.me runs without the OpenClaw agent (no screening). Full AI screening requires local setup with agent.
+- **Queue file paths**: Scripts default to `~/.nanobot/workspace/skills/zhentan/pending-queue.json`. Override with `QUEUE_PATH` env var.
+- **Live demo** at zhentan.me runs without the NanoBot/Hermes agent (no screening). Full AI screening requires local setup with agent.

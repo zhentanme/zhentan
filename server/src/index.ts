@@ -130,7 +130,7 @@ app.post("/notify-resolve", auth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /bot-ping — called by the OpenClaw agent on /start.
+// POST /bot-ping — called by the NanoBot/Hermes agent on /start.
 // Marks bot_connected = true for the safe mapped to this chatId and returns user details
 // so the agent can craft a proper greeting.
 app.post("/bot-ping", async (req, res) => {

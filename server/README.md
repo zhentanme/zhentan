@@ -1,6 +1,6 @@
 # Zhentan Server
 
-Express backend that handles queue and invoice file I/O. Run this server on a host with a writable filesystem and point the client at it for transactions, queue, execute, and invoices and invoking OpenClaw agent after primary screening by this server
+Express backend that handles queue and invoice file I/O. Run this server on a host with a writable filesystem and point the client at it for transactions, queue, execute, and invoices and invoking NanoBot/Hermes agent after primary screening by this server
 
 ## Setup
 
