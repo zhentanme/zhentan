@@ -199,7 +199,7 @@ function SettingsPageContent() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <main className="flex-1 w-full px-4 sm:px-8 lg:px-10 py-6 sm:py-8 overflow-y-auto pb-24 sm:pb-10">
+      <main className="flex-1 w-full max-w-[48rem] mx-auto px-4 sm:px-10 py-6 sm:py-8 overflow-y-auto pb-24 sm:pb-10">
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-gold" />
@@ -218,11 +218,9 @@ function SettingsPageContent() {
               animate="visible"
               className="space-y-7"
             >
-              {/* Zhentan Guard — elevated card */}
+              {/* Zhentan Guard card */}
               <motion.div variants={staggerItem}>
-                <div className="relative rounded-lg border border-gold/25 bg-card overflow-hidden shadow-[0_0_0_1px_var(--gold-line),0_20px_50px_-24px_rgba(0,0,0,0.6)]">
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" aria-hidden />
-
+                <div className="relative rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
                   {/* Guard block */}
                   <div className="flex items-center gap-4 p-5 border-b border-border">
                     <div

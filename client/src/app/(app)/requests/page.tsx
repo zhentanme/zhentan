@@ -11,7 +11,7 @@ import { proposeTransaction } from "@/lib/propose";
 import { useApiClient } from "@/lib/api/client";
 import { findFallbackTokenBySymbol } from "@/lib/tokenFallbacks";
 import type { QueuedRequest, TokenPosition } from "@/types";
-import { FileText, Bell } from "lucide-react";
+import { FileText } from "lucide-react";
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -37,7 +37,7 @@ function RequestsPageContent() {
 
   // Requests come from the shared activity feed so this page, the nav badges and
   // the co-sign rail stay in sync (and a single poll backs all of them).
-  const { requests, loading, refresh: refreshRequests } = useActivityData();
+  const { requests, loading, refresh: refreshRequests, queuedCount } = useActivityData();
   const [tokens, setTokens] = useState<TokenPosition[]>([]);
 
   const fetchTokens = useCallback(async () => {
@@ -120,22 +120,32 @@ function RequestsPageContent() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <main className="flex-1 w-full px-4 py-5 sm:p-6 max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
+      <main className="flex-1 w-full max-w-[62rem] mx-auto px-4 sm:px-10 py-6 sm:py-8 overflow-y-auto pb-24 sm:pb-10">
         <motion.div
           variants={staggerContainer}
           initial="hidden"
           animate="visible"
           className="space-y-5"
         >
-          {/* Page Header */}
-          <motion.div variants={staggerItem} className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center">
-              <Bell className="h-[18px] w-[18px] text-gold" />
+          {/* Eyebrow */}
+          <motion.div variants={staggerItem} className="flex items-center gap-3 !mb-6">
+            <span className="eyebrow text-muted-foreground">Requests</span>
+            <span className="h-px flex-1 bg-border" aria-hidden />
+          </motion.div>
+
+          {/* Title row */}
+          <motion.div variants={staggerItem} className="flex items-end justify-between gap-4 !mb-5">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold tracking-tight text-foreground">Invoices &amp; approvals</h1>
+              <p className="text-[13px] text-muted-foreground/85 mt-1.5">
+                Payment requests waiting on your signature.
+              </p>
             </div>
-            <div>
-              <h1 className="text-lg font-semibold text-foreground">Requests</h1>
-              <p className="text-xs text-muted-foreground/80">Invoices & payment approvals</p>
-            </div>
+            {queuedCount > 0 && (
+              <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-watch/12 text-watch font-mono uppercase tracking-wider text-[11px]">
+                {queuedCount} Queued
+              </span>
+            )}
           </motion.div>
 
           {!loading && requests.length === 0 ? (
