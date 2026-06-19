@@ -7,17 +7,17 @@ interface StatusBadgeProps {
 }
 
 const styleMap: Record<TransactionStatus, string> = {
-  pending: "bg-amber-400/15 text-amber-400",
-  in_review: "bg-gold/15 text-gold",
-  executed: "bg-gold/15 text-gold",
-  rejected: "bg-red-400/15 text-red-400",
+  pending: "bg-watch/15 text-watch",
+  in_review: "bg-watch/15 text-watch",
+  executed: "bg-safe/15 text-safe",
+  rejected: "bg-danger/15 text-danger",
 };
 
 export function StatusBadge({ status }: StatusBadgeProps) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium",
+        "inline-flex items-center px-3 py-1 rounded-pill text-[11px] font-mono uppercase tracking-wider",
         styleMap[status]
       )}
     >

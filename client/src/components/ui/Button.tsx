@@ -17,13 +17,13 @@ export function Button({
   return (
     <button
       className={clsx(
-        "inline-flex items-center justify-center gap-2.5 rounded-2xl px-5 sm:px-6 py-3 sm:py-3.5 text-base transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-h-[2.75rem] touch-manipulation font-bold",
+        "inline-flex items-center justify-center gap-2.5 rounded-md px-5 sm:px-6 py-3 sm:py-3.5 text-base font-semibold tracking-tight transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-h-[2.75rem] touch-manipulation",
         variant === "primary" &&
-          "bg-gold hover:bg-gold-light text-black shadow-[0_4px_20px_-2px_rgba(229,168,50,0.35)]",
+          "bg-gradient-to-br from-gold-light to-gold-500 text-ink-900 shadow-[0_8px_24px_-6px_rgba(196,148,40,0.45)] hover:brightness-105 active:brightness-95",
         variant === "secondary" &&
-          "bg-white/8 hover:bg-white/12 text-slate-200",
+          "bg-foreground/8 hover:bg-foreground/12 text-foreground border border-border",
         variant === "ghost" &&
-          "hover:bg-white/6 text-slate-300",
+          "hover:bg-foreground/6 text-foreground/80",
         className
       )}
       disabled={disabled || loading}

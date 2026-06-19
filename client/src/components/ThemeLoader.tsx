@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowRightLeft } from "lucide-react";
+import { TwinTick } from "@/components/BrandMark";
 
 export type ThemeLoaderVariant = "auth" | "transaction" | "default";
 
@@ -22,20 +23,10 @@ interface ThemeLoaderProps {
 }
 
 const VARIANT_ICONS: Record<ThemeLoaderVariant, React.ReactNode> = {
-  auth: (
-    <div className="relative w-10 h-10">
-      <Image
-        src="/icon.png"
-        alt=""
-        fill
-        className="object-contain"
-        sizes="40px"
-      />
-    </div>
-  ),
+  auth: <TwinTick size={26} halo="none" />,
   transaction: <ArrowRightLeft className="w-7 h-7 text-gold" />,
   default: (
-    <div className="w-2 h-2 rounded-full bg-gold shadow-[0_0_12px_rgba(229,168,50,0.8)] animate-pulse" />
+    <div className="w-2 h-2 rounded-full bg-gold shadow-[0_0_12px_rgba(196,148,40,0.8)] animate-pulse" />
   ),
 };
 
@@ -125,8 +116,8 @@ export function ThemeLoader({
           transition={{ delay: 0.2, duration: 0.4 }}
           className="text-center space-y-1.5"
         >
-          <p className="text-sm font-medium text-slate-300">{message}</p>
-          <p className="text-xs text-slate-500 uppercase tracking-widest">{subtext}</p>
+          <p className="text-sm font-medium text-foreground/80">{message}</p>
+          <p className="eyebrow text-muted-foreground/80">{subtext}</p>
         </motion.div>
       </div>
     </div>

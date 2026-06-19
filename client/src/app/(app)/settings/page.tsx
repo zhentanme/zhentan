@@ -14,10 +14,10 @@ import {
   Rocket,
   Server,
   ExternalLink,
-  Settings,
   CheckCircle2,
   AlertCircle,
 } from "lucide-react";
+import { clsx } from "clsx";
 import { useApiClient } from "@/lib/api/client";
 
 const staggerContainer = {
@@ -199,190 +199,222 @@ function SettingsPageContent() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <main className="flex-1 w-full px-4 py-5 sm:p-6 max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
+      <main className="flex-1 w-full px-4 sm:px-8 lg:px-10 py-6 sm:py-8 overflow-y-auto pb-24 sm:pb-10">
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader2 className="h-6 w-6 animate-spin text-gold" />
           </div>
         ) : (
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-            className="space-y-5"
-          >
-            {/* Page Header */}
-            <motion.div variants={staggerItem} className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center">
-                <Settings className="h-[18px] w-[18px] text-gold" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-white">Settings</h1>
-                <p className="text-xs text-slate-500">Screening & agent configuration</p>
-              </div>
-            </motion.div>
+          <>
+            {/* Eyebrow */}
+            <div className="flex items-center gap-3 mb-7">
+              <span className="eyebrow text-muted-foreground">Settings</span>
+              <span className="h-px flex-1 bg-border" aria-hidden />
+            </div>
 
-            {/* Zhentan Mode + Plan (combined) */}
-            <motion.div variants={staggerItem}>
-              <div className="rounded-2xl bg-white/2 border border-white/6 overflow-hidden">
-                {/* Toggle row */}
-                <div className="flex items-center gap-4 p-5">
-                  <div
-                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-300 ${isScreeningActive ? "bg-gold/10" : "bg-white/6"
-                      }`}
-                  >
-                    {isScreeningActive ? (
-                      <ShieldCheck className="h-5 w-5 text-gold" />
-                    ) : (
-                      <ShieldOff className="h-5 w-5 text-slate-500" />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-semibold text-white">Zhentan Mode</h3>
-                      <span
-                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full transition-all duration-300 ${isScreeningActive
-                            ? "bg-gold/15 text-gold"
-                            : "bg-white/6 text-slate-500"
-                          }`}
-                      >
-                        {isScreeningActive ? "Active" : "Inactive"}
-                      </span>
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="visible"
+              className="space-y-7"
+            >
+              {/* Zhentan Guard card */}
+              <motion.div variants={staggerItem}>
+                <div className="relative rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
+                  {/* Guard block */}
+                  <div className="flex items-center gap-4 p-5 border-b border-border">
+                    <div
+                      className={clsx(
+                        "w-10 h-10 rounded-md flex items-center justify-center shrink-0 transition-colors",
+                        isScreeningActive ? "bg-gold/10 text-gold" : "bg-foreground/6 text-muted-foreground/80"
+                      )}
+                    >
+                      {isScreeningActive ? <ShieldCheck className="h-5 w-5" /> : <ShieldOff className="h-5 w-5" />}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {isScreeningActive
-                        ? "AI screening active"
-                        : !fullyActivated
-                          ? "Setup required"
-                          : "Screening disabled"}
-                    </p>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-foreground">Zhentan Guard</h3>
+                        <span
+                          className={clsx(
+                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill text-[10px] font-mono uppercase tracking-wider",
+                            isScreeningActive ? "bg-safe/12 text-safe" : "bg-foreground/8 text-muted-foreground"
+                          )}
+                        >
+                          <span className={clsx("h-1.5 w-1.5 rounded-pill", isScreeningActive ? "bg-safe" : "bg-muted-foreground")} />
+                          {isScreeningActive ? "Active" : "Paused"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground/80 mt-0.5">
+                        {isScreeningActive
+                          ? "AI screening every signature against your patterns"
+                          : !fullyActivated
+                            ? "Finish setup to arm the co-signer"
+                            : "Screening disabled — transactions execute immediately"}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={handleToggle}
+                      disabled={toggling}
+                      aria-label="Toggle screening"
+                      className={clsx(
+                        "relative w-12 h-6 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default",
+                        isScreeningActive ? "bg-gold" : "bg-foreground/12"
+                      )}
+                    >
+                      {toggling ? (
+                        <span className="absolute inset-0 flex items-center justify-center">
+                          <Loader2 className="h-3 w-3 animate-spin text-ink-900" />
+                        </span>
+                      ) : (
+                        <span
+                          className={clsx(
+                            "absolute top-0.5 w-5 h-5 rounded-pill bg-ink-0 shadow-md transition-all",
+                            isScreeningActive ? "left-6" : "left-0.5"
+                          )}
+                        />
+                      )}
+                    </button>
                   </div>
 
-                  <button
-                    onClick={handleToggle}
-                    disabled={toggling}
-                    className={`relative w-12 h-6 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default ${isScreeningActive ? "bg-gold" : "bg-white/12"
-                      }`}
-                  >
-                    {toggling ? (
-                      <span className="absolute inset-0 flex items-center justify-center">
-                        <Loader2 className="h-3 w-3 animate-spin text-white" />
-                      </span>
-                    ) : (
-                      <span
-                        className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${isScreeningActive ? "left-6" : "left-0.5"
-                          }`}
-                      />
-                    )}
-                  </button>
-                </div>
-
-                {isScreeningActive && <motion.div variants={staggerItem}>  <div className="h-px bg-white/6 mx-5" />
-
-                  {/* Activation row */}
-                  <motion.div variants={staggerItem} className="p-5">
+                  {/* Activation inset row */}
+                  <div className="p-4">
                     <button
                       onClick={() => setActivationOpen(true)}
-                      className="w-full flex items-center gap-3 p-3.5 rounded-xl bg-white/4 hover:bg-white/6 transition-colors cursor-pointer text-left"
+                      className="w-full flex items-center gap-3 p-3.5 rounded-md bg-foreground/[0.03] border border-border hover:bg-foreground/[0.05] transition-colors cursor-pointer text-left"
                     >
                       {fullyActivated ? (
-                        <div className="w-8 h-8 rounded-xl bg-emerald-400/10 flex items-center justify-center shrink-0">
-                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                        <div className="w-8 h-8 rounded-md bg-safe/10 flex items-center justify-center shrink-0">
+                          <CheckCircle2 className="h-4 w-4 text-safe" />
                         </div>
                       ) : (
-                        <div className="w-8 h-8 rounded-xl bg-amber-400/10 flex items-center justify-center shrink-0">
-                          <AlertCircle className="h-4 w-4 text-amber-400" />
+                        <div className="w-8 h-8 rounded-md bg-watch/10 flex items-center justify-center shrink-0">
+                          <AlertCircle className="h-4 w-4 text-watch" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-white">
-                          {fullyActivated ? "Activated" : "Setup required"}
+                        <p className="text-[13px] font-semibold text-foreground">
+                          {fullyActivated ? "Telegram alerts" : "Setup required"}
                         </p>
-                        <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                        <p className="text-[11px] font-mono text-muted-foreground/80 truncate mt-0.5">
                           {fullyActivated
-                            ? `Notifications → ${tgDisplayName ?? "Telegram"}`
+                            ? `${tgDisplayName ?? "Telegram"} · notifications active`
                             : "Complete 2 steps to enable the agent"}
                         </p>
                       </div>
-                      <span className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-blue-400/10 text-blue-400 shrink-0">
+                      <span className="shrink-0 px-3.5 py-2 rounded-md border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors">
                         {fullyActivated ? "Manage" : "Activate"}
                       </span>
                     </button>
-                  </motion.div></motion.div>}
-              </div>
-            </motion.div>
-
-            {/* Warning when disabled */}
-            <AnimatePresence>
-              {fullyActivated && !screeningMode && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.3, type: "spring" as const, bounce: 0.15 }}
-                  className="rounded-2xl p-4 bg-amber-400/6 border border-amber-400/10"
-                >
-                  <p className="text-xs text-amber-400/90 leading-relaxed">
-                    <strong className="text-amber-400">Warning:</strong>{" "}
-                    Transactions will execute immediately without AI review. Make
-                    sure you trust all destinations.
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Upgrade Plans */}
-            <motion.div variants={staggerItem}>
-              <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mb-3 px-1">
-                Upgrade
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Advanced Plan */}
-                <div className="p-4 rounded-2xl bg-white/2 border border-white/6 opacity-50 pointer-events-none">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-purple-400/[0.08] flex items-center justify-center">
-                        <Rocket className="h-4 w-4 text-purple-400" />
-                      </div>
-                      <h4 className="text-sm font-semibold text-white">Advanced</h4>
-                    </div>
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-400/[0.08] text-purple-400">
-                      Soon
-                    </span>
-                  </div>
-                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-purple-400/[0.06] text-[11px] font-mono text-purple-300/80">
-                    Claude Sonnet 4.5
-                  </span>
-                  <p className="text-[11px] text-slate-500 mt-2.5 leading-relaxed">
-                    Dedicated OpenClaw instance with advanced AI model
-                  </p>
-                </div>
-
-                {/* Self-hosted Plan */}
-                <div className="p-4 rounded-2xl bg-white/2 border border-white/6 opacity-50 pointer-events-none">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-white/[0.05] flex items-center justify-center">
-                        <Server className="h-4 w-4 text-slate-400" />
-                      </div>
-                      <h4 className="text-sm font-semibold text-white">Self-hosted</h4>
-                    </div>
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-400/[0.08] text-purple-400">
-                      Soon
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Run your own OpenClaw agent
-                  </p>
-                  <div className="flex items-center gap-1 mt-2.5 text-[11px] text-slate-500">
-                    <ExternalLink className="h-3 w-3" />
-                    docs.openclaw.ai
                   </div>
                 </div>
-              </div>
+              </motion.div>
+
+              {/* Warning when disabled */}
+              <AnimatePresence>
+                {fullyActivated && !screeningMode && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.3, type: "spring" as const, bounce: 0.15 }}
+                    className="flex items-start gap-2.5 rounded-md p-3.5 bg-watch/[0.07] border border-watch/15"
+                  >
+                    <AlertCircle className="h-3.5 w-3.5 text-watch shrink-0 mt-0.5" />
+                    <p className="text-xs text-watch/90 leading-relaxed">
+                      Transactions will execute immediately without AI review. Make sure you trust all destinations.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* UPGRADE section */}
+              <motion.div variants={staggerItem}>
+                <div className="pt-6 border-t border-dashed border-border">
+                  <span className="eyebrow text-muted-foreground/60">Upgrade</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                  {/* Advanced Plan */}
+                  <div className="p-4 rounded-md bg-card border border-border opacity-60 pointer-events-none">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-md bg-gold/[0.08] flex items-center justify-center">
+                          <Rocket className="h-4 w-4 text-gold" />
+                        </div>
+                        <h4 className="text-sm font-semibold text-foreground">Advanced</h4>
+                      </div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-pill bg-gold/[0.08] text-gold">
+                        Soon
+                      </span>
+                    </div>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gold/[0.06] text-[11px] font-mono text-gold-300/80">
+                      Claude Sonnet 4.5
+                    </span>
+                    <p className="text-[11px] text-muted-foreground/80 mt-2.5 leading-relaxed">
+                      Dedicated OpenClaw instance with advanced AI model
+                    </p>
+                  </div>
+
+                  {/* Self-hosted Plan */}
+                  <div className="p-4 rounded-md bg-card border border-border opacity-60 pointer-events-none">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-md bg-foreground/[0.05] flex items-center justify-center">
+                          <Server className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <h4 className="text-sm font-semibold text-foreground">Self-hosted</h4>
+                      </div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-pill bg-gold/[0.08] text-gold">
+                        Soon
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+                      Run your own OpenClaw agent
+                    </p>
+                    <div className="flex items-center gap-1 mt-2.5 text-[11px] font-mono text-muted-foreground/80">
+                      <ExternalLink className="h-3 w-3" />
+                      docs.openclaw.ai
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* APP section */}
+              <motion.div variants={staggerItem}>
+                <div className="pt-6 border-t border-dashed border-border">
+                  <span className="eyebrow text-muted-foreground/60">App</span>
+                </div>
+                <div className="mt-1">
+                  <div className="flex items-center justify-between gap-6 py-4 border-b border-dashed border-border">
+                    <div className="min-w-0">
+                      <p className="eyebrow text-muted-foreground">Network</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Chain the agent co-signs on</p>
+                    </div>
+                    <span className="inline-flex items-center gap-2 text-[13px] font-medium text-foreground shrink-0">
+                      <span className="h-1.5 w-1.5 rounded-pill bg-safe signal-dot" />
+                      BNB Chain · Mainnet
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-6 py-4">
+                    <div className="min-w-0">
+                      <p className="eyebrow text-muted-foreground">Block explorer</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">Where transaction links open</p>
+                    </div>
+                    <a
+                      href="https://bscscan.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors shrink-0"
+                    >
+                      BscScan
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
+          </>
         )}
       </main>
 

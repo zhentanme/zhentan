@@ -23,6 +23,10 @@ export interface TokenPosition {
   usdValue: number | null;
   balance: string;
   price: number;
+  /** 24h absolute USD change of this position's value (Zerion changes.absolute_1d). */
+  priceChange1d: number | null;
+  /** 24h percent change of this position (Zerion changes.percent_1d). */
+  pricePercentChange1d: number | null;
   address: string | null;
   chain: { id: string; chainId: number; name: string };
   verified: boolean;
@@ -102,6 +106,7 @@ export async function fetchTokenPositions(
           flags?: { verified?: boolean };
         };
         const quantity = attrs.quantity as { int: string; decimals: number };
+        const changes = attrs.changes as { absolute_1d?: number; percent_1d?: number } | undefined;
         const impl = fungibleInfo?.implementations?.find((i) => i.chain_id === chainIdStr);
         const tokenAddress = impl?.address ?? zeroAddress;
         const needsFallback = !fungibleInfo?.name || !fungibleInfo?.symbol || !fungibleInfo?.icon?.url;
@@ -117,6 +122,8 @@ export async function fetchTokenPositions(
           usdValue: (attrs.value as number) ?? null,
           balance: formatUnits(BigInt(quantity?.int ?? "0"), quantity?.decimals ?? 18),
           price: (attrs.price as number) ?? 0,
+          priceChange1d: typeof changes?.absolute_1d === "number" ? changes.absolute_1d : null,
+          pricePercentChange1d: typeof changes?.percent_1d === "number" ? changes.percent_1d : null,
           address: tokenAddress,
           chain: { id: chainIdStr, chainId, name: "BNB Chain" },
           verified: fungibleInfo?.flags?.verified ?? false,

@@ -30,7 +30,7 @@ export function TokenList({ tokens, loading, embedded }: TokenListProps) {
       {loading ? (
         <div className="space-y-0.5">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex items-center gap-3 px-4 py-3.5">
+            <div key={i} className="flex items-center gap-3 px-4 sm:px-6 py-4">
               <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
               <div className="flex-1 min-w-0 space-y-2">
                 <Skeleton className="h-4 w-20" />
@@ -50,17 +50,17 @@ export function TokenList({ tokens, loading, embedded }: TokenListProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.35 }}
         >
-          <div className="mb-4 w-12 h-12 rounded-2xl bg-white/6 flex items-center justify-center text-slate-500">
+          <div className="mb-4 w-12 h-12 rounded-2xl bg-foreground/6 flex items-center justify-center text-muted-foreground/80">
             <Coins className="h-6 w-6" />
           </div>
-          <p className="text-sm font-medium text-slate-400">No tokens yet</p>
-          <p className="mt-1 text-xs text-slate-600">
+          <p className="text-sm font-medium text-muted-foreground">No tokens yet</p>
+          <p className="mt-1 text-xs text-muted-foreground/60">
             Deposit assets on BNB Chain to get started
           </p>
         </motion.div>
       ) : (
         <motion.div
-          className="divide-y divide-white/[0.04]"
+          className="divide-y divide-foreground/[0.04]"
           initial="hidden"
           animate="visible"
           variants={containerVariants}

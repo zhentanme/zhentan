@@ -84,10 +84,10 @@ function RiskGauge() {
   const nx = cx + R * Math.cos(toRad(progressEndDeg));
   const ny = cy + R * Math.sin(toRad(progressEndDeg));
 
-  const color = score < 40 ? "#10b981" : score < 70 ? "#f59e0b" : "#ef4444";
+  const color = score < 40 ? "#10b981" : score < 70 ? "#f59e0b" : "#e5524f";
   const label = score < 40 ? "SAFE" : score < 70 ? "REVIEW" : "BLOCK";
   const labelColor =
-    score < 40 ? "text-emerald-400" : score < 70 ? "text-amber-400" : "text-red-400";
+    score < 40 ? "text-safe" : score < 70 ? "text-watch" : "text-danger";
 
   return (
     <div ref={ref} className="flex flex-col items-center gap-2">
@@ -180,9 +180,9 @@ function RiskGauge() {
       </svg>
       {/* Zone labels */}
       <div className="flex justify-between w-[170px] -mt-3 text-[8px] font-bold uppercase tracking-widest">
-        <span className="text-emerald-400/60">Safe</span>
-        <span className="text-amber-400/60">Review</span>
-        <span className="text-red-400/60">Block</span>
+        <span className="text-safe/60">Safe</span>
+        <span className="text-watch/60">Review</span>
+        <span className="text-danger/60">Block</span>
       </div>
       {/* Current verdict */}
       <motion.span
@@ -213,9 +213,9 @@ function ArchitectureDiagram() {
   // Layer 4 y=572 — BNB Chain / Telegram / Blocked
 
   const PATHS = [
-    { id: "ap1", d: "M 117,80 C 117,112 360,110 360,135",        color: "rgba(240,185,11,0.45)", dur: "2.4s", begin: "0.3s", delay: 0.40 },
-    { id: "ap2", d: "M 602,105 C 602,122 360,122 360,135",       color: "rgba(240,185,11,0.45)", dur: "2.4s", begin: "1.1s", delay: 0.55 },
-    { id: "ap3", d: "M 360,203 L 360,232",                       color: "rgba(240,185,11,0.45)", dur: "2.0s", begin: "0.8s", delay: 0.78 },
+    { id: "ap1", d: "M 117,80 C 117,112 360,110 360,135",        color: "rgba(196,148,40,0.45)", dur: "2.4s", begin: "0.3s", delay: 0.40 },
+    { id: "ap2", d: "M 602,105 C 602,122 360,122 360,135",       color: "rgba(196,148,40,0.45)", dur: "2.4s", begin: "1.1s", delay: 0.55 },
+    { id: "ap3", d: "M 360,203 L 360,232",                       color: "rgba(196,148,40,0.45)", dur: "2.0s", begin: "0.8s", delay: 0.78 },
     { id: "ap4", d: "M 288,300 C 200,358 117,390 117,450",       color: "rgba(16,185,129,0.60)", dur: "2.0s", begin: "0.6s", delay: 1.05 },
     { id: "ap5", d: "M 360,368 L 360,450",                       color: "rgba(245,158,11,0.60)", dur: "1.8s", begin: "0.2s", delay: 1.00 },
     { id: "ap6", d: "M 432,300 C 520,358 602,390 602,450",       color: "rgba(239,68,68,0.60)",  dur: "2.0s", begin: "1.4s", delay: 1.10 },
@@ -255,9 +255,9 @@ function ArchitectureDiagram() {
             <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
           </linearGradient>
           <linearGradient id="g-red" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%"   stopColor="#ef4444" stopOpacity={0} />
-            <stop offset="50%"  stopColor="#ef4444" stopOpacity={0.7} />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+            <stop offset="0%"   stopColor="#e5524f" stopOpacity={0} />
+            <stop offset="50%"  stopColor="#e5524f" stopOpacity={0.7} />
+            <stop offset="100%" stopColor="#e5524f" stopOpacity={0} />
           </linearGradient>
           {/* Vertical glass fill — top lighter, bottom darker */}
           <linearGradient id="g-glass" x1="0" y1="0" x2="0" y2="1">
@@ -302,7 +302,7 @@ function ArchitectureDiagram() {
             fill="url(#g-glass)" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
           <rect x="20" y="15" width="195" height="1.5" rx="1" fill="url(#g-gold)" />
           <text x="117" y="43" textAnchor="middle" fill="rgba(255,255,255,0.90)" fontSize="12" fontWeight="600" fontFamily={SF}>User Wallet</text>
-          <text x="117" y="59" textAnchor="middle" fill="rgba(240,185,11,0.65)" fontSize="8.5" fontFamily={SF}>1 of 2 signers · Privy</text>
+          <text x="117" y="59" textAnchor="middle" fill="rgba(196,148,40,0.65)" fontSize="8.5" fontFamily={SF}>1 of 2 signers · Privy</text>
         </motion.g>
 
         {/* ── WalletConnect DApp ───────────────────────────────────── */}
@@ -325,7 +325,7 @@ function ArchitectureDiagram() {
           {/* Safe logo — scaled down inside circle so edges aren't cut (padding) */}
           <image href="/arch-safe.png" x="236" y="149" width="40" height="40"
             clipPath="url(#clip-safe-c)" preserveAspectRatio="xMidYMid meet" />
-          <circle cx="256" cy="169" r="25" fill="none" stroke="rgba(240,185,11,0.18)" strokeWidth="1" />
+          <circle cx="256" cy="169" r="25" fill="none" stroke="rgba(196,148,40,0.18)" strokeWidth="1" />
           {/* Text centered in remaining space: logo right ≈ 281, box right = 498 → center = 389 */}
           <text x="389" y="162" textAnchor="middle" fill="white" fontSize="11.5" fontWeight="700" fontFamily={SF}>Safe Multisig — 2 of 2</text>
           <text x="389" y="178" textAnchor="middle" fill="rgba(255,255,255,0.45)" fontSize="9" fontFamily={SF}>User + OpenClaw agent both must sign</text>
@@ -340,21 +340,21 @@ function ArchitectureDiagram() {
           >
             {/* Outermost pulse ring */}
             <motion.circle cx="360" cy="300" r="82"
-              fill="none" stroke="rgba(240,185,11,0.10)" strokeWidth="1"
+              fill="none" stroke="rgba(196,148,40,0.10)" strokeWidth="1"
               animate={inView ? { opacity: [0.2, 0.8, 0.2], r: [78, 86, 78] } : {}}
               transition={{ repeat: Infinity, duration: 3.5, ease: "easeInOut" }}
             />
             {/* Middle breathing ring */}
             <motion.circle cx="360" cy="300" r="70"
-              fill="rgba(240,185,11,0.04)" stroke="rgba(240,185,11,0.22)" strokeWidth="1"
+              fill="rgba(196,148,40,0.04)" stroke="rgba(196,148,40,0.22)" strokeWidth="1"
               animate={inView ? { opacity: [0.8, 0.3, 0.8] } : {}}
               transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut", delay: 0.4 }}
             />
             {/* Inner glow ring */}
             <motion.circle cx="360" cy="300" r="60"
-              fill="rgba(240,185,11,0.08)"
-              stroke="rgba(240,185,11,0.50)" strokeWidth="1.8"
-              style={{ filter: "drop-shadow(0 0 12px rgba(240,185,11,0.45))" }}
+              fill="rgba(196,148,40,0.08)"
+              stroke="rgba(196,148,40,0.50)" strokeWidth="1.8"
+              style={{ filter: "drop-shadow(0 0 12px rgba(196,148,40,0.45))" }}
               animate={inView ? { opacity: [1, 0.5, 1] } : {}}
               transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut", delay: 0.9 }}
             />
@@ -364,9 +364,9 @@ function ArchitectureDiagram() {
             <motion.g
               animate={inView ? {
                 filter: [
-                  "drop-shadow(0 0 4px rgba(240,185,11,0.15))",
-                  "drop-shadow(0 0 22px rgba(240,185,11,0.80))",
-                  "drop-shadow(0 0 4px rgba(240,185,11,0.15))",
+                  "drop-shadow(0 0 4px rgba(196,148,40,0.15))",
+                  "drop-shadow(0 0 22px rgba(196,148,40,0.80))",
+                  "drop-shadow(0 0 4px rgba(196,148,40,0.15))",
                 ],
               } : {}}
               transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut", delay: 0.3 }}
@@ -431,7 +431,7 @@ function ArchitectureDiagram() {
             transition={{ repeat: Infinity, duration: 3.2, ease: "easeInOut", delay: 2.6 }}
           />
           <rect x="505" y="450" width="195" height="1.5" rx="1" fill="url(#g-red)" />
-          <text x="602" y="482" textAnchor="middle" fill="#ef4444" fontSize="13" fontWeight="700" fontFamily={SF}>BLOCK</text>
+          <text x="602" y="482" textAnchor="middle" fill="#e5524f" fontSize="13" fontWeight="700" fontFamily={SF}>BLOCK</text>
           <text x="602" y="498" textAnchor="middle" fill="rgba(255,255,255,0.42)" fontSize="9" fontFamily={SF}>Score &gt; 70</text>
           <text x="602" y="513" textAnchor="middle" fill="rgba(239,68,68,0.65)" fontSize="8" fontFamily={SF}>Denied · user alerted</text>
         </motion.g>
@@ -444,10 +444,10 @@ function ArchitectureDiagram() {
           {/* Logo center at (50, 602) — 10px left padding */}
           <image href="/arch-bnb.png" x="30" y="582" width="40" height="40"
             clipPath="url(#clip-bnb-c)" preserveAspectRatio="xMidYMid slice" />
-          <circle cx="50" cy="602" r="21" fill="none" stroke="rgba(240,185,11,0.20)" strokeWidth="1" />
+          <circle cx="50" cy="602" r="21" fill="none" stroke="rgba(196,148,40,0.20)" strokeWidth="1" />
           {/* Text centered from logo right (71) to box right (215): center = 143 */}
           <text x="143" y="597" textAnchor="middle" fill="rgba(255,255,255,0.88)" fontSize="11" fontWeight="600" fontFamily={SF}>BNB Chain</text>
-          <text x="143" y="613" textAnchor="middle" fill="rgba(240,185,11,0.55)" fontSize="8.5" fontFamily={SF}>Gasless · ERC-4337 · Pimlico</text>
+          <text x="143" y="613" textAnchor="middle" fill="rgba(196,148,40,0.55)" fontSize="8.5" fontFamily={SF}>Gasless · ERC-4337 · Pimlico</text>
         </motion.g>
 
         {/* ── Telegram (logo left, text centered in remaining space) ─── */}
@@ -487,7 +487,7 @@ const verdicts = [
     border: "rgba(16,185,129,0.28)",
     accent: "rgba(16,185,129,0.70)",
     bg: "rgba(16,185,129,0.07)",
-    text: "text-emerald-400",
+    text: "text-safe",
   },
   {
     range: "40 – 70",
@@ -496,7 +496,7 @@ const verdicts = [
     border: "rgba(245,158,11,0.28)",
     accent: "rgba(245,158,11,0.70)",
     bg: "rgba(245,158,11,0.07)",
-    text: "text-amber-400",
+    text: "text-watch",
   },
   {
     range: "> 70",
@@ -505,7 +505,7 @@ const verdicts = [
     border: "rgba(239,68,68,0.28)",
     accent: "rgba(239,68,68,0.70)",
     bg: "rgba(239,68,68,0.07)",
-    text: "text-red-400",
+    text: "text-danger",
   },
 ];
 
@@ -599,7 +599,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen hero-gradient text-white overflow-x-hidden">
+    <div className="min-h-screen hero-gradient text-foreground overflow-x-hidden">
       {/* ── Hero ──────────────────────────────────────────────────── */}
       <section className="min-h-screen flex flex-col items-center justify-center px-4 relative">
 
@@ -662,7 +662,7 @@ export default function LandingPage() {
         <h2 className="text-2xl sm:text-3xl font-bold text-center mb-3">
           How It <span className="gradient-text">Works</span>
         </h2>
-        <p className="text-slate-400 text-center max-w-lg mx-auto mb-12 text-sm">
+        <p className="text-muted-foreground text-center max-w-lg mx-auto mb-12 text-sm">
           Each transaction goes from your wallet after you sign to the AI agent (OpenClaw), which can-sign and auto-execute, send for review, or block it based on transaction risk.
         </p>
         <ArchitectureDiagram />
@@ -673,7 +673,7 @@ export default function LandingPage() {
         <h2 className="text-2xl sm:text-3xl font-bold text-center mb-3">
           Dynamic <span className="gradient-text">Risk Assessment</span>
         </h2>
-        <p className="text-slate-400 text-center max-w-md mx-auto mb-12 text-sm">
+        <p className="text-muted-foreground text-center max-w-md mx-auto mb-12 text-sm">
           Every transaction receives a real-time 0–100 risk score computed
           against your learned behavioral patterns and dynamic assessment via GoPlus and Honeypot.is. The agent acts instantly —
           no delays, no manual steps.
@@ -708,11 +708,11 @@ export default function LandingPage() {
                   <span className={`text-base font-black ${v.text}`}>
                     {v.label}
                   </span>
-                  <span className="text-[10px] text-slate-500 font-mono">
+                  <span className="text-[10px] text-muted-foreground/80 font-mono">
                     {v.range}
                   </span>
                 </div>
-                <p className="text-slate-400 text-xs leading-relaxed">
+                <p className="text-muted-foreground text-xs leading-relaxed">
                   {v.desc}
                 </p>
               </motion.div>
@@ -726,7 +726,7 @@ export default function LandingPage() {
         <h2 className="text-2xl sm:text-3xl font-bold text-center mb-3">
           Built with <span className="gradient-text">Agentic Security</span>
         </h2>
-        <p className="text-slate-400 text-center max-w-md mx-auto mb-12 text-sm">
+        <p className="text-muted-foreground text-center max-w-md mx-auto mb-12 text-sm">
           Full-stack AI protection — from behavioral modeling to on-chain
           execution.
         </p>
@@ -741,20 +741,20 @@ export default function LandingPage() {
                 viewport={{ once: true, margin: "-60px" }}
                 transition={{ delay: i * 0.08, type: "spring", bounce: 0.18 }}
                 whileHover={{ scale: 1.02, y: -4 }}
-                className="relative rounded-2xl overflow-hidden bg-white/[0.05] border border-white/[0.07] hover:border-claw/20 transition-colors p-5"
+                className="relative rounded-2xl overflow-hidden bg-foreground/[0.05] border border-foreground/[0.07] hover:border-claw/20 transition-colors p-5"
               >
                 <div
                   className="absolute top-0 left-0 right-0 h-px"
                   style={{
                     background:
-                      "linear-gradient(90deg, transparent, rgba(240,185,11,0.3), transparent)",
+                      "linear-gradient(90deg, transparent, rgba(196,148,40,0.3), transparent)",
                   }}
                 />
-                <div className="w-10 h-10 rounded-xl bg-claw/10 shadow-[0_0_10px_rgba(240,185,11,0.08)] flex items-center justify-center mb-3">
+                <div className="w-10 h-10 rounded-xl bg-claw/10 shadow-[0_0_10px_rgba(196,148,40,0.08)] flex items-center justify-center mb-3">
                   <Icon className="w-5 h-5 text-claw" />
                 </div>
                 <h3 className="text-sm font-semibold mb-1.5">{feat.title}</h3>
-                <p className="text-slate-500 text-xs leading-relaxed">
+                <p className="text-muted-foreground/80 text-xs leading-relaxed">
                   {feat.desc}
                 </p>
               </motion.div>
@@ -765,7 +765,7 @@ export default function LandingPage() {
 
       {/* ── Tech Stack ────────────────────────────────────────────── */}
       {/* <Section className="py-12 px-4">
-        <p className="text-center text-[10px] text-slate-600 uppercase tracking-[0.25em] mb-5">
+        <p className="text-center text-[10px] text-muted-foreground/60 uppercase tracking-[0.25em] mb-5">
           Powered by
         </p>
         <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
@@ -777,7 +777,7 @@ export default function LandingPage() {
               viewport={{ once: true }}
               transition={{ delay: i * 0.04, type: "spring" }}
               whileHover={{ scale: 1.06 }}
-              className="px-3 py-1.5 rounded-full border border-white/8 bg-white/[0.03] text-xs text-slate-400 font-medium cursor-default"
+              className="px-3 py-1.5 rounded-full border border-foreground/8 bg-foreground/[0.03] text-xs text-muted-foreground font-medium cursor-default"
             >
               {tech}
             </motion.span>
@@ -795,7 +795,7 @@ export default function LandingPage() {
             className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px]"
             style={{
               background:
-                "radial-gradient(ellipse, rgba(240,185,11,0.07) 0%, transparent 70%)",
+                "radial-gradient(ellipse, rgba(196,148,40,0.07) 0%, transparent 70%)",
             }}
           />
         </div>
@@ -803,7 +803,7 @@ export default function LandingPage() {
           Ready to guard your{" "}
           <span className="gradient-text">assets</span>?
         </h2>
-        <p className="text-slate-400 mb-8 max-w-md mx-auto text-sm">
+        <p className="text-muted-foreground mb-8 max-w-md mx-auto text-sm">
           Set up your AI-secured wallet in seconds. No gas fees, no
           friction - just intelligent protection on BNB Chain.
         </p>
@@ -817,7 +817,7 @@ export default function LandingPage() {
       </Section> */}
 
       {/* ── Footer ────────────────────────────────────────────────── */}
-      {/* <footer className="py-8 px-4 border-t border-white/[0.04]">
+      {/* <footer className="py-8 px-4 border-t border-foreground/[0.04]">
         <div className="max-w-4xl mx-auto flex flex-col items-center gap-4 text-center">
           <motion.div
             initial={{ opacity: 0, y: 8 }}

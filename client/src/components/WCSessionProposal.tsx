@@ -32,20 +32,20 @@ export function WCSessionProposal() {
             <img
               src={icon}
               alt=""
-              className="w-16 h-16 rounded-2xl bg-white/10"
+              className="w-16 h-16 rounded-2xl bg-foreground/10"
             />
           ) : (
-            <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center">
-              <ExternalLink className="h-8 w-8 text-slate-400" />
+            <div className="w-16 h-16 rounded-2xl bg-foreground/10 flex items-center justify-center">
+              <ExternalLink className="h-8 w-8 text-muted-foreground" />
             </div>
           )}
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-white">{name}</h3>
+            <h3 className="text-lg font-semibold text-foreground">{name}</h3>
             {url && (
-              <p className="text-sm text-slate-400 mt-0.5">{url}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">{url}</p>
             )}
             {description && (
-              <p className="text-xs text-slate-500 mt-1 max-w-[280px]">
+              <p className="text-xs text-muted-foreground/80 mt-1 max-w-[280px]">
                 {description}
               </p>
             )}
@@ -55,22 +55,22 @@ export function WCSessionProposal() {
         {/* Security note */}
         <div className="flex items-start gap-3 rounded-xl bg-gold/[0.08] border border-gold/20 px-4 py-3 w-full">
           <Shield className="h-5 w-5 text-gold shrink-0 mt-0.5" />
-          <p className="text-xs text-slate-300 leading-relaxed">
+          <p className="text-xs text-foreground/80 leading-relaxed">
             Transactions from this DApp will be screened by your AI agent before execution.
           </p>
         </div>
 
         {/* Requested permissions */}
         {(chains.length > 0 || methods.length > 0) && (
-          <div className="w-full rounded-xl bg-white/3 border border-white/6 px-4 py-3">
-            <p className="text-xs font-medium text-slate-400 mb-2">Requested permissions</p>
+          <div className="w-full rounded-xl bg-foreground/3 border border-foreground/6 px-4 py-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Requested permissions</p>
             {chains.length > 0 && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted-foreground/80">
                 Chains: {chains.join(", ")}
               </p>
             )}
             {methods.length > 0 && (
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground/80 mt-1">
                 Methods: {methods.slice(0, 4).join(", ")}
                 {methods.length > 4 && ` +${methods.length - 4} more`}
               </p>

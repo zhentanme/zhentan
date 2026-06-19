@@ -136,6 +136,10 @@ export interface TokenPosition {
   usdValue: number | null;
   balance: string;
   price: number;
+  /** 24h absolute USD change of this position's value (null if unavailable). */
+  priceChange1d?: number | null;
+  /** 24h percent change of this position (null if unavailable). */
+  pricePercentChange1d?: number | null;
   address: string | null;
   /** True for zero-balance fallback entries shown when the portfolio is sparse. */
   placeholder?: boolean;

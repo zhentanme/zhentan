@@ -71,9 +71,9 @@ interface CustomTooltipProps {
 function CustomTooltip({ active, payload, label, period }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#0f0f14] border border-white/10 rounded-xl px-3 py-2 text-xs shadow-lg">
-      <p className="text-slate-400">{label != null ? formatChartDate(label, period) : ""}</p>
-      <p className="text-white font-semibold mt-0.5">{formatPrice(payload[0].value)}</p>
+    <div className="bg-card border border-foreground/10 rounded-xl px-3 py-2 text-xs shadow-lg">
+      <p className="text-muted-foreground">{label != null ? formatChartDate(label, period) : ""}</p>
+      <p className="text-foreground font-semibold mt-0.5">{formatPrice(payload[0].value)}</p>
     </div>
   );
 }
@@ -127,7 +127,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
     : null;
 
   const isUp = priceChange == null ? null : priceChange >= 0;
-  const chartColor = isUp === false ? "#ef4444" : "#e5a832";
+  const chartColor = isUp === false ? "#e5524f" : "#c49428";
 
   const displayPrice = details?.marketData?.price ?? token?.price ?? null;
   const displayName  = details?.name  ?? token?.name  ?? "";
@@ -138,7 +138,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
     <Dialog open={open} onClose={onClose} className="max-w-md">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-11 h-11 rounded-xl bg-white/6 flex items-center justify-center shrink-0 overflow-hidden">
+        <div className="w-11 h-11 rounded-xl bg-foreground/6 flex items-center justify-center shrink-0 overflow-hidden">
           {displayIcon ? (
             <Image src={displayIcon} alt="" width={44} height={44} className="object-cover w-full h-full" unoptimized />
           ) : (
@@ -147,23 +147,23 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-white truncate">{displayName}</span>
+            <span className="font-semibold text-foreground truncate">{displayName}</span>
             {(details?.verified ?? token?.verified) && (
               <CheckCircle2 className="h-3.5 w-3.5 text-gold shrink-0" />
             )}
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">{displaySymbol}</p>
+          <p className="text-xs text-muted-foreground/80 mt-0.5">{displaySymbol}</p>
         </div>
         <div className="text-right shrink-0">
           {loading && !displayPrice ? (
             <Skeleton className="h-5 w-20 mb-1" />
           ) : (
-            <p className="font-bold text-white tabular-nums">{formatPrice(displayPrice)}</p>
+            <p className="font-bold text-foreground tabular-nums">{formatPrice(displayPrice)}</p>
           )}
           {loading && priceChange == null ? (
             <Skeleton className="h-3.5 w-12 ml-auto" />
           ) : priceChange != null ? (
-            <div className={`flex items-center justify-end gap-0.5 text-xs font-medium ${isUp ? "text-emerald-400" : "text-red-400"}`}>
+            <div className={`flex items-center justify-end gap-0.5 text-xs font-medium ${isUp ? "text-safe" : "text-danger"}`}>
               {isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               {isUp ? "+" : ""}{priceChange.toFixed(2)}%
             </div>
@@ -176,7 +176,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
         {loading && !currentChart ? (
           <Skeleton className="h-40 w-full rounded-xl" />
         ) : error ? (
-          <div className="h-40 flex items-center justify-center text-xs text-slate-500">{error}</div>
+          <div className="h-40 flex items-center justify-center text-xs text-muted-foreground/80">{error}</div>
         ) : points.length > 0 ? (
           <motion.div
             key={period}
@@ -223,7 +223,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
             </ResponsiveContainer>
           </motion.div>
         ) : (
-          <div className="h-40 flex items-center justify-center text-xs text-slate-500">No chart data</div>
+          <div className="h-40 flex items-center justify-center text-xs text-muted-foreground/80">No chart data</div>
         )}
       </div>
 
@@ -236,7 +236,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
             className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               period === key
                 ? "bg-gold/15 text-gold"
-                : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
+                : "text-muted-foreground/80 hover:text-foreground/80 hover:bg-foreground/5"
             }`}
           >
             {label}
@@ -248,7 +248,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
       {loading && !details ? (
         <div className="grid grid-cols-3 gap-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white/4 rounded-xl p-3">
+            <div key={i} className="bg-foreground/4 rounded-xl p-3">
               <Skeleton className="h-3 w-14 mb-2" />
               <Skeleton className="h-4 w-16" />
             </div>
@@ -261,9 +261,9 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
             { label: "FDV",         value: formatLargeUsd(details.marketData.fullyDilutedValuation) },
             { label: "Circulating", value: formatSupply(details.marketData.circulatingSupply) + ` ${displaySymbol}` },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-white/4 rounded-xl p-3">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">{label}</p>
-              <p className="text-xs font-semibold text-white truncate">{value}</p>
+            <div key={label} className="bg-foreground/4 rounded-xl p-3">
+              <p className="text-[10px] text-muted-foreground/80 uppercase tracking-wide mb-1">{label}</p>
+              <p className="text-xs font-semibold text-foreground truncate">{value}</p>
             </div>
           ))}
         </div>

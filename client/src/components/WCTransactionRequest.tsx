@@ -85,25 +85,25 @@ export function WCTransactionRequest() {
         <img
           src={dapp.icons[0]}
           alt=""
-          className="w-6 h-6 rounded-md shrink-0 bg-white/10"
+          className="w-6 h-6 rounded-md shrink-0 bg-foreground/10"
         />
       );
     }
     return (
-      <div className="w-6 h-6 rounded-md bg-white/10 flex items-center justify-center shrink-0">
-        <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+      <div className="w-6 h-6 rounded-md bg-foreground/10 flex items-center justify-center shrink-0">
+        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
     );
   };
 
   // Amount badge — matches SendPanel's "amount + icon" row
   const AmountBadge = () => (
-    <div className="flex items-center gap-3 rounded-2xl bg-white/6 p-4">
-      <div className="w-10 h-10 rounded-2xl bg-white/8 flex items-center justify-center text-gold">
+    <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
+      <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
         <ArrowUpRight className="h-5 w-5" />
       </div>
       <DappIcon />
-      <span className="text-lg font-semibold text-white">
+      <span className="text-lg font-semibold text-foreground">
         {valueFormatted} BNB
       </span>
     </div>
@@ -117,30 +117,30 @@ export function WCTransactionRequest() {
           <div className="flex flex-col items-center gap-4">
             <ThemeLoaderSpinner variant="transaction" />
             <p className="text-sm font-semibold text-gold">Proposing transaction</p>
-            <p className="text-xs text-slate-500 uppercase tracking-widest">Awaiting your signature</p>
+            <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Awaiting your signature</p>
           </div>
           <AmountBadge />
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">To</dt>
-              <dd className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
+              <dt className="text-muted-foreground/80">To</dt>
+              <dd className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
                 {truncateAddress(toAddress)}
               </dd>
             </div>
             {dapp && (
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">DApp</dt>
-                <dd className="text-slate-300 truncate min-w-0 max-w-[50%] sm:max-w-[200px]">{dapp.name}</dd>
+                <dt className="text-muted-foreground/80">DApp</dt>
+                <dd className="text-foreground/80 truncate min-w-0 max-w-[50%] sm:max-w-[200px]">{dapp.name}</dd>
               </div>
             )}
             {calldataDisplay !== "No calldata" && (
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Data</dt>
-                <dd className="font-mono text-slate-400 text-xs truncate min-w-0 max-w-[50%] sm:max-w-[200px]">{calldataDisplay}</dd>
+                <dt className="text-muted-foreground/80">Data</dt>
+                <dd className="font-mono text-muted-foreground text-xs truncate min-w-0 max-w-[50%] sm:max-w-[200px]">{calldataDisplay}</dd>
               </div>
             )}
           </dl>
-          <Button type="button" variant="ghost" onClick={handleClose} className="w-full py-3 text-slate-400 hover:text-slate-200">
+          <Button type="button" variant="ghost" onClick={handleClose} className="w-full py-3 text-muted-foreground hover:text-foreground">
             Close
           </Button>
         </div>
@@ -151,7 +151,7 @@ export function WCTransactionRequest() {
         <div className="space-y-6">
           <div className="flex flex-col items-center gap-3">
             <motion.div
-              className="w-20 h-20 rounded-2xl bg-amber-400/15 text-amber-400 flex items-center justify-center"
+              className="w-20 h-20 rounded-2xl bg-watch/15 text-watch flex items-center justify-center"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1, rotate: [0, 5, -5, 0] }}
               transition={{
@@ -162,30 +162,30 @@ export function WCTransactionRequest() {
             >
               <Clock className="h-10 w-10" />
             </motion.div>
-            <span className="text-sm font-semibold text-amber-400">Pending</span>
-            <p className="text-xs text-slate-500">Your AI agent is reviewing this transaction</p>
+            <span className="text-sm font-semibold text-watch">Pending</span>
+            <p className="text-xs text-muted-foreground/80">Your AI agent is reviewing this transaction</p>
           </div>
           <AmountBadge />
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">To</dt>
-              <dd className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
+              <dt className="text-muted-foreground/80">To</dt>
+              <dd className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
                 {truncateAddress(toAddress)}
               </dd>
             </div>
             {dapp && (
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">DApp</dt>
-                <dd className="text-slate-300 truncate min-w-0 max-w-[50%] sm:max-w-[200px]">{dapp.name}</dd>
+                <dt className="text-muted-foreground/80">DApp</dt>
+                <dd className="text-foreground/80 truncate min-w-0 max-w-[50%] sm:max-w-[200px]">{dapp.name}</dd>
               </div>
             )}
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Proposed</dt>
-              <dd className="text-slate-300">{formatDate(new Date().toISOString())}</dd>
+              <dt className="text-muted-foreground/80">Proposed</dt>
+              <dd className="text-foreground/80">{formatDate(new Date().toISOString())}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Signatures</dt>
-              <dd className="text-slate-300">1 of 2</dd>
+              <dt className="text-muted-foreground/80">Signatures</dt>
+              <dd className="text-foreground/80">1 of 2</dd>
             </div>
           </dl>
         </div>
@@ -203,27 +203,27 @@ export function WCTransactionRequest() {
           <AmountBadge />
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">To</dt>
-              <dd className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
+              <dt className="text-muted-foreground/80">To</dt>
+              <dd className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
                 {truncateAddress(toAddress)}
               </dd>
             </div>
             {dapp && (
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">DApp</dt>
-                <dd className="text-slate-300 truncate min-w-0 max-w-[50%] sm:max-w-[200px]">{dapp.name}</dd>
+                <dt className="text-muted-foreground/80">DApp</dt>
+                <dd className="text-foreground/80 truncate min-w-0 max-w-[50%] sm:max-w-[200px]">{dapp.name}</dd>
               </div>
             )}
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">Executed</dt>
-              <dd className="text-slate-300">{formatDate(new Date().toISOString())}</dd>
+              <dt className="text-muted-foreground/80">Executed</dt>
+              <dd className="text-foreground/80">{formatDate(new Date().toISOString())}</dd>
             </div>
           </dl>
           <a
             href={`${BSC_EXPLORER_URL}/tx/${requestTxHash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-white/8 text-slate-300 hover:text-white hover:bg-white/12 transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
           >
             <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
@@ -240,11 +240,11 @@ export function WCTransactionRequest() {
       {requestStatus === "error" && (
         <div className="space-y-6">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-20 h-20 rounded-2xl bg-red-400/15 text-red-400 flex items-center justify-center">
+            <div className="w-20 h-20 rounded-2xl bg-danger/15 text-danger flex items-center justify-center">
               <XCircle className="h-10 w-10" />
             </div>
-            <span className="text-sm font-semibold text-red-400">Failed</span>
-            <p className="text-xs text-slate-500 text-center max-w-[280px]">
+            <span className="text-sm font-semibold text-danger">Failed</span>
+            <p className="text-xs text-muted-foreground/80 text-center max-w-[280px]">
               {requestError || "Unknown error"}
             </p>
           </div>
@@ -264,16 +264,16 @@ export function WCTransactionRequest() {
                 <img
                   src={dapp.icons[0]}
                   alt=""
-                  className="w-10 h-10 rounded-xl bg-white/10 shrink-0"
+                  className="w-10 h-10 rounded-xl bg-foreground/10 shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                  <ExternalLink className="h-5 w-5 text-slate-400" />
+                <div className="w-10 h-10 rounded-xl bg-foreground/10 flex items-center justify-center shrink-0">
+                  <ExternalLink className="h-5 w-5 text-muted-foreground" />
                 </div>
               )}
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{dapp.name}</p>
-                <p className="text-xs text-slate-500 truncate">{dapp.url}</p>
+                <p className="text-sm font-semibold text-foreground truncate">{dapp.name}</p>
+                <p className="text-xs text-muted-foreground/80 truncate">{dapp.url}</p>
               </div>
             </div>
           )}
@@ -282,15 +282,15 @@ export function WCTransactionRequest() {
 
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between gap-4">
-              <dt className="text-slate-500">To</dt>
-              <dd className="font-mono text-slate-200 truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
+              <dt className="text-muted-foreground/80">To</dt>
+              <dd className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={toAddress}>
                 {truncateAddress(toAddress)}
               </dd>
             </div>
             {calldataDisplay !== "No calldata" && (
               <div className="flex justify-between gap-4">
-                <dt className="text-slate-500">Data</dt>
-                <dd className="font-mono text-slate-400 text-xs truncate min-w-0 max-w-[50%] sm:max-w-[200px]">{calldataDisplay}</dd>
+                <dt className="text-muted-foreground/80">Data</dt>
+                <dd className="font-mono text-muted-foreground text-xs truncate min-w-0 max-w-[50%] sm:max-w-[200px]">{calldataDisplay}</dd>
               </div>
             )}
           </dl>
@@ -298,7 +298,7 @@ export function WCTransactionRequest() {
           {/* Security note */}
           <div className="flex items-start gap-3 rounded-xl bg-gold/[0.08] border border-gold/20 px-4 py-3">
             <Shield className="h-5 w-5 text-gold shrink-0 mt-0.5" />
-            <p className="text-xs text-slate-300 leading-relaxed">
+            <p className="text-xs text-foreground/80 leading-relaxed">
               This transaction will be queued for AI screening before execution.
             </p>
           </div>

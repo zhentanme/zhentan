@@ -1,34 +1,27 @@
 import type { Metadata, Viewport } from "next";
-import { Kumbh_Sans, Ojuju } from "next/font/google";
+import { Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { BrandMarkSprite } from "@/components/BrandMark";
 
-const kumbhSans = Kumbh_Sans({
-  variable: "--font-kumbh-sans",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
-const ojuju = Ojuju({
-  variable: "--font-ojuju",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "Zhentan",
   description: "Your personalized onchain detective",
   manifest: "/manifest.json",
-  icons: {
-    icon: [
-      { url: "/icons/favicon-32x32.png", sizes: "32x32", type: "image/png" },
-    ],
-    apple: [
-      {
-        url: "/icons/apple-touch-icon.png",
-        sizes: "180x180",
-        type: "image/png",
-      },
-    ],
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -44,7 +37,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   viewportFit: "cover",
-  themeColor: "#000000",
+  themeColor: "#0a0d0e",
 };
 
 export default function RootLayout({
@@ -53,8 +46,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${kumbhSans.variable} ${ojuju.variable} dark antialiased`}>
+    <html lang="en" className={`${manrope.variable} ${jetbrainsMono.variable} dark antialiased`}>
       <body className="font-sans">
+        <BrandMarkSprite />
         <Providers>{children}</Providers>
       </body>
     </html>

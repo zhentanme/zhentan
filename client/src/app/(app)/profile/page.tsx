@@ -6,23 +6,20 @@ import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
 import {
-  Wallet,
   Shield,
   Copy,
   Check,
   ExternalLink,
   LogOut,
-  Bot,
   Loader2,
-  AtSign,
   Pencil,
   X,
+  Mail,
 } from "lucide-react";
-import { truncateAddress } from "@/lib/format";
+import { clsx } from "clsx";
 import { useApiClient } from "@/lib/api/client";
 import { useSafeAddress } from "@/lib/useSafeAddress";
-import { ClaimBanner } from "@/components/ClaimBanner";
-import { toHex } from "viem";
+import { TwinTick } from "@/components/BrandMark";
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -44,9 +41,6 @@ const staggerItem = {
 function ProfilePageContent() {
   const [screeningMode, setScreeningMode] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [signing, setSigning] = useState(false);
-  const [signResult, setSignResult] = useState<string | null>(null);
-  const [signError, setSignError] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [usernameInput, setUsernameInput] = useState("");
   const [usernameEditing, setUsernameEditing] = useState(false);
@@ -56,7 +50,7 @@ function ProfilePageContent() {
   const [usernameTaken, setUsernameTaken] = useState(false);
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
-  const { user, wallet, getOwnerAccount, logout, telegramUserId } = useAuth();
+  const { user, wallet, logout } = useAuth();
   const { safeAddress: computedSafeAddress } = useSafeAddress(wallet?.address);
   const safeAddress = computedSafeAddress || "";
   const api = useApiClient();
@@ -123,204 +117,205 @@ function ProfilePageContent() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSign = async () => {
-    if (!wallet) return;
-    setSigning(true);
-    setSignResult(null);
-    setSignError(null);
-    try {
-      const account = await getOwnerAccount();
-      if (!account) throw new Error("Wallet not ready");
-      const sig = await account.signMessage({
-        message: { raw: toHex("Zhentan signing test") },
-      });
-      setSignResult(sig);
-    } catch (err) {
-      setSignError(err instanceof Error ? err.message : "Signing failed");
-    } finally {
-      setSigning(false);
-    }
-  };
+  const displayName =
+    user?.name && user.name !== "null" && user.name !== "" ? user.name : "Your wallet";
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <main className="flex-1 w-full px-4 py-5 sm:p-6 max-w-lg mx-auto overflow-y-auto pb-24 sm:pb-8">
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="visible"
-          className="space-y-5 h-full flex flex-col justify-between items-center"
-        >
-         <div className="space-y-5 w-full">
-           {/* Claim Banner — always first, most prominent */}
-           {/* <motion.div variants={staggerItem}>
-            <ClaimBanner
-              safeAddress={safeAddress}
-              telegramUserId={telegramUserId}
-              username={username}
-              hideWhenClaimed
-              className="mx-0"
-            />
-          </motion.div> */}
+      <main className="flex-1 w-full px-4 sm:px-8 lg:px-10 py-6 sm:py-8 overflow-y-auto pb-24 sm:pb-10">
+        <motion.div variants={staggerContainer} initial="hidden" animate="visible">
+          {/* Eyebrow */}
+          <motion.div variants={staggerItem} className="flex items-center gap-3 mb-7">
+            <span className="eyebrow text-muted-foreground">Profile</span>
+            <span className="h-px flex-1 bg-border" aria-hidden />
+          </motion.div>
 
-          {/* User Info */}
-          {user && (user.email || user.name || user.image) && (
-            <motion.div variants={staggerItem}>
-              <div className="flex flex-col items-center gap-4 p-5">
-                {user.image ? (
-                  <img
-                    src={user.image}
-                    alt=""
-                    className="w-14 h-14 rounded-full object-cover"
-                  />
+          {/* Hero card */}
+          <motion.section
+            variants={staggerItem}
+            className="grid grid-cols-[auto_1fr] gap-6 sm:gap-7 items-center p-6 sm:p-7 rounded-3xl bg-card shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]"
+          >
+            {/* Portrait */}
+            <div className="relative shrink-0">
+              <div className="w-[88px] h-[88px] sm:w-[104px] sm:h-[104px] rounded-[26px] border border-gold/25 bg-ink-950 flex items-center justify-center overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_40px_-24px_rgba(196,148,40,0.45)]">
+                {user?.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.image} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-12 h-12 rounded-xl bg-gold/10 flex items-center justify-center text-lg font-semibold text-gold">
-                    {(user.name || user.email || "?")
-                      .charAt(0)
-                      .toUpperCase()}
-                  </div>
+                  <span className="text-5xl font-semibold text-gold-300 tracking-tight">
+                    {(user?.name || user?.email || "Z").charAt(0).toUpperCase()}
+                  </span>
                 )}
-                <div className="flex flex-col items-center gap-2">
-                  <p className="text-sm font-semibold text-white truncate">
-                    {!user.name || user.name === "" || user.name === "null"
-                      ? "Signed in as"
-                      : user.name}
-                  </p>
-                  {user.email && (
-                    <p className="text-xs text-slate-500 truncate mt-0.5">
-                      {user.email}
-                    </p>
-                  )}
-                  {/* Safe Address */}
-                  <div className="flex items-center gap-2">
-                    <Wallet className="h-3.5 w-3.5 text-slate-500 shrink-0 invisible" />
-                    <Wallet className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                    <span className="font-mono text-xs text-slate-300 truncate min-w-0">
-                      {truncateAddress(safeAddress)}
-                    </span>
-                    <div className="flex items-center gap-0.5 ml-auto shrink-0">
-                      <button
-                        onClick={copyAddress}
-                        className="p-1.5 rounded-lg hover:bg-white/8 text-slate-500 hover:text-white transition-all cursor-pointer"
-                        aria-label="Copy safe address"
-                      >
-                        {copied ? (
-                          <Check className="h-3.5 w-3.5 text-gold" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                      </button>
-                      <a
-                        href={`https://app.safe.global/home?safe=bnb:${safeAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1.5 rounded-lg hover:bg-white/8 text-slate-500 hover:text-white transition-all"
-                        aria-label="Open in Safe"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                    </div>
-                  </div>
-                </div>
               </div>
-            </motion.div>
-          )}
-
-          {/* Username Section */}
-          <motion.div variants={staggerItem}>
-            <div className="relative rounded-2xl overflow-hidden bg-white/6 shadow-[0_0_0_1px_rgba(240,185,11,0.12),0_12px_40px_-12px_rgba(240,185,11,0.08)]">
-              <div
-                className="h-px"
-                style={{
-                  background:
-                    "linear-gradient(90deg, transparent, rgba(240,185,11,0.4), transparent)",
-                }}
-              />
-              <div className="p-5">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-2xl bg-claw/10 shadow-[0_0_10px_rgba(240,185,11,0.1)] flex items-center justify-center shrink-0">
-                    <AtSign className="h-[18px] w-[18px] text-claw" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-semibold text-white">Username</h2>
-                    <p className="text-xs text-white/40">
-                      Resolves to your Zhentan address
-                    </p>
-                  </div>
-                </div>
-
-                {usernameEditing ? (
-                  <div className="space-y-2">
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={usernameInput}
-                        onChange={(e) => handleUsernameInputChange(e.target.value)}
-                        placeholder="Enter username"
-                        className="w-full bg-white/6 border border-white/10 rounded-xl px-3 py-2 pr-8 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-claw/50"
-                        onKeyDown={(e) => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") { setUsernameEditing(false); setUsernameInput(username ?? ""); setUsernameError(null); setUsernameTaken(false); } }}
-                      />
-                      {usernameInput.trim().length >= 3 && (
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2">
-                          {usernameChecking ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-500" />
-                          ) : usernameTaken ? (
-                            <X className="h-3.5 w-3.5 text-red-400" />
-                          ) : (
-                            <Check className="h-3.5 w-3.5 text-emerald-400" />
-                          )}
-                        </span>
-                      )}
-                    </div>
-                   
-                    <div className="flex gap-2">
-                      <button
-                        onClick={saveUsername}
-                        disabled={usernameSaving || !usernameInput.trim() || usernameTaken || usernameChecking || username === usernameInput.trim()}
-                        className="flex-1 py-2 rounded-xl bg-claw/90 text-black text-xs font-semibold disabled:opacity-50 cursor-pointer disabled:cursor-default"
-                      >
-                        {usernameSaving ? <Loader2 className="h-3 w-3 animate-spin mx-auto" /> : "Save"}
-                      </button>
-                      <button
-                        onClick={() => { setUsernameEditing(false); setUsernameInput(username ?? ""); setUsernameError(null); setUsernameTaken(false); }}
-                        className="flex-1 py-2 rounded-xl bg-white/6 text-white/60 text-xs cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setUsernameEditing(true)}
-                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors group cursor-pointer"
-                  >
-                    <span className={`text-sm ${username ? "text-white" : "text-white/30"}`}>
-                      {username ? `@${username}` : "Set a username"}
-                    </span>
-                    <Pencil className="h-3.5 w-3.5 text-white/30 group-hover:text-claw/60 transition-colors" />
-                  </button>
-                )}
+              <div className="absolute -right-1.5 -bottom-1.5 w-8 h-8 rounded-[14px] bg-ink-900 border border-gold/30 flex items-center justify-center">
+                <TwinTick size={16} halo="none" />
               </div>
             </div>
-          </motion.div>
-         </div>
 
-      
+            {/* Identity */}
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-semibold text-foreground tracking-tight leading-tight truncate">
+                {displayName}
+              </h1>
 
-          {/* Logout */}
-          <motion.div className="w-full" variants={staggerItem}>
+              {/* Handle + verified (editable) */}
+              {usernameEditing ? (
+                <div className="mt-3 max-w-xs">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={usernameInput}
+                      onChange={(e) => handleUsernameInputChange(e.target.value)}
+                      placeholder="Enter username"
+                      autoFocus
+                      className="w-full bg-foreground/6 border border-border rounded-md px-3 py-2 pr-8 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveUsername();
+                        if (e.key === "Escape") {
+                          setUsernameEditing(false);
+                          setUsernameInput(username ?? "");
+                          setUsernameError(null);
+                          setUsernameTaken(false);
+                        }
+                      }}
+                    />
+                    {usernameInput.trim().length >= 3 && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                        {usernameChecking ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/80" />
+                        ) : usernameTaken ? (
+                          <X className="h-3.5 w-3.5 text-danger" />
+                        ) : (
+                          <Check className="h-3.5 w-3.5 text-safe" />
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  {usernameError && <p className="mt-1.5 text-[11px] text-danger">{usernameError}</p>}
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={saveUsername}
+                      disabled={usernameSaving || !usernameInput.trim() || usernameTaken || usernameChecking || username === usernameInput.trim()}
+                      className="flex-1 py-1.5 rounded-md bg-gradient-to-br from-gold-light to-gold-500 text-ink-900 text-xs font-semibold disabled:opacity-50 cursor-pointer disabled:cursor-default"
+                    >
+                      {usernameSaving ? <Loader2 className="h-3 w-3 animate-spin mx-auto" /> : "Save"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setUsernameEditing(false);
+                        setUsernameInput(username ?? "");
+                        setUsernameError(null);
+                        setUsernameTaken(false);
+                      }}
+                      className="flex-1 py-1.5 rounded-md bg-foreground/6 text-muted-foreground text-xs cursor-pointer hover:bg-foreground/10 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2.5 mt-3">
+                  <button
+                    onClick={() => setUsernameEditing(true)}
+                    className="group inline-flex items-center gap-2"
+                  >
+                    <span
+                      className={clsx(
+                        "font-mono text-[13px]",
+                        username ? "text-foreground/85" : "text-muted-foreground/50"
+                      )}
+                    >
+                      {username ? `@${username}` : "Set a username"}
+                    </span>
+                    <Pencil className="h-3 w-3 text-muted-foreground/40 group-hover:text-gold transition-colors" />
+                  </button>
+                  {username && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-safe/12 text-safe font-mono uppercase tracking-wider text-[10px] font-semibold">
+                      <Check className="h-2.5 w-2.5" />
+                      Verified
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Email */}
+              {user?.email && (
+                <div className="flex items-center gap-2 mt-3 text-sm text-foreground/90 min-w-0">
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{user.email}</span>
+                </div>
+              )}
+
+              {/* Ghost actions */}
+              <div className="flex flex-wrap gap-2 mt-5">
+                <button
+                  type="button"
+                  onClick={copyAddress}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md border border-border bg-foreground/[0.02] text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
+                >
+                  {copied ? <Check className="h-3.5 w-3.5 text-gold" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? "Copied" : "Copy address"}
+                </button>
+                <a
+                  href={`https://app.safe.global/home?safe=bnb:${safeAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md border border-border bg-foreground/[0.02] text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open in Safe
+                </a>
+              </div>
+            </div>
+          </motion.section>
+
+          {/* Vault address */}
+          <motion.section
+            variants={staggerItem}
+            className="flex items-center justify-between gap-4 flex-wrap mt-6 pt-6 border-t border-dashed border-border"
+          >
+            <div className="min-w-0">
+              <span className="eyebrow text-muted-foreground flex items-center gap-2">
+                <Shield className="h-3.5 w-3.5" />
+                Vault address
+              </span>
+              <p className="font-mono text-sm text-foreground/90 break-all mt-2.5">
+                {safeAddress || "—"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={copyAddress}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-border text-xs font-medium text-muted-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
+            >
+              {copied ? <Check className="h-3 w-3 text-gold" /> : <Copy className="h-3 w-3" />}
+              Copy
+            </button>
+          </motion.section>
+
+          {/* Logout — split row */}
+          <motion.section
+            variants={staggerItem}
+            className="mt-8 pt-6 border-t border-dashed border-border flex items-center justify-between gap-6 flex-wrap"
+          >
+            <div className="min-w-0">
+              <p className="text-base font-medium text-foreground">Sign out of Zhentan</p>
+              <p className="text-[13px] text-muted-foreground/70 mt-1">
+                Your co-signer goes quiet until you return.
+              </p>
+            </div>
             <button
               type="button"
               onClick={async () => {
                 await logout();
                 router.replace("/login");
               }}
-              className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl text-sm font-medium text-red-400 bg-white/2 border border-white/6 hover:border-red-400/20 hover:bg-red-500/4 transition-all"
+              className="inline-flex items-center gap-2 py-2.5 px-4 rounded-md text-[13px] font-semibold text-foreground border border-border hover:text-danger hover:border-danger/35 hover:bg-danger/[0.04] transition-colors shrink-0 cursor-pointer"
             >
               <LogOut className="h-4 w-4" />
               Log out
             </button>
-          </motion.div>
+          </motion.section>
         </motion.div>
       </main>
     </div>

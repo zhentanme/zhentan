@@ -1,7 +1,5 @@
-import { TopBar } from "@/components/TopBar";
+import { AppFrame } from "@/components/AppFrame";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-    return <div className="flex flex-col h-screen bg-background">
-        <TopBar />
-        {children}</div>;
+  return <AppFrame>{children}</AppFrame>;
 }
