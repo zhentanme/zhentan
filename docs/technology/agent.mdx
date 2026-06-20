@@ -1,31 +1,31 @@
 ---
 title: Agent
-description: The OpenClaw skill pack — skills, transaction lifecycle, and Telegram commands.
+description: The NanoBot/Hermes skill pack — skills, transaction lifecycle, and Telegram commands.
 ---
 
 ## Overview
 
-The Zhentan agent is an OpenClaw skill pack. It holds the 2nd signing key on the Safe 2-of-2 and is the only component that communicates with the user via Telegram. The server handles deterministic screening — the agent handles everything interactive.
+The Zhentan agent is an NanoBot/Hermes skill pack. It holds the 2nd signing key on the Safe 2-of-2 and is the only component that communicates with the user via Telegram. The server handles deterministic screening — the agent handles everything interactive.
 
 **AI models:** Qwen3-235B / Claude Sonnet 4.5 via OpenRouter
 
 ## Setup
 
 <Steps>
-  <Step title="Symlink the skills into OpenClaw's workspace">
+  <Step title="Symlink the skills into NanoBot/Hermes's workspace">
     ```bash
-    mkdir -p ~/.openclaw/workspace/skills
-    ln -sf "$(pwd)/agent" ~/.openclaw/workspace/skills/zhentan
+    mkdir -p ~/.nanobot/workspace/skills
+    ln -sf "$(pwd)/agent" ~/.nanobot/workspace/skills/zhentan
     ```
   </Step>
-  <Step title="Restart the OpenClaw gateway">
+  <Step title="Restart the NanoBot/Hermes gateway">
     ```bash
-    openclaw gateway restart
+    nanobot gateway restart
     ```
   </Step>
   <Step title="Verify detection">
     ```bash
-    openclaw skills check
+    nanobot skills check
     ```
   </Step>
 </Steps>
@@ -85,5 +85,5 @@ PIMLICO_API_KEY=your_pimlico_api_key
 ```
 
 <Note>
-  Queue file paths default to `~/.openclaw/workspace/skills/zhentan/pending-queue.json`. Override with `QUEUE_PATH`.
+  Queue file paths default to `~/.nanobot/workspace/skills/zhentan/pending-queue.json`. Override with `QUEUE_PATH`.
 </Note>

@@ -29,5 +29,5 @@
   ],
   "frontendUrl": "https://zhentan.me",
   "backendApi": "https://api.zhentan.me",
-  "notes": "User Safe smart account addresses are computed on first login but deployed on first transaction. Each is a Safe 1.4.1 proxy with the user's Privy embedded wallet as owner (signer 1) and the Zhentan agent as co-signer (signer 2), threshold 2-of-2. To find a specific user's Safe address, check the client dashboard or query Safe Proxy Factory events on BscScan. The live deployment at zhentan.me runs without the OpenClaw agent; full AI screening requires running client + server + OpenClaw skills locally."
+  "notes": "User Safe smart account addresses are computed on first login but deployed on first transaction. Each is a Safe 1.4.1 proxy with the user's Privy embedded wallet as owner (signer 1) and the Zhentan agent as co-signer (signer 2), threshold 2-of-2. To find a specific user's Safe address, check the client dashboard or query Safe Proxy Factory events on BscScan. The live deployment at zhentan.me runs without the NanoBot/Hermes agent; full AI screening requires running client + server + NanoBot/Hermes skills locally."
 }

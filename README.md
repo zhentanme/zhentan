@@ -8,7 +8,7 @@ Your personalized onchain detective agent and assistant that learns and guards y
 
 - Node.js 18+
 - pnpm 10+
-- OpenClaw CLI
+- NanoBot/Hermes CLI
 
 ## Setup
 
@@ -52,7 +52,7 @@ pnpm dev:docs        # http://localhost:3002
 ```
 client/    Next.js 14 app
 server/    Express API
-agent/     OpenClaw skill pack
+agent/     NanoBot/Hermes skill pack
 scripts/   CLI tools
 docs/      Mintlify docs
 ```
@@ -60,7 +60,7 @@ docs/      Mintlify docs
 ## Agent
 
 ```bash
-mkdir -p ~/.openclaw/workspace/skills
-ln -sf "$(pwd)/agent" ~/.openclaw/workspace/skills/zhentan
-openclaw gateway restart
+mkdir -p ~/.nanobot/workspace/skills
+ln -sf "$(pwd)/agent" ~/.nanobot/workspace/skills/zhentan
+nanobot gateway restart
 ```

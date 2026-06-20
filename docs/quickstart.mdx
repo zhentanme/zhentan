@@ -9,7 +9,7 @@ description: Get Zhentan running locally with full AI screening in minutes.
 |------|---------|
 | Node.js | 18+ |
 | pnpm | 10+ |
-| OpenClaw CLI | latest |
+| NanoBot/Hermes CLI | latest |
 
 You'll also need accounts for:
 
@@ -71,17 +71,17 @@ See `scripts/.env.example` and `server/.env.example` for full templates.
     # → http://localhost:3000
     ```
   </Step>
-  <Step title="Set up the OpenClaw agent">
+  <Step title="Set up the NanoBot/Hermes agent">
     ```bash
-    # Symlink the skills into OpenClaw's workspace
-    mkdir -p ~/.openclaw/workspace/skills
-    ln -sf "$(pwd)/agent" ~/.openclaw/workspace/skills/zhentan
+    # Symlink the skills into NanoBot/Hermes's workspace
+    mkdir -p ~/.nanobot/workspace/skills
+    ln -sf "$(pwd)/agent" ~/.nanobot/workspace/skills/zhentan
 
     # Restart the gateway
-    openclaw gateway restart
+    nanobot gateway restart
 
     # Verify detection
-    openclaw skills check
+    nanobot skills check
     ```
   </Step>
 </Steps>

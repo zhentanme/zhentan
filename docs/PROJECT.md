@@ -22,7 +22,7 @@ Zhentan is a personalized wallet assistant that acts as an AI co-signer on a Saf
 - **Instant risk scoring (0–100):** Every transaction is scored server-side against your learned patterns before reaching the agent
 - **Three-tier response:** APPROVE (agent auto-signs 2-of-2) / REVIEW (deep analysis + Telegram interactive buttons) / BLOCK (reject + alert)
 - **Deep analysis on REVIEW:** GoPlus + Honeypot.is checks run automatically for every REVIEW-tier transaction — address reputation, sanctions, honeypot detection, and token tax rates delivered to the user before they decide
-- **OpenClaw Agent as 2nd signer:** The agent communicates with the user via Telegram and holds the 2nd key — no transaction executes without its signature
+- **NanoBot/Hermes Agent as 2nd signer:** The agent communicates with the user via Telegram and holds the 2nd key — no transaction executes without its signature
 - **WalletConnect support:** Any DApp (PancakeSwap, Venus, etc.) routes through the same screening pipeline
 - **Gasless:** Account abstraction (ERC-4337) + bundler, zero gas fees for users
 
@@ -33,7 +33,7 @@ sequenceDiagram
     participant U as User
     participant App as Zhentan App
     participant S as Server
-    participant OC as OpenClaw Agent
+    participant OC as NanoBot/Hermes Agent
     participant EXT as GoPlus / Honeypot.is
     participant TG as Telegram
     participant BC as BNB Chain
@@ -79,7 +79,7 @@ sequenceDiagram
 - Newcomers who want guardrails without custody trade-offs
 
 **Adoption strategy:**
-1. Self-hosted, open-source agent (OpenClaw skills pack)
+1. Self-hosted, open-source agent (NanoBot/Hermes skills pack)
 2. Hosted service with per-user screening profiles
 3. SDK for other wallets to embed the risk scoring layer
 
@@ -98,7 +98,7 @@ sequenceDiagram
 **Current limitations:**
 
 - Deep analysis (GoPlus/Honeypot.is) is on-demand only with agentic communication. Can be exteded with other services
-- Live demo at zhentan.me runs with public OpenClaw agent — personalised AI screening requires local setup
+- Live demo at zhentan.me runs with public NanoBot/Hermes agent — personalised AI screening requires local setup
 
 
 **Near-term roadmap:**

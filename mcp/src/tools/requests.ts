@@ -44,8 +44,22 @@ export function registerRequestTools(server: McpServer) {
         billedFrom: PARTY.optional(),
         billedTo: PARTY.optional(),
         services: z.array(SERVICE).optional(),
-        riskScore: z.number().int().min(0).max(100).optional(),
-        riskNotes: z.string().max(500).optional(),
+        riskScore: z
+          .number()
+          .int()
+          .min(0)
+          .max(100)
+          .optional()
+          .describe(
+            "Always set this. Your 0–100 risk assessment of the request — score it yourself " +
+              "(the server does not): unknown vs known recipient, amount vs the recipient's history, " +
+              "hour-of-day, and single-tx/daily/custom limits.",
+          ),
+        riskNotes: z
+          .string()
+          .max(500)
+          .optional()
+          .describe("Always set this. One line justifying the riskScore."),
       },
     },
     async (args) => {

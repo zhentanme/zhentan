@@ -1,0 +1,371 @@
+/* ── Card shell ── */
+.card {
+  background: linear-gradient(160deg, #161208 0%, #1c1606 100%);
+  border: 1px solid rgba(245, 208, 96, 0.18);
+  border-radius: 22px;
+  padding: 22px 24px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 340px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 23px;
+  background: linear-gradient(180deg, rgba(245, 208, 96, 0.28), transparent 30%);
+  z-index: -1;
+  filter: blur(14px);
+  opacity: 0.5;
+}
+
+.fading {
+  animation: cardFade 0.55s 2.3s ease forwards;
+}
+
+@keyframes cardFade {
+  to { opacity: 0; }
+}
+
+/* ── Header ── */
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+  margin-bottom: 2px;
+}
+
+.headTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-200);
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--gold-400);
+  transition: color 0.35s ease;
+}
+
+.statusDanger { color: #E5524F; }
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: statusPulse 2.2s ease-out infinite;
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.55; transform: scale(0.8); }
+}
+
+/* ── Sonar idle slot ── */
+.sonarSlot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  opacity: 1;
+  transition: opacity 0.35s ease;
+  pointer-events: auto;
+  z-index: 2;
+}
+
+.sonarSlotHidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sonarWrap {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sonarRing {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(245, 208, 96, 0.7);
+  animation: sonarExpand 2.4s ease-out infinite;
+}
+
+.sonarCenter {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(245, 208, 96, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: sonarBreath 2.4s ease-in-out infinite;
+  position: relative;
+  z-index: 1;
+}
+
+.sonarLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: rgba(245, 208, 96, 0.5);
+  letter-spacing: 0.12em;
+  margin: 0;
+}
+
+@keyframes sonarExpand {
+  0%   { transform: scale(1);   opacity: 0.9; }
+  100% { transform: scale(2.2); opacity: 0;   }
+}
+
+@keyframes sonarBreath {
+  0%, 100% { transform: scale(1);    }
+  50%       { transform: scale(1.06); }
+}
+
+/* ── Transaction card ── */
+.txCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.4s ease, opacity 0.4s ease, padding 0.4s ease;
+}
+
+.txCardIn {
+  max-height: 70px;
+  opacity: 1;
+  padding: 12px 14px;
+}
+
+.txLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.txIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.txIcon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.txWho {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink-0);
+}
+
+.txAddr {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-300);
+  margin-top: 2px;
+}
+
+.txRight { text-align: right; flex-shrink: 0; }
+
+.txAmount {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink-0);
+  white-space: nowrap;
+}
+
+.txSub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-300);
+  margin-top: 2px;
+}
+
+/* ── Check rows ── */
+.checkRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.checkRowIn {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.iconSlot {
+  position: relative;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.iconFace {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.iconGone {
+  opacity: 0;
+  transform: scale(0.5);
+}
+
+.checkLabel {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: rgba(200, 203, 190, 0.75);
+  letter-spacing: 0.03em;
+}
+
+/* ── Result badges ── */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.badgeIn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pass { background: rgba(63, 190, 118, 0.12); color: #3FBE76; }
+.warn { background: rgba(240, 179, 60,  0.12); color: #F0B33C; }
+.fail { background: rgba(229, 82,  79,  0.12); color: #E5524F; }
+
+/* ── Verdict bar ── */
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-radius: 10px;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  margin-top: 2px;
+}
+
+.verdictIn {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.verdictSafe   { background: rgba(63, 190, 118, 0.07); border: 1px solid rgba(63, 190, 118, 0.22); }
+.verdictDanger { background: rgba(229,  82,  79, 0.07); border: 1px solid rgba(229,  82,  79, 0.22); }
+
+.verdictDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.verdictLabel {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+.verdictSafe   .verdictLabel, .verdictSafe   .verdictDot { color: #3FBE76; }
+.verdictDanger .verdictLabel, .verdictDanger .verdictDot { color: #E5524F; }
+
+.verdictMsg {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-300);
+  letter-spacing: 0.04em;
+}
+
+/* ── Execute row ── */
+.exec {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-align: right;
+  padding: 6px 4px 2px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.execIn     { opacity: 1; transform: translateY(0); }
+.execSafe   { color: #3FBE76; }
+.execDanger { color: #E5524F; }
+
+/* ── Spinner ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinSvg  { display: block; animation: spin 1s linear infinite; }
+.checkSvg { display: block; }

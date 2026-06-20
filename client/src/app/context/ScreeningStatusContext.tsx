@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useApiClient } from "@/lib/api/client";
+import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { useAuth } from "./AuthContext";
 
 interface ScreeningStatusContextType {
@@ -54,9 +55,9 @@ export function ScreeningStatusProvider({ children }: { children: ReactNode }) {
     if (!safeAddress) return;
     setLoading(true);
     refresh().finally(() => setLoading(false));
-    const interval = setInterval(refresh, 30_000);
-    return () => clearInterval(interval);
   }, [safeAddress, refresh]);
+
+  useAutoRefresh(refresh, 30_000);
 
   const fullyActivated = telegramLinked && botConnected;
   const isScreeningActive = screeningMode && fullyActivated;

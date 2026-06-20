@@ -15,7 +15,7 @@ Use `←` `→` arrow keys or the on-screen controls to navigate 8 slides coveri
 ## Live Demo
 
 - **URL:** [https://zhentan.me](https://zhentan.me)
-- **Note:** This deployment is wired to an public OpenClaw agent with basic plan. For screening to be personalized per user and requires your own agent setup. Run the app locally (client + server + OpenClaw skills) for screened mode with AI approval, review, and blocking.
+- **Note:** This deployment is wired to an public NanoBot/Hermes agent with basic plan. For screening to be personalized per user and requires your own agent setup. Run the app locally (client + server + NanoBot/Hermes skills) for screened mode with AI approval, review, and blocking.
 
 
 

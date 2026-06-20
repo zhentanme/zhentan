@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import type { TransactionWithStatus } from "@/types";
+import { useLiveTransaction } from "@/hooks/useLiveTransaction";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { Dialog } from "./ui/Dialog";
 import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
@@ -173,42 +174,52 @@ function HeroAmount({ tx, config }: { tx: TransactionWithStatus; config: OpConfi
 
 // ── Risk section ──────────────────────────────────────────────────────────────
 
+/** Severity bucket → tailwind text/bg classes. */
+function severity(score: number): { tone: "safe" | "watch" | "danger"; text: string; bg: string } {
+  if (score >= 70) return { tone: "danger", text: "text-danger", bg: "bg-danger" };
+  if (score >= 40) return { tone: "watch", text: "text-watch", bg: "bg-watch" };
+  return { tone: "safe", text: "text-safe", bg: "bg-safe" };
+}
+
 function RiskDetailsSection({
   riskScore,
   riskVerdict,
   riskReasons,
+  reviewReason,
+  rejectReason,
 }: {
   riskScore?: number;
   riskVerdict?: "APPROVE" | "REVIEW" | "BLOCK";
   riskReasons?: string[];
+  reviewReason?: string;
+  rejectReason?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const reasonCount = riskReasons?.length ?? 0;
-  const summary =
-    riskScore != null
-      ? reasonCount > 0
-        ? `Risk: ${riskScore} — ${reasonCount} reason${reasonCount === 1 ? "" : "s"}`
-        : `Risk score: ${riskScore}`
-      : reasonCount > 0
-        ? `${reasonCount} risk reason${reasonCount === 1 ? "" : "s"}`
-        : "Risk details";
+  const sev = riskScore != null ? severity(riskScore) : null;
 
   return (
     <div className="rounded-2xl bg-foreground/6 overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
+        aria-expanded={expanded}
         className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-foreground/6 transition-colors cursor-pointer"
       >
         <ShieldAlert className="h-4 w-4 text-watch/90 shrink-0" />
-        <span className="text-sm font-medium text-foreground flex-1">{summary}</span>
+        <span className="text-sm font-medium text-foreground flex-1">View analysis</span>
+        {sev && (
+          <span className={`font-mono text-xs font-semibold ${sev.text}`}>
+            {riskScore}
+            <span className="text-muted-foreground/60">/100</span>
+          </span>
+        )}
         {expanded ? (
           <ChevronUp className="h-4 w-4 text-muted-foreground/80 shrink-0" />
         ) : (
           <ChevronDown className="h-4 w-4 text-muted-foreground/80 shrink-0" />
         )}
       </button>
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
@@ -217,18 +228,34 @@ function RiskDetailsSection({
             transition={{ duration: 0.2 }}
             className="border-t border-foreground/10"
           >
-            <div className="px-4 py-3 space-y-2 text-sm">
-              {riskScore != null && (
-                <div className="flex justify-between gap-2">
-                  <span className="text-muted-foreground/80">Score</span>
-                  <span className="text-foreground font-medium">{riskScore}/100</span>
+            <div className="px-4 py-3.5 space-y-3.5 text-sm">
+              {/* Risk score + bar */}
+              {riskScore != null && sev && (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-muted-foreground/80">Risk score</span>
+                    <span className={`font-mono font-semibold ${sev.text}`}>
+                      {riskScore}
+                      <span className="text-muted-foreground/60">/100</span>
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-pill bg-foreground/10 overflow-hidden">
+                    <motion.span
+                      className={`block h-full rounded-pill ${sev.bg}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(100, Math.max(0, riskScore))}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                    />
+                  </div>
                 </div>
               )}
+
+              {/* Verdict */}
               {riskVerdict && (
-                <div className="flex justify-between gap-2">
+                <div className="flex items-center justify-between">
                   <span className="text-muted-foreground/80">Verdict</span>
                   <span
-                    className={`font-medium ${
+                    className={`font-mono uppercase tracking-wide text-xs font-semibold ${
                       riskVerdict === "APPROVE"
                         ? "text-safe"
                         : riskVerdict === "BLOCK"
@@ -240,9 +267,27 @@ function RiskDetailsSection({
                   </span>
                 </div>
               )}
+
+              {/* Agent message */}
+              {reviewReason && (
+                <div>
+                  <span className="text-muted-foreground/80 block mb-1">Message</span>
+                  <p className="text-foreground/85 leading-relaxed">{reviewReason}</p>
+                </div>
+              )}
+
+              {/* Rejection reason */}
+              {rejectReason && (
+                <div>
+                  <span className="text-muted-foreground/80 block mb-1">Rejection reason</span>
+                  <p className="text-danger leading-relaxed">{rejectReason}</p>
+                </div>
+              )}
+
+              {/* Signals */}
               {riskReasons && riskReasons.length > 0 && (
                 <div>
-                  <span className="text-muted-foreground/80 block mb-1">Reasons</span>
+                  <span className="text-muted-foreground/80 block mb-1">Signals</span>
                   <ul className="list-disc list-inside space-y-0.5 text-foreground/80">
                     {riskReasons.map((r, i) => (
                       <li key={i}>{r}</li>
@@ -280,8 +325,18 @@ interface TransactionDetailDialogProps {
   onClose: () => void;
 }
 
-export function TransactionDetailDialog({ tx, open, onClose }: TransactionDetailDialogProps) {
-  if (!tx) return null;
+export function TransactionDetailDialog({ tx: txProp, open, onClose }: TransactionDetailDialogProps) {
+  // While the dialog is open on a Zhentan tx, poll it live so a pending/in-review
+  // item flips to executed/rejected in place (e.g. after a Telegram decision).
+  // Zerion-only items are already terminal on-chain — nothing to poll.
+  const live = useLiveTransaction(
+    open && txProp && txProp.source !== "zerion-only" ? txProp.id : null
+  );
+
+  if (!txProp) return null;
+
+  // Freshest record wins; fall back to the passed-in copy before the first poll.
+  const tx = live ?? txProp;
 
   const config = getConfig(tx);
   const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
@@ -294,32 +349,45 @@ export function TransactionDetailDialog({ tx, open, onClose }: TransactionDetail
   const counterpartyLabel =
     op === "receive" ? "From" : op === "send" ? "To" : "Interacted with";
 
-  // Risk section: only for zhentan txs with risk data
+  // Analysis section: any zhentan tx that carries screening data, regardless of
+  // status — so executed / rejected decisions show their analysis too.
   const showRisk =
     isZhentanTx &&
-    (tx.inReview || tx.status === "in_review") &&
-    (tx.riskScore != null || (tx.riskReasons && tx.riskReasons.length > 0));
+    (tx.riskScore != null ||
+      tx.riskVerdict != null ||
+      (tx.riskReasons?.length ?? 0) > 0 ||
+      !!tx.reviewReason ||
+      !!tx.rejectReason);
 
   return (
     <Dialog open={open} onClose={onClose} title="Transaction details" className="max-w-md">
       <div className="space-y-6">
-        {/* Status animation */}
-        <div className="flex flex-col items-center gap-3">
-          <StatusAnimation status={tx.status} />
-          <span
-            className={`text-sm font-semibold ${
-              tx.status === "executed"
-                ? "text-gold"
-                : tx.status === "rejected"
-                  ? "text-danger"
-                  : tx.status === "in_review"
-                    ? "text-gold"
-                    : "text-watch"
-            }`}
+        {/* Status animation — morphs in place when the live status changes */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tx.status}
+            className="flex flex-col items-center gap-3"
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.92 }}
+            transition={{ duration: 0.28, ease: "easeOut" }}
           >
-            {statusLabel(tx.status)}
-          </span>
-        </div>
+            <StatusAnimation status={tx.status} />
+            <span
+              className={`text-sm font-semibold ${
+                tx.status === "executed"
+                  ? "text-gold"
+                  : tx.status === "rejected"
+                    ? "text-danger"
+                    : tx.status === "in_review"
+                      ? "text-gold"
+                      : "text-watch"
+              }`}
+            >
+              {statusLabel(tx.status)}
+            </span>
+          </motion.div>
+        </AnimatePresence>
 
         {/* Hero: op icon + token + amount(s) */}
         <HeroAmount tx={tx} config={config} />
@@ -412,21 +480,16 @@ export function TransactionDetailDialog({ tx, open, onClose }: TransactionDetail
             </div>
           )}
 
-          {/* Rejection reason */}
-          {tx.rejectReason && (
-            <div className="flex justify-between gap-2 sm:gap-4">
-              <dt className="text-muted-foreground/80 shrink-0">Reason</dt>
-              <dd className="text-danger truncate min-w-0">{tx.rejectReason}</dd>
-            </div>
-          )}
         </dl>
 
-        {/* Risk details */}
+        {/* Agent analysis — expandable: score, message, signals */}
         {showRisk && (
           <RiskDetailsSection
             riskScore={tx.riskScore}
             riskVerdict={tx.riskVerdict}
             riskReasons={tx.riskReasons}
+            reviewReason={tx.reviewReason}
+            rejectReason={tx.rejectReason}
           />
         )}
 

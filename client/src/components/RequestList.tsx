@@ -5,29 +5,14 @@ import { motion } from "framer-motion";
 import type { QueuedRequest } from "@/types";
 import { RequestRow } from "./RequestRow";
 import { RequestDetailDialog } from "./RequestDetailDialog";
-import { Card } from "./ui/Card";
 import { Skeleton } from "./ui/Skeleton";
-import { Bell } from "lucide-react";
 
 const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const headerVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.5,
-      type: "spring" as const,
-      bounce: 0.18,
+      staggerChildren: 0.06,
     },
   },
 };
@@ -53,26 +38,11 @@ export function RequestList({
   if (!loading && requests.length === 0) return null;
 
   return (
-    <Card className="p-6">
-      <motion.div
-        className="flex items-center gap-2 mb-4"
-        initial="hidden"
-        animate="visible"
-        variants={headerVariants}
-      >
-        <Bell className="h-4 w-4 text-gold" />
-        <h2 className="text-sm font-semibold text-foreground tracking-wide">
-          <span className="text-gold">&rsaquo;</span> Requests
-        </h2>
-      </motion.div>
-
+    <>
       {loading ? (
-        <div className="space-y-1">
+        <div className="divide-y divide-border/60">
           {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="flex items-center gap-4 px-4 py-3 rounded-2xl"
-            >
+            <div key={i} className="flex items-center gap-4 px-2 sm:px-3 py-3.5">
               <Skeleton className="h-10 w-10 rounded-2xl shrink-0" />
               <div className="flex-1 min-w-0 space-y-2">
                 <div className="flex items-center gap-2">
@@ -88,7 +58,7 @@ export function RequestList({
         </div>
       ) : (
         <motion.div
-          className="space-y-1"
+          className="divide-y divide-border/60"
           initial="hidden"
           animate="visible"
           variants={containerVariants}
@@ -112,6 +82,6 @@ export function RequestList({
         onReject={onReject}
         onRefresh={onRefresh}
       />
-    </Card>
+    </>
   );
 }

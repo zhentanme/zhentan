@@ -82,9 +82,15 @@ owner to approve** — queueing never moves funds.
    - transfers: `description` — the instruction in one sentence
    - invoices: `invoiceNumber`, `issueDate`, `dueDate`, `billedFrom`/`billedTo`,
      `services` `[{description, qty, rate, total}]`
-   - `riskScore` (0–100, your assessment: known vs unknown recipient via
-     `get_screening_status` patterns, amount vs history, urgency) and `riskNotes`
-3. `queue_request(...)` → confirm: "Request for [amount] [token] queued — approve it
+3. **Always score the request before queueing — `riskScore` (0–100) and `riskNotes`
+   are required on every `queue_request`, for both transfers and invoices.** Unlike
+   live transactions (which the server scores automatically), a request is scored by
+   **you**: call `get_screening_status(safe, includePatterns: true)` and apply the
+   **Risk scoring reference** below — unknown vs known recipient, amount vs the
+   recipient's history, hour-of-day, and any single-tx / daily / custom limits. Set
+   `riskNotes` to one line justifying the score (e.g. "Unknown recipient, amount 4×
+   their average"). Never queue a request without a score.
+4. `queue_request(...)` → confirm: "Request for [amount] [token] queued — approve it
    in your Zhentan dashboard."
 
 ## Risk scoring reference

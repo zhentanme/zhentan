@@ -1,7 +1,8 @@
 import { Router, Request, Response, type IRouter } from "express";
-import type { RequestStatus, RequestType, QueuedRequest } from "../types.js";
-import { getRequests, getRequest, createRequest, updateRequest } from "../lib/supabase/index.js";
+import type { RequestStatus, RequestType, QueuedRequest, PendingTransaction } from "../types.js";
+import { getRequests, getRequest, createRequest, updateRequest, getPatternsForSafe } from "../lib/supabase/index.js";
 import { getSafeAddressFromCallerId } from "../lib/caller.js";
+import { analyzeRisk } from "../risk.js";
 import { randomUUID } from "crypto";
 
 const VALID_STATUSES: RequestStatus[] = [
@@ -56,6 +57,36 @@ export function createRequestsRouter(): IRouter {
       const hasInvoiceFields = Boolean(invoiceNumber || billedFrom || billedTo || (services && services.length) || dueDate);
       const requestType: RequestType = type ?? (hasInvoiceFields ? "invoice" : "transfer");
 
+      // Risk: the agent's own assessment wins. Only when it omits a score do we
+      // fall back to the same rules engine that scores live transactions, so a
+      // request never ends up without a score for the dashboard.
+      let finalRiskScore: number | undefined =
+        riskScore != null && Number.isFinite(Number(riskScore))
+          ? Math.max(0, Math.min(100, Math.round(Number(riskScore))))
+          : undefined;
+      let finalRiskNotes: string | undefined = riskNotes ?? undefined;
+
+      if (finalRiskScore == null) {
+        try {
+          const patterns = await getPatternsForSafe(safeAddress);
+          const synthTx = {
+            to,
+            amount: String(amount),
+            token,
+          } as unknown as PendingTransaction;
+          const risk = analyzeRisk(synthTx, patterns);
+          finalRiskScore = risk.riskScore;
+          if (!finalRiskNotes) {
+            finalRiskNotes = `${risk.verdict}: ${risk.reasons.join("; ")}`;
+          }
+        } catch (err) {
+          console.error(
+            "Request risk scoring failed:",
+            err instanceof Error ? err.message : err
+          );
+        }
+      }
+
       const request: QueuedRequest = {
         id: `req-${randomUUID().slice(0, 8)}`,
         type: requestType,
@@ -70,12 +101,14 @@ export function createRequestsRouter(): IRouter {
         billedFrom: billedFrom ?? undefined,
         billedTo: billedTo ?? undefined,
         services: services ?? [],
-        riskScore: riskScore ?? undefined,
-        riskNotes: riskNotes ?? undefined,
+        riskScore: finalRiskScore,
+        riskNotes: finalRiskNotes,
         sourceChannel: sourceChannel ?? "unknown",
         queuedAt: new Date().toISOString(),
         status: "queued",
       };
+
+      console.log(request)
 
       await createRequest(request);
       res.status(201).json({ status: "queued", id: request.id, type: request.type, to: request.to, amount: request.amount, token: request.token });

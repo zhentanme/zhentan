@@ -244,7 +244,7 @@ function SlideHowItWorks() {
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.65 }}
         className="flex flex-wrap justify-center gap-2">
-        {["GoPlus", "Honeypot.is", "De.fi", "OpenClaw Agent", "Pimlico Bundler"].map((tag) => (
+        {["GoPlus", "Honeypot.is", "De.fi", "NanoBot/Hermes Agent", "Pimlico Bundler"].map((tag) => (
           <Tag key={tag}>{tag}</Tag>
         ))}
       </motion.div>
@@ -260,7 +260,7 @@ function SlideProduct() {
     { name: "ERC-4337",       note: "Account abstraction · 40M+ smart accounts", color: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.28)" },
     { name: "ERC-7579",       note: "Module extensibility standard",           color: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.28)" },
     { name: "ERC-8004",       note: "Agent identity on-chain",                 color: "rgba(196,148,40,0.10)", border: "rgba(196,148,40,0.28)" },
-    { name: "OpenClaw",       note: "Qwen3-235B + Claude Sonnet agent",        color: "rgba(196,148,40,0.15)", border: "rgba(196,148,40,0.30)" },
+    { name: "NanoBot/Hermes",       note: "Qwen3-235B + Claude Sonnet agent",        color: "rgba(196,148,40,0.15)", border: "rgba(196,148,40,0.30)" },
     { name: "Pimlico",        note: "Gasless bundler + paymaster",             color: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.25)" },
   ];
 

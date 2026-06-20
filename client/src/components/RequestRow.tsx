@@ -70,19 +70,19 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
       className={clsx(
-        "flex items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:bg-foreground/6 rounded-2xl transition-all min-h-[3.5rem] touch-manipulation",
+        "group flex items-center gap-3 sm:gap-4 px-1 py-3.5 hover:bg-foreground/[0.035] transition-colors min-h-[3.5rem] touch-manipulation",
         onClick && "cursor-pointer"
       )}
-      initial={{ opacity: 0, y: 30, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
       transition={{
-        delay: index * 0.1,
-        duration: 0.5,
+        delay: Math.min(index, 8) * 0.05,
+        duration: 0.4,
         type: "spring",
         bounce: 0.15,
       }}
     >
-      <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center shrink-0 text-gold">
+      <div className="w-10 h-10 rounded-xl bg-foreground/8 flex items-center justify-center shrink-0 text-gold transition-colors group-hover:bg-foreground/[0.12]">
         {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
       </div>
 

@@ -21,7 +21,7 @@ Full commit history and contributor activity: [github.com/koshikraj/zhentan/grap
 |------|------|
 | **Claude Code** (Anthropic CLI) | Assisted with documentation, UI housekeeping, and code reviews |
 | **Cursor** | UI component updates and styling iterations |
-| **OpenClaw Agent** (Qwen3-235B / Claude Sonnet via OpenRouter) | The AI agent that IS the product — also used during development to debug server config issues |
+| **NanoBot/Hermes Agent** (Qwen3-235B / Claude Sonnet via OpenRouter) | The AI agent that IS the product — also used during development to debug server config issues |
 
 ---
 
@@ -29,7 +29,7 @@ Full commit history and contributor activity: [github.com/koshikraj/zhentan/grap
 
 ### 1. Bootstrapping (Claude Code)
 
-Claude Code helped bootstrap both the Express server and the Next.js client through heavy prompting — setting up the project structure, API route layout, middleware, TypeScript config, and Privy + viem integration scaffolding. This significantly sped up getting both ends talking to each other. From there, the core logic — risk scoring, Safe multisig setup, ERC-4337 pipeline, OpenClaw skill design — was built and iterated by hand.
+Claude Code helped bootstrap both the Express server and the Next.js client through heavy prompting — setting up the project structure, API route layout, middleware, TypeScript config, and Privy + viem integration scaffolding. This significantly sped up getting both ends talking to each other. From there, the core logic — risk scoring, Safe multisig setup, ERC-4337 pipeline, NanoBot/Hermes skill design — was built and iterated by hand.
 
 ### 2. UI Housekeeping (Claude Code + Cursor)
 
@@ -58,15 +58,15 @@ All content was reviewed and corrected where the AI got the architecture wrong (
 
 **Commit:** `80d495e` — `docs: add hackathon starter kit documentation structure`
 
-### 3. Debugging Server Config (OpenClaw Agent)
+### 3. Debugging Server Config (NanoBot/Hermes Agent)
 
-The OpenClaw agent was used beyond its product role — during development, it helped debug server-side configuration issues by inspecting config files, tracing environment variable mismatches, and suggesting fixes for the queue path setup and Telegram webhook wiring. A nice meta moment: using the product to build the product.
+The NanoBot/Hermes agent was used beyond its product role — during development, it helped debug server-side configuration issues by inspecting config files, tracing environment variable mismatches, and suggesting fixes for the queue path setup and Telegram webhook wiring. A nice meta moment: using the product to build the product.
 
 ---
 
-## AI as the Product (OpenClaw Agent)
+## AI as the Product (NanoBot/Hermes Agent)
 
-Separately from build assistance, the OpenClaw agent is the core of Zhentan itself:
+Separately from build assistance, the NanoBot/Hermes agent is the core of Zhentan itself:
 
 - **Holds the 2nd key** on every user's Safe 2-of-2 multisig — no transaction executes without its signature
 - **Communicates with the user** via Telegram — sends risk reports, approve/reject buttons, blocked alerts

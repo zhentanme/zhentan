@@ -27,7 +27,6 @@ export function createQueueRouter(): IRouter {
       }
 
 
-      console.log("Received transaction for queue:", pendingTx);
       try {
       await createTransaction(pendingTx);
       } catch (err) { 
