@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useLoginWithOAuth } from "@privy-io/react-auth";
 import { useAuth } from "@/app/context/AuthContext";
 import { Button } from "./ui/Button";
-import { Loader2, LogOut } from "lucide-react";
+import { TickButtonSpinner } from "./TwinTickLoader";
+import { LogOut } from "lucide-react";
 import { truncateAddress } from "@/lib/format";
 
 export function PrivyLoginButton() {
@@ -25,7 +26,7 @@ export function PrivyLoginButton() {
   if (loading) {
     return (
       <Button variant="secondary" disabled>
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <TickButtonSpinner size={16} />
         Loading...
       </Button>
     );
@@ -52,7 +53,7 @@ export function PrivyLoginButton() {
       <Button onClick={handleGoogleLogin} disabled={isLoading}>
         {isLoading ? (
           <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <TickButtonSpinner size={16} className="mr-2" />
             Signing in...
           </>
         ) : (

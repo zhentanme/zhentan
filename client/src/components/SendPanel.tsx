@@ -302,7 +302,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-col items-center gap-4">
-          <ThemeLoaderSpinner variant="transaction" />
+          <ThemeLoaderSpinner motion="scan" />
           <p className="text-sm font-semibold text-gold">Proposing transaction</p>
           <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Awaiting your signature</p>
         </div>

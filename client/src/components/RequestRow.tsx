@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import type { QueuedRequest } from "@/types";
 import { truncateAddress } from "@/lib/format";
-import { UsdcIcon } from "./icons/UsdcIcon";
+import { TokenGlyph } from "./TokenGlyph";
 import { FileText, ArrowUpRight } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -89,7 +89,7 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-foreground truncate inline-flex items-center gap-1.5">
-            <UsdcIcon size={16} className="shrink-0 opacity-90" />
+            <TokenGlyph symbol={request.token} size={16} />
             {request.amount} {request.token}
           </span>
           <span className="text-muted-foreground/60">{isInvoice ? "←" : "→"}</span>

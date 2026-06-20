@@ -1,16 +1,12 @@
-import { Loader2 } from "lucide-react";
 import { clsx } from "clsx";
+import { TickButtonSpinner } from "@/components/TwinTickLoader";
 
 interface SpinnerProps {
   className?: string;
   size?: number;
 }
 
+/** Compact brand spinner (Twin Tick circular). Follows `currentColor`. */
 export function Spinner({ className, size = 24 }: SpinnerProps) {
-  return (
-    <Loader2
-      className={clsx("animate-spin text-gold", className)}
-      size={size}
-    />
-  );
+  return <TickButtonSpinner size={size} className={clsx("text-gold", className)} />;
 }

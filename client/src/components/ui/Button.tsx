@@ -1,5 +1,5 @@
 import { clsx } from "clsx";
-import { Loader2 } from "lucide-react";
+import { TickButtonSpinner } from "@/components/TwinTickLoader";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "primary" | "secondary" | "ghost";
@@ -29,7 +29,7 @@ export function Button({
       disabled={disabled || loading}
       {...props}
     >
-      {loading && <Loader2 className="h-5 w-5 animate-spin" />}
+      {loading && <TickButtonSpinner size={18} />}
       {children}
     </button>
   );
