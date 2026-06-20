@@ -267,7 +267,9 @@ function buildButtons(buttons: EmailBtn[]): string {
 
 export function buildEmailHtml(opts: EmailOpts): string {
   const appUrl = process.env.APP_URL ?? "https://app.zhentan.me";
-  const iconUrl = `${appUrl}/logo.png`;
+  // Twin Tick brand mark (square, rounded, on dark) — high-res so it stays crisp
+  // at the header's 44px and on retina clients.
+  const iconUrl = `${appUrl}/icons/icon-512x512.png`;
   const vc = BADGE_COLOR[opts.variant];
 
   // Amount number style
