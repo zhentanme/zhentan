@@ -9,7 +9,7 @@ import { useApiClient } from "@/lib/api/client";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
-import { UsdcIcon } from "./icons/UsdcIcon";
+import { TokenGlyph } from "./TokenGlyph";
 import {
   FileText,
   ArrowUpRight,
@@ -339,9 +339,7 @@ export function RequestDetailDialog({
           <div className="w-10 h-10 rounded-2xl bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
             {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
           </div>
-          <div className="w-9 h-9 rounded-full bg-foreground/8 flex items-center justify-center shrink-0 overflow-hidden">
-            <UsdcIcon size={22} className="opacity-90" />
-          </div>
+          <TokenGlyph symbol={request.token} size={36} />
           <div className="flex-1 min-w-0">
             <p className="text-base font-semibold text-foreground">
               {request.amount} {request.token}
@@ -573,7 +571,7 @@ function ScreeningView({
     <div className="space-y-6">
       <div className="flex flex-col items-center gap-3 text-center">
         {isLoading ? (
-          <ThemeLoaderSpinner variant="transaction" />
+          <ThemeLoaderSpinner motion="scan" />
         ) : phase === "review" ? (
           <ReviewAnimation size={80} />
         ) : phase === "executed" ? (
@@ -605,7 +603,7 @@ function ScreeningView({
         <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
           <Send className="h-5 w-5" />
         </div>
-        <UsdcIcon size={24} className="shrink-0 opacity-90" />
+        <TokenGlyph symbol={request.token} size={24} />
         <span className="text-lg font-semibold text-foreground">
           {request.amount} {request.token}
         </span>

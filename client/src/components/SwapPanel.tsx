@@ -8,6 +8,7 @@ import { Dialog } from "./ui/Dialog";
 import { TokenRow } from "./TokenRow";
 import { useAuth } from "@/app/context/AuthContext";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
+import { TickButtonSpinner } from "./TwinTickLoader";
 import { ExecutedAnimation } from "./animations/StatusAnimation";
 import {
   ArrowDownUp,
@@ -16,7 +17,6 @@ import {
   CheckCircle2,
   Search,
   X,
-  Loader2,
 } from "lucide-react";
 import { formatTokenAmount, truncateAddress, formatDate } from "@/lib/format";
 import { BSC_EXPLORER_URL, NATIVE_TOKEN_ADDRESS } from "@/lib/constants";
@@ -595,7 +595,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
 
         {searchLoading ? (
           <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground/80">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <TickButtonSpinner size={16} />
             <span className="text-sm">Searching…</span>
           </div>
         ) : tokenSearch.trim() ? (

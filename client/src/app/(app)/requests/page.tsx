@@ -6,6 +6,7 @@ import { RequestList } from "@/components/RequestList";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
+import { TwinTickLoader } from "@/components/TwinTickLoader";
 import { useSafeAddress } from "@/lib/useSafeAddress";
 import { proposeTransaction } from "@/lib/propose";
 import { useApiClient } from "@/lib/api/client";
@@ -112,7 +113,7 @@ function RequestsPageContent() {
       <div className="flex flex-col h-screen bg-background">
       
         <div className="flex-1 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gold border-t-transparent" />
+          <TwinTickLoader variant="sequential" size={120} label="Loading requests" />
         </div>
       </div>
     );
