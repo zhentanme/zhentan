@@ -48,7 +48,7 @@ export const ERC20_BALANCE_OF_ABI = [
 export const NATIVE_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
 export const NATIVE_DECIMALS = 18;
 
-export const BSC_RPC = "https://1rpc.io/bnb";
+export const BSC_RPC = process.env.NEXT_PUBLIC_BSC_RPC_URL || "https://1rpc.io/bnb";
 export const BSC_EXPLORER_URL = "https://bscscan.com";
 
 export function getPimlicoRpcUrl(apiKey: string): string {
