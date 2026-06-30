@@ -6,7 +6,7 @@ export const SAFE_PROXY_FACTORY: Hex =
   "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67";
 export const SAFE_VERSION = "1.4.1" as const;
 
-export const BSC_RPC = "https://1rpc.io/bnb";
+export const BSC_RPC =  process.env.BSC_RPC_URL || "https://1rpc.io/bnb";
 
 /** Zero address used to identify native BNB transfers. */
 export const NATIVE_TOKEN_ADDRESS =
