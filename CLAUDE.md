@@ -14,11 +14,11 @@ Three components work together:
 - **`server/`** — Express API for queue management and execution. Required when client deploys to read-only filesystems (Vercel). Routes: `/queue`, `/execute`, `/transactions`, `/invoices`, `/health`. Reads/writes JSON queue files.
 - **`agent/`** — NanoBot/Hermes skill pack (`zhentan-agent`). Agent runs on a cron (every 10s), picks up pending transactions, scores risk, and decides: APPROVE (risk < 40), REVIEW (40-70), or BLOCK (> 70). Skills: `check-pending`, `analyze-risk`, `sign-and-execute`, `mark-review`, `reject-tx`, `record-pattern`, `toggle-screening`, `queue-invoice`, `get-status`.
 
-Transaction flow (two execution modes, per-user setting `execution_mode`):
-- **`safetx` (default, Safe-UI compatible):** User signs a standard SafeTx (EIP-712) → queued + mirrored to the Safe Transaction Service (visible in app.safe.global at 1/2) → agent analyzes → agent confirms via the service and relays `execTransaction` (agent EOA pays BNB gas). Rejections execute a pre-signed empty tx at the same nonce to avoid nonce holes. A `safeSync` worker reconciles txs executed directly from the Safe UI (the user-override path).
-- **`4337` (gasless):** User signs the Safe4337Module userOp hash → agent co-signs → Pimlico bundler → gasless execution via ERC-4337 (EntryPoint v0.7). Not visible in the Safe UI pending queue. Also used for the legacy 2-of-2 upgrade tx.
+Transaction flow (SafeTx-only for users): User signs a standard SafeTx (EIP-712) → queued + mirrored to the Safe Transaction Service (visible in app.safe.global at 1/2) → agent analyzes → agent confirms via the service and relays `execTransaction` (agent EOA pays BNB gas). Rejections execute a pre-signed empty tx at the same nonce to avoid nonce holes. A `safeSync` worker reconciles txs executed directly from the Safe UI (the user-override path). The legacy 2-of-2 upgrade (`addOwnerWithThreshold`) is also a plain SafeTx. ERC-4337/Pimlico survives ONLY for executing pre-refactor queued rows (`tx_type='4337'`) and treasury payouts — never for new user transactions.
 
-Safes are deployed eagerly at onboarding (agent pays; the Transaction Service only indexes deployed Safes) with the Safe4337Module enabled either way. Owner order for address derivation is canonical `[embedded, backup, agent]` — positional, never sorted; deployed Safes read owners from chain/DB (after `addOwnerWithThreshold` the on-chain order differs).
+**Address derivation is server-side only and versioned** (`server/src/lib/safe/derive.ts`, per-user `user_details.derivation_version`, default for new users via `SAFE_DERIVATION_VERSION`): v1 = legacy permissionless initializer (Safe4337Module enabled) for all pre-refactor accounts; v2 = vanilla stock Safe (protocol-kit initializer, CompatibilityFallbackHandler, no modules). The client gets addresses from `GET /users/by-signer` (existing users) or `POST /safe/derive` (new users) — it never derives locally. Stored addresses are cross-checked against re-derivation before deploys. v1 can be retired once no active users remain on it.
+
+Safes are deployed eagerly at onboarding (agent pays; the Transaction Service only indexes deployed Safes). Owner order for address derivation is canonical `[embedded, backup, agent]` — positional, never sorted; deployed Safes read owners from chain/DB (after `addOwnerWithThreshold` the on-chain order differs).
 
 State files (JSON): `pending-queue.json`, `invoice-queue.json`, `state.json` (screening mode/decisions), `patterns.json` (learned behavior).
 
@@ -72,8 +72,8 @@ pnpm agent-sign      # agent-sign.js — agent co-signs and executes
 `@/*` maps to `./src/*` in client TypeScript config.
 
 ### Environment variables
-- **Client**: `NEXT_PUBLIC_PIMLICO_API_KEY`, `NEXT_PUBLIC_AGENT_ADDRESS`, `NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_BACKEND_URL` (optional, for remote server)
-- **Server**: `QUEUE_PATH`, `AGENT_PRIVATE_KEY`, `PIMLICO_API_KEY`, `SAFE_API_KEY` (Safe Transaction Service, from developer.safe.global), `SAFE_TX_SERVICE_URL` (optional override), `AGENT_MIN_BNB` (relayer gas alert threshold, default 0.05), `PORT` (default 3001), `CORS_ORIGIN`
+- **Client**: `NEXT_PUBLIC_AGENT_ADDRESS`, `NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_BACKEND_URL` (optional, for remote server)
+- **Server**: `QUEUE_PATH`, `AGENT_PRIVATE_KEY`, `PIMLICO_API_KEY` (legacy 4337 rows + treasury only), `SAFE_API_KEY` (Safe Transaction Service, from developer.safe.global), `SAFE_TX_SERVICE_URL` (optional override), `SAFE_DERIVATION_VERSION` (new-account derivation, default 2), `AGENT_MIN_BNB` (relayer gas alert threshold, default 0.05), `PORT` (default 3001), `CORS_ORIGIN`
 - **Scripts**: `PRIVATE_KEY`, `PIMLICO_API_KEY`, `RECIPIENT_ADDRESS`, `USDC_AMOUNT`, `USDC_CONTRACT_ADDRESS`, `OWNER_ADDRESS1`, `OWNER_ADDRESS2`, `SAFE_THRESHOLD`
 
 See `scripts/.env.example` and `server/.env.example` for templates.

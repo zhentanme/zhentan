@@ -112,6 +112,3 @@ export const NATIVE_DECIMALS = 18;
 export const BSC_RPC = process.env.NEXT_PUBLIC_BSC_RPC_URL || "https://1rpc.io/bnb";
 export const BSC_EXPLORER_URL = "https://bscscan.com";
 
-export function getPimlicoRpcUrl(apiKey: string): string {
-  return `https://api.pimlico.io/v2/binance/rpc?apikey=${apiKey}`;
-}

@@ -18,7 +18,6 @@ import { useSafeAddress } from "@/lib/useSafeAddress";
 import { canonicalOwners, SAFE_2OF3_THRESHOLD } from "@/lib/safe/owners";
 import { apiFetch } from "@/lib/api/client";
 import { clearOnboardingCompleteCookie } from "@/lib/useOnboarding";
-import type { TxExecutionType } from "@/types";
 
 export interface AuthUser {
   email?: string;
@@ -39,8 +38,6 @@ export interface SafeConfig {
   legacy: boolean;
   /** True once the Safe contract is deployed on-chain (tracked from eager deploy onward). */
   deployed: boolean;
-  /** SafeTx (Safe-UI compatible, agent relays) vs 4337 (gasless). Legacy Safes always run 4337. */
-  executionMode: TxExecutionType;
 }
 
 export interface AuthContextType {
@@ -159,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading: safeLoading,
     record: safeRecord,
     derived: safeDerived,
+    derivationVersion,
   } = useSafeAddress({
     embeddedAddress: wallet?.address,
     externalAddress: externalWalletAddress ?? undefined,
@@ -183,8 +181,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         threshold: safeRecord.safe_threshold ?? 2,
         legacy,
         deployed: safeRecord.safe_deployed ?? false,
-        // Legacy 2-of-2 Safes can't use the SafeTx flow until upgraded.
-        executionMode: legacy ? "4337" : safeRecord.execution_mode ?? "safetx",
       };
     }
     // Freshly derived 2-of-3 (new user, record not created yet).
@@ -198,7 +194,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       threshold: SAFE_2OF3_THRESHOLD,
       legacy: false,
       deployed: false,
-      executionMode: "safetx",
     };
   }, [safeAddress, safeRecord, wallet?.address, externalWalletAddress, agentAddress]);
 
@@ -222,6 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             externalWalletAddress: externalWalletAddress ?? undefined,
             safeOwners: safeConfig.owners,
             safeThreshold: safeConfig.threshold,
+            derivationVersion: derivationVersion ?? undefined,
           }),
       }),
     }).catch((e) => console.error("Failed to sync user details:", e));
@@ -234,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     safeDerived,
     safeConfig,
     externalWalletAddress,
+    derivationVersion,
   ]);
 
   const getOwnerAccount = useCallback(async (): Promise<LocalAccount | null> => {

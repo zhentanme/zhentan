@@ -59,7 +59,10 @@ export interface UserDetailsRow {
   safe_threshold: number | null;
   safe_deployed: boolean | null;
   safe_deploy_tx_hash: string | null;
+  /** Vestigial — the per-user execution mode toggle was removed; all user txs are SafeTx. */
   execution_mode: "safetx" | "4337" | null;
+  /** 1 = legacy 4337-module initializer, 2 = vanilla Safe. Null only before first sync. */
+  derivation_version: number | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,69 +1,46 @@
 /**
- * Eager Safe deployment (SafeTx flow needs a deployed Safe — the Transaction
- * Service only indexes contracts that exist on-chain).
+ * Eager Safe deployment (the SafeTx flow needs a deployed Safe — the
+ * Transaction Service only indexes contracts that exist on-chain).
  *
- * Uses the exact same permissionless initializer as the client's
- * counterfactual derivation (Safe4337Module enabled), so the deployed address
- * matches; the agent EOA sends the factory call and pays gas.
+ * Deployment bytes come from lib/safe/derive.ts (versioned — the initializer
+ * must reproduce the account's stored address exactly), and the agent EOA
+ * sends the factory call and pays gas.
  */
-import { createPublicClient, http, type Address, type Hex } from "viem";
-import { bsc } from "viem/chains";
-import { toAccount } from "viem/accounts";
-import { entryPoint07Address } from "viem/account-abstraction";
-import { toSafeSmartAccount } from "permissionless/accounts";
+import type { Address, Hex } from "viem";
 
 import {
-  SAFE_SINGLETON,
-  SAFE_PROXY_FACTORY,
-  SAFE_VERSION,
-  BSC_RPC,
-} from "../constants.js";
+  deriveSafe,
+  getDefaultDerivationVersion,
+  type DerivationVersion,
+} from "./derive.js";
 import { SAFE_2OF3_THRESHOLD } from "./owners.js";
 import { getAgentWalletClient, getRelayerPublicClient, assertAgentGas } from "./relayer.js";
 
 export interface CounterfactualSafe {
   address: Address;
-  factory: Address;
-  factoryData: Hex;
+  derivationVersion: DerivationVersion;
+  deploymentTx: { to: Address; value: bigint; data: Hex };
 }
 
-/**
- * Server-side twin of the client derivation: canonical owner order in,
- * counterfactual address + factory args out.
- */
+/** Versioned counterfactual derivation (see derive.ts for the version story). */
 export async function computeCounterfactual(
   owners: string[],
-  threshold: number = SAFE_2OF3_THRESHOLD
+  threshold: number = SAFE_2OF3_THRESHOLD,
+  version: DerivationVersion = getDefaultDerivationVersion()
 ): Promise<CounterfactualSafe> {
-  const publicClient = createPublicClient({ chain: bsc, transport: http(BSC_RPC) });
-
-  const account = await toSafeSmartAccount({
-    client: publicClient,
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-    owners: owners.map((o) => toAccount(o as Address)),
-    saltNonce: 0n,
-    safeSingletonAddress: SAFE_SINGLETON,
-    safeProxyFactoryAddress: SAFE_PROXY_FACTORY,
-    version: SAFE_VERSION,
-    threshold: BigInt(threshold),
-  });
-
-  const { factory, factoryData } = await account.getFactoryArgs();
-  if (!factory || !factoryData) {
-    throw new Error("Failed to compute Safe factory args");
-  }
-  return { address: account.address, factory, factoryData };
+  return deriveSafe(owners, threshold, version);
 }
 
 /**
- * Deploys the Safe for the given canonical owner set if it isn't already
- * on-chain. Idempotent. Returns the deploy tx hash when a deploy happened.
+ * Deploys the Safe for the given owner set if it isn't already on-chain.
+ * Idempotent. Returns the deploy tx hash when a deploy happened.
  */
 export async function deploySafe(
   owners: string[],
-  threshold: number = SAFE_2OF3_THRESHOLD
+  threshold: number = SAFE_2OF3_THRESHOLD,
+  version: DerivationVersion = getDefaultDerivationVersion()
 ): Promise<{ address: Address; deployed: boolean; txHash?: Hex }> {
-  const { address, factory, factoryData } = await computeCounterfactual(owners, threshold);
+  const { address, deploymentTx } = await computeCounterfactual(owners, threshold, version);
   const publicClient = getRelayerPublicClient();
 
   const code = await publicClient.getCode({ address });
@@ -75,8 +52,9 @@ export async function deploySafe(
 
   const wallet = getAgentWalletClient();
   const txHash = await wallet.sendTransaction({
-    to: factory,
-    data: factoryData,
+    to: deploymentTx.to,
+    value: deploymentTx.value,
+    data: deploymentTx.data,
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
   if (receipt.status !== "success") {

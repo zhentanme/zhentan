@@ -1,25 +1,16 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createPublicClient, http } from "viem";
-import { bsc } from "viem/chains";
-import { toAccount } from "viem/accounts";
-import { entryPoint07Address } from "viem/account-abstraction";
-import { toSafeSmartAccount } from "permissionless/accounts";
 
-import {
-  SAFE_SINGLETON,
-  SAFE_PROXY_FACTORY,
-  SAFE_VERSION,
-  BSC_RPC,
-} from "./constants";
-import { canonicalOwners, SAFE_2OF3_THRESHOLD } from "./safe/owners";
+import { canonicalOwners } from "./safe/owners";
 import { apiFetch } from "./api/client";
 import type { UserDetails } from "./api/users";
 
-// Derivation cache keyed on the full owner set — the address depends on
-// every owner, so keying on a single owner would poison across changes.
-const cache = new Map<string, string>();
+// Derivation happens SERVER-SIDE only (POST /safe/derive) — the initializer
+// bytes that define a Safe's address live in exactly one place
+// (server/src/lib/safe/derive.ts). This cache just avoids repeat calls for
+// the same owner set within a session.
+const cache = new Map<string, { safeAddress: string; derivationVersion: number }>();
 
 export interface SafeResolution {
   safeAddress: string | null;
@@ -28,6 +19,8 @@ export interface SafeResolution {
   record: UserDetails | null;
   /** True when the address was freshly derived (new user, no backend record yet). */
   derived: boolean;
+  /** Derivation version for freshly derived Safes (from the server config). */
+  derivationVersion: number | null;
 }
 
 interface UseSafeAddressParams {
@@ -35,7 +28,7 @@ interface UseSafeAddressParams {
   embeddedAddress: string | undefined;
   /** Linked external wallet address (owner #2) — required to derive a new Safe. */
   externalAddress: string | undefined;
-  /** Privy identity token for the backend lookup. */
+  /** Privy identity token for the backend calls. */
   identityToken: string | null | undefined;
   /** Bump to force a re-resolution (e.g. after onboarding or an upgrade). */
   refreshKey?: number;
@@ -46,9 +39,10 @@ interface UseSafeAddressParams {
  *
  * 1. Backend record first (`GET /users/by-signer/:embedded`) — returning and
  *    legacy users keep their stored address verbatim; never re-derived.
- * 2. Otherwise derive the 2-of-3 counterfactual address from the canonical
- *    owner set [embedded, external, agent]. Stays `null` until the external
- *    wallet is linked — a 3-owner address cannot exist without owner #2.
+ * 2. Otherwise ask the server to derive the counterfactual address for the
+ *    canonical owner set [embedded, external, agent] (`POST /safe/derive`).
+ *    Stays `null` until the external wallet is linked — the address cannot
+ *    exist without owner #2.
  */
 export function useSafeAddress({
   embeddedAddress,
@@ -63,6 +57,7 @@ export function useSafeAddress({
     loading: true,
     record: null,
     derived: false,
+    derivationVersion: null,
   });
   const computingRef = useRef<string | null>(null);
   // Bumped to re-run the effect after a failed backend lookup (kept in
@@ -71,7 +66,13 @@ export function useSafeAddress({
 
   useEffect(() => {
     if (!embeddedAddress) {
-      setState({ safeAddress: null, loading: false, record: null, derived: false });
+      setState({
+        safeAddress: null,
+        loading: false,
+        record: null,
+        derived: false,
+        derivationVersion: null,
+      });
       return;
     }
 
@@ -88,14 +89,24 @@ export function useSafeAddress({
     let cancelled = false;
     setState((s) => ({ ...s, loading: true }));
 
+    const scheduleRetry = () =>
+      setTimeout(() => {
+        if (!cancelled) setRetry((r) => r + 1);
+      }, 4000);
+
     (async (): Promise<SafeResolution> => {
       // 1. Backend record wins — covers legacy 2-of-2 users and returning
-      //    2-of-3 users, with owners/threshold/mode as stored. Until the
-      //    identity token exists we cannot know whether a record exists, so
-      //    stay in the loading state — deriving here would hand a legacy
-      //    user a wrong (2-of-3) address.
+      //    2-of-3 users, with owners/threshold/derivation as stored. Until
+      //    the identity token exists we cannot know whether a record exists,
+      //    so stay in the loading state.
       if (!identityToken) {
-        return { safeAddress: null, loading: true, record: null, derived: false };
+        return {
+          safeAddress: null,
+          loading: true,
+          record: null,
+          derived: false,
+          derivationVersion: null,
+        };
       }
       const res = await apiFetch(
         `/users/by-signer/${embeddedAddress}`,
@@ -105,10 +116,14 @@ export function useSafeAddress({
         // Transient backend failure: keep loading rather than mis-deriving,
         // and retry shortly.
         console.error(`Safe address backend lookup failed: ${res.status}`);
-        setTimeout(() => {
-          if (!cancelled) setRetry((r) => r + 1);
-        }, 4000);
-        return { safeAddress: null, loading: true, record: null, derived: false };
+        scheduleRetry();
+        return {
+          safeAddress: null,
+          loading: true,
+          record: null,
+          derived: false,
+          derivationVersion: null,
+        };
       }
       const data = (await res.json()) as { user: UserDetails | null };
       if (data.user?.safe_address) {
@@ -117,12 +132,19 @@ export function useSafeAddress({
           loading: false,
           record: data.user,
           derived: false,
+          derivationVersion: data.user.derivation_version ?? null,
         };
       }
 
-      // 2. New user: derive the 2-of-3 counterfactual. Requires owner #2.
+      // 2. New user: server-side derivation. Requires owner #2.
       if (!externalAddress) {
-        return { safeAddress: null, loading: false, record: null, derived: false };
+        return {
+          safeAddress: null,
+          loading: false,
+          record: null,
+          derived: false,
+          derivationVersion: null,
+        };
       }
 
       const owners = canonicalOwners(
@@ -133,26 +155,47 @@ export function useSafeAddress({
       const cacheKey = owners.join(",").toLowerCase();
       const cached = cache.get(cacheKey);
       if (cached) {
-        return { safeAddress: cached, loading: false, record: null, derived: true };
+        return {
+          safeAddress: cached.safeAddress,
+          loading: false,
+          record: null,
+          derived: true,
+          derivationVersion: cached.derivationVersion,
+        };
       }
 
-      const publicClient = createPublicClient({
-        chain: bsc,
-        transport: http(BSC_RPC),
+      const deriveRes = await apiFetch("/safe/derive", identityToken, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerAddresses: owners }),
       });
-
-      const account = await toSafeSmartAccount({
-        client: publicClient,
-        entryPoint: { address: entryPoint07Address, version: "0.7" },
-        owners: owners.map((o) => toAccount(o)),
-        saltNonce: 0n,
-        safeSingletonAddress: SAFE_SINGLETON,
-        safeProxyFactoryAddress: SAFE_PROXY_FACTORY,
-        version: SAFE_VERSION,
-        threshold: BigInt(SAFE_2OF3_THRESHOLD),
-      });
-      cache.set(cacheKey, account.address);
-      return { safeAddress: account.address, loading: false, record: null, derived: true };
+      if (!deriveRes.ok) {
+        const err = await deriveRes.json().catch(() => ({}));
+        console.error(
+          "Safe derivation failed:",
+          (err as { error?: string }).error ?? deriveRes.status
+        );
+        scheduleRetry();
+        return {
+          safeAddress: null,
+          loading: true,
+          record: null,
+          derived: false,
+          derivationVersion: null,
+        };
+      }
+      const derivedData = (await deriveRes.json()) as {
+        safeAddress: string;
+        derivationVersion: number;
+      };
+      cache.set(cacheKey, derivedData);
+      return {
+        safeAddress: derivedData.safeAddress,
+        loading: false,
+        record: null,
+        derived: true,
+        derivationVersion: derivedData.derivationVersion,
+      };
     })()
       .then((result) => {
         if (!cancelled) setState(result);
@@ -163,9 +206,7 @@ export function useSafeAddress({
         console.error("Failed to resolve Safe address:", err);
         if (!cancelled) {
           setState((s) => ({ ...s, safeAddress: null, loading: true }));
-          setTimeout(() => {
-            if (!cancelled) setRetry((r) => r + 1);
-          }, 4000);
+          scheduleRetry();
         }
       })
       .finally(() => {

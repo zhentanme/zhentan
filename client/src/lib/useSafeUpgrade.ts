@@ -61,9 +61,10 @@ export function useSafeUpgrade(): SafeUpgradeState {
         args: [externalWalletAddress as `0x${string}`, 2n],
       });
 
-      // Route through the legacy gasless pipeline: the Safe may hold no BNB,
-      // and if it's still counterfactual the same userOp deploys it via
-      // initCode. /queue validates the calldata hard and auto-executes.
+      // A plain SafeTx on the 2-of-2: user signs, agent co-signs and relays
+      // (agent pays gas). If the Safe is still counterfactual, /queue's lazy
+      // deploy creates it first from the record's stored derivation.
+      // /queue validates the calldata hard and auto-executes.
       await proposeDappTransaction({
         to: safeAddress,
         value: 0n,
@@ -72,7 +73,6 @@ export function useSafeUpgrade(): SafeUpgradeState {
           safeAddress,
           owners: safeConfig.owners,
           threshold: safeConfig.threshold,
-          executionMode: "4337",
         },
         getOwnerAccount,
         upgrade: true,

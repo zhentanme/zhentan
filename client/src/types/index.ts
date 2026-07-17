@@ -231,14 +231,13 @@ export interface PortfolioResponse {
 }
 
 /**
- * Safe identity + execution preferences a proposal needs — sourced from
- * AuthContext (`safeAddress` + `safeConfig`).
+ * Safe identity a proposal needs — sourced from AuthContext
+ * (`safeAddress` + `safeConfig`).
  */
 export interface SafeProposalContext {
   safeAddress: string;
   owners: string[];
   threshold: number;
-  executionMode: TxExecutionType;
 }
 
 export interface ProposeParams {

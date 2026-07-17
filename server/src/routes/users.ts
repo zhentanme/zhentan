@@ -70,14 +70,14 @@ export function createUsersRouter(): IRouter {
       externalWalletAddress,
       safeOwners,
       safeThreshold,
-      executionMode,
+      derivationVersion,
     } = req.body ?? {};
     if (!safeAddress) {
       res.status(400).json({ error: "Missing required field: safeAddress" });
       return;
     }
-    if (executionMode !== undefined && !["safetx", "4337"].includes(executionMode)) {
-      res.status(400).json({ error: "executionMode must be 'safetx' or '4337'" });
+    if (derivationVersion !== undefined && ![1, 2].includes(derivationVersion)) {
+      res.status(400).json({ error: "derivationVersion must be 1 or 2" });
       return;
     }
     try {
@@ -92,7 +92,7 @@ export function createUsersRouter(): IRouter {
         ...(externalWalletAddress !== undefined && { external_wallet_address: externalWalletAddress }),
         ...(safeOwners !== undefined && { safe_owners: safeOwners }),
         ...(safeThreshold !== undefined && { safe_threshold: safeThreshold }),
-        ...(executionMode !== undefined && { execution_mode: executionMode }),
+        ...(derivationVersion !== undefined && { derivation_version: derivationVersion }),
       });
       const details = await getUserDetails(safeAddress);
 

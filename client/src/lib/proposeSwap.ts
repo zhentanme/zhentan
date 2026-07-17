@@ -4,7 +4,6 @@ import { parseUnits, encodeFunctionData, type Address } from "viem";
 
 import { ERC20_APPROVE_ABI, NATIVE_TOKEN_ADDRESS } from "./constants";
 import { apiFetch } from "./api/client";
-import { build4337Proposal } from "./safe/propose4337";
 import { buildSafeTxProposal } from "./safe/proposeSafeTx";
 import type { SafeCall } from "./safe/safeTx";
 import type { SafeProposalContext, TokenPosition } from "@/types";
@@ -77,10 +76,7 @@ export async function proposeSwap({
     data: quote.transaction.data as `0x${string}`,
   });
 
-  const signedFields =
-    safe.executionMode === "safetx"
-      ? await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken })
-      : await build4337Proposal({ calls, safe, getOwnerAccount });
+  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken });
 
   const txId = `swap-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {

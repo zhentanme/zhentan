@@ -8,7 +8,6 @@ import {
   NATIVE_TOKEN_ADDRESS,
 } from "./constants";
 import { apiFetch } from "./api/client";
-import { build4337Proposal } from "./safe/propose4337";
 import { buildSafeTxProposal } from "./safe/proposeSafeTx";
 import type { SafeCall } from "./safe/safeTx";
 import type { ProposeParams } from "@/types";
@@ -51,12 +50,7 @@ export async function proposeTransaction({
     calls = [{ to: tokenAddress as Address, value: 0n, data }];
   }
 
-  // Sign per the user's execution mode: SafeTx (Safe-UI compatible) or
-  // gasless 4337. Legacy 2-of-2 Safes always come through as "4337".
-  const signedFields =
-    safe.executionMode === "safetx"
-      ? await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken })
-      : await build4337Proposal({ calls, safe, getOwnerAccount });
+  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken });
 
   const txId = `tx-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {

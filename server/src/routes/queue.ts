@@ -19,7 +19,8 @@ import {
   recoverSafeTxSigner,
   proposeToService,
 } from "../lib/safe/service.js";
-import { deploySafe, isSafeDeployed, computeCounterfactual } from "../lib/safe/deploy.js";
+import { deploySafe, isSafeDeployed } from "../lib/safe/deploy.js";
+import { DERIVATION_V1_4337, type DerivationVersion } from "../lib/safe/derive.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
 import { readSafeOwners } from "../lib/safe/onchain.js";
 import type { PendingTransaction, SafeTxData } from "../types.js";
@@ -47,24 +48,20 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
     throw new Error("safeTxHash does not match the SafeTx contents");
   }
 
+  // The owner set must come from the server-side record — proposals are only
+  // possible after the sync that creates it, so a missing record means the
+  // caller is spoofing a Safe they never registered.
   const record = await getUserDetails(safeAddress);
-  let owners: string[];
-  if (record?.safe_owners?.length) {
-    owners = record.safe_owners.map((o) => o.toLowerCase());
-  } else {
-    // No trusted owner set on file: the client-supplied one is only
-    // acceptable if it actually derives this Safe address — otherwise
-    // /queue accepts proposals for Safes the signer doesn't own.
-    const claimed = pendingTx.ownerAddresses ?? [];
-    if (claimed.length === 0) throw new Error("No owner set known for this Safe");
-    const { address } = await computeCounterfactual(claimed, pendingTx.threshold);
-    if (address.toLowerCase() !== safeAddress.toLowerCase()) {
-      throw new Error("ownerAddresses do not derive this Safe address");
-    }
-    owners = claimed.map((o) => o.toLowerCase());
+  if (!record) {
+    throw new Error("Unknown Safe — complete onboarding before proposing");
   }
-
   const agent = getAgentAddress().toLowerCase();
+  const owners = (
+    record.safe_owners?.length
+      ? record.safe_owners
+      : // Legacy record predating stored owner sets: the old 2-of-2 pair.
+        [record.signer_address ?? "", getAgentAddress()]
+  ).map((o) => o.toLowerCase());
   const signer = (await recoverSafeTxSigner(safeTxHash as Hex, userSignature as Hex)).toLowerCase();
   if (!owners.includes(signer) || signer === agent) {
     throw new Error("userSignature does not recover to a user owner of this Safe");
@@ -123,14 +120,13 @@ async function validateUpgradeTx(pendingTx: PendingTransaction & { calldata?: st
   }
 }
 
-/** After an executed upgrade: persist the on-chain owner set and flip to SafeTx mode. */
+/** After an executed upgrade: persist the on-chain owner set (now 3 owners, threshold 2). */
 async function finishUpgrade(safeAddress: string): Promise<void> {
   const owners = await readSafeOwners(safeAddress);
   await upsertUserDetails(safeAddress, {
     safe_owners: owners,
     safe_threshold: 2,
     safe_deployed: true,
-    execution_mode: "safetx",
   });
 }
 
@@ -189,8 +185,18 @@ export function createQueueRouter(): IRouter {
         try {
           const record = await getUserDetails(pendingTx.safeAddress);
           if (!record?.safe_deployed && !(await isSafeDeployed(pendingTx.safeAddress))) {
-            const owners = record?.safe_owners ?? pendingTx.ownerAddresses;
-            const result = await deploySafe(owners);
+            // Deploy with the account's OWN derivation recipe — owner set,
+            // threshold and version from the record (legacy records without
+            // stored owners are the old v1 2-of-2 pair).
+            const owners =
+              record?.safe_owners ??
+              (record?.signer_address
+                ? [record.signer_address, getAgentAddress()]
+                : pendingTx.ownerAddresses);
+            const threshold = record?.safe_threshold ?? pendingTx.threshold ?? 2;
+            const version = (record?.derivation_version ??
+              DERIVATION_V1_4337) as DerivationVersion;
+            const result = await deploySafe(owners, threshold, version);
             if (result.address.toLowerCase() !== pendingTx.safeAddress.toLowerCase()) {
               throw new Error(
                 `Owner set deploys to ${result.address}, not ${pendingTx.safeAddress}`

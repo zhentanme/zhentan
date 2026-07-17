@@ -3,7 +3,6 @@
 import type { Address, Hex, LocalAccount } from "viem";
 
 import { apiFetch } from "./api/client";
-import { build4337Proposal } from "./safe/propose4337";
 import { buildSafeTxProposal } from "./safe/proposeSafeTx";
 import type { SafeCall } from "./safe/safeTx";
 import type { DappMetadata, SafeProposalContext } from "@/types";
@@ -39,10 +38,7 @@ export async function proposeDappTransaction({
 }: ProposeDappParams) {
   const calls: SafeCall[] = [{ to: to as Address, value, data: data as Hex }];
 
-  const signedFields =
-    safe.executionMode === "safetx"
-      ? await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken })
-      : await build4337Proposal({ calls, safe, getOwnerAccount });
+  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken });
 
   const txId = `tx-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {
