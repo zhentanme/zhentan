@@ -1,3 +1,9 @@
+> **Legacy 4337 flow.** These CLI scripts exercise the ERC-4337 userOp pipeline
+> (execution_mode "4337" and the 2-of-2 → 2-of-3 upgrade tx). The app's default
+> flow is now SafeTx-based: proposals go to the Safe Transaction Service
+> (visible in app.safe.global) and the agent relays execTransaction — see
+> server/src/lib/safe/ and CLAUDE.md.
+
 ## The user and agent signing flow:
 
 

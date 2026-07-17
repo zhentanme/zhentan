@@ -1,5 +1,31 @@
 export type TransactionDirection = "send" | "receive";
 
+/**
+ * How a transaction is signed and executed:
+ * - "4337"   — ERC-4337 userOp via the Safe4337Module + Pimlico (gasless).
+ * - "safetx" — standard SafeTx (EIP-712) proposed to the Safe Transaction
+ *              Service; visible in app.safe.global; agent confirms and
+ *              relays execTransaction (agent EOA pays gas).
+ */
+export type TxExecutionType = "4337" | "safetx";
+
+/**
+ * Standard Safe transaction fields (EIP-712 SafeTx message).
+ * All uint fields are decimal strings for lossless JSON transport.
+ */
+export interface SafeTxData {
+  to: string;
+  value: string;
+  data: string;
+  operation: 0 | 1;
+  safeTxGas: string;
+  baseGas: string;
+  gasPrice: string;
+  gasToken: string;
+  refundReceiver: string;
+  nonce: number;
+}
+
 export interface PendingTransaction {
   id: string;
   /**
@@ -29,8 +55,20 @@ export interface PendingTransaction {
   ownerAddresses: string[];
   threshold: number;
   safeAddress: string;
-  userOp: Record<string, unknown>;
-  partialSignatures: string;
+  /** Defaults to "4337" for legacy rows without the discriminator. */
+  txType?: TxExecutionType;
+  /** 4337 flow only. */
+  userOp?: Record<string, unknown>;
+  /** 4337 flow only. */
+  partialSignatures?: string;
+  /** SafeTx flow only. */
+  safeTxHash?: string;
+  safeTx?: SafeTxData;
+  safeNonce?: number;
+  /** User's EIP-712 signature over safeTxHash. */
+  userSignature?: string;
+  /** Pre-signed empty tx at the same nonce, used to cancel on reject. */
+  rejectionSignature?: string;
   proposedAt: string;
   executedAt?: string;
   executedBy?: string;

@@ -20,6 +20,9 @@ import { createTokensRouter } from "./routes/tokens.js";
 import { createPayoutRouter } from "./routes/payout.js";
 import { createSwapRouter } from "./routes/swap.js";
 import { createNotificationsRouter } from "./routes/notifications.js";
+import { createSafeRouter } from "./routes/safe.js";
+import { startSafeSyncWorker } from "./workers/safeSync.js";
+import { assertAgentGas } from "./lib/safe/relayer.js";
 import { editNotification } from "./notify.js";
 import { markBotConnectedByChatId, getUserByTelegramId } from "./lib/supabase/index.js";
 
@@ -101,6 +104,7 @@ app.use("/campaigns", auth, createCampaignsRouter());
 app.use("/payout", createPayoutRouter()); // admin-key protected internally
 app.use("/swap", auth, createSwapRouter());
 app.use("/notifications", createNotificationsRouter());
+app.use("/safe", auth, createSafeRouter());
 
 app.post("/notify-resolve", auth, async (req, res) => {
   const { txId, action, txHash, safeAddress } = req.body ?? {};
@@ -228,4 +232,9 @@ app.get("/health", (_req, res) => {
 const port = Number(process.env.PORT) || 3001;
 app.listen(port, () => {
   console.log(`Zhentan server listening on http://localhost:${port}`);
+  startSafeSyncWorker();
+  // Surface a low agent gas balance at boot rather than on the first execute.
+  if (process.env.AGENT_PRIVATE_KEY) {
+    assertAgentGas().catch((err) => console.error("Startup gas check failed:", err));
+  }
 });

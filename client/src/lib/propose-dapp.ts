@@ -1,109 +1,49 @@
 "use client";
 
-import { createPublicClient, http, type Address, type Hex } from "viem";
-import { bsc } from "viem/chains";
-import { toAccount } from "viem/accounts";
-import { entryPoint07Address } from "viem/account-abstraction";
-import { createSmartAccountClient } from "permissionless";
-import { createPimlicoClient } from "permissionless/clients/pimlico";
-import { toSafeSmartAccount } from "permissionless/accounts";
-import { SafeSmartAccount } from "permissionless/accounts/safe";
+import type { Address, Hex, LocalAccount } from "viem";
 
-import {
-  SAFE_SINGLETON,
-  SAFE_PROXY_FACTORY,
-  SAFE_VERSION,
-  BSC_RPC,
-  getPimlicoRpcUrl,
-} from "./constants";
-import { serializeUserOp } from "./serialize";
 import { apiFetch } from "./api/client";
-import type { DappMetadata } from "@/types";
-import type { LocalAccount } from "viem";
+import { build4337Proposal } from "./safe/propose4337";
+import { buildSafeTxProposal } from "./safe/proposeSafeTx";
+import type { SafeCall } from "./safe/safeTx";
+import type { DappMetadata, SafeProposalContext } from "@/types";
 
 export interface ProposeDappParams {
   to: string;
   value: bigint;
   data: string;
-  ownerAddress: string;
+  safe: SafeProposalContext;
   getOwnerAccount: () => Promise<LocalAccount | null>;
   dappMetadata?: DappMetadata;
   /** When true, server skips risk analysis; client will call execute. */
   screeningDisabled?: boolean;
+  /**
+   * Marks the legacy 2-of-2 → 2-of-3 upgrade tx (addOwnerWithThreshold on the
+   * Safe itself). The server validates the calldata hard and skips screening.
+   */
+  upgrade?: boolean;
   /** Privy identity token for authenticating the backend request */
   identityToken?: string | null;
-}
-
-function requireEnv(val: string | undefined, name: string): string {
-  if (!val) throw new Error(`Missing env var: ${name}`);
-  return val;
 }
 
 export async function proposeDappTransaction({
   to,
   value,
   data,
-  ownerAddress,
+  safe,
   getOwnerAccount,
   dappMetadata,
   screeningDisabled,
+  upgrade,
   identityToken,
 }: ProposeDappParams) {
-  const pimlicoApiKey = requireEnv(process.env.NEXT_PUBLIC_PIMLICO_API_KEY, "NEXT_PUBLIC_PIMLICO_API_KEY");
-  const ownerAddr2 = requireEnv(process.env.NEXT_PUBLIC_AGENT_ADDRESS, "NEXT_PUBLIC_AGENT_ADDRESS");
+  const calls: SafeCall[] = [{ to: to as Address, value, data: data as Hex }];
 
-  const ownerAccount = await getOwnerAccount();
-  if (!ownerAccount) throw new Error("Wallet not ready for signing");
-  const owners = [toAccount(ownerAddress as Address), toAccount(ownerAddr2 as Address)];
+  const signedFields =
+    safe.executionMode === "safetx"
+      ? await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken })
+      : await build4337Proposal({ calls, safe, getOwnerAccount });
 
-  const publicClient = createPublicClient({
-    chain: bsc,
-    transport: http(BSC_RPC),
-  });
-
-  const paymasterClient = createPimlicoClient({
-    transport: http(getPimlicoRpcUrl(pimlicoApiKey)),
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-  });
-
-  const safeAccount = await toSafeSmartAccount({
-    client: publicClient,
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-    owners,
-    saltNonce: 0n,
-    safeSingletonAddress: SAFE_SINGLETON,
-    safeProxyFactoryAddress: SAFE_PROXY_FACTORY,
-    version: SAFE_VERSION,
-    threshold: 2n,
-  });
-
-  const smartAccountClient = createSmartAccountClient({
-    account: safeAccount,
-    chain: bsc,
-    paymaster: paymasterClient,
-    bundlerTransport: http(getPimlicoRpcUrl(pimlicoApiKey)),
-    userOperation: {
-      estimateFeesPerGas: async () =>
-        (await paymasterClient.getUserOperationGasPrice()).fast,
-    },
-  });
-
-  // 1. Prepare unsigned user operation with raw calldata
-  const unsignedUserOp = await smartAccountClient.prepareUserOperation({
-    calls: [{ to: to as Address, value, data: data as Hex }],
-  });
-
-  // 2. Owner signs their part
-  const partialSignatures = await SafeSmartAccount.signUserOperation({
-    version: SAFE_VERSION,
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-    chainId: bsc.id,
-    owners,
-    account: ownerAccount,
-    ...unsignedUserOp,
-  });
-
-  // 3. Build pending tx object
   const txId = `tx-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {
     id: txId,
@@ -112,21 +52,15 @@ export async function proposeDappTransaction({
     token: "BNB",
     tokenAddress: "",
     ...(screeningDisabled && { screeningDisabled: true }),
-    proposedBy: ownerAccount.address,
-    signatures: [ownerAccount.address],
-    ownerAddresses: [ownerAddress, ownerAddr2],
-    threshold: 2,
-    safeAddress: safeAccount.address,
-    userOp: serializeUserOp(unsignedUserOp as unknown as Record<string, unknown>),
-    partialSignatures,
+    ...(upgrade && { upgrade: true }),
     proposedAt: new Date().toISOString(),
     source: "walletconnect" as const,
     calldata: data,
     value: value.toString(),
     dappMetadata,
+    ...signedFields,
   };
 
-  // 4. POST to queue
   const res = await apiFetch("/queue", identityToken, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

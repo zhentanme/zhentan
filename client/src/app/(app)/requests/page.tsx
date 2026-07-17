@@ -7,7 +7,6 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
 import { TwinTickLoader } from "@/components/TwinTickLoader";
-import { useSafeAddress } from "@/lib/useSafeAddress";
 import { proposeTransaction } from "@/lib/propose";
 import { useApiClient } from "@/lib/api/client";
 import { findFallbackTokenBySymbol } from "@/lib/tokenFallbacks";
@@ -32,8 +31,7 @@ const staggerItem = {
 };
 
 function RequestsPageContent() {
-  const { user, wallet, getOwnerAccount, identityToken } = useAuth();
-  const { safeAddress, loading: safeLoading } = useSafeAddress(wallet?.address);
+  const { user, wallet, getOwnerAccount, identityToken, safeAddress, safeLoading, safeConfig } = useAuth();
   const api = useApiClient();
 
   // Requests come from the shared activity feed so this page, the nav badges and
@@ -81,10 +79,11 @@ function RequestsPageContent() {
         throw new Error(`Unsupported token: ${request.token}`);
       }
 
+      if (!safeAddress || !safeConfig) throw new Error("Wallet not ready");
       const pendingTx = await proposeTransaction({
         recipient: request.to,
         amount: String(request.amount),
-        ownerAddress: wallet.address,
+        safe: { safeAddress, ...safeConfig },
         getOwnerAccount,
         tokenAddress: token.address,
         tokenDecimals: token.decimals,
@@ -97,7 +96,7 @@ function RequestsPageContent() {
       refreshRequests();
       return { txId: pendingTx.id };
     },
-    [user, wallet, getOwnerAccount, identityToken, resolveToken, refreshRequests, api]
+    [user, wallet, getOwnerAccount, safeAddress, safeConfig, identityToken, resolveToken, refreshRequests, api]
   );
 
   const handleReject = useCallback(

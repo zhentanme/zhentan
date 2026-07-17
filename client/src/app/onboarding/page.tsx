@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, AtSign, Check, MessageCircle, Loader2, X, XIcon } from "lucide-react";
+import { ArrowRight, AtSign, Check, KeyRound, MessageCircle, Loader2, Wallet, X, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AuthGuard } from "@/components/AuthGuard";
 import { BrandMark } from "@/components/BrandMark";
@@ -11,9 +11,11 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
 import { useLinkAccount, usePrivy } from "@privy-io/react-auth";
 import {
+  markOnboardingWalletLinked,
   markOnboardingUsernameSkipped,
   markOnboardingUsernameSet,
   markOnboardingTelegramDone,
+  readOnboardingStep,
 } from "@/lib/useOnboarding";
 
 /* ─── Step Indicator ─────────────────────────────────────────────── */
@@ -37,7 +39,141 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   );
 }
 
-/* ─── Step 1: Choose Username ────────────────────────────────────── */
+/* ─── Step 1: Add Backup Key (owner #2) ──────────────────────────── */
+
+function BackupKeyStep({ onContinue }: { onContinue: () => void }) {
+  const { wallet, externalWalletAddress, safeAddress, safeLoading } = useAuth();
+  const [linking, setLinking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { linkWallet } = useLinkAccount({
+    onSuccess: () => setLinking(false),
+    onError: () => setLinking(false),
+  });
+
+  const linked = !!externalWalletAddress;
+  const sameAsEmbedded =
+    linked &&
+    wallet?.address &&
+    externalWalletAddress!.toLowerCase() === wallet.address.toLowerCase();
+
+  // The Safe address is derived from [embedded, backup, agent] — it starts
+  // computing the moment the backup key lands.
+  const vaultReady = linked && !sameAsEmbedded && !!safeAddress && !safeLoading;
+
+  const handleLink = () => {
+    setError(null);
+    setLinking(true);
+    try {
+      linkWallet();
+    } catch (e) {
+      setLinking(false);
+      setError(e instanceof Error ? e.message : "Could not open wallet connect");
+    }
+  };
+
+  return (
+    <motion.div
+      key="backup-key"
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      transition={{ type: "spring", bounce: 0.15 }}
+      className="flex flex-col items-center w-full"
+    >
+      <div className="w-14 h-14 rounded-2xl bg-gold/10 flex items-center justify-center mb-6">
+        <KeyRound className="w-7 h-7 text-gold" />
+      </div>
+
+      <h2 className="text-2xl font-bold text-center mb-2">Add your backup key</h2>
+      <p className="text-sm text-muted-foreground text-center mb-8 max-w-xs">
+        Connect a second wallet — MetaMask, a hardware wallet, any wallet you
+        control. It&apos;s your override key: with it you can always move your
+        funds, even without Zhentan.
+      </p>
+
+      <div className="w-full max-w-xs space-y-4">
+        <AnimatePresence mode="wait">
+          {!linked ? (
+            <motion.div
+              key="unlinked"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ type: "spring", bounce: 0.1 }}
+            >
+              <button
+                onClick={handleLink}
+                disabled={linking}
+                className="w-full flex items-center gap-4 rounded-2xl px-5 py-4 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 hover:border-foreground/12 transition-all duration-200 disabled:opacity-60 disabled:cursor-default"
+              >
+                <div className="w-10 h-10 rounded-xl bg-foreground/6 flex items-center justify-center shrink-0">
+                  {linking
+                    ? <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+                    : <Wallet className="h-5 w-5 text-muted-foreground" />
+                  }
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-semibold text-foreground">Connect backup wallet</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {linking ? "Opening wallet..." : "Becomes an owner of your vault"}
+                  </p>
+                </div>
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="linked"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ type: "spring", bounce: 0.1 }}
+              className="w-full flex items-center gap-4 rounded-2xl px-5 py-4 border border-safe/25 bg-safe/6"
+            >
+              <div className="w-10 h-10 rounded-xl bg-safe/12 flex items-center justify-center shrink-0">
+                <Check className="h-5 w-5 text-safe" />
+              </div>
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-semibold text-foreground">Backup key linked</p>
+                <p className="text-xs text-muted-foreground mt-0.5 font-mono truncate">
+                  {externalWalletAddress}
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {sameAsEmbedded && (
+          <p className="text-xs text-danger text-center">
+            The backup key must be a different wallet from your Zhentan account.
+          </p>
+        )}
+        {error && <p className="text-xs text-danger text-center">{error}</p>}
+
+        <Button
+          onClick={onContinue}
+          disabled={!vaultReady}
+          className="w-full"
+        >
+          {!linked
+            ? "Connect a wallet to continue"
+            : !vaultReady
+            ? "Creating your vault..."
+            : "Continue"}
+          {vaultReady && <ArrowRight className="ml-2 h-4 w-4" />}
+        </Button>
+
+        <p className="text-[11px] text-muted-foreground/70 text-center leading-relaxed">
+          Your vault is a 2-of-3 Safe: your Zhentan key, this backup key, and
+          the screening agent. Any two signatures move funds — so you&apos;re never
+          locked out, and Zhentan alone can never move a cent.
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─── Step 2: Choose Username ────────────────────────────────────── */
 
 function UsernameStep({
   onSave,
@@ -406,53 +542,67 @@ function DoneStep({
 
 function OnboardingContent() {
   const router = useRouter();
-  const { safeAddress, user } = useAuth();
+  const { safeAddress, safeConfig, safeLoading, wallet, user } = useAuth();
   const api = useApiClient();
 
   const [step, setStep] = useState(0);
   const [stepReady, setStepReady] = useState(false);
   const [savedUsername, setSavedUsername] = useState<string | null>(null);
-  const totalSteps = 3;
+  const totalSteps = 4;
 
-  // Restore step from localStorage on mount (once safeAddress is ready)
+  // Restore step from localStorage on mount. Keyed by the embedded wallet —
+  // the Safe address doesn't exist until the backup key is linked (step 0).
   useEffect(() => {
-    if (!safeAddress) return;
-    try {
-      const raw = localStorage.getItem(`onboarding_${safeAddress}`);
-      if (raw) {
-        const s = JSON.parse(raw);
-        if (typeof s.step === "number" && s.step >= 0 && s.step <= 2) {
-          setStep(s.step);
-        }
-      }
-    } catch {}
+    if (!wallet?.address) return;
+    setStep(readOnboardingStep(wallet.address));
     setStepReady(true);
-  }, [safeAddress]);
+  }, [wallet?.address]);
+
+  // A restored step past 0 is only valid once the Safe resolves — without a
+  // backup key there is no Safe address, so send the user back to step 0.
+  useEffect(() => {
+    if (!stepReady || safeLoading) return;
+    if (step > 0 && !safeAddress) setStep(0);
+  }, [stepReady, safeLoading, step, safeAddress]);
+
+  const handleBackupKeyDone = () => {
+    if (!wallet?.address) return;
+    markOnboardingWalletLinked(wallet.address);
+    setStep(1);
+  };
 
   const handleSaveUsername = async (username: string) => {
-    if (!safeAddress) throw new Error("Wallet not ready");
+    if (!safeAddress || !wallet?.address) throw new Error("Wallet not ready");
     await api.users.upsert({ safeAddress, username });
-    markOnboardingUsernameSet(safeAddress);
+    markOnboardingUsernameSet(wallet.address);
     setSavedUsername(username);
-    setStep(1);
+    setStep(2);
   };
 
   const handleSkipUsername = () => {
-    if (!safeAddress) return;
-    markOnboardingUsernameSkipped(safeAddress);
-    setStep(1);
+    if (!wallet?.address) return;
+    markOnboardingUsernameSkipped(wallet.address);
+    setStep(2);
   };
 
-  const handleTelegramDone = () => setStep(2);
+  const handleTelegramDone = () => setStep(3);
 
-  const handleSkipTelegram = () => setStep(2);
+  const handleSkipTelegram = () => setStep(3);
 
   const handleFinish = async () => {
-    if (!safeAddress) return;
+    if (!safeAddress || !wallet?.address) return;
     // Persist on the server first — we want onboarding_completed set even if the
     // user never returns to this tab. Client-side flags and navigation follow.
     await api.users.upsert({ safeAddress, onboardingCompleted: true });
-    markOnboardingTelegramDone(safeAddress);
+    // Eager deploy: the Safe must exist on-chain for app.safe.global and the
+    // Transaction Service. Agent pays gas; /queue re-checks as a fallback,
+    // so a failure here must not trap the user on this screen.
+    if (safeConfig && !safeConfig.legacy) {
+      api.safe.deploy(safeConfig.owners).catch((err) => {
+        console.error("Eager Safe deploy failed (will retry on first tx):", err);
+      });
+    }
+    markOnboardingTelegramDone(wallet.address);
     router.replace("/home");
   };
 
@@ -489,20 +639,21 @@ function OnboardingContent() {
 
         {/* Step content */}
         <AnimatePresence mode="wait">
-          {step === 0 && (
+          {step === 0 && <BackupKeyStep onContinue={handleBackupKeyDone} />}
+          {step === 1 && (
             <UsernameStep
               onSave={handleSaveUsername}
               onSkip={handleSkipUsername}
             />
           )}
-          {step === 1 && safeAddress && (
+          {step === 2 && safeAddress && (
             <ConnectStep
               safeAddress={safeAddress}
               onFinish={handleTelegramDone}
               onSkip={handleSkipTelegram}
             />
           )}
-          {step === 2 && (
+          {step === 3 && (
             <DoneStep
               username={savedUsername}
               socialName={user?.name ?? null}

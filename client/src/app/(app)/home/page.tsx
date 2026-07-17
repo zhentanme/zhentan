@@ -15,6 +15,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ThemeLoader } from "@/components/ThemeLoader";
 import { ClaimBanner } from "@/components/ClaimBanner";
+import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
@@ -120,6 +121,9 @@ function Dashboard() {
     <div className="flex flex-col h-screen bg-background">
 
       <main className="flex-1 flex flex-col min-h-0 w-full overflow-y-auto pb-24 sm:pb-8 px-4 sm:px-8 lg:px-10 pt-2 sm:pt-6">
+        {/* Legacy 2-of-2 → 2-of-3 upgrade */}
+        <UpgradeBanner className="mb-4" />
+
         {/* Claim banner */}
         <div className="mb-4">
         <ClaimBanner

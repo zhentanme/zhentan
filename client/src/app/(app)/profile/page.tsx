@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useApiClient } from "@/lib/api/client";
-import { useSafeAddress } from "@/lib/useSafeAddress";
 import { TwinTick } from "@/components/BrandMark";
 
 const staggerContainer = {
@@ -50,9 +49,8 @@ function ProfilePageContent() {
   const [usernameTaken, setUsernameTaken] = useState(false);
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
-  const { user, wallet, logout } = useAuth();
-  const { safeAddress: computedSafeAddress } = useSafeAddress(wallet?.address);
-  const safeAddress = computedSafeAddress || "";
+  const { user, wallet, logout, safeAddress: authSafeAddress } = useAuth();
+  const safeAddress = authSafeAddress || "";
   const api = useApiClient();
 
   useEffect(() => {

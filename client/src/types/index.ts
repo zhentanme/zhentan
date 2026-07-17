@@ -1,5 +1,32 @@
 export type TransactionDirection = "send" | "receive";
 
+/**
+ * How a transaction is signed and executed:
+ * - "4337"   — ERC-4337 userOp via the Safe4337Module + Pimlico (gasless).
+ * - "safetx" — standard SafeTx (EIP-712) proposed to the Safe Transaction
+ *              Service; visible in app.safe.global; agent confirms and
+ *              relays execTransaction.
+ */
+export type TxExecutionType = "4337" | "safetx";
+
+/**
+ * Standard Safe transaction fields (EIP-712 SafeTx message).
+ * All uint fields are decimal strings for lossless JSON transport.
+ * Must stay in sync with server/src/types.ts.
+ */
+export interface SafeTxData {
+  to: string;
+  value: string;
+  data: string;
+  operation: 0 | 1;
+  safeTxGas: string;
+  baseGas: string;
+  gasPrice: string;
+  gasToken: string;
+  refundReceiver: string;
+  nonce: number;
+}
+
 export interface DappMetadata {
   name: string;
   url: string;
@@ -40,8 +67,20 @@ export interface PendingTransaction {
   ownerAddresses: string[];
   threshold: number;
   safeAddress: string;
-  userOp: Record<string, unknown>;
-  partialSignatures: string;
+  /** Defaults to "4337" for legacy rows without the discriminator. */
+  txType?: TxExecutionType;
+  /** 4337 flow only. */
+  userOp?: Record<string, unknown>;
+  /** 4337 flow only. */
+  partialSignatures?: string;
+  /** SafeTx flow only. */
+  safeTxHash?: string;
+  safeTx?: SafeTxData;
+  safeNonce?: number;
+  /** User's EIP-712 signature over safeTxHash. */
+  userSignature?: string;
+  /** Pre-signed empty tx at the same nonce, used to cancel on reject. */
+  rejectionSignature?: string;
   proposedAt: string;
   /** Transaction origin: "send_panel" for manual sends, "walletconnect" for DApp requests */
   // source?: "send_panel" | "walletconnect";
@@ -191,10 +230,22 @@ export interface PortfolioResponse {
   percentChange24h?: number | null;
 }
 
+/**
+ * Safe identity + execution preferences a proposal needs — sourced from
+ * AuthContext (`safeAddress` + `safeConfig`).
+ */
+export interface SafeProposalContext {
+  safeAddress: string;
+  owners: string[];
+  threshold: number;
+  executionMode: TxExecutionType;
+}
+
 export interface ProposeParams {
   recipient: string;
   amount: string;
-  ownerAddress: string;
+  /** Safe identity + execution mode (from useAuth().safeConfig). */
+  safe: SafeProposalContext;
   getOwnerAccount: () => Promise<import("viem").LocalAccount | null>;
   /** ERC20 token contract address (default: USDC from env) */
   tokenAddress?: string;

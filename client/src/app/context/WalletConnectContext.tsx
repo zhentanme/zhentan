@@ -59,7 +59,7 @@ const SUPPORTED_METHODS = [
 const SUPPORTED_EVENTS = ["chainChanged", "accountsChanged"];
 
 export function WalletConnectProvider({ children }: { children: ReactNode }) {
-  const { wallet, getOwnerAccount, safeAddress, identityToken } = useAuth();
+  const { wallet, getOwnerAccount, safeAddress, safeConfig, identityToken } = useAuth();
   const api = useApiClient();
   const [walletKit, setWalletKit] = useState<InstanceType<typeof WalletKit> | null>(null);
   const [ready, setReady] = useState(false);
@@ -262,11 +262,12 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      if (!safeConfig) throw new Error("Wallet not ready");
       const pending = await proposeDappTransaction({
         to: txParams.to,
         value: txParams.value ? BigInt(txParams.value) : 0n,
         data: txParams.data || "0x",
-        ownerAddress: wallet.address,
+        safe: { safeAddress, ...safeConfig },
         getOwnerAccount,
         dappMetadata: pendingRequest.dappMetadata,
         screeningDisabled: !screeningOn,

@@ -16,9 +16,11 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
+  LayoutGrid,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useApiClient } from "@/lib/api/client";
+import { UpgradeBanner } from "@/components/UpgradeBanner";
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -46,7 +48,18 @@ function SettingsPageContent() {
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoOpenedRef = useRef(false);
   const prevFullyActivatedRef = useRef<boolean | null>(null);
-  const { telegramUserId, privyUser, safeAddress } = useAuth();
+  const { telegramUserId, privyUser, safeAddress, safeConfig, refreshSafe } = useAuth();
+  const [modeToggling, setModeToggling] = useState(false);
+  // Optimistic local view of the execution mode; cleared once safeConfig
+  // catches up after refreshSafe() so the backend stays the source of truth.
+  const [modeOverride, setModeOverride] = useState<"safetx" | "4337" | null>(null);
+  useEffect(() => {
+    if (modeOverride && safeConfig?.executionMode === modeOverride) {
+      setModeOverride(null);
+    }
+  }, [modeOverride, safeConfig?.executionMode]);
+  const executionMode = modeOverride ?? safeConfig?.executionMode ?? "safetx";
+  const safeUiCompatible = executionMode === "safetx";
   const {
     screeningMode,
     botConnected,
@@ -169,6 +182,21 @@ function SettingsPageContent() {
       // setActivationOpen(true);
     }
   }, [loading, screeningMode, fullyActivated]);
+
+  const handleModeToggle = async () => {
+    if (!safeAddress || !safeConfig || safeConfig.legacy) return;
+    const next = safeUiCompatible ? "4337" : "safetx";
+    setModeToggling(true);
+    setModeOverride(next);
+    try {
+      await api.users.upsert({ safeAddress, executionMode: next });
+      refreshSafe();
+    } catch {
+      setModeOverride(null);
+    } finally {
+      setModeToggling(false);
+    }
+  };
 
   const handleUnlinkTelegram = async () => {
     try {
@@ -328,6 +356,93 @@ function SettingsPageContent() {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* Legacy 2-of-2 → 2-of-3 upgrade */}
+              <UpgradeBanner />
+
+              {/* WALLET section — execution mode */}
+              <motion.div variants={staggerItem}>
+                <div className="pt-6 border-t border-dashed border-border">
+                  <span className="eyebrow text-muted-foreground/60">Wallet</span>
+                </div>
+                <div className="mt-4 rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
+                  <div className="flex items-center gap-4 p-5">
+                    <div
+                      className={clsx(
+                        "w-10 h-10 rounded-md flex items-center justify-center shrink-0 transition-colors",
+                        safeUiCompatible ? "bg-gold/10 text-gold" : "bg-foreground/6 text-muted-foreground/80"
+                      )}
+                    >
+                      <LayoutGrid className="h-5 w-5" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold text-foreground">Safe app compatibility</h3>
+                        <span
+                          className={clsx(
+                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill text-[10px] font-mono uppercase tracking-wider",
+                            safeUiCompatible ? "bg-safe/12 text-safe" : "bg-foreground/8 text-muted-foreground"
+                          )}
+                        >
+                          <span className={clsx("h-1.5 w-1.5 rounded-pill", safeUiCompatible ? "bg-safe" : "bg-muted-foreground")} />
+                          {safeUiCompatible ? "On" : "Off"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground/80 mt-0.5">
+                        {safeConfig?.legacy
+                          ? "Add your backup key to unlock Safe app support"
+                          : safeUiCompatible
+                            ? "Transactions appear in app.safe.global — sign there with your backup key anytime"
+                            : "Gasless mode — transactions skip the Safe app queue"}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={handleModeToggle}
+                      disabled={modeToggling || !!safeConfig?.legacy}
+                      aria-label="Toggle Safe app compatibility"
+                      className={clsx(
+                        "relative w-12 h-6 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default disabled:opacity-50",
+                        safeUiCompatible ? "bg-gold" : "bg-foreground/12"
+                      )}
+                    >
+                      {modeToggling ? (
+                        <span className="absolute inset-0 flex items-center justify-center">
+                          <Loader2 className="h-3 w-3 animate-spin text-ink-900" />
+                        </span>
+                      ) : (
+                        <span
+                          className={clsx(
+                            "absolute top-0.5 w-5 h-5 rounded-pill bg-ink-0 shadow-md transition-all",
+                            safeUiCompatible ? "left-6" : "left-0.5"
+                          )}
+                        />
+                      )}
+                    </button>
+                  </div>
+
+                  <AnimatePresence>
+                    {!safeUiCompatible && !safeConfig?.legacy && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="px-5 pb-4"
+                      >
+                        <div className="flex items-start gap-2.5 rounded-md p-3 bg-watch/[0.07] border border-watch/15">
+                          <AlertCircle className="h-3.5 w-3.5 text-watch shrink-0 mt-0.5" />
+                          <p className="text-[11px] text-watch/90 leading-relaxed">
+                            New transactions run gasless and won&apos;t show in the Safe
+                            app. Proposals already in the Safe queue stay there until
+                            executed or rejected.
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
 
               {/* UPGRADE section */}
               <motion.div variants={staggerItem}>

@@ -19,7 +19,11 @@ export default function LoginPage() {
   const router = useRouter();
 
   const { loading: onboardingLoading, complete: onboardingComplete } = useOnboarding(
-    !loading && user && wallet && !safeLoading ? safeAddress : null,
+    {
+      walletAddress: wallet?.address,
+      safeAddress,
+      ready: !loading && !!user && !!wallet && !safeLoading,
+    },
     telegramUserId
   );
 

@@ -15,7 +15,7 @@ import type { QueuedRequest, TokenPosition } from "@/types";
  * bookkeeping update. Both refresh the shared activity feed afterwards.
  */
 export function useRequestActions() {
-  const { user, wallet, getOwnerAccount, safeAddress, identityToken } = useAuth();
+  const { user, wallet, getOwnerAccount, safeAddress, safeConfig, identityToken } = useAuth();
   const api = useApiClient();
   const { refresh } = useActivityData();
   const [tokens, setTokens] = useState<TokenPosition[]>([]);
@@ -57,10 +57,11 @@ export function useRequestActions() {
         throw new Error(`Unsupported token: ${request.token}`);
       }
 
+      if (!safeAddress || !safeConfig) throw new Error("Wallet not ready");
       const pendingTx = await proposeTransaction({
         recipient: request.to,
         amount: String(request.amount),
-        ownerAddress: wallet.address,
+        safe: { safeAddress, ...safeConfig },
         getOwnerAccount,
         tokenAddress: token.address,
         tokenDecimals: token.decimals,
@@ -73,7 +74,7 @@ export function useRequestActions() {
       refresh();
       return { txId: pendingTx.id };
     },
-    [user, wallet, getOwnerAccount, identityToken, resolveToken, refresh, api]
+    [user, wallet, getOwnerAccount, safeAddress, safeConfig, identityToken, resolveToken, refresh, api]
   );
 
   const handleReject = useCallback(

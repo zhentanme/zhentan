@@ -27,7 +27,7 @@ flowchart TD
     OC -->|REVIEW: deep-analyze| EXT[GoPlus / Honeypot.is]
     EXT -->|address + token report| OC
     OC <-->|REVIEW: report + approve/reject\nBLOCK: alert| TG[Telegram / User]
-    OC -->|signs 2-of-2| B[Bundler]
+    OC -->|co-signs (2 of 3)| B[Bundler]
     B -->|UserOperation| BC[BNB Chain]
     BC -->|txHash| C
     BC -->|txHash| D
@@ -40,8 +40,8 @@ flowchart TD
 **Client (`client/`)**
 - Next.js 14 App Router, React 18, TypeScript
 - Privy for Google OAuth + embedded wallet creation
-- Deploys a Safe 2-of-2 smart account per user (owner = user's embedded wallet, co-signer = agent address)
-- Signs 1-of-2 for every transaction, then POSTs to `/queue`
+- Deploys a Safe 2-of-3 smart account per user (owners = user's embedded wallet + user's linked backup wallet + agent address, threshold 2)
+- Signs 1 of the 2 required signatures for every transaction, then POSTs to `/queue`
 - WalletConnect v2 integration: acts as a wallet for DApps
 - Portfolio via Zerion API (live balances, prices, 24h change)
 
@@ -86,7 +86,7 @@ Score thresholds:
 ### On-Chain Architecture
 
 - **Smart Account:** Safe 1.4.1 multisig with ERC-4337 module
-- **Threshold:** 2-of-2 (user + agent)
+- **Threshold:** 2-of-3 (user holds 2 keys: embedded + backup wallet; agent holds 1) — the user's keys alone meet the threshold, so the agent is advisory, never custodial. Legacy 2-of-2 Safes supported until upgraded via addOwnerWithThreshold.
 - **EntryPoint:** v0.7
 - **Bundler/Paymaster:** Pimlico (gasless)
 
@@ -107,7 +107,7 @@ sequenceDiagram
     S->>S: analyzeRisk() → score
     S->>OC: notify (verdict + score)
     alt APPROVE
-        OC->>OC: sign 2-of-2
+        OC->>OC: co-sign (2 of 3)
         OC->>B: sendUserOperation
         B->>BC: execute
         BC-->>C: txHash
@@ -117,7 +117,7 @@ sequenceDiagram
         EXT-->>OC: address reputation, token security
         OC->>TG: analysis report + [Approve] [Reject]
         TG-->>OC: user responds (approve/reject)
-        OC->>OC: sign 2-of-2 (if approved)
+        OC->>OC: co-sign (2 of 3, if approved)
         OC->>B: sendUserOperation
         B->>BC: execute
         OC->>S: record-pattern (update profile)

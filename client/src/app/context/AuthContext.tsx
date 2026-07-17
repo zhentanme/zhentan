@@ -7,6 +7,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type ReactNode,
 } from "react";
 import { usePrivy, useWallets, useCreateWallet, useIdentityToken } from "@privy-io/react-auth";
@@ -14,8 +15,10 @@ import { createWalletClient, custom } from "viem";
 import { bsc } from "viem/chains";
 import type { Address, LocalAccount } from "viem";
 import { useSafeAddress } from "@/lib/useSafeAddress";
+import { canonicalOwners, SAFE_2OF3_THRESHOLD } from "@/lib/safe/owners";
 import { apiFetch } from "@/lib/api/client";
 import { clearOnboardingCompleteCookie } from "@/lib/useOnboarding";
+import type { TxExecutionType } from "@/types";
 
 export interface AuthUser {
   email?: string;
@@ -26,6 +29,18 @@ export interface AuthUser {
 
 export interface AuthWallet {
   address: string;
+}
+
+export interface SafeConfig {
+  /** Owner set — canonical [embedded, external, agent] for new Safes, stored set for existing ones. */
+  owners: string[];
+  threshold: number;
+  /** True for pre-2-of-3 Safes (two owners / no backup key) — needs the upgrade flow. */
+  legacy: boolean;
+  /** True once the Safe contract is deployed on-chain (tracked from eager deploy onward). */
+  deployed: boolean;
+  /** SafeTx (Safe-UI compatible, agent relays) vs 4337 (gasless). Legacy Safes always run 4337. */
+  executionMode: TxExecutionType;
 }
 
 export interface AuthContextType {
@@ -40,6 +55,12 @@ export interface AuthContextType {
   safeAddress: string | null;
   /** Whether the Safe address is still being computed */
   safeLoading: boolean;
+  /** Linked external wallet address (owner #2 / backup key), if any */
+  externalWalletAddress: string | null;
+  /** Owner set, threshold, legacy/deployed state and execution mode for this Safe */
+  safeConfig: SafeConfig | null;
+  /** Re-resolve the Safe record from the backend (after onboarding/upgrade/settings changes) */
+  refreshSafe: () => void;
   /** Telegram user ID from linked account */
   telegramUserId?: string;
   /** Raw Privy user for accessing linkedAccounts */
@@ -105,6 +126,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { address: primaryWallet.address };
   }, [primaryWallet]);
 
+  // Linked external wallet (owner #2 / backup key). Read from linkedAccounts —
+  // it persists across sessions even when the wallet isn't currently connected.
+  const externalWalletAddress = useMemo(() => {
+    const accounts = privyUser?.linkedAccounts ?? [];
+    const external = accounts.find(
+      (a) =>
+        a.type === "wallet" &&
+        "walletClientType" in a &&
+        a.walletClientType !== "privy" &&
+        "address" in a
+    );
+    return external && "address" in external ? (external.address as string) : null;
+  }, [privyUser]);
+
   const loading = !ready || (authenticated && !primaryWallet);
 
   const login = useCallback(() => {
@@ -116,7 +151,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await privyLogout();
   }, [privyLogout]);
 
-  const { safeAddress, loading: safeLoading } = useSafeAddress(wallet?.address ?? undefined);
+  const [safeRefreshKey, setSafeRefreshKey] = useState(0);
+  const refreshSafe = useCallback(() => setSafeRefreshKey((k) => k + 1), []);
+
+  const {
+    safeAddress,
+    loading: safeLoading,
+    record: safeRecord,
+    derived: safeDerived,
+  } = useSafeAddress({
+    embeddedAddress: wallet?.address,
+    externalAddress: externalWalletAddress ?? undefined,
+    identityToken,
+    refreshKey: safeRefreshKey,
+  });
+
+  const agentAddress = process.env.NEXT_PUBLIC_AGENT_ADDRESS;
+
+  const safeConfig: SafeConfig | null = useMemo(() => {
+    if (!safeAddress) return null;
+    if (safeRecord) {
+      const owners =
+        safeRecord.safe_owners ??
+        // Legacy record without stored owners: reconstruct the old 2-of-2 set.
+        (safeRecord.signer_address && agentAddress
+          ? [safeRecord.signer_address, agentAddress]
+          : []);
+      const legacy = owners.length < 3;
+      return {
+        owners,
+        threshold: safeRecord.safe_threshold ?? 2,
+        legacy,
+        deployed: safeRecord.safe_deployed ?? false,
+        // Legacy 2-of-2 Safes can't use the SafeTx flow until upgraded.
+        executionMode: legacy ? "4337" : safeRecord.execution_mode ?? "safetx",
+      };
+    }
+    // Freshly derived 2-of-3 (new user, record not created yet).
+    if (!wallet?.address || !externalWalletAddress || !agentAddress) return null;
+    return {
+      owners: canonicalOwners(
+        wallet.address as Address,
+        externalWalletAddress as Address,
+        agentAddress as Address
+      ),
+      threshold: SAFE_2OF3_THRESHOLD,
+      legacy: false,
+      deployed: false,
+      executionMode: "safetx",
+    };
+  }, [safeAddress, safeRecord, wallet?.address, externalWalletAddress, agentAddress]);
 
   useEffect(() => {
     if (!safeAddress || !identityToken || hasSyncedUser.current) return;
@@ -131,9 +215,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         name: google?.name,
         telegramId: telegramUserId,
         signerAddress: wallet?.address,
+        // Persist the owner model only for freshly derived Safes — legacy
+        // records get their owner set from the upgrade flow, not this sync.
+        ...(safeDerived &&
+          safeConfig && {
+            externalWalletAddress: externalWalletAddress ?? undefined,
+            safeOwners: safeConfig.owners,
+            safeThreshold: safeConfig.threshold,
+          }),
       }),
     }).catch((e) => console.error("Failed to sync user details:", e));
-  }, [safeAddress, identityToken, privyUser, telegramUserId, wallet?.address]);
+  }, [
+    safeAddress,
+    identityToken,
+    privyUser,
+    telegramUserId,
+    wallet?.address,
+    safeDerived,
+    safeConfig,
+    externalWalletAddress,
+  ]);
 
   const getOwnerAccount = useCallback(async (): Promise<LocalAccount | null> => {
     if (!primaryWallet) return null;
@@ -163,11 +264,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       getOwnerAccount,
       safeAddress,
       safeLoading,
+      externalWalletAddress,
+      safeConfig,
+      refreshSafe,
       telegramUserId,
       privyUser: privyUser ?? null,
       identityToken: identityToken ?? null,
     }),
-    [user, wallet, loading, login, logout, getOwnerAccount, safeAddress, safeLoading, telegramUserId, privyUser, identityToken]
+    [user, wallet, loading, login, logout, getOwnerAccount, safeAddress, safeLoading, externalWalletAddress, safeConfig, refreshSafe, telegramUserId, privyUser, identityToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

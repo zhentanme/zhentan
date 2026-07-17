@@ -11,6 +11,7 @@ import {
 import { getSafeAddressFromCallerId } from "../lib/caller.js";
 import { notify } from "../notifications/index.js";
 import { fetchTransfers, type ZerionHistoryItem } from "../lib/zerion.js";
+import { executeRejection } from "../lib/safe/reject.js";
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
@@ -235,6 +236,19 @@ export function createTransactionsRouter(): IRouter {
           rejectReason: reason ?? "Rejected by owner",
           inReview: false,
         });
+
+        // SafeTx flow: consume the nonce on-chain with the pre-signed cancel
+        // tx, otherwise this rejection blocks every later proposal. Runs
+        // async — the rejection itself is already recorded.
+        if (tx.txType === "safetx") {
+          executeRejection(tx)
+            .then((r) =>
+              console.log(
+                `Rejection cancel for ${id}: ${r.status}${r.txHash ? ` (${r.txHash})` : ""}${r.reason ? ` — ${r.reason}` : ""}`
+              )
+            )
+            .catch((err) => console.error(`Rejection cancel failed for ${id}:`, err));
+        }
 
         // Email notification (TG confirmation is handled by notify-resolve editing the message)
         getUserDetails(tx.safeAddress)

@@ -1,5 +1,10 @@
 import { Router, type Request, type Response, type IRouter } from "express";
-import { getUserDetails, getUserByUsername, upsertUserDetails } from "../lib/supabase/index.js";
+import {
+  getUserDetails,
+  getUserByUsername,
+  getUserBySignerAddress,
+  upsertUserDetails,
+} from "../lib/supabase/index.js";
 import { notify } from "../notifications/index.js";
 
 export function createUsersRouter(): IRouter {
@@ -15,6 +20,23 @@ export function createUsersRouter(): IRouter {
     try {
       const existing = await getUserByUsername(username);
       res.json({ available: !existing });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // GET /users/by-signer/:address — resolve the user record (and Safe address)
+  // from the embedded-wallet signer. The client asks this before deriving a
+  // Safe address so legacy and returning users keep their stored address.
+  router.get("/by-signer/:address", async (req: Request, res: Response) => {
+    const address = req.params.address;
+    if (!address || !address.startsWith("0x")) {
+      res.status(400).json({ error: "Invalid signer address" });
+      return;
+    }
+    try {
+      const user = await getUserBySignerAddress(address);
+      res.json({ user });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
@@ -37,9 +59,25 @@ export function createUsersRouter(): IRouter {
 
   // POST /users — upsert on login
   router.post("/", async (req: Request, res: Response) => {
-    const { safeAddress, email, name, telegramId, signerAddress, username, onboardingCompleted } = req.body ?? {};
+    const {
+      safeAddress,
+      email,
+      name,
+      telegramId,
+      signerAddress,
+      username,
+      onboardingCompleted,
+      externalWalletAddress,
+      safeOwners,
+      safeThreshold,
+      executionMode,
+    } = req.body ?? {};
     if (!safeAddress) {
       res.status(400).json({ error: "Missing required field: safeAddress" });
+      return;
+    }
+    if (executionMode !== undefined && !["safetx", "4337"].includes(executionMode)) {
+      res.status(400).json({ error: "executionMode must be 'safetx' or '4337'" });
       return;
     }
     try {
@@ -51,6 +89,10 @@ export function createUsersRouter(): IRouter {
         ...(signerAddress !== undefined && { signer_address: signerAddress }),
         ...(username !== undefined && { username: username.toLowerCase() }),
         ...(onboardingCompleted !== undefined && { onboarding_completed: onboardingCompleted }),
+        ...(externalWalletAddress !== undefined && { external_wallet_address: externalWalletAddress }),
+        ...(safeOwners !== undefined && { safe_owners: safeOwners }),
+        ...(safeThreshold !== undefined && { safe_threshold: safeThreshold }),
+        ...(executionMode !== undefined && { execution_mode: executionMode }),
       });
       const details = await getUserDetails(safeAddress);
 

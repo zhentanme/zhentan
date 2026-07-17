@@ -13,7 +13,11 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const skipOnboardingCheck = pathname === "/onboarding";
   const { loading: onboardingLoading, complete } = useOnboarding(
-    !loading && user && wallet && !skipOnboardingCheck ? safeAddress : null,
+    {
+      walletAddress: wallet?.address,
+      safeAddress,
+      ready: !loading && !!user && !!wallet && !safeLoading && !skipOnboardingCheck,
+    },
     telegramUserId
   );
 

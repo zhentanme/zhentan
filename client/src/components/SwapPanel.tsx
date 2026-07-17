@@ -144,7 +144,7 @@ function isSlippageError(msg: string): boolean {
 }
 
 export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
-  const { wallet, safeAddress, getOwnerAccount, identityToken } = useAuth();
+  const { wallet, safeAddress, safeConfig, getOwnerAccount, identityToken } = useAuth();
   const api = useApiClient();
 
   const [fromToken, setFromToken] = useState<TokenPosition | null>(null);
@@ -370,12 +370,13 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           setQuote(activeQuote);
         }
 
+        if (!safeConfig) throw new Error("Wallet not ready");
         const pendingTx = await proposeSwap({
           fromToken,
           toToken,
           sellAmount,
           quote: activeQuote,
-          ownerAddress: wallet.address,
+          safe: { safeAddress, ...safeConfig },
           getOwnerAccount,
           amountUSD: activeQuote.sellAmountUSD || undefined,
           identityToken,

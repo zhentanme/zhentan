@@ -493,6 +493,23 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
           />
         )}
 
+        {/* Override path: a flagged SafeTx already sits in the Safe app queue
+            at 1 of 2 — the user can confirm with their backup key and execute
+            there, going around the agent entirely. */}
+        {tx.txType === "safetx" && tx.status === "in_review" && !tx.txHash && (
+          <motion.a
+            href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Sign with your backup key at Safe
+            <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+          </motion.a>
+        )}
+
         {/* BSCScan explorer link */}
         {explorerTxUrl && (
           <motion.a

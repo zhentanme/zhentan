@@ -37,6 +37,13 @@ export interface TransactionRow {
   tx_hash: string | null;
   success: boolean | null;
   screening_disabled: boolean;
+  tx_type: "4337" | "safetx" | null;
+  safe_tx_hash: string | null;
+  safe_tx: Record<string, unknown> | null;
+  safe_nonce: number | null;
+  user_signature: string | null;
+  rejection_signature: string | null;
+  confirmations: unknown[] | null;
 }
 
 export interface UserDetailsRow {
@@ -47,6 +54,12 @@ export interface UserDetailsRow {
   username: string | null;
   signer_address: string | null;
   onboarding_completed: boolean | null;
+  external_wallet_address: string | null;
+  safe_owners: string[] | null;
+  safe_threshold: number | null;
+  safe_deployed: boolean | null;
+  safe_deploy_tx_hash: string | null;
+  execution_mode: "safetx" | "4337" | null;
   created_at: string;
   updated_at: string;
 }

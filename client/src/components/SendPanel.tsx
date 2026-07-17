@@ -31,7 +31,7 @@ interface SendPanelProps {
 }
 
 export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, screeningMode = true }: SendPanelProps) {
-  const { user, wallet, getOwnerAccount, telegramUserId, identityToken } = useAuth();
+  const { user, wallet, getOwnerAccount, telegramUserId, identityToken, safeAddress, safeConfig } = useAuth();
   const api = useApiClient();
   const { addOptimisticTransaction } = useActivityData();
   const router = useRouter();
@@ -210,10 +210,11 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           ? (parseFloat(amount) * price).toFixed(2)
           : undefined;
 
+      if (!safeAddress || !safeConfig) throw new Error("Wallet not ready");
       const pendingTx = await proposeTransaction({
         recipient: address,
         amount,
-        ownerAddress: wallet.address,
+        safe: { safeAddress, ...safeConfig },
         getOwnerAccount,
         tokenAddress: selectedToken?.address ?? undefined,
         tokenDecimals: selectedToken?.decimals,
