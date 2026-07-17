@@ -8,7 +8,7 @@ import {
   NATIVE_TOKEN_ADDRESS,
 } from "./constants";
 import { apiFetch } from "./api/client";
-import { buildSafeTxProposal } from "./safe/proposeSafeTx";
+import { buildSafeTxProposal, resolveCoSigner } from "./safe/proposeSafeTx";
 import type { SafeCall } from "./safe/safeTx";
 import type { ProposeParams } from "@/types";
 
@@ -17,6 +17,7 @@ export async function proposeTransaction({
   amount,
   safe,
   getOwnerAccount,
+  getBackupAccount,
   tokenAddress: tokenAddressParam,
   tokenDecimals,
   tokenSymbol,
@@ -50,7 +51,8 @@ export async function proposeTransaction({
     calls = [{ to: tokenAddress as Address, value: 0n, data }];
   }
 
-  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken });
+  const coSigner = await resolveCoSigner(screeningDisabled, safe, getBackupAccount);
+  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, coSigner, identityToken });
 
   const txId = `tx-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {

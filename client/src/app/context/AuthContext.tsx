@@ -48,6 +48,8 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   /** Returns a signer (wallet client + account) for the embedded wallet (for Safe signing). */
   getOwnerAccount: () => Promise<LocalAccount | null>;
+  /** Signer for the backup key — null unless that wallet has an active connection session. */
+  getBackupAccount: () => Promise<LocalAccount | null>;
   /** Deterministic Safe multisig address for this user + agent */
   safeAddress: string | null;
   /** Whether the Safe address is still being computed */
@@ -289,6 +291,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [primaryWallet]);
 
+  // Signer for the backup key (owner #2) — only available while that wallet
+  // has an active connection session (screening-off co-signing needs it).
+  // Returns null when the backup is a pasted/cold address with no session.
+  const getBackupAccount = useCallback(async (): Promise<LocalAccount | null> => {
+    if (!externalWalletAddress) return null;
+    const backupWallet = wallets.find(
+      (w) =>
+        w.walletClientType !== "privy" &&
+        w.address.toLowerCase() === externalWalletAddress.toLowerCase()
+    );
+    if (!backupWallet) return null;
+    try {
+      await backupWallet.switchChain(bsc.id).catch(() => {});
+      const provider = await backupWallet.getEthereumProvider();
+      const walletAddress = backupWallet.address as Address;
+      const walletClient = createWalletClient({
+        account: walletAddress,
+        chain: bsc,
+        transport: custom(provider),
+      });
+      return { ...walletClient, address: walletAddress } as unknown as LocalAccount;
+    } catch (e) {
+      console.error("getBackupAccount failed:", e);
+      return null;
+    }
+  }, [wallets, externalWalletAddress]);
+
   const value: AuthContextType = useMemo(
     () => ({
       user,
@@ -297,6 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       getOwnerAccount,
+      getBackupAccount,
       safeAddress,
       safeLoading,
       externalWalletAddress,
@@ -309,7 +339,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       privyUser: privyUser ?? null,
       identityToken: identityToken ?? null,
     }),
-    [user, wallet, loading, login, logout, getOwnerAccount, safeAddress, safeLoading, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, safeConfig, refreshSafe, telegramUserId, privyUser, identityToken]
+    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, safeConfig, refreshSafe, telegramUserId, privyUser, identityToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

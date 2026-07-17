@@ -23,6 +23,7 @@ export interface ProposalSafeTxFields {
   safeTxHash: Hex;
   safeNonce: number;
   userSignature: Hex;
+  userSignatures?: { signer: string; data: Hex }[];
   rejectionSignature: Hex;
 }
 
@@ -35,15 +36,43 @@ export interface ProposalSafeTxFields {
  * The server proposes the result to the Safe Transaction Service; the agent
  * confirms and relays execTransaction on approval.
  */
+/**
+ * Screening-off rule: the agent must not sign what it didn't screen, so the
+ * user's own signatures have to meet the threshold. At threshold 1 (starter)
+ * the primary signature suffices; above that the backup key must co-sign,
+ * which needs an active connection session for that wallet.
+ */
+export async function resolveCoSigner(
+  screeningDisabled: boolean | undefined,
+  safe: SafeProposalContext,
+  getBackupAccount?: () => Promise<LocalAccount | null>
+): Promise<LocalAccount | null> {
+  if (!screeningDisabled || safe.threshold <= 1) return null;
+  const coSigner = (await getBackupAccount?.()) ?? null;
+  if (!coSigner) {
+    throw new Error(
+      "Sending without screening needs your backup key's signature — connect your backup wallet and retry, or approve it from the Safe app."
+    );
+  }
+  return coSigner;
+}
+
 export async function buildSafeTxProposal({
   calls,
   safe,
   getOwnerAccount,
+  coSigner,
   identityToken,
 }: {
   calls: SafeCall[];
   safe: SafeProposalContext;
   getOwnerAccount: () => Promise<LocalAccount | null>;
+  /**
+   * Additional user signer (the backup key's active session) — used when the
+   * user's own signatures must meet the threshold (screening off), so the
+   * agent relays without signing.
+   */
+  coSigner?: LocalAccount | null;
   identityToken?: string | null;
 }): Promise<ProposalSafeTxFields> {
   const ownerAccount = await getOwnerAccount();
@@ -67,6 +96,12 @@ export async function buildSafeTxProposal({
   const safeTxHash = getSafeTxHash(safeAddress, safeTx);
   const userSignature = await signSafeTx(ownerAccount, safeAddress, safeTx);
 
+  let userSignatures: { signer: string; data: Hex }[] | undefined;
+  if (coSigner) {
+    const coSignature = await signSafeTx(coSigner, safeAddress, safeTx);
+    userSignatures = [{ signer: coSigner.address, data: coSignature }];
+  }
+
   // Pre-sign the cancel tx at the same nonce. Embedded-wallet signing is
   // headless, so this costs no extra prompt — and without it a rejection
   // leaves a nonce hole that blocks every later proposal.
@@ -84,6 +119,7 @@ export async function buildSafeTxProposal({
     safeTxHash,
     safeNonce: nonce,
     userSignature,
+    ...(userSignatures && { userSignatures }),
     rejectionSignature,
   };
 }

@@ -14,6 +14,7 @@ import { WalletKit, type WalletKitTypes } from "@reown/walletkit";
 import { buildApprovedNamespaces, getSdkError } from "@walletconnect/utils";
 import { useAuth } from "./AuthContext";
 import { proposeDappTransaction } from "@/lib/propose-dapp";
+import { pollForExecution } from "@/lib/pollExecution";
 import { useApiClient, apiFetch } from "@/lib/api/client";
 import type { DappMetadata, TransactionWithStatus } from "@/types";
 
@@ -59,7 +60,7 @@ const SUPPORTED_METHODS = [
 const SUPPORTED_EVENTS = ["chainChanged", "accountsChanged"];
 
 export function WalletConnectProvider({ children }: { children: ReactNode }) {
-  const { wallet, getOwnerAccount, safeAddress, safeConfig, identityToken } = useAuth();
+  const { wallet, getOwnerAccount, getBackupAccount, safeAddress, safeConfig, identityToken } = useAuth();
   const api = useApiClient();
   const [walletKit, setWalletKit] = useState<InstanceType<typeof WalletKit> | null>(null);
   const [ready, setReady] = useState(false);
@@ -269,6 +270,7 @@ export function WalletConnectProvider({ children }: { children: ReactNode }) {
         data: txParams.data || "0x",
         safe: { safeAddress, ...safeConfig },
         getOwnerAccount,
+        getBackupAccount,
         dappMetadata: pendingRequest.dappMetadata,
         screeningDisabled: !screeningOn,
         identityToken,
@@ -388,25 +390,3 @@ export function useWalletConnect() {
   return ctx;
 }
 
-/** Poll the transactions endpoint until we find an executed tx with this ID, or timeout. */
-async function pollForExecution(txId: string, safeAddress: string, identityToken: string | null): Promise<string> {
-  const maxAttempts = 60; // ~3 minutes at 3s intervals
-  const interval = 3000;
-
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise((r) => setTimeout(r, interval));
-    try {
-      const res = await apiFetch(`/transactions?safeAddress=${encodeURIComponent(safeAddress)}`, identityToken);
-      if (!res.ok) continue;
-      const data = await res.json();
-      const tx = (data.transactions as TransactionWithStatus[])?.find(
-        (t) => t.id === txId
-      );
-      if (tx?.txHash) return tx.txHash;
-      if (tx?.rejected) throw new Error(tx.rejectReason || "Transaction rejected by agent");
-    } catch (err) {
-      if (err instanceof Error && err.message.includes("rejected")) throw err;
-    }
-  }
-  throw new Error("Transaction execution timed out");
-}

@@ -31,7 +31,7 @@ interface SendPanelProps {
 }
 
 export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, screeningMode = true }: SendPanelProps) {
-  const { user, wallet, getOwnerAccount, telegramUserId, identityToken, safeAddress, safeConfig } = useAuth();
+  const { user, wallet, getOwnerAccount, getBackupAccount, telegramUserId, identityToken, safeAddress, safeConfig } = useAuth();
   const api = useApiClient();
   const { addOptimisticTransaction } = useActivityData();
   const router = useRouter();
@@ -216,6 +216,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         amount,
         safe: { safeAddress, ...safeConfig },
         getOwnerAccount,
+        getBackupAccount,
         tokenAddress: selectedToken?.address ?? undefined,
         tokenDecimals: selectedToken?.decimals,
         tokenSymbol: selectedToken?.symbol,

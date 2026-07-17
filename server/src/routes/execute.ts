@@ -226,18 +226,35 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
   }
 
   const protocolKit = await getProtocolKit(tx.safeAddress);
-  const agentSignature = await protocolKit.signHash(tx.safeTxHash);
 
-  // Confirm via the service so the Safe UI shows 2/2 — idempotent, and a
-  // service outage must not block execution (we can assemble both
-  // signatures locally).
+  // Relay-only mode: when the user's own signatures already meet the
+  // threshold (starter wallets at t=1, or screening-off in protected with a
+  // backup co-signature), the agent contributes NO signature — it only
+  // relays and pays gas. The agent's key must never endorse a transaction
+  // it didn't screen.
+  const userSigs = [
+    { signer: tx.proposedBy, data: tx.userSignature as Hex },
+    ...((tx.userSignatures ?? []) as { signer: string; data: Hex }[]),
+  ];
+  const relayOnly = userSigs.length >= tx.threshold;
+
+  const agentSignature = relayOnly ? null : await protocolKit.signHash(tx.safeTxHash);
+
+  // Mirror confirmations to the service so the Safe UI shows n/n —
+  // idempotent, and a service outage must not block execution (signatures
+  // can be assembled locally).
   let serviceTx: Awaited<ReturnType<ReturnType<typeof getApiKit>["getTransaction"]>> | null = null;
   try {
     const apiKit = getApiKit();
-    try {
-      await apiKit.confirmTransaction(tx.safeTxHash, agentSignature.data);
-    } catch (err) {
-      if (!/already/i.test(String(err))) throw err;
+    const confirmations = relayOnly
+      ? userSigs.slice(1).map((s) => s.data) // proposer's sig was posted at propose time
+      : [agentSignature!.data];
+    for (const confirmation of confirmations) {
+      try {
+        await apiKit.confirmTransaction(tx.safeTxHash, confirmation);
+      } catch (err) {
+        if (!/already/i.test(String(err))) throw err;
+      }
     }
     serviceTx = await apiKit.getTransaction(tx.safeTxHash);
   } catch (err) {
@@ -261,36 +278,33 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
     return { status: "already_executed", txHash: fresh.txHash, success: fresh.success };
   }
 
-  let txHash: string;
-  if (serviceTx) {
-    const result = await protocolKit.executeTransaction(serviceTx);
-    txHash = result.hash;
-  } else {
-    // Local assembly fallback: user signature from the proposal + fresh
-    // agent signature over the same hash.
-    const safeTransaction = await protocolKit.createTransaction({
-      transactions: [
-        {
-          to: tx.safeTx.to,
-          value: tx.safeTx.value,
-          data: tx.safeTx.data,
-          operation: tx.safeTx.operation,
-        },
-      ],
-      options: {
-        safeTxGas: tx.safeTx.safeTxGas,
-        baseGas: tx.safeTx.baseGas,
-        gasPrice: tx.safeTx.gasPrice,
-        gasToken: tx.safeTx.gasToken,
-        refundReceiver: tx.safeTx.refundReceiver,
-        nonce: tx.safeNonce,
+  // Assemble signatures locally — deterministic regardless of what the
+  // service has indexed (in relay-only mode the service may lag behind the
+  // co-signatures we just posted).
+  const safeTransaction = await protocolKit.createTransaction({
+    transactions: [
+      {
+        to: tx.safeTx.to,
+        value: tx.safeTx.value,
+        data: tx.safeTx.data,
+        operation: tx.safeTx.operation,
       },
-    });
-    safeTransaction.addSignature(new EthSafeSignature(tx.proposedBy, tx.userSignature as Hex));
-    safeTransaction.addSignature(agentSignature);
-    const result = await protocolKit.executeTransaction(safeTransaction);
-    txHash = result.hash;
+    ],
+    options: {
+      safeTxGas: tx.safeTx.safeTxGas,
+      baseGas: tx.safeTx.baseGas,
+      gasPrice: tx.safeTx.gasPrice,
+      gasToken: tx.safeTx.gasToken,
+      refundReceiver: tx.safeTx.refundReceiver,
+      nonce: tx.safeNonce,
+    },
+  });
+  for (const sig of userSigs) {
+    safeTransaction.addSignature(new EthSafeSignature(sig.signer, sig.data));
   }
+  if (agentSignature) safeTransaction.addSignature(agentSignature);
+  const result = await protocolKit.executeTransaction(safeTransaction);
+  const txHash = result.hash;
 
   const receipt = await getRelayerPublicClient().waitForTransactionReceipt({
     hash: txHash as Hex,

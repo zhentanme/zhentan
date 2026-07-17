@@ -3,7 +3,7 @@
 import type { Address, Hex, LocalAccount } from "viem";
 
 import { apiFetch } from "./api/client";
-import { buildSafeTxProposal } from "./safe/proposeSafeTx";
+import { buildSafeTxProposal, resolveCoSigner } from "./safe/proposeSafeTx";
 import type { SafeCall } from "./safe/safeTx";
 import type { DappMetadata, SafeProposalContext } from "@/types";
 
@@ -13,6 +13,8 @@ export interface ProposeDappParams {
   data: string;
   safe: SafeProposalContext;
   getOwnerAccount: () => Promise<LocalAccount | null>;
+  /** Backup-key signer (screening-off co-signing). */
+  getBackupAccount?: () => Promise<LocalAccount | null>;
   dappMetadata?: DappMetadata;
   /** When true, server skips risk analysis; client will call execute. */
   screeningDisabled?: boolean;
@@ -31,6 +33,7 @@ export async function proposeDappTransaction({
   data,
   safe,
   getOwnerAccount,
+  getBackupAccount,
   dappMetadata,
   screeningDisabled,
   upgrade,
@@ -38,7 +41,8 @@ export async function proposeDappTransaction({
 }: ProposeDappParams) {
   const calls: SafeCall[] = [{ to: to as Address, value, data: data as Hex }];
 
-  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken });
+  const coSigner = await resolveCoSigner(screeningDisabled, safe, getBackupAccount);
+  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, coSigner, identityToken });
 
   const txId = `tx-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {

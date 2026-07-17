@@ -71,6 +71,36 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
     throw new Error("proposedBy does not match the signature's signer");
   }
 
+  // Co-signatures (relay-only execution): each must recover to a DISTINCT
+  // non-agent owner and match its claimed signer.
+  const seenSigners = new Set([signer]);
+  for (const coSig of pendingTx.userSignatures ?? []) {
+    const recovered = (
+      await recoverSafeTxSigner(safeTxHash as Hex, coSig.data as Hex)
+    ).toLowerCase();
+    if (recovered !== coSig.signer.toLowerCase()) {
+      throw new Error("co-signature does not recover to its claimed signer");
+    }
+    if (!owners.includes(recovered) || recovered === agent) {
+      throw new Error("co-signature does not recover to a user owner of this Safe");
+    }
+    if (seenSigners.has(recovered)) {
+      throw new Error("duplicate co-signature signer");
+    }
+    seenSigners.add(recovered);
+  }
+
+  // Screening can only be disabled when the user's own signatures meet the
+  // threshold — otherwise "off" would mean the agent rubber-stamps
+  // unscreened transactions. This arithmetic makes it impossible in guarded
+  // wallets (1 user key vs threshold 2), automatic in starter (t=1), and a
+  // deliberate two-signature act in protected.
+  if (pendingTx.screeningDisabled && seenSigners.size < pendingTx.threshold) {
+    throw new Error(
+      "Screening cannot be disabled for this wallet — your keys alone don't meet the signing threshold. Co-sign with your backup key or use the Safe app."
+    );
+  }
+
   const rejectionTx: SafeTxData = {
     to: safeAddress,
     value: "0",

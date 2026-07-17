@@ -21,6 +21,7 @@ import {
 import { formatTokenAmount, truncateAddress, formatDate } from "@/lib/format";
 import { BSC_EXPLORER_URL, NATIVE_TOKEN_ADDRESS } from "@/lib/constants";
 import { proposeSwap, type SwapQuote } from "@/lib/proposeSwap";
+import { pollForExecution } from "@/lib/pollExecution";
 import { useApiClient } from "@/lib/api/client";
 import type { SearchedToken } from "@/lib/api/tokens";
 import { parseUnits, formatUnits } from "viem";
@@ -144,7 +145,7 @@ function isSlippageError(msg: string): boolean {
 }
 
 export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
-  const { wallet, safeAddress, safeConfig, getOwnerAccount, identityToken } = useAuth();
+  const { wallet, safeAddress, safeConfig, getOwnerAccount, getBackupAccount, identityToken } = useAuth();
   const api = useApiClient();
 
   const [fromToken, setFromToken] = useState<TokenPosition | null>(null);
@@ -371,6 +372,16 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
         }
 
         if (!safeConfig) throw new Error("Wallet not ready");
+
+        // Swaps go through the same screening pipeline as sends — no bypass.
+        let screeningOn = true;
+        try {
+          const status = await api.status.get(safeAddress);
+          screeningOn = status.screeningMode !== false;
+        } catch {
+          // Default to screening on if status fetch fails
+        }
+
         const pendingTx = await proposeSwap({
           fromToken,
           toToken,
@@ -378,12 +389,21 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           quote: activeQuote,
           safe: { safeAddress, ...safeConfig },
           getOwnerAccount,
+          getBackupAccount,
+          screeningDisabled: !screeningOn,
           amountUSD: activeQuote.sellAmountUSD || undefined,
           identityToken,
         });
 
-        const result = await api.execute.run(pendingTx.id);
-        setTxHash(result.txHash ?? null);
+        let swapTxHash: string | null;
+        if (screeningOn) {
+          // Agent screens, co-signs and executes — poll for the outcome.
+          swapTxHash = await pollForExecution(pendingTx.id, safeAddress, identityToken ?? null);
+        } else {
+          const result = await api.execute.run(pendingTx.id);
+          swapTxHash = result.txHash ?? null;
+        }
+        setTxHash(swapTxHash);
         setExecutedAt(new Date().toISOString());
         setPhase("success");
         setLoading(false);
