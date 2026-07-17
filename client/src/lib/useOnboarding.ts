@@ -140,6 +140,22 @@ export function useOnboarding(
       return;
     }
 
+    // Legacy-key migration: entries written before the wallet-address re-key
+    // live under `onboarding_${safeAddress}`. Without this, an existing
+    // account whose completion was only recorded locally gets bounced back
+    // into onboarding, and the flag never lands under the proper key.
+    const legacy = readStored(safeAddress);
+    if (legacy.completed) {
+      patchStored(walletAddress, { completed: true, step: 3 });
+      try {
+        localStorage.removeItem(storageKey(safeAddress));
+      } catch {}
+      setOnboardingCompleteCookie();
+      setComplete(true);
+      setLoading(false);
+      return;
+    }
+
     // Fetch from backend — handles new devices and returning users
     api.users
       .get(safeAddress)
