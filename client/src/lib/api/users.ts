@@ -29,6 +29,10 @@ export interface UserDetails {
   safe_deploy_tx_hash: string | null;
   /** 1 = legacy 4337-module initializer, 2 = vanilla Safe. */
   derivation_version: number | null;
+  /** Immutable birth certificate — exact derivation inputs; never mutated by upgrades. */
+  creation_owners: string[] | null;
+  creation_threshold: number | null;
+  creation_salt_nonce: string;
   created_at: string;
   updated_at: string;
 }

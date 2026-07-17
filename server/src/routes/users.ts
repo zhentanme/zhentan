@@ -4,7 +4,9 @@ import {
   getUserByUsername,
   getUserBySignerAddress,
   upsertUserDetails,
+  setCreationSnapshot,
 } from "../lib/supabase/index.js";
+import { DEFAULT_SALT_NONCE } from "../lib/safe/derive.js";
 import { notify } from "../notifications/index.js";
 
 export function createUsersRouter(): IRouter {
@@ -94,6 +96,17 @@ export function createUsersRouter(): IRouter {
         ...(safeThreshold !== undefined && { safe_threshold: safeThreshold }),
         ...(derivationVersion !== undefined && { derivation_version: derivationVersion }),
       });
+
+      // Birth certificate: the first sync that carries the full recipe pins
+      // it immutably (no-op for records that already have a snapshot).
+      if (safeOwners !== undefined && safeThreshold !== undefined && derivationVersion !== undefined) {
+        await setCreationSnapshot(safeAddress, {
+          owners: safeOwners,
+          threshold: safeThreshold,
+          saltNonce: DEFAULT_SALT_NONCE,
+          derivationVersion,
+        }).catch((err) => console.error("setCreationSnapshot failed:", err));
+      }
       const details = await getUserDetails(safeAddress);
 
       const onboardingJustCompleted =

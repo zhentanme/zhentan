@@ -67,6 +67,12 @@ export interface PendingTransaction {
   safeNonce?: number;
   /** User's EIP-712 signature over safeTxHash. */
   userSignature?: string;
+  /**
+   * Additional user co-signatures over safeTxHash (e.g. the backup key when
+   * screening is off). When user signatures alone meet the threshold, the
+   * agent relays without signing.
+   */
+  userSignatures?: { signer: string; data: string }[];
   /** Pre-signed empty tx at the same nonce, used to cancel on reject. */
   rejectionSignature?: string;
   proposedAt: string;

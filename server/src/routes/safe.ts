@@ -15,7 +15,8 @@ import {
 } from "../lib/safe/derive.js";
 import { getNextSafeNonce } from "../lib/safe/service.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
-import { getUserDetails, upsertUserDetails } from "../lib/supabase/index.js";
+import { getUserDetails, upsertUserDetails, setCreationSnapshot } from "../lib/supabase/index.js";
+import { DEFAULT_SALT_NONCE } from "../lib/safe/derive.js";
 
 export function createSafeRouter(): IRouter {
   const router = Router();
@@ -106,6 +107,12 @@ export function createSafeRouter(): IRouter {
         ...(result.txHash && { safe_deploy_tx_hash: result.txHash }),
         ...(existing === null && { execution_mode: "safetx" }),
       });
+      await setCreationSnapshot(address, {
+        owners: ownerAddresses,
+        threshold: SAFE_2OF3_THRESHOLD,
+        saltNonce: DEFAULT_SALT_NONCE,
+        derivationVersion: version,
+      }).catch((err) => console.error("setCreationSnapshot failed:", err));
 
       res.json({
         success: true,

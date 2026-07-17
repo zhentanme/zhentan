@@ -42,6 +42,8 @@ export interface TransactionRow {
   safe_tx: Record<string, unknown> | null;
   safe_nonce: number | null;
   user_signature: string | null;
+  /** Additional user co-signatures [{signer, data}] — relay-only execution. */
+  user_signatures: { signer: string; data: string }[] | null;
   rejection_signature: string | null;
   confirmations: unknown[] | null;
 }
@@ -63,6 +65,10 @@ export interface UserDetailsRow {
   execution_mode: "safetx" | "4337" | null;
   /** 1 = legacy 4337-module initializer, 2 = vanilla Safe. Null only before first sync. */
   derivation_version: number | null;
+  /** Immutable birth certificate — exact derivation inputs; never mutated by upgrades. */
+  creation_owners: string[] | null;
+  creation_threshold: number | null;
+  creation_salt_nonce: string;
   created_at: string;
   updated_at: string;
 }

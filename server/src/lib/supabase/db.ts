@@ -47,6 +47,7 @@ export function rowToTx(row: TransactionRow): PendingTransaction {
     safeTx: (row.safe_tx as unknown as PendingTransaction["safeTx"]) ?? undefined,
     safeNonce: row.safe_nonce ?? undefined,
     userSignature: row.user_signature ?? undefined,
+    userSignatures: row.user_signatures ?? undefined,
     rejectionSignature: row.rejection_signature ?? undefined,
     proposedAt: row.proposed_at,
     executedAt: row.executed_at ?? undefined,
@@ -87,6 +88,7 @@ function txToRow(tx: PendingTransaction): TransactionRow {
     safe_tx: (tx.safeTx as unknown as Record<string, unknown>) ?? null,
     safe_nonce: tx.safeNonce ?? null,
     user_signature: tx.userSignature ?? null,
+    user_signatures: tx.userSignatures ?? null,
     rejection_signature: tx.rejectionSignature ?? null,
     confirmations: null,
     proposed_at: tx.proposedAt,
@@ -209,6 +211,7 @@ export async function updateTransaction(
     safeTx: "safe_tx",
     safeNonce: "safe_nonce",
     userSignature: "user_signature",
+    userSignatures: "user_signatures",
     rejectionSignature: "rejection_signature",
     proposedAt: "proposed_at",
     executedAt: "executed_at",
@@ -1232,6 +1235,33 @@ export async function getUserByAddress(address: string): Promise<UserDetailsRow 
     .or(`safe_address.eq.${addr},signer_address.ilike.${addr}`)
     .maybeSingle();
   return data ?? null;
+}
+
+/**
+ * Writes the account's immutable birth certificate — the exact inputs that
+ * derived safe_address. Write-once: no-ops when a snapshot already exists
+ * (a DB trigger additionally rejects any mutation attempt).
+ */
+export async function setCreationSnapshot(
+  safeAddress: string,
+  snapshot: {
+    owners: string[];
+    threshold: number;
+    saltNonce: string;
+    derivationVersion: number;
+  }
+): Promise<void> {
+  const { error } = await supabase
+    .from("user_details")
+    .update({
+      creation_owners: snapshot.owners,
+      creation_threshold: snapshot.threshold,
+      creation_salt_nonce: snapshot.saltNonce,
+      derivation_version: snapshot.derivationVersion,
+    })
+    .eq("safe_address", safeAddress.toLowerCase())
+    .is("creation_owners", null);
+  if (error) throw error;
 }
 
 export async function upsertUserDetails(
