@@ -2,37 +2,47 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, ChevronDown, KeyRound, Loader2, Wallet } from "lucide-react";
+import { Check, ChevronDown, KeyRound, Loader2, ShieldCheck, Wallet } from "lucide-react";
 
 import { useAuth } from "@/app/context/AuthContext";
-import { useSafeUpgrade } from "@/lib/useSafeUpgrade";
+import { useSafeTransitions } from "@/lib/useSafeUpgrade";
 import { BackupAddressPicker } from "@/components/BackupAddressPicker";
 
 /**
- * Banner shown to legacy 2-of-2 users: pick a backup key (paste / ENS /
- * signature-free connect), then add it as a third owner on-chain (same Safe
- * address, threshold stays 2). Renders nothing once the Safe is 2-of-3.
+ * Wallet-profile nudge banner:
+ *   starter → "Activate protection" (backup + agent, atomic — or agent-only)
+ *   guarded → "Add your backup key" (unlock sovereignty + Safe-app override)
+ * Renders nothing for protected/detached wallets.
  */
 export function UpgradeBanner({ className }: { className?: string }) {
   const { externalWalletAddress, setBackupAddress } = useAuth();
-  const { needsUpgrade, backupKeyLinked, upgrading, error, upgrade } = useSafeUpgrade();
+  const { profile, backupKeyLinked, busy, error, activateProtection, enableAgentOnly, addBackup } =
+    useSafeTransitions();
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [agreedAgentOnly, setAgreedAgentOnly] = useState(false);
   const [done, setDone] = useState(false);
 
-  if (!needsUpgrade && !done) return null;
+  const isStarter = profile === "starter";
+  const isGuarded = profile === "guarded";
+  if (!isStarter && !isGuarded && !done) return null;
 
-  const handleUpgrade = async () => {
+  const shortBackup = externalWalletAddress
+    ? `${externalWalletAddress.slice(0, 6)}…${externalWalletAddress.slice(-4)}`
+    : null;
+
+  const handlePrimary = async () => {
     try {
-      await upgrade();
+      if (isStarter) await activateProtection();
+      else await addBackup();
       setDone(true);
     } catch {
-      // error state already set by the hook
+      // error state handled by the hook
     }
   };
 
   return (
     <AnimatePresence>
-      {(needsUpgrade || done) && (
+      {(isStarter || isGuarded || done) && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -44,36 +54,42 @@ export function UpgradeBanner({ className }: { className?: string }) {
               <div className="w-10 h-10 rounded-xl bg-gold/12 flex items-center justify-center shrink-0">
                 {done ? (
                   <Check className="h-5 w-5 text-safe" />
+                ) : isStarter ? (
+                  <ShieldCheck className="h-5 w-5 text-gold" />
                 ) : (
                   <KeyRound className="h-5 w-5 text-gold" />
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground">
-                  {done ? "Wallet upgraded" : "Upgrade your wallet: add a backup key"}
+                  {done
+                    ? "Wallet upgraded"
+                    : isStarter
+                    ? "Activate Zhentan protection"
+                    : "Upgrade your wallet: add a backup key"}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {done
-                    ? "Your Safe is now 2-of-3 — you hold the majority of keys."
+                    ? "Your Safe is protected — you hold the majority of keys."
                     : backupKeyLinked
-                    ? `Add ${externalWalletAddress?.slice(0, 6)}…${externalWalletAddress?.slice(-4)} as an owner — same address, full control stays with you.`
-                    : "A wallet you control — paste its address, a .eth/.bnb name, or connect it. No signing needed."}
+                    ? `${isStarter ? "Add the screening agent and" : "Add"} ${shortBackup} as an owner — same address, full control stays with you.`
+                    : "Pick a backup key — paste an address, a .eth/.bnb name, or connect a wallet. No signing needed."}
                 </p>
                 {error && <p className="text-xs text-danger mt-1">{error}</p>}
               </div>
               {!done &&
                 (backupKeyLinked ? (
                   <button
-                    onClick={handleUpgrade}
-                    disabled={upgrading}
+                    onClick={handlePrimary}
+                    disabled={busy}
                     className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-md border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-60"
                   >
-                    {upgrading ? (
+                    {busy ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
                       <Wallet className="h-3.5 w-3.5" />
                     )}
-                    {upgrading ? "Upgrading..." : "Upgrade"}
+                    {busy ? "Upgrading..." : isStarter ? "Activate" : "Upgrade"}
                   </button>
                 ) : (
                   <button
@@ -94,7 +110,7 @@ export function UpgradeBanner({ className }: { className?: string }) {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="px-5 pb-4"
+                  className="px-5 pb-4 space-y-3"
                 >
                   <BackupAddressPicker
                     compact
@@ -103,6 +119,28 @@ export function UpgradeBanner({ className }: { className?: string }) {
                       setPickerOpen(false);
                     }}
                   />
+                  {isStarter && (
+                    <div className="pt-1 border-t border-border/50">
+                      <button
+                        onClick={async () => {
+                          if (!agreedAgentOnly) {
+                            setAgreedAgentOnly(true);
+                            return;
+                          }
+                          try {
+                            await enableAgentOnly();
+                            setDone(true);
+                          } catch {}
+                        }}
+                        disabled={busy}
+                        className="text-[11px] text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
+                      >
+                        {agreedAgentOnly
+                          ? "I understand Zhentan must approve every transaction and my funds wait if it's offline — enable agent without backup"
+                          : "Enable the agent without a backup key instead?"}
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

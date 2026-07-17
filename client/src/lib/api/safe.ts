@@ -9,12 +9,12 @@ export interface DeployResult {
 
 export function safeApi(req: ApiFetchFn) {
   return {
-    /** Eagerly deploy the 2-of-3 Safe (agent pays gas). Idempotent. */
-    async deploy(ownerAddresses: string[]): Promise<DeployResult> {
+    /** Eagerly deploy the Safe with its creation recipe (agent pays gas). Idempotent. */
+    async deploy(ownerAddresses: string[], threshold?: number): Promise<DeployResult> {
       const res = await req("/safe/deploy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ownerAddresses }),
+        body: JSON.stringify({ ownerAddresses, ...(threshold !== undefined && { threshold }) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {

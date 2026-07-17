@@ -8,6 +8,7 @@
 import { Router, type Request, type Response, type IRouter } from "express";
 
 import { assertCanonical, SAFE_2OF3_THRESHOLD } from "../lib/safe/owners.js";
+import { PROFILES, classifyProfile, type WalletProfile } from "../lib/safe/profiles.js";
 import { deploySafe, computeCounterfactual } from "../lib/safe/deploy.js";
 import {
   getDefaultDerivationVersion,
@@ -36,26 +37,54 @@ export function createSafeRouter(): IRouter {
   });
 
   // POST /safe/derive — the client's only source of counterfactual addresses.
-  // New users get the configured default derivation; returning users are
-  // resolved from their record before this is ever called.
+  // Takes the chosen wallet profile (creation recipe) + the user's addresses;
+  // owners are BUILT server-side so ordering and membership can't be spoofed.
+  // Returning users are resolved from their record before this is ever called.
   router.post("/derive", async (req: Request, res: Response) => {
-    const { ownerAddresses } = req.body ?? {};
-    if (!Array.isArray(ownerAddresses)) {
-      res.status(400).json({ error: "Missing required field: ownerAddresses" });
-      return;
-    }
+    const {
+      profile = "protected",
+      embeddedAddress,
+      backupAddress,
+      // Back-compat: pre-profiles clients sent the canonical owner array.
+      ownerAddresses,
+    } = req.body ?? {};
+
     try {
-      assertCanonical(ownerAddresses, getAgentAddress());
+      const agent = getAgentAddress();
+      let owners: string[];
+      let threshold: number;
+
+      if (Array.isArray(ownerAddresses)) {
+        assertCanonical(ownerAddresses, agent);
+        owners = ownerAddresses;
+        threshold = SAFE_2OF3_THRESHOLD;
+      } else {
+        const recipe = PROFILES[profile as WalletProfile];
+        if (!recipe) {
+          res.status(400).json({ error: `Unknown profile: ${profile}` });
+          return;
+        }
+        if (typeof embeddedAddress !== "string") {
+          res.status(400).json({ error: "Missing required field: embeddedAddress" });
+          return;
+        }
+        owners = recipe.buildOwners({
+          embedded: embeddedAddress,
+          backup: typeof backupAddress === "string" ? backupAddress : undefined,
+          agent,
+        });
+        recipe.validate(owners, agent);
+        threshold = recipe.threshold;
+      }
+
       const version = getDefaultDerivationVersion();
-      const { address } = await computeCounterfactual(
-        ownerAddresses,
-        SAFE_2OF3_THRESHOLD,
-        version
-      );
+      const { address } = await computeCounterfactual(owners, threshold, version);
       res.json({
         safeAddress: address,
+        owners,
+        threshold,
+        profile: Array.isArray(ownerAddresses) ? "protected" : profile,
         derivationVersion: version,
-        threshold: SAFE_2OF3_THRESHOLD,
       });
     } catch (err) {
       res.status(400).json({ error: String(err) });
@@ -63,14 +92,26 @@ export function createSafeRouter(): IRouter {
   });
 
   router.post("/deploy", async (req: Request, res: Response) => {
-    const { ownerAddresses } = req.body ?? {};
+    const { ownerAddresses, threshold: rawThreshold } = req.body ?? {};
     if (!Array.isArray(ownerAddresses)) {
       res.status(400).json({ error: "Missing required field: ownerAddresses" });
       return;
     }
 
     try {
-      assertCanonical(ownerAddresses, getAgentAddress());
+      const agent = getAgentAddress();
+      const threshold = Number(rawThreshold ?? SAFE_2OF3_THRESHOLD);
+
+      // The owner set + threshold must form a managed profile — deploys of
+      // arbitrary configurations are refused.
+      const state = classifyProfile(ownerAddresses, threshold, agent);
+      if (state !== "starter" && state !== "guarded" && state !== "protected") {
+        res.status(400).json({
+          error: `Owner set/threshold do not form a managed wallet profile (${state})`,
+        });
+        return;
+      }
+      PROFILES[state].validate(ownerAddresses, agent);
 
       // The address is recomputed server-side with the caller's stored
       // derivation version (default for first-time deploys) — the client
@@ -78,11 +119,7 @@ export function createSafeRouter(): IRouter {
       const callerRecord = req.user;
       const version = (callerRecord?.derivation_version ??
         getDefaultDerivationVersion()) as DerivationVersion;
-      const { address } = await computeCounterfactual(
-        ownerAddresses,
-        SAFE_2OF3_THRESHOLD,
-        version
-      );
+      const { address } = await computeCounterfactual(ownerAddresses, threshold, version);
 
       // If the caller already has a Safe record it must match; a mismatch
       // means the owner set diverged from what was registered.
@@ -97,11 +134,11 @@ export function createSafeRouter(): IRouter {
         return;
       }
 
-      const result = await deploySafe(ownerAddresses, SAFE_2OF3_THRESHOLD, version);
+      const result = await deploySafe(ownerAddresses, threshold, version);
 
       await upsertUserDetails(address, {
         safe_owners: ownerAddresses,
-        safe_threshold: SAFE_2OF3_THRESHOLD,
+        safe_threshold: threshold,
         safe_deployed: true,
         derivation_version: version,
         ...(result.txHash && { safe_deploy_tx_hash: result.txHash }),
@@ -109,7 +146,7 @@ export function createSafeRouter(): IRouter {
       });
       await setCreationSnapshot(address, {
         owners: ownerAddresses,
-        threshold: SAFE_2OF3_THRESHOLD,
+        threshold,
         saltNonce: DEFAULT_SALT_NONCE,
         derivationVersion: version,
       }).catch((err) => console.error("setCreationSnapshot failed:", err));

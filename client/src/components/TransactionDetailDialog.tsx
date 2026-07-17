@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import type { TransactionWithStatus } from "@/types";
 import { useLiveTransaction } from "@/hooks/useLiveTransaction";
+import { useAuth } from "@/app/context/AuthContext";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { Dialog } from "./ui/Dialog";
 import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
@@ -332,6 +333,8 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
   const live = useLiveTransaction(
     open && txProp && txProp.source !== "zerion-only" ? txProp.id : null
   );
+  const { safeConfig } = useAuth();
+  const overrideAvailable = safeConfig?.profile === "protected";
 
   if (!txProp) return null;
 
@@ -495,8 +498,9 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
 
         {/* Override path: a flagged SafeTx already sits in the Safe app queue
             at 1 of 2 — the user can confirm with their backup key and execute
-            there, going around the agent entirely. */}
-        {tx.txType === "safetx" && tx.status === "in_review" && !tx.txHash && (
+            there, going around the agent entirely. Only protected wallets
+            have a backup key to sign with. */}
+        {tx.txType === "safetx" && tx.status === "in_review" && !tx.txHash && overrideAvailable && (
           <motion.a
             href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
             target="_blank"

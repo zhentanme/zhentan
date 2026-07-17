@@ -21,6 +21,60 @@ import {
 import { clsx } from "clsx";
 import { useApiClient } from "@/lib/api/client";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
+import { useSafeTransitions } from "@/lib/useSafeUpgrade";
+
+/**
+ * The exit door: removes the agent as an owner, leaving a plain 2-of-2 Safe
+ * (embedded + backup) the user fully controls at the same address. Shown for
+ * protected wallets only — the one state that has an agent AND a backup key.
+ */
+function DetachZhentanCard() {
+  const { detach, busy, error, profile } = useSafeTransitions();
+  const [confirming, setConfirming] = useState(false);
+  const [done, setDone] = useState(false);
+
+  if (profile !== "protected" || done) return null;
+
+  return (
+    <motion.div variants={staggerItem}>
+      <div className="pt-6 border-t border-dashed border-border">
+        <span className="eyebrow text-danger/70">Danger zone</span>
+      </div>
+      <div className="mt-4 p-5 rounded-lg bg-card border border-danger/15">
+        <div className="flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-foreground">Detach Zhentan</h3>
+            <p className="text-xs text-muted-foreground/80 mt-0.5">
+              {confirming
+                ? "Removes the agent as an owner. Your Safe becomes a plain 2-of-2 (your two keys, both required) at the same address. Screening ends permanently."
+                : "Leave with a stock Safe — remove the screening agent from your wallet."}
+            </p>
+            {error && <p className="text-xs text-danger mt-1">{error}</p>}
+          </div>
+          <button
+            onClick={async () => {
+              if (!confirming) {
+                setConfirming(true);
+                return;
+              }
+              try {
+                await detach();
+                setDone(true);
+              } catch {
+                // error surfaced by the hook
+              }
+            }}
+            disabled={busy}
+            className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-md border border-danger/40 text-danger text-xs font-semibold hover:bg-danger/10 transition-colors disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            {busy ? "Detaching..." : confirming ? "Yes, detach permanently" : "Detach"}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -91,7 +145,14 @@ function SettingsPageContent() {
     },
   });
 
+  const profile = safeConfig?.profile ?? null;
+  // Screening is only a CHOICE in protected wallets: guarded wallets can't
+  // reach the threshold without the agent (structurally mandatory), and
+  // starter/detached wallets have no agent to screen with.
+  const screeningTogglable = profile === "protected";
+
   const handleToggle = async () => {
+    if (!screeningTogglable) return;
     if (!fullyActivated) {
       setActivationOpen(true);
       return;
@@ -248,17 +309,21 @@ function SettingsPageContent() {
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground/80 mt-0.5">
-                        {isScreeningActive
-                          ? "AI screening every signature against your patterns"
-                          : !fullyActivated
-                            ? "Finish setup to arm the co-signer"
-                            : "Screening disabled — transactions execute immediately"}
+                        {profile === "guarded"
+                          ? "Screening is always on — add a backup key to control it"
+                          : profile === "starter" || profile === "detached"
+                            ? "No agent on this wallet — activate protection to enable screening"
+                            : isScreeningActive
+                              ? "AI screening every signature against your patterns"
+                              : !fullyActivated
+                                ? "Finish setup to arm the co-signer"
+                                : "Screening off — your backup key co-signs instead of the agent"}
                       </p>
                     </div>
 
                     <button
                       onClick={handleToggle}
-                      disabled={toggling}
+                      disabled={toggling || !screeningTogglable}
                       aria-label="Toggle screening"
                       className={clsx(
                         "relative w-12 h-6 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default",
@@ -348,9 +413,11 @@ function SettingsPageContent() {
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-foreground">Standard Safe wallet</h3>
                       <p className="text-xs text-muted-foreground/80 mt-0.5">
-                        {safeConfig?.legacy
+                        {profile === "guarded"
                           ? "Add your backup key to unlock the full Safe app experience"
-                          : "Every transaction appears in app.safe.global — sign there with your backup key anytime"}
+                          : profile === "starter"
+                            ? "A standard Safe with your key — activate protection anytime"
+                            : "Every transaction appears in app.safe.global — sign there with your backup key anytime"}
                       </p>
                     </div>
 
@@ -419,6 +486,9 @@ function SettingsPageContent() {
                   </div>
                 </div>
               </motion.div>
+
+              {/* Danger zone — detach the agent (protected wallets only) */}
+              <DetachZhentanCard />
 
               {/* APP section */}
               <motion.div variants={staggerItem}>

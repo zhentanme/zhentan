@@ -15,7 +15,7 @@ import { createWalletClient, custom } from "viem";
 import { bsc } from "viem/chains";
 import type { Address, LocalAccount } from "viem";
 import { useSafeAddress } from "@/lib/useSafeAddress";
-import { canonicalOwners, SAFE_2OF3_THRESHOLD } from "@/lib/safe/owners";
+import { classifyProfile, type WalletProfile, type WalletState } from "@/lib/safe/profiles";
 import { apiFetch } from "@/lib/api/client";
 import { clearOnboardingCompleteCookie } from "@/lib/useOnboarding";
 
@@ -31,10 +31,12 @@ export interface AuthWallet {
 }
 
 export interface SafeConfig {
-  /** Owner set — canonical [embedded, external, agent] for new Safes, stored set for existing ones. */
+  /** Owner set — creation recipe for new Safes, stored (chain-mirrored) set for existing ones. */
   owners: string[];
   threshold: number;
-  /** True for pre-2-of-3 Safes (two owners / no backup key) — needs the upgrade flow. */
+  /** Wallet state, computed from owners/threshold/agent membership — never stored. */
+  profile: WalletState;
+  /** Back-compat alias: guarded wallets (agent, no backup key) need the add-backup transition. */
   legacy: boolean;
   /** True once the Safe contract is deployed on-chain (tracked from eager deploy onward). */
   deployed: boolean;
@@ -62,6 +64,9 @@ export interface AuthContextType {
   backupAddressLocked: boolean;
   /** Confirms the backup-key choice — allows the user record (safe_address PK + owner set) to persist */
   commitSafe: () => void;
+  /** Creation profile chosen during onboarding (drives new-user derivation) */
+  pendingProfile: WalletProfile | null;
+  setPendingProfile: (p: WalletProfile | null) => void;
   /** Owner set, threshold, legacy/deployed state and execution mode for this Safe */
   safeConfig: SafeConfig | null;
   /** Re-resolve the Safe record from the backend (after onboarding/upgrade/settings changes) */
@@ -175,6 +180,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [safeCommitted, setSafeCommitted] = useState(false);
   const commitSafe = useCallback(() => setSafeCommitted(true), []);
 
+  // Creation profile chosen during onboarding — drives NEW-user derivation
+  // (returning users resolve from their record; this is ignored for them).
+  const [pendingProfile, setPendingProfile] = useState<WalletProfile | null>(null);
+
   // Owner #2 candidate for NEW-user derivation (returning users resolve from
   // their record inside the hook, so this input is ignored for them).
   const externalAddressInput = backupAddressOverride ?? privyLinkedExternal;
@@ -185,8 +194,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     record: safeRecord,
     derived: safeDerived,
     derivationVersion,
+    derivedOwners,
+    derivedThreshold,
   } = useSafeAddress({
     embeddedAddress: wallet?.address,
+    profile: pendingProfile,
     externalAddress: externalAddressInput ?? undefined,
     identityToken,
     refreshKey: safeRefreshKey,
@@ -203,35 +215,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const agentAddress = process.env.NEXT_PUBLIC_AGENT_ADDRESS;
 
   const safeConfig: SafeConfig | null = useMemo(() => {
-    if (!safeAddress) return null;
+    if (!safeAddress || !agentAddress) return null;
+    let owners: string[];
+    let threshold: number;
+    let deployed: boolean;
     if (safeRecord) {
-      const owners =
+      owners =
         safeRecord.safe_owners ??
         // Legacy record without stored owners: reconstruct the old 2-of-2 set.
-        (safeRecord.signer_address && agentAddress
-          ? [safeRecord.signer_address, agentAddress]
-          : []);
-      const legacy = owners.length < 3;
-      return {
-        owners,
-        threshold: safeRecord.safe_threshold ?? 2,
-        legacy,
-        deployed: safeRecord.safe_deployed ?? false,
-      };
+        (safeRecord.signer_address ? [safeRecord.signer_address, agentAddress] : []);
+      threshold = safeRecord.safe_threshold ?? 2;
+      deployed = safeRecord.safe_deployed ?? false;
+    } else if (derivedOwners && derivedThreshold) {
+      // Freshly derived Safe (record not created yet) — server-built recipe.
+      owners = derivedOwners;
+      threshold = derivedThreshold;
+      deployed = false;
+    } else {
+      return null;
     }
-    // Freshly derived 2-of-3 (new user, record not created yet).
-    if (!wallet?.address || !externalWalletAddress || !agentAddress) return null;
+    const profile = classifyProfile(owners, threshold, agentAddress);
     return {
-      owners: canonicalOwners(
-        wallet.address as Address,
-        externalWalletAddress as Address,
-        agentAddress as Address
-      ),
-      threshold: SAFE_2OF3_THRESHOLD,
-      legacy: false,
-      deployed: false,
+      owners,
+      threshold,
+      profile,
+      legacy: profile === "guarded",
+      deployed,
     };
-  }, [safeAddress, safeRecord, wallet?.address, externalWalletAddress, agentAddress]);
+  }, [safeAddress, safeRecord, derivedOwners, derivedThreshold, agentAddress]);
 
   useEffect(() => {
     if (!safeAddress || !identityToken || hasSyncedUser.current) return;
@@ -333,13 +344,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setBackupAddress,
       backupAddressLocked,
       commitSafe,
+      pendingProfile,
+      setPendingProfile,
       safeConfig,
       refreshSafe,
       telegramUserId,
       privyUser: privyUser ?? null,
       identityToken: identityToken ?? null,
     }),
-    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, safeConfig, refreshSafe, telegramUserId, privyUser, identityToken]
+    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, pendingProfile, safeConfig, refreshSafe, telegramUserId, privyUser, identityToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

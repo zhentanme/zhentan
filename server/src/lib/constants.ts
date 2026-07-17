@@ -26,6 +26,17 @@ export const SAFE_ABI = [
     outputs: [],
   },
   {
+    name: "removeOwner",
+    type: "function" as const,
+    stateMutability: "nonpayable" as const,
+    inputs: [
+      { name: "prevOwner", type: "address" as const },
+      { name: "owner", type: "address" as const },
+      { name: "_threshold", type: "uint256" as const },
+    ],
+    outputs: [],
+  },
+  {
     name: "getOwners",
     type: "function" as const,
     stateMutability: "view" as const,

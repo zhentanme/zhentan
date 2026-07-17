@@ -42,18 +42,61 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 
 /* ─── Step 1: Add Backup Key (owner #2) ──────────────────────────── */
 
-function BackupKeyStep({ onContinue }: { onContinue: () => void }) {
-  const { externalWalletAddress, setBackupAddress, backupAddressLocked, safeAddress, safeLoading } = useAuth();
+function ProtectionStep({ onContinue }: { onContinue: () => void }) {
+  const {
+    externalWalletAddress,
+    setBackupAddress,
+    backupAddressLocked,
+    pendingProfile,
+    setPendingProfile,
+    safeAddress,
+    safeLoading,
+  } = useAuth();
+  const [guardedAgreed, setGuardedAgreed] = useState(false);
 
-  const chosen = !!externalWalletAddress;
+  // The Safe address derives the moment the recipe is complete — profile
+  // chosen, plus the backup key for the protected profile.
+  const recipeComplete =
+    pendingProfile === "protected"
+      ? !!externalWalletAddress
+      : pendingProfile === "guarded"
+      ? guardedAgreed
+      : pendingProfile === "starter";
+  const vaultReady = recipeComplete && !!safeAddress && !safeLoading;
 
-  // The Safe address is derived from [embedded, backup, agent] — it starts
-  // computing the moment the backup key lands.
-  const vaultReady = chosen && !!safeAddress && !safeLoading;
+  const reset = () => {
+    setPendingProfile(null);
+    setBackupAddress(null);
+    setGuardedAgreed(false);
+  };
+
+  const options: {
+    key: "protected" | "guarded" | "starter";
+    title: string;
+    tag?: string;
+    desc: string;
+  }[] = [
+    {
+      key: "protected",
+      title: "Full protection",
+      tag: "Recommended",
+      desc: "AI screening + a backup key you control. You always hold the majority of keys.",
+    },
+    {
+      key: "guarded",
+      title: "Agent only",
+      desc: "AI screening without a backup key — Zhentan must approve every transaction.",
+    },
+    {
+      key: "starter",
+      title: "Basic wallet",
+      desc: "Just your key, no screening. Activate protection anytime in settings.",
+    },
+  ];
 
   return (
     <motion.div
-      key="backup-key"
+      key="protection"
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
@@ -64,50 +107,99 @@ function BackupKeyStep({ onContinue }: { onContinue: () => void }) {
         <KeyRound className="w-7 h-7 text-gold" />
       </div>
 
-      <h2 className="text-2xl font-bold text-center mb-2">Add your backup key</h2>
-      <p className="text-sm text-muted-foreground text-center mb-8 max-w-xs">
-        A second wallet you control — hardware, MetaMask, or just its address.
-        It&apos;s your override key: with it you can always move your funds,
-        even without Zhentan.
+      <h2 className="text-2xl font-bold text-center mb-2">Choose your protection</h2>
+      <p className="text-sm text-muted-foreground text-center mb-6 max-w-xs">
+        This sets your vault&apos;s keys. You can upgrade later — your address
+        never changes.
       </p>
 
-      <div className="w-full max-w-xs space-y-4">
-        {!chosen ? (
-          <BackupAddressPicker onSelect={setBackupAddress} />
+      <div className="w-full max-w-xs space-y-3">
+        {!pendingProfile ? (
+          options.map((opt) => (
+            <button
+              key={opt.key}
+              onClick={() => setPendingProfile(opt.key)}
+              className="w-full text-left rounded-2xl px-5 py-4 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 hover:border-gold/25 transition-all duration-200"
+            >
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-foreground">{opt.title}</p>
+                {opt.tag && (
+                  <span className="px-2 py-0.5 rounded-pill bg-gold/12 text-gold text-[10px] font-mono uppercase tracking-wider">
+                    {opt.tag}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{opt.desc}</p>
+            </button>
+          ))
         ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: "spring", bounce: 0.1 }}
-            className="w-full flex items-center gap-4 rounded-2xl px-5 py-4 border border-safe/25 bg-safe/6"
-          >
-            <div className="w-10 h-10 rounded-xl bg-safe/12 flex items-center justify-center shrink-0">
-              <Check className="h-5 w-5 text-safe" />
-            </div>
-            <div className="flex-1 text-left min-w-0">
-              <p className="text-sm font-semibold text-foreground">Backup key set</p>
-              <p className="text-xs text-muted-foreground mt-0.5 font-mono truncate">
-                {externalWalletAddress}
+          <>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-foreground">
+                {options.find((o) => o.key === pendingProfile)?.title}
               </p>
+              {!backupAddressLocked && (
+                <button
+                  onClick={reset}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Change
+                </button>
+              )}
             </div>
-            {!backupAddressLocked && (
-              <button
-                onClick={() => setBackupAddress(null)}
-                className="shrink-0 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Change
-              </button>
+
+            {pendingProfile === "protected" &&
+              (!externalWalletAddress ? (
+                <BackupAddressPicker onSelect={setBackupAddress} />
+              ) : (
+                <div className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-safe/25 bg-safe/6">
+                  <Check className="h-4 w-4 text-safe shrink-0" />
+                  <p className="text-xs text-muted-foreground font-mono truncate flex-1">
+                    {externalWalletAddress}
+                  </p>
+                  {!backupAddressLocked && (
+                    <button
+                      onClick={() => setBackupAddress(null)}
+                      className="shrink-0 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Change
+                    </button>
+                  )}
+                </div>
+              ))}
+
+            {pendingProfile === "guarded" && (
+              <label className="flex items-start gap-2.5 rounded-xl p-3.5 bg-watch/[0.07] border border-watch/15 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={guardedAgreed}
+                  onChange={(e) => setGuardedAgreed(e.target.checked)}
+                  className="mt-0.5 accent-gold"
+                />
+                <span className="text-[11px] text-watch/90 leading-relaxed">
+                  I understand that without a backup key, Zhentan must approve
+                  every transaction — and if its agent is ever offline, my funds
+                  wait until I add one. I can add a backup key anytime.
+                </span>
+              </label>
             )}
-          </motion.div>
+
+            {pendingProfile === "starter" && (
+              <p className="text-[11px] text-muted-foreground/80 leading-relaxed rounded-xl p-3.5 bg-foreground/4 border border-foreground/8">
+                No screening — transactions execute with just your signature.
+                Zhentan relays them gas-free but never co-signs.
+              </p>
+            )}
+          </>
         )}
 
-        <Button
-          onClick={onContinue}
-          disabled={!vaultReady}
-          className="w-full"
-        >
-          {!chosen
-            ? "Add a backup key to continue"
+        <Button onClick={onContinue} disabled={!vaultReady} className="w-full">
+          {!pendingProfile
+            ? "Choose an option"
+            : !recipeComplete
+            ? pendingProfile === "protected"
+              ? "Add a backup key to continue"
+              : "Confirm to continue"
             : !vaultReady
             ? "Creating your vault..."
             : "Continue"}
@@ -115,8 +207,8 @@ function BackupKeyStep({ onContinue }: { onContinue: () => void }) {
         </Button>
 
         <p className="text-[11px] text-muted-foreground/70 text-center leading-relaxed">
-          Your vault is a 2-of-3 Safe: your Zhentan key, this backup key, and
-          the screening agent. Any two signatures move funds — so you&apos;re never
+          Full protection is a 2-of-3 Safe: your Zhentan key, your backup key,
+          and the screening agent. Any two signatures move funds — you&apos;re never
           locked out, and Zhentan alone can never move a cent.
         </p>
       </div>
@@ -551,8 +643,8 @@ function OnboardingContent() {
     // Eager deploy: the Safe must exist on-chain for app.safe.global and the
     // Transaction Service. Agent pays gas; /queue re-checks as a fallback,
     // so a failure here must not trap the user on this screen.
-    if (safeConfig && !safeConfig.legacy) {
-      api.safe.deploy(safeConfig.owners).catch((err) => {
+    if (safeConfig) {
+      api.safe.deploy(safeConfig.owners, safeConfig.threshold).catch((err) => {
         console.error("Eager Safe deploy failed (will retry on first tx):", err);
       });
     }
@@ -593,7 +685,7 @@ function OnboardingContent() {
 
         {/* Step content */}
         <AnimatePresence mode="wait">
-          {step === 0 && <BackupKeyStep onContinue={handleBackupKeyDone} />}
+          {step === 0 && <ProtectionStep onContinue={handleBackupKeyDone} />}
           {step === 1 && (
             <UsernameStep
               onSave={handleSaveUsername}

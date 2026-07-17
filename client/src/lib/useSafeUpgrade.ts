@@ -1,31 +1,44 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { encodeFunctionData } from "viem";
+import type { Address } from "viem";
 
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
-import { proposeDappTransaction } from "@/lib/propose-dapp";
-import { SAFE_ABI } from "@/lib/constants";
+import {
+  activateProtectionCalls,
+  enableAgentCalls,
+  addBackupCalls,
+  detachAgentCalls,
+  proposeTransition,
+} from "@/lib/safe/transitions";
+import type { WalletState } from "@/lib/safe/profiles";
 
-export interface SafeUpgradeState {
-  /** True for legacy 2-of-2 Safes that haven't added the backup key yet. */
+export interface SafeTransitionsState {
+  /** Current wallet state (starter/guarded/protected/detached/unknown). */
+  profile: WalletState | null;
+  /** Guarded wallets are nudged to add the backup key. */
   needsUpgrade: boolean;
-  /** Backup key already linked via Privy (prerequisite for upgrading). */
+  /** Backup key chosen/registered (prerequisite for protection transitions). */
   backupKeyLinked: boolean;
-  upgrading: boolean;
+  busy: boolean;
   error: string | null;
-  /** Executes addOwnerWithThreshold(backupKey, 2) via the gasless 4337 pipeline. */
-  upgrade: () => Promise<void>;
+  /** starter → protected (backup + agent, atomic). */
+  activateProtection: () => Promise<void>;
+  /** starter → guarded (agent only — screening becomes mandatory). */
+  enableAgentOnly: () => Promise<void>;
+  /** guarded → protected (add backup key; the legacy upgrade). */
+  addBackup: () => Promise<void>;
+  /** protected → detached (remove the agent — the exit). */
+  detach: () => Promise<void>;
 }
 
 /**
- * Legacy 2-of-2 → 2-of-3 upgrade. The Safe address is unchanged — the linked
- * backup key is added as a third owner on-chain (threshold stays 2), the
- * agent co-signs the one upgrade tx, and the account flips to the
- * Safe-UI-compatible SafeTx flow.
+ * Wallet-profile transitions. Same address throughout — every transition is
+ * an owner-management SafeTx on the deployed Safe, validated hard and
+ * auto-executed server-side.
  */
-export function useSafeUpgrade(): SafeUpgradeState {
+export function useSafeTransitions(): SafeTransitionsState {
   const {
     safeAddress,
     safeConfig,
@@ -36,66 +49,105 @@ export function useSafeUpgrade(): SafeUpgradeState {
   } = useAuth();
   const api = useApiClient();
 
-  const [upgrading, setUpgrading] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const needsUpgrade = !!safeConfig?.legacy;
+  const agentAddress = process.env.NEXT_PUBLIC_AGENT_ADDRESS;
+  const profile = safeConfig?.profile ?? null;
+  const needsUpgrade = profile === "guarded";
   const backupKeyLinked = !!externalWalletAddress;
 
-  const upgrade = useCallback(async () => {
-    if (!safeAddress || !safeConfig?.legacy) return;
-    if (!externalWalletAddress) {
-      setError("Link a backup wallet first");
+  const run = useCallback(
+    async (
+      label: string,
+      buildCalls: () => ReturnType<typeof activateProtectionCalls>,
+      opts?: { registerBackup?: boolean }
+    ) => {
+      if (!safeAddress || !safeConfig) return;
+      setBusy(true);
+      setError(null);
+      try {
+        if (opts?.registerBackup) {
+          if (!externalWalletAddress) throw new Error("Add a backup key first");
+          // Register so the server can validate the transition calldata
+          // against it.
+          await api.users.upsert({ safeAddress, externalWalletAddress });
+        }
+        await proposeTransition({
+          calls: buildCalls(),
+          label,
+          safe: {
+            safeAddress,
+            owners: safeConfig.owners,
+            threshold: safeConfig.threshold,
+          },
+          getOwnerAccount,
+          identityToken,
+        });
+        // Server persisted the new on-chain owner set — re-pull the record.
+        refreshSafe();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : `${label} failed`);
+        throw err;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [safeAddress, safeConfig, externalWalletAddress, api, getOwnerAccount, identityToken, refreshSafe]
+  );
+
+  const activateProtection = useCallback(async () => {
+    if (!agentAddress || !externalWalletAddress || !safeAddress) {
+      setError("Add a backup key first");
       return;
     }
-    setUpgrading(true);
-    setError(null);
-    try {
-      // Register the backup key so the server can validate the upgrade
-      // calldata against it.
-      await api.users.upsert({ safeAddress, externalWalletAddress });
+    await run(
+      "Activate protection",
+      () =>
+        activateProtectionCalls(
+          safeAddress as Address,
+          externalWalletAddress as Address,
+          agentAddress as Address
+        ),
+      { registerBackup: true }
+    );
+  }, [run, safeAddress, externalWalletAddress, agentAddress]);
 
-      const calldata = encodeFunctionData({
-        abi: SAFE_ABI,
-        functionName: "addOwnerWithThreshold",
-        args: [externalWalletAddress as `0x${string}`, 2n],
-      });
+  const enableAgentOnly = useCallback(async () => {
+    if (!agentAddress || !safeAddress) return;
+    await run("Enable Zhentan agent", () =>
+      enableAgentCalls(safeAddress as Address, agentAddress as Address)
+    );
+  }, [run, safeAddress, agentAddress]);
 
-      // A plain SafeTx on the 2-of-2: user signs, agent co-signs and relays
-      // (agent pays gas). If the Safe is still counterfactual, /queue's lazy
-      // deploy creates it first from the record's stored derivation.
-      // /queue validates the calldata hard and auto-executes.
-      await proposeDappTransaction({
-        to: safeAddress,
-        value: 0n,
-        data: calldata,
-        safe: {
-          safeAddress,
-          owners: safeConfig.owners,
-          threshold: safeConfig.threshold,
-        },
-        getOwnerAccount,
-        upgrade: true,
-        identityToken,
-      });
-
-      // Server persisted the new on-chain owner set + safetx mode — re-pull.
-      refreshSafe();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upgrade failed");
-      throw err;
-    } finally {
-      setUpgrading(false);
+  const addBackup = useCallback(async () => {
+    if (!externalWalletAddress || !safeAddress) {
+      setError("Add a backup key first");
+      return;
     }
-  }, [
-    safeAddress,
-    safeConfig,
-    externalWalletAddress,
-    api,
-    getOwnerAccount,
-    identityToken,
-    refreshSafe,
-  ]);
+    await run(
+      "Add backup key",
+      () => addBackupCalls(safeAddress as Address, externalWalletAddress as Address),
+      { registerBackup: true }
+    );
+  }, [run, safeAddress, externalWalletAddress]);
 
-  return { needsUpgrade, backupKeyLinked, upgrading, error, upgrade };
+  const detach = useCallback(async () => {
+    if (!agentAddress || !safeAddress || !safeConfig) return;
+    await run("Detach Zhentan", () =>
+      detachAgentCalls(safeAddress as Address, safeConfig.owners, agentAddress as Address)
+    );
+  }, [run, safeAddress, safeConfig, agentAddress]);
+
+  return {
+    profile,
+    needsUpgrade,
+    backupKeyLinked,
+    busy,
+    error,
+    activateProtection,
+    enableAgentOnly,
+    addBackup,
+    detach,
+  };
 }

@@ -13,7 +13,9 @@ import {
   incrementDailyStatsReview,
 } from "../lib/supabase/index.js";
 import { notify } from "../notifications/index.js";
-import { SAFE_ABI } from "../lib/constants.js";
+import { SAFE_ABI, MULTISEND_CALL_ONLY } from "../lib/constants.js";
+import { decodeMultiSendData } from "@safe-global/protocol-kit";
+import { classifyProfile } from "../lib/safe/profiles.js";
 import {
   computeSafeTxHash,
   recoverSafeTxSigner,
@@ -22,7 +24,7 @@ import {
 import { deploySafe, isSafeDeployed } from "../lib/safe/deploy.js";
 import { DERIVATION_V1_4337, type DerivationVersion } from "../lib/safe/derive.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
-import { readSafeOwners } from "../lib/safe/onchain.js";
+import { readSafeOwners, readSafeThreshold } from "../lib/safe/onchain.js";
 import type { PendingTransaction, SafeTxData } from "../types.js";
 
 /**
@@ -123,39 +125,114 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
 }
 
 /**
- * Hard validation for the legacy 2-of-2 → 2-of-3 upgrade tx: the only thing
- * /queue will skip screening for is addOwnerWithThreshold(registered backup
- * key, 2) on the caller's own Safe.
+ * Hard validation for wallet-profile transition txs (the only thing /queue
+ * skips the risk engine for): owner-management calls on the caller's own
+ * Safe that move between MANAGED states.
+ *
+ *   starter → guarded     addOwnerWithThreshold(agent, 2)
+ *   starter → protected   MultiSend[addOwner(backup, 1), addOwner(agent, 2)]
+ *   guarded → protected   addOwnerWithThreshold(backup, 2)   (legacy upgrade)
+ *   protected → detached  removeOwner(prev, agent, 2)        (exit)
+ *
+ * Every added owner must be the agent or the REGISTERED backup key; the
+ * simulated end state must classify to a managed profile (or detached, for
+ * the exit) different from the current one.
  */
-async function validateUpgradeTx(pendingTx: PendingTransaction & { calldata?: string }): Promise<void> {
-  const { safeAddress, to, calldata } = pendingTx;
-  if (!to || !calldata) throw new Error("Upgrade tx requires to and calldata");
-  if (!isAddressEqual(to as Address, safeAddress as Address)) {
-    throw new Error("Upgrade tx must target the Safe itself");
-  }
-
-  const decoded = decodeFunctionData({ abi: SAFE_ABI, data: calldata as Hex });
-  if (decoded.functionName !== "addOwnerWithThreshold") {
-    throw new Error("Upgrade tx must call addOwnerWithThreshold");
-  }
-  const [newOwner, threshold] = decoded.args as readonly [Address, bigint];
-  if (threshold !== 2n) throw new Error("Upgrade tx must keep threshold 2");
+async function validateTransitionTx(pendingTx: PendingTransaction & { calldata?: string }): Promise<void> {
+  const { safeAddress } = pendingTx;
+  // For SafeTx proposals, validate the SIGNED payload (its hash was already
+  // recomputed and signature-verified) — not the loose display fields.
+  const to =
+    pendingTx.txType === "safetx" && pendingTx.safeTx ? pendingTx.safeTx.to : pendingTx.to;
+  const calldata =
+    pendingTx.txType === "safetx" && pendingTx.safeTx
+      ? pendingTx.safeTx.data
+      : pendingTx.calldata;
+  if (!to || !calldata) throw new Error("Transition tx requires to and calldata");
 
   const record = await getUserDetails(safeAddress);
-  if (!record?.external_wallet_address) {
-    throw new Error("No backup key registered for this Safe — link a wallet first");
+  if (!record) throw new Error("Unknown Safe — complete onboarding first");
+
+  const agent = getAgentAddress();
+  const currentOwners =
+    record.safe_owners?.length
+      ? record.safe_owners
+      : [record.signer_address ?? "", agent];
+  const currentThreshold = record.safe_threshold ?? 2;
+  const currentState = classifyProfile(currentOwners, currentThreshold, agent);
+
+  // Unpack the inner owner-management calls: either a single self-call, or
+  // a MultiSendCallOnly batch of self-calls.
+  let innerCalls: { to: string; data: Hex }[];
+  if (isAddressEqual(to as Address, safeAddress as Address)) {
+    innerCalls = [{ to, data: calldata as Hex }];
+  } else if (isAddressEqual(to as Address, MULTISEND_CALL_ONLY as Address)) {
+    innerCalls = decodeMultiSendData(calldata).map((t: { to: string; data: string }) => ({
+      to: t.to,
+      data: t.data as Hex,
+    }));
+  } else {
+    throw new Error("Transition tx must target the Safe itself (or MultiSend it)");
   }
-  if (!isAddressEqual(newOwner, record.external_wallet_address as Address)) {
-    throw new Error("Upgrade tx owner does not match the registered backup key");
+  if (innerCalls.length === 0) throw new Error("Transition tx has no calls");
+
+  // Simulate the end state call by call.
+  const owners = currentOwners.map((o) => o.toLowerCase());
+  let threshold = currentThreshold;
+
+  for (const call of innerCalls) {
+    if (!isAddressEqual(call.to as Address, safeAddress as Address)) {
+      throw new Error("Every transition call must target the Safe itself");
+    }
+    const decoded = decodeFunctionData({ abi: SAFE_ABI, data: call.data });
+    if (decoded.functionName === "addOwnerWithThreshold") {
+      const [newOwner, t] = decoded.args as readonly [Address, bigint];
+      const addr = newOwner.toLowerCase();
+      const isAgent = addr === agent.toLowerCase();
+      const isRegisteredBackup =
+        !!record.external_wallet_address &&
+        addr === record.external_wallet_address.toLowerCase();
+      if (!isAgent && !isRegisteredBackup) {
+        throw new Error(
+          "Transition may only add the agent or the registered backup key as owner"
+        );
+      }
+      if (owners.includes(addr)) throw new Error(`${newOwner} is already an owner`);
+      owners.push(addr);
+      threshold = Number(t);
+    } else if (decoded.functionName === "removeOwner") {
+      const [, removed, t] = decoded.args as readonly [Address, Address, bigint];
+      const addr = removed.toLowerCase();
+      if (addr !== agent.toLowerCase()) {
+        throw new Error("Transition may only remove the agent (detach)");
+      }
+      const idx = owners.indexOf(addr);
+      if (idx === -1) throw new Error("Agent is not an owner of this Safe");
+      owners.splice(idx, 1);
+      threshold = Number(t);
+    } else {
+      throw new Error(`Unsupported transition call: ${decoded.functionName}`);
+    }
+  }
+
+  const endState = classifyProfile(owners, threshold, agent);
+  if (endState !== "starter" && endState !== "guarded" && endState !== "protected" && endState !== "detached") {
+    throw new Error(`Transition ends in an unmanaged state (${endState})`);
+  }
+  if (endState === currentState) {
+    throw new Error("Transition does not change the wallet profile");
   }
 }
 
-/** After an executed upgrade: persist the on-chain owner set (now 3 owners, threshold 2). */
-async function finishUpgrade(safeAddress: string): Promise<void> {
-  const owners = await readSafeOwners(safeAddress);
+/** After an executed transition: mirror the on-chain owner set + threshold onto the record. */
+async function finishTransition(safeAddress: string): Promise<void> {
+  const [owners, threshold] = await Promise.all([
+    readSafeOwners(safeAddress),
+    readSafeThreshold(safeAddress),
+  ]);
   await upsertUserDetails(safeAddress, {
     safe_owners: owners,
-    safe_threshold: 2,
+    safe_threshold: threshold,
     safe_deployed: true,
   });
 }
@@ -175,7 +252,8 @@ export function createQueueRouter(): IRouter {
       }
 
       const isSafeTx = pendingTx.txType === "safetx";
-      const isUpgrade = pendingTx.upgrade === true;
+      // "upgrade" is the pre-profiles wire name for what is now any profile transition.
+      const isUpgrade = pendingTx.upgrade === true || pendingTx.transition === true;
 
       if (isSafeTx) {
         try {
@@ -189,9 +267,9 @@ export function createQueueRouter(): IRouter {
 
       if (isUpgrade) {
         try {
-          await validateUpgradeTx(pendingTx);
+          await validateTransitionTx(pendingTx);
         } catch (err) {
-          const msg = err instanceof Error ? err.message : "Invalid upgrade transaction";
+          const msg = err instanceof Error ? err.message : "Invalid transition transaction";
           res.status(400).json({ error: msg });
           return;
         }
@@ -266,7 +344,7 @@ export function createQueueRouter(): IRouter {
             record?.external_wallet_address &&
             onChainOwners.includes(record.external_wallet_address.toLowerCase())
           ) {
-            await finishUpgrade(pendingTx.safeAddress);
+            await finishTransition(pendingTx.safeAddress);
             res.json({ success: true, id: pendingTx.id, upgraded: true, alreadyUpgraded: true });
             return;
           }
@@ -294,10 +372,10 @@ export function createQueueRouter(): IRouter {
             // the next attempt.
             let upgradeWarning: string | undefined;
             try {
-              await finishUpgrade(pendingTx.safeAddress);
+              await finishTransition(pendingTx.safeAddress);
             } catch (err) {
               upgradeWarning = err instanceof Error ? err.message : String(err);
-              console.error("finishUpgrade failed (will self-heal on retry):", upgradeWarning);
+              console.error("finishTransition failed (will self-heal on retry):", upgradeWarning);
             }
             res.json({
               success: true,
@@ -451,11 +529,25 @@ export function createQueueRouter(): IRouter {
         ],
       ];
 
-      // SafeTx proposals already sit in the Safe app queue at 1 of 2 — the
-      // user can always go around the agent with their backup key there.
-      const overrideLine = isSafeTx
-        ? `\nOr sign with your backup key: https://app.safe.global/transactions/queue?safe=bnb:${pendingTx.safeAddress}`
-        : "";
+      // SafeTx proposals already sit in the Safe app queue at 1 of 2 — a
+      // PROTECTED wallet's user can go around the agent with their backup
+      // key there (guarded wallets have no second user key to sign with).
+      let overrideLine = "";
+      if (isSafeTx) {
+        const ownerRecord = await getUserDetails(pendingTx.safeAddress).catch(() => null);
+        const liveOwners =
+          ownerRecord?.safe_owners?.length
+            ? ownerRecord.safe_owners
+            : [ownerRecord?.signer_address ?? "", getAgentAddress()];
+        const profile = classifyProfile(
+          liveOwners,
+          ownerRecord?.safe_threshold ?? 2,
+          getAgentAddress()
+        );
+        if (profile === "protected") {
+          overrideLine = `\nOr sign with your backup key: https://app.safe.global/transactions/queue?safe=bnb:${pendingTx.safeAddress}`;
+        }
+      }
 
       const header = risk.verdict === "REVIEW" ? "🔍 REVIEW NEEDED" : "🚫 BLOCKED";
       notifyTelegram(
