@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, AtSign, Check, KeyRound, MessageCircle, Loader2, Wallet, X, XIcon } from "lucide-react";
+import { ArrowRight, AtSign, Check, KeyRound, MessageCircle, Loader2, X, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AuthGuard } from "@/components/AuthGuard";
+import { BackupAddressPicker } from "@/components/BackupAddressPicker";
 import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
@@ -42,35 +43,13 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
 /* ─── Step 1: Add Backup Key (owner #2) ──────────────────────────── */
 
 function BackupKeyStep({ onContinue }: { onContinue: () => void }) {
-  const { wallet, externalWalletAddress, safeAddress, safeLoading } = useAuth();
-  const [linking, setLinking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { externalWalletAddress, setBackupAddress, backupAddressLocked, safeAddress, safeLoading } = useAuth();
 
-  const { linkWallet } = useLinkAccount({
-    onSuccess: () => setLinking(false),
-    onError: () => setLinking(false),
-  });
-
-  const linked = !!externalWalletAddress;
-  const sameAsEmbedded =
-    linked &&
-    wallet?.address &&
-    externalWalletAddress!.toLowerCase() === wallet.address.toLowerCase();
+  const chosen = !!externalWalletAddress;
 
   // The Safe address is derived from [embedded, backup, agent] — it starts
   // computing the moment the backup key lands.
-  const vaultReady = linked && !sameAsEmbedded && !!safeAddress && !safeLoading;
-
-  const handleLink = () => {
-    setError(null);
-    setLinking(true);
-    try {
-      linkWallet();
-    } catch (e) {
-      setLinking(false);
-      setError(e instanceof Error ? e.message : "Could not open wallet connect");
-    }
-  };
+  const vaultReady = chosen && !!safeAddress && !safeLoading;
 
   return (
     <motion.div
@@ -87,76 +66,48 @@ function BackupKeyStep({ onContinue }: { onContinue: () => void }) {
 
       <h2 className="text-2xl font-bold text-center mb-2">Add your backup key</h2>
       <p className="text-sm text-muted-foreground text-center mb-8 max-w-xs">
-        Connect a second wallet — MetaMask, a hardware wallet, any wallet you
-        control. It&apos;s your override key: with it you can always move your
-        funds, even without Zhentan.
+        A second wallet you control — hardware, MetaMask, or just its address.
+        It&apos;s your override key: with it you can always move your funds,
+        even without Zhentan.
       </p>
 
       <div className="w-full max-w-xs space-y-4">
-        <AnimatePresence mode="wait">
-          {!linked ? (
-            <motion.div
-              key="unlinked"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ type: "spring", bounce: 0.1 }}
-            >
+        {!chosen ? (
+          <BackupAddressPicker onSelect={setBackupAddress} />
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", bounce: 0.1 }}
+            className="w-full flex items-center gap-4 rounded-2xl px-5 py-4 border border-safe/25 bg-safe/6"
+          >
+            <div className="w-10 h-10 rounded-xl bg-safe/12 flex items-center justify-center shrink-0">
+              <Check className="h-5 w-5 text-safe" />
+            </div>
+            <div className="flex-1 text-left min-w-0">
+              <p className="text-sm font-semibold text-foreground">Backup key set</p>
+              <p className="text-xs text-muted-foreground mt-0.5 font-mono truncate">
+                {externalWalletAddress}
+              </p>
+            </div>
+            {!backupAddressLocked && (
               <button
-                onClick={handleLink}
-                disabled={linking}
-                className="w-full flex items-center gap-4 rounded-2xl px-5 py-4 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 hover:border-foreground/12 transition-all duration-200 disabled:opacity-60 disabled:cursor-default"
+                onClick={() => setBackupAddress(null)}
+                className="shrink-0 text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
-                <div className="w-10 h-10 rounded-xl bg-foreground/6 flex items-center justify-center shrink-0">
-                  {linking
-                    ? <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
-                    : <Wallet className="h-5 w-5 text-muted-foreground" />
-                  }
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-semibold text-foreground">Connect backup wallet</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {linking ? "Opening wallet..." : "Becomes an owner of your vault"}
-                  </p>
-                </div>
+                Change
               </button>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="linked"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ type: "spring", bounce: 0.1 }}
-              className="w-full flex items-center gap-4 rounded-2xl px-5 py-4 border border-safe/25 bg-safe/6"
-            >
-              <div className="w-10 h-10 rounded-xl bg-safe/12 flex items-center justify-center shrink-0">
-                <Check className="h-5 w-5 text-safe" />
-              </div>
-              <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-semibold text-foreground">Backup key linked</p>
-                <p className="text-xs text-muted-foreground mt-0.5 font-mono truncate">
-                  {externalWalletAddress}
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {sameAsEmbedded && (
-          <p className="text-xs text-danger text-center">
-            The backup key must be a different wallet from your Zhentan account.
-          </p>
+            )}
+          </motion.div>
         )}
-        {error && <p className="text-xs text-danger text-center">{error}</p>}
 
         <Button
           onClick={onContinue}
           disabled={!vaultReady}
           className="w-full"
         >
-          {!linked
-            ? "Connect a wallet to continue"
+          {!chosen
+            ? "Add a backup key to continue"
             : !vaultReady
             ? "Creating your vault..."
             : "Continue"}
@@ -542,7 +493,7 @@ function DoneStep({
 
 function OnboardingContent() {
   const router = useRouter();
-  const { safeAddress, safeConfig, safeLoading, wallet, user } = useAuth();
+  const { safeAddress, safeConfig, safeLoading, wallet, user, commitSafe } = useAuth();
   const api = useApiClient();
 
   const [step, setStep] = useState(0);
@@ -567,6 +518,9 @@ function OnboardingContent() {
 
   const handleBackupKeyDone = () => {
     if (!wallet?.address) return;
+    // Locks in the backup key: allows the user record (owner set + address)
+    // to persist. Before this, the choice is freely changeable.
+    commitSafe();
     markOnboardingWalletLinked(wallet.address);
     setStep(1);
   };

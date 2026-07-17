@@ -52,8 +52,14 @@ export interface AuthContextType {
   safeAddress: string | null;
   /** Whether the Safe address is still being computed */
   safeLoading: boolean;
-  /** Linked external wallet address (owner #2 / backup key), if any */
+  /** Backup key address (owner #2) — from the record, this session's choice, or a legacy Privy link */
   externalWalletAddress: string | null;
+  /** Set the backup key for this session (pasted / ENS-resolved / connected — no signature) */
+  setBackupAddress: (addr: string | null) => void;
+  /** True once the backup key is persisted on the record (changing it = on-chain owner swap) */
+  backupAddressLocked: boolean;
+  /** Confirms the backup-key choice — allows the user record (safe_address PK + owner set) to persist */
+  commitSafe: () => void;
   /** Owner set, threshold, legacy/deployed state and execution mode for this Safe */
   safeConfig: SafeConfig | null;
   /** Re-resolve the Safe record from the backend (after onboarding/upgrade/settings changes) */
@@ -123,9 +129,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { address: primaryWallet.address };
   }, [primaryWallet]);
 
-  // Linked external wallet (owner #2 / backup key). Read from linkedAccounts —
-  // it persists across sessions even when the wallet isn't currently connected.
-  const externalWalletAddress = useMemo(() => {
+  // Backup key (owner #2) chosen this session — pasted, ENS-resolved, or read
+  // from a signature-free wallet connection. Held locally until the user-sync
+  // persists it to the record; deliberately NOT a Privy link, so the same
+  // backup wallet can serve any number of accounts.
+  const [backupAddressOverride, setBackupAddressState] = useState<string | null>(null);
+  const setBackupAddress = useCallback((addr: string | null) => {
+    setBackupAddressState(addr);
+  }, []);
+
+  // Privy-linked external wallet — legacy fallback for accounts that linked a
+  // wallet before the signature-free picker existed.
+  const privyLinkedExternal = useMemo(() => {
     const accounts = privyUser?.linkedAccounts ?? [];
     const external = accounts.find(
       (a) =>
@@ -151,6 +166,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [safeRefreshKey, setSafeRefreshKey] = useState(0);
   const refreshSafe = useCallback(() => setSafeRefreshKey((k) => k + 1), []);
 
+  // New users' records are only persisted after they explicitly confirm the
+  // backup-key step — until then the chosen address can be freely swapped
+  // (the record's safe_address is a primary key; a premature write locks the
+  // owner set in).
+  const [safeCommitted, setSafeCommitted] = useState(false);
+  const commitSafe = useCallback(() => setSafeCommitted(true), []);
+
+  // Owner #2 candidate for NEW-user derivation (returning users resolve from
+  // their record inside the hook, so this input is ignored for them).
+  const externalAddressInput = backupAddressOverride ?? privyLinkedExternal;
+
   const {
     safeAddress,
     loading: safeLoading,
@@ -159,10 +185,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     derivationVersion,
   } = useSafeAddress({
     embeddedAddress: wallet?.address,
-    externalAddress: externalWalletAddress ?? undefined,
+    externalAddress: externalAddressInput ?? undefined,
     identityToken,
     refreshKey: safeRefreshKey,
   });
+
+  // Effective backup key: the persisted record wins, then this session's
+  // manual choice, then a legacy Privy-linked wallet.
+  const externalWalletAddress =
+    safeRecord?.external_wallet_address ?? externalAddressInput;
+  // Once the record holds it, the backup key is part of the derived/deployed
+  // Safe — swapping it is an on-chain owner change, not a UI toggle.
+  const backupAddressLocked = !!safeRecord?.external_wallet_address;
 
   const agentAddress = process.env.NEXT_PUBLIC_AGENT_ADDRESS;
 
@@ -199,6 +233,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!safeAddress || !identityToken || hasSyncedUser.current) return;
+    // Freshly derived Safes wait for the onboarding commit; record-backed
+    // users sync immediately as before.
+    if (safeDerived && !safeCommitted) return;
     hasSyncedUser.current = true;
     const google = (privyUser as { google?: { email?: string; name?: string } } | null)?.google;
     apiFetch("/users", identityToken, {
@@ -228,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     telegramUserId,
     wallet?.address,
     safeDerived,
+    safeCommitted,
     safeConfig,
     externalWalletAddress,
     derivationVersion,
@@ -262,13 +300,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       safeAddress,
       safeLoading,
       externalWalletAddress,
+      setBackupAddress,
+      backupAddressLocked,
+      commitSafe,
       safeConfig,
       refreshSafe,
       telegramUserId,
       privyUser: privyUser ?? null,
       identityToken: identityToken ?? null,
     }),
-    [user, wallet, loading, login, logout, getOwnerAccount, safeAddress, safeLoading, externalWalletAddress, safeConfig, refreshSafe, telegramUserId, privyUser, identityToken]
+    [user, wallet, loading, login, logout, getOwnerAccount, safeAddress, safeLoading, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, safeConfig, refreshSafe, telegramUserId, privyUser, identityToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
