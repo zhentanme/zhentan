@@ -51,8 +51,13 @@ export const DEFAULT_SALT_NONCE = "0";
 export interface DerivedSafe {
   address: Address;
   derivationVersion: DerivationVersion;
-  /** Raw deployment call for the agent relayer to send. */
-  deploymentTx: { to: Address; value: bigint; data: Hex };
+  /**
+   * Raw deployment call for the agent relayer to send. Absent when the
+   * account is already deployed on-chain (v1's factory args are only
+   * obtainable pre-deploy) — irrelevant then, since there is nothing to
+   * deploy.
+   */
+  deploymentTx?: { to: Address; value: bigint; data: Hex };
 }
 
 interface DerivationRecipe {
@@ -78,12 +83,16 @@ const v1Recipe: DerivationRecipe = {
       version: SAFE_VERSION,
       threshold: BigInt(threshold),
     });
+    // viem's smart-account wrapper returns undefined factory args once the
+    // account is deployed on-chain — the ADDRESS still derives locally, and
+    // a deployed account needs no deployment tx.
     const { factory, factoryData } = await account.getFactoryArgs();
-    if (!factory || !factoryData) throw new Error("Failed to compute v1 factory args");
     return {
       address: account.address,
       derivationVersion: DERIVATION_V1_4337,
-      deploymentTx: { to: factory, value: 0n, data: factoryData },
+      ...(factory && factoryData
+        ? { deploymentTx: { to: factory, value: 0n, data: factoryData } }
+        : {}),
     };
   },
 };
@@ -106,15 +115,24 @@ const v2Recipe: DerivationRecipe = {
       },
     });
     const address = (await kit.getAddress()) as Address;
-    const deployment = await kit.createSafeDeploymentTransaction();
-    return {
-      address,
-      derivationVersion: DERIVATION_V2_VANILLA,
-      deploymentTx: {
+    // protocol-kit refuses to build a deployment tx for an already-deployed
+    // Safe — the ADDRESS is still valid, and a deployed account needs no
+    // deployment tx.
+    let deploymentTx: DerivedSafe["deploymentTx"];
+    try {
+      const deployment = await kit.createSafeDeploymentTransaction();
+      deploymentTx = {
         to: deployment.to as Address,
         value: BigInt(deployment.value || "0"),
         data: deployment.data as Hex,
-      },
+      };
+    } catch {
+      deploymentTx = undefined;
+    }
+    return {
+      address,
+      derivationVersion: DERIVATION_V2_VANILLA,
+      ...(deploymentTx ? { deploymentTx } : {}),
     };
   },
 };

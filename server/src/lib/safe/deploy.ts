@@ -19,7 +19,8 @@ import { getAgentWalletClient, getRelayerPublicClient, assertAgentGas } from "./
 export interface CounterfactualSafe {
   address: Address;
   derivationVersion: DerivationVersion;
-  deploymentTx: { to: Address; value: bigint; data: Hex };
+  /** Absent when the account is already deployed (nothing to deploy). */
+  deploymentTx?: { to: Address; value: bigint; data: Hex };
 }
 
 /** Versioned counterfactual derivation (see derive.ts for the version story). */
@@ -46,6 +47,9 @@ export async function deploySafe(
   const code = await publicClient.getCode({ address });
   if (code && code !== "0x") {
     return { address, deployed: false };
+  }
+  if (!deploymentTx) {
+    throw new Error(`No deployment tx available for undeployed Safe ${address}`);
   }
 
   await assertAgentGas();

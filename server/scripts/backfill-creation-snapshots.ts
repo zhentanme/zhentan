@@ -73,6 +73,31 @@ function candidatesFor(row: UserDetailsRow, agent: string): Candidate[] {
   return out;
 }
 
+/**
+ * Evidence-driven candidates: every queued transaction stored the owner set
+ * it was proposed with — for accounts created under a RETIRED agent key,
+ * this is the only surviving record of the birth recipe.
+ */
+async function txDerivedCandidates(safeAddress: string): Promise<Candidate[]> {
+  const { data } = await supabase
+    .from("transactions")
+    .select("owner_addresses, threshold")
+    .eq("safe_address", safeAddress)
+    .not("owner_addresses", "is", null)
+    .order("proposed_at", { ascending: true })
+    .limit(1);
+  const row = data?.[0] as { owner_addresses: string[] | null; threshold: number | null } | undefined;
+  if (!row?.owner_addresses?.length) return [];
+  return [
+    {
+      label: `earliest tx owner set v1 (agent ${row.owner_addresses[row.owner_addresses.length - 1]})`,
+      owners: row.owner_addresses,
+      threshold: row.threshold ?? 2,
+      version: DERIVATION_V1_4337,
+    },
+  ];
+}
+
 async function main() {
   const agentPk = process.env.AGENT_PRIVATE_KEY;
   if (!agentPk) throw new Error("AGENT_PRIVATE_KEY required (agent address is a derivation input)");
@@ -93,7 +118,11 @@ async function main() {
 
   for (const row of rows) {
     let matched: Candidate | null = null;
-    for (const candidate of candidatesFor(row, agent)) {
+    const candidates = [
+      ...candidatesFor(row, agent),
+      ...(await txDerivedCandidates(row.safe_address)),
+    ];
+    for (const candidate of candidates) {
       try {
         const derived = await deriveSafe(
           candidate.owners,
