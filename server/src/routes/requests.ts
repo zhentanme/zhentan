@@ -1,8 +1,9 @@
 import { Router, Request, Response, type IRouter } from "express";
 import type { RequestStatus, RequestType, QueuedRequest, PendingTransaction } from "../types.js";
-import { getRequests, getRequest, createRequest, updateRequest, getPatternsForSafe } from "../lib/supabase/index.js";
+import { getRequests, getRequest, createRequest, updateRequest, updateTransaction, getPatternsForSafe } from "../lib/supabase/index.js";
 import { getSafeAddressFromCallerId } from "../lib/caller.js";
 import { analyzeRisk } from "../risk.js";
+import { agentProposeFromRequest } from "../lib/safe/agentPropose.js";
 import { randomUUID } from "crypto";
 
 const VALID_STATUSES: RequestStatus[] = [
@@ -87,6 +88,31 @@ export function createRequestsRouter(): IRouter {
         }
       }
 
+      // Auto-approve path: when the request scores APPROVE against the user's
+      // threshold, the agent pre-builds + pre-signs the transfer (1-of-2), so
+      // the user just signs to execute. Anything else stays a plain queued
+      // request carrying its risk score for the user to review. Best-effort —
+      // if the pre-sign can't be built, the request still queues normally.
+      let presignedTxId: string | undefined;
+      try {
+        const patterns = await getPatternsForSafe(safeAddress);
+        const approveThreshold = patterns.globalLimits.riskThresholdApprove;
+        const approvable = finalRiskScore != null && finalRiskScore < approveThreshold;
+        if (approvable) {
+          presignedTxId =
+            (await agentProposeFromRequest({
+              safeAddress,
+              to,
+              amount: String(amount),
+              token,
+              riskScore: finalRiskScore!,
+              riskReasons: finalRiskNotes ? [finalRiskNotes] : [],
+            })) ?? undefined;
+        }
+      } catch (err) {
+        console.error("Request pre-sign check failed (queuing normally):", err);
+      }
+
       const request: QueuedRequest = {
         id: `req-${randomUUID().slice(0, 8)}`,
         type: requestType,
@@ -105,13 +131,23 @@ export function createRequestsRouter(): IRouter {
         riskNotes: finalRiskNotes,
         sourceChannel: sourceChannel ?? "unknown",
         queuedAt: new Date().toISOString(),
+        // A pre-signed tx id on a still-queued request signals the client to
+        // show "Zhentan signed — sign to execute" instead of "approve to pay".
         status: "queued",
+        txId: presignedTxId,
       };
 
-      console.log(request)
-
+      console.log(`Queueing request ${request.id} for Safe ${safeAddress}:`, {
+        type: request.type,
+        to: request.to,
+        amount: request.amount,
+        token: request.token,
+        riskScore: request.riskScore,
+        riskNotes: request.riskNotes,
+        presignedTxId: request.txId,
+      });
       await createRequest(request);
-      res.status(201).json({ status: "queued", id: request.id, type: request.type, to: request.to, amount: request.amount, token: request.token });
+      res.status(201).json({ status: "queued", id: request.id, type: request.type, to: request.to, amount: request.amount, token: request.token, ...(presignedTxId && { txId: presignedTxId, presigned: true }) });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       res.status(500).json({ error: message });
@@ -177,6 +213,19 @@ export function createRequestsRouter(): IRouter {
       if (status === "executed" && txHash) patch.txHash      = txHash;
       if (status === "rejected")           patch.rejectedAt  = new Date().toISOString();
       if (status === "rejected" && rejectReason) patch.rejectReason = rejectReason;
+
+      // Auto-approve flow: rejecting a request that carries a pre-signed tx
+      // cancels that tx too. It never executed on-chain (the nonce isn't
+      // consumed), so a DB reject suffices — there's no user rejection signature
+      // to run an on-chain cancel with.
+      if (status === "rejected" && existing.txId) {
+        await updateTransaction(existing.txId, {
+          rejected: true,
+          rejectedAt: new Date().toISOString(),
+          rejectReason: rejectReason || "Request rejected",
+          inReview: false,
+        }).catch((err) => console.error("Failed to reject linked tx:", err));
+      }
 
       const request = await updateRequest(id, patch);
       // `invoice` kept for backward compatibility with older clients/skills.

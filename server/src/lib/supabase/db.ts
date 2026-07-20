@@ -896,6 +896,36 @@ export async function updateRequest(
   return rowToRequest(data!);
 }
 
+/** The request linked to a given transaction id (auto-approve flow), if any. */
+export async function getRequestByTxId(txId: string): Promise<QueuedRequest | null> {
+  const { data, error } = await supabase
+    .from("requests")
+    .select("*")
+    .eq("tx_id", txId)
+    .limit(1)
+    .returns<RequestRow[]>();
+  if (error) throw error;
+  return data && data[0] ? rowToRequest(data[0]) : null;
+}
+
+/**
+ * Keep a request in sync with its linked transaction's lifecycle. This is what
+ * makes request status authoritative (driven by the tx reconciliation) rather
+ * than by client polling — so pre-signed / override / background executions all
+ * land. No-op when the tx has no request (normal sends) or the request is
+ * already terminal (never move it backwards). Best-effort — callers may
+ * fire-and-forget.
+ */
+export async function syncLinkedRequest(
+  txId: string,
+  patch: Partial<QueuedRequest>
+): Promise<void> {
+  const req = await getRequestByTxId(txId);
+  if (!req) return;
+  if (req.status === "executed" || req.status === "rejected") return;
+  await updateRequest(req.id, patch);
+}
+
 // ─────────────────────────────────────────────────────────────
 // Pattern learning — called after a transaction outcome is known
 // ─────────────────────────────────────────────────────────────

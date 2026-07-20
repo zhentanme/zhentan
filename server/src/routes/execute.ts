@@ -24,6 +24,7 @@ import {
   recordTxOutcome,
   getUserDetails,
   getUserByAddress,
+  syncLinkedRequest,
 } from "../lib/supabase/index.js";
 import { getSafeAddressFromCallerId } from "../lib/caller.js";
 import { notify } from "../notifications/index.js";
@@ -61,6 +62,9 @@ export async function finishExecution(
 
   await updateTransaction(tx.id, {
     inReview: false,
+    // An executed tx is definitionally not rejected — clears a stale
+    // "Superseded:" marking if reconcile confirms the tx actually landed.
+    rejected: false,
     executedAt: executedTx.executedAt,
     executedBy,
     txHash,
@@ -69,6 +73,14 @@ export async function finishExecution(
 
   // Fire-and-forget: learn from execution and notify the user
   Promise.all([
+    // If this tx came from a request (auto-approve flow), drag the request to
+    // executed too — so its status is authoritative regardless of whether a
+    // dialog was open to poll it. No-op for normal sends.
+    syncLinkedRequest(tx.id, {
+      status: "executed",
+      executedAt: executedTx.executedAt,
+      txHash: String(txHash),
+    }),
     updatePatternsAfterExecution(executedTx),
     recordTxOutcome(executedTx, "auto_approved", {
       riskScore: tx.riskScore,
@@ -222,6 +234,11 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
       rejectReason: "Superseded: Safe nonce already consumed on-chain",
       inReview: false,
     });
+    syncLinkedRequest(tx.id, {
+      status: "rejected",
+      rejectedAt: new Date().toISOString(),
+      rejectReason: "Superseded: Safe nonce already consumed on-chain",
+    }).catch((err) => console.error("syncLinkedRequest (superseded) failed:", err));
     return { status: "superseded", reason: "Safe nonce already consumed on-chain" };
   }
 

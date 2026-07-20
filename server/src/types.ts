@@ -95,6 +95,8 @@ export interface PendingTransaction {
 export type TransactionStatus =
   | "pending"
   | "in_review"
+  /** Executing on-chain; awaiting Transaction Service reconciliation (transient, read-time only). */
+  | "confirming"
   | "executed"
   | "rejected";
 

@@ -17,11 +17,13 @@ import {
   CheckCircle2,
   AlertCircle,
   LayoutGrid,
+  Zap,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useApiClient } from "@/lib/api/client";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { useSafeTransitions } from "@/lib/useSafeUpgrade";
+import { useForceExecuteSetting } from "@/lib/useForceExecute";
 
 /**
  * The exit door: removes the agent as an owner, leaving a plain 2-of-2 Safe
@@ -146,10 +148,19 @@ function SettingsPageContent() {
   });
 
   const profile = safeConfig?.profile ?? null;
-  // Screening is only a CHOICE in protected wallets: guarded wallets can't
-  // reach the threshold without the agent (structurally mandatory), and
+  // Legacy v1 guarded wallets (pre-refactor 2-of-2) predate the strict model:
+  // their users have always relied on the agent as co-signer, so they may
+  // pause screening even though their key alone can't reach the threshold —
+  // the agent keeps co-signing, just without risk analysis.
+  const legacyV1Guarded =
+    profile === "guarded" && (safeConfig?.derivationVersion ?? 1) === 1;
+  // Screening is a CHOICE in protected wallets and legacy v1 guarded wallets.
+  // New guarded wallets can't reach the threshold without the agent, and
   // starter/detached wallets have no agent to screen with.
-  const screeningTogglable = profile === "protected";
+  const screeningTogglable = profile === "protected" || legacyV1Guarded;
+
+  const { enabled: forceExecuteEnabled, setEnabled: setForceExecuteEnabled } =
+    useForceExecuteSetting(safeAddress);
 
   const handleToggle = async () => {
     if (!screeningTogglable) return;
@@ -310,7 +321,11 @@ function SettingsPageContent() {
                       </div>
                       <p className="text-xs text-muted-foreground/80 mt-0.5">
                         {profile === "guarded"
-                          ? "Screening is always on — add a backup key to control it"
+                          ? legacyV1Guarded
+                            ? isScreeningActive
+                              ? "AI screening every signature — pause it and the agent still co-signs"
+                              : "Screening off — the agent co-signs without risk analysis"
+                            : "Screening is always on — add a backup key to control it"
                           : profile === "starter" || profile === "detached"
                             ? "No agent on this wallet — activate protection to enable screening"
                             : isScreeningActive
@@ -432,6 +447,43 @@ function SettingsPageContent() {
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     )}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* FORCE-EXECUTE (advanced) */}
+              <motion.div variants={staggerItem}>
+                <div className="pt-6 border-t border-dashed border-border">
+                  <span className="eyebrow text-muted-foreground/60">Advanced</span>
+                </div>
+                <div className="mt-4 rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
+                  <div className="flex items-center gap-4 p-5">
+                    <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-gold/10 text-gold">
+                      <Zap className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-foreground">Force-execute</h3>
+                      <p className="text-xs text-muted-foreground/80 mt-0.5">
+                        {forceExecuteEnabled
+                          ? "Send shows a “skip the queue” option — takes the current nonce, replacing any stuck transaction there. Screening still applies."
+                          : "Let a new transaction skip a stuck one by taking the current executable nonce (replaces whatever is pending there)."}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setForceExecuteEnabled(!forceExecuteEnabled)}
+                      aria-label="Toggle force-execute"
+                      className={clsx(
+                        "relative w-12 h-6 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer",
+                        forceExecuteEnabled ? "bg-gold" : "bg-foreground/12"
+                      )}
+                    >
+                      <span
+                        className={clsx(
+                          "absolute top-0.5 w-5 h-5 rounded-pill bg-ink-0 shadow-md transition-all",
+                          forceExecuteEnabled ? "left-6" : "left-0.5"
+                        )}
+                      />
+                    </button>
                   </div>
                 </div>
               </motion.div>

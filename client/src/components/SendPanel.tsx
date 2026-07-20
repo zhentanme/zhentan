@@ -12,10 +12,11 @@ import { useLiveTransaction } from "@/hooks/useLiveTransaction";
 import { UsdcIcon } from "./icons/UsdcIcon";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
 import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
-import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, MessageCircle, X, UserRound } from "lucide-react";
+import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, MessageCircle, X, UserRound, Zap } from "lucide-react";
+import { useForceExecuteSetting } from "@/lib/useForceExecute";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
-import { useApiClient } from "@/lib/api/client";
+import { useApiClient, apiFetch } from "@/lib/api/client";
 import { Dialog } from "./ui/Dialog";
 import { TokenRow } from "./TokenRow";
 import type { TransactionWithStatus, TokenPosition } from "@/types";
@@ -33,8 +34,43 @@ interface SendPanelProps {
 export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, screeningMode = true }: SendPanelProps) {
   const { user, wallet, getOwnerAccount, getBackupAccount, telegramUserId, identityToken, safeAddress, safeConfig } = useAuth();
   const api = useApiClient();
-  const { addOptimisticTransaction } = useActivityData();
+  const { addOptimisticTransaction, transactions } = useActivityData();
   const router = useRouter();
+  const { enabled: forceExecuteEnabled } = useForceExecuteSetting(safeAddress);
+  const [forceExecute, setForceExecute] = useState(false);
+  // Dynamically detect a real nonce collision: the queue-tail nonce being ahead
+  // of the current executable nonce means a proposal is already holding the
+  // slot, so a normal send would queue behind it. The force option only appears
+  // when this is true. Re-checked when the set of active proposals changes.
+  const [nonceBlocked, setNonceBlocked] = useState(false);
+  const activeSafeTxCount = transactions.filter(
+    (t) =>
+      t.txType === "safetx" &&
+      (t.status === "pending" || t.status === "in_review" || t.status === "confirming")
+  ).length;
+  useEffect(() => {
+    if (!forceExecuteEnabled || !safeAddress) {
+      setNonceBlocked(false);
+      return;
+    }
+    let cancelled = false;
+    apiFetch(`/safe/nonce?safe=${safeAddress}`, identityToken ?? null)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        if (typeof d.nonce === "number" && typeof d.current === "number") {
+          setNonceBlocked(d.nonce > d.current);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [forceExecuteEnabled, safeAddress, identityToken, activeSafeTxCount]);
+  // Drop a stale checkbox state if the collision clears while the panel is open.
+  useEffect(() => {
+    if (!nonceBlocked) setForceExecute(false);
+  }, [nonceBlocked]);
   const [showTgRequiredModal, setShowTgRequiredModal] = useState(false);
   const [recipient, setRecipient] = useState("");
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
@@ -222,6 +258,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         tokenSymbol: selectedToken?.symbol,
         tokenIconUrl: selectedToken?.iconUrl ?? undefined,
         screeningDisabled: !screeningMode,
+        forceExecute: forceExecuteEnabled && nonceBlocked && forceExecute,
         amountUSD,
         identityToken,
       });
@@ -790,6 +827,40 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
 
       {error && (
         <p className="text-sm text-danger">{error}</p>
+      )}
+
+      {forceExecuteEnabled && nonceBlocked && (
+        <button
+          type="button"
+          onClick={() => setForceExecute((v) => !v)}
+          className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors ${
+            forceExecute
+              ? "bg-gold/10 ring-1 ring-gold/30"
+              : "bg-gold/[0.04] ring-1 ring-gold/15 hover:bg-gold/[0.07]"
+          }`}
+        >
+          <span
+            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+              forceExecute ? "bg-gold/20 text-gold" : "bg-foreground/8 text-muted-foreground"
+            }`}
+          >
+            <Zap className="h-4 w-4" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-medium text-foreground">
+              Force execute (skip the queue)
+            </span>
+            <span className="block text-xs text-muted-foreground/80 mt-0.5">
+              A pending transaction is holding the queue — force takes the current
+              nonce and replaces it, so this send executes now.
+            </span>
+          </span>
+          <span
+            className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
+              forceExecute ? "bg-gold border-gold" : "border-foreground/25"
+            }`}
+          />
+        </button>
       )}
 
       <Button

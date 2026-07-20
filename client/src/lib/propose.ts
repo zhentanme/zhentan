@@ -23,6 +23,7 @@ export async function proposeTransaction({
   tokenSymbol,
   tokenIconUrl,
   screeningDisabled,
+  forceExecute,
   amountUSD,
   identityToken,
 }: ProposeParams) {
@@ -52,7 +53,14 @@ export async function proposeTransaction({
   }
 
   const coSigner = await resolveCoSigner(screeningDisabled, safe, getBackupAccount);
-  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, coSigner, identityToken });
+  const signedFields = await buildSafeTxProposal({
+    calls,
+    safe,
+    getOwnerAccount,
+    coSigner,
+    identityToken,
+    forceExecute,
+  });
 
   const txId = `tx-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {

@@ -41,6 +41,11 @@ export interface ProposalSafeTxFields {
  * user's own signatures have to meet the threshold. At threshold 1 (starter)
  * the primary signature suffices; above that the backup key must co-sign,
  * which needs an active connection session for that wallet.
+ *
+ * EXCEPTION — legacy v1 wallets: pre-refactor 2-of-2 Safes have no backup key
+ * and predate this rule. The agent stays their co-signer with screening off,
+ * so the embedded signature alone is enough (the server allows it, and the
+ * agent signs on execute without running risk analysis).
  */
 export async function resolveCoSigner(
   screeningDisabled: boolean | undefined,
@@ -49,13 +54,12 @@ export async function resolveCoSigner(
 ): Promise<LocalAccount | null> {
   if (!screeningDisabled || safe.threshold <= 1) return null;
   const coSigner = (await getBackupAccount?.()) ?? null;
-  console.log(coSigner)
-  if (!coSigner) {
-    throw new Error(
-      "Sending without screening needs your backup key's signature — connect your backup wallet and retry, or approve it from the Safe app."
-    );
-  }
-  return coSigner;
+  if (coSigner) return coSigner;
+  // Legacy v1: no backup key required — the agent remains the co-signer.
+  if ((safe.derivationVersion ?? 1) === 1) return null;
+  throw new Error(
+    "Sending without screening needs your backup key's signature — connect your backup wallet and retry, or approve it from the Safe app."
+  );
 }
 
 export async function buildSafeTxProposal({
@@ -64,6 +68,7 @@ export async function buildSafeTxProposal({
   getOwnerAccount,
   coSigner,
   identityToken,
+  forceExecute,
 }: {
   calls: SafeCall[];
   safe: SafeProposalContext;
@@ -75,13 +80,20 @@ export async function buildSafeTxProposal({
    */
   coSigner?: LocalAccount | null;
   identityToken?: string | null;
+  /**
+   * Take the current executable nonce (mode=current) instead of the queue-tail,
+   * so this tx skips a stuck proposal and replaces whatever is pending there.
+   * Execution still runs through the normal flow (screening included).
+   */
+  forceExecute?: boolean;
 }): Promise<ProposalSafeTxFields> {
   const ownerAccount = await getOwnerAccount();
   if (!ownerAccount) throw new Error("Wallet not ready for signing");
 
-  // Next unused Safe nonce (Transaction Service queue aware, on-chain fallback).
+  // Next unused Safe nonce (Transaction Service queue aware, on-chain fallback),
+  // or the current executable nonce when force-executing.
   const nonceRes = await apiFetch(
-    `/safe/nonce?safe=${safe.safeAddress}`,
+    `/safe/nonce?safe=${safe.safeAddress}${forceExecute ? "&mode=current" : ""}`,
     identityToken ?? null
   );
   if (!nonceRes.ok) {

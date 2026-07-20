@@ -5,7 +5,9 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
 import { useActivityData } from "@/app/context/ActivityDataContext";
 import { proposeTransaction } from "@/lib/propose";
+import { signSafeTx } from "@/lib/safe/safeTx";
 import { findFallbackTokenBySymbol } from "@/lib/tokenFallbacks";
+import type { Address } from "viem";
 import type { QueuedRequest, TokenPosition } from "@/types";
 
 /**
@@ -51,13 +53,35 @@ export function useRequestActions() {
   const handleApprove = useCallback(
     async (request: QueuedRequest): Promise<{ txId: string }> => {
       if (!user || !wallet) throw new Error("Please log in first");
+      if (!safeAddress) throw new Error("Wallet not ready");
+
+      // Auto-approve path: the agent already built + pre-signed this tx (1-of-2).
+      // Fetch it, add the user's signature over the same safeTxHash, and the
+      // relayer executes — no fresh proposal (which would fork to a new nonce).
+      // Kept in sync with the requests page handler; both branch on request.txId.
+      if (request.txId) {
+        const { transaction } = await api.transactions.get(request.txId);
+        if (!transaction.safeTx || !transaction.safeAddress) {
+          throw new Error("Pre-signed transaction is unavailable");
+        }
+        const account = await getOwnerAccount();
+        if (!account) throw new Error("Wallet not ready for signing");
+        const userSignature = await signSafeTx(
+          account,
+          transaction.safeAddress as Address,
+          transaction.safeTx
+        );
+        await api.transactions.sign(request.txId, userSignature);
+        refresh();
+        return { txId: request.txId };
+      }
 
       const token = resolveToken(request.token);
       if (!token?.address) {
         throw new Error(`Unsupported token: ${request.token}`);
       }
 
-      if (!safeAddress || !safeConfig) throw new Error("Wallet not ready");
+      if (!safeConfig) throw new Error("Wallet not ready");
       const pendingTx = await proposeTransaction({
         recipient: request.to,
         amount: String(request.amount),

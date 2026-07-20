@@ -15,6 +15,7 @@ import {
   type DerivationVersion,
 } from "../lib/safe/derive.js";
 import { getNextSafeNonce } from "../lib/safe/service.js";
+import { readSafeNonce } from "../lib/safe/onchain.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
 import { getUserDetails, upsertUserDetails, setCreationSnapshot } from "../lib/supabase/index.js";
 import { DEFAULT_SALT_NONCE } from "../lib/safe/derive.js";
@@ -24,13 +25,30 @@ export function createSafeRouter(): IRouter {
 
   router.get("/nonce", async (req: Request, res: Response) => {
     const safe = req.query.safe as string | undefined;
+    // mode=current → the least executable nonce (the live on-chain value), used
+    // by "force execute": the tx takes the executable slot instead of queuing
+    // behind a stuck proposal, replacing whatever is pending there. Default is
+    // the queue-aware next nonce (proposals line up in order).
+    const mode = req.query.mode as string | undefined;
     if (!safe) {
       res.status(400).json({ error: "Missing required query param: safe" });
       return;
     }
     try {
-      const nonce = await getNextSafeNonce(safe);
-      res.json({ nonce });
+      if (mode === "current") {
+        const nonce = await readSafeNonce(safe).catch(() => getNextSafeNonce(safe));
+        res.json({ nonce, current: nonce });
+        return;
+      }
+      // Default: the queue-aware next nonce, plus the current executable nonce
+      // so the client can detect a collision — next > current means a proposal
+      // is already queued ahead of the executable slot (a normal send would sit
+      // behind it), which is when the "force execute" option is offered.
+      const [next, current] = await Promise.all([
+        getNextSafeNonce(safe),
+        readSafeNonce(safe).catch(() => null),
+      ]);
+      res.json({ nonce: next, current: current ?? next });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

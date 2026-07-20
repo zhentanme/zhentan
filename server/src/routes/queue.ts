@@ -97,7 +97,19 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
   // unscreened transactions. This arithmetic makes it impossible in guarded
   // wallets (1 user key vs threshold 2), automatic in starter (t=1), and a
   // deliberate two-signature act in protected.
-  if (pendingTx.screeningDisabled && seenSigners.size < pendingTx.threshold) {
+  //
+  // EXCEPTION — legacy v1 accounts: pre-refactor 2-of-2 Safes have no backup
+  // key, and their users have relied on the agent as co-signer since before
+  // this model existed. Enforcing the rule would strand them the instant they
+  // pause screening. For v1 the agent stays their co-signer (it still signs,
+  // it just skips risk analysis); v2+ accounts get the strict rule.
+  const derivationVersion = record.derivation_version ?? DERIVATION_V1_4337;
+  const legacyExempt = derivationVersion === DERIVATION_V1_4337;
+  if (
+    pendingTx.screeningDisabled &&
+    seenSigners.size < pendingTx.threshold &&
+    !legacyExempt
+  ) {
     throw new Error(
       "Screening cannot be disabled for this wallet — your keys alone don't meet the signing threshold. Co-sign with your backup key or use the Safe app."
     );

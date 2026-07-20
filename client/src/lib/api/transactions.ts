@@ -38,5 +38,23 @@ export function transactionsApi(req: ApiFetchFn) {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
+
+    /**
+     * Complete an agent-proposed (pre-signed, 1-of-2) tx: submit the user's
+     * signature over its safeTxHash; the server verifies it, stores it, and the
+     * relayer executes. Used by the auto-approve request flow.
+     */
+    async sign(
+      id: string,
+      userSignature: string
+    ): Promise<{ status: string; txId: string; execution: { status?: string; txHash?: string; error?: string } }> {
+      const res = await req(`/transactions/${encodeURIComponent(id)}/sign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userSignature }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
   };
 }

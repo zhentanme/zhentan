@@ -40,6 +40,13 @@ export interface SafeConfig {
   legacy: boolean;
   /** True once the Safe contract is deployed on-chain (tracked from eager deploy onward). */
   deployed: boolean;
+  /**
+   * Derivation recipe version (1 = legacy 4337 2-of-2, 2 = vanilla stock Safe).
+   * `null` for pre-column legacy records — treated as v1. Drives the legacy
+   * screening-off exception: v1 agents may co-sign transactions they didn't
+   * screen, since those wallets have no backup key to reach the threshold.
+   */
+  derivationVersion: number | null;
 }
 
 export interface AuthContextType {
@@ -247,8 +254,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       legacy: profile === "guarded",
       deployed,
+      derivationVersion: derivationVersion ?? null,
     };
-  }, [safeAddress, safeRecord, derivedOwners, derivedThreshold, agentAddress]);
+  }, [safeAddress, safeRecord, derivedOwners, derivedThreshold, agentAddress, derivationVersion]);
 
   useEffect(() => {
     if (!safeAddress || !identityToken || hasSyncedUser.current) return;

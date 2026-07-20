@@ -7,6 +7,7 @@
 import SafeApiKitImport from "@safe-global/api-kit";
 import SafeImport from "@safe-global/protocol-kit";
 import {
+  getAddress,
   hashTypedData,
   recoverAddress,
   type Address,
@@ -118,22 +119,27 @@ export async function proposeToService({
   origin?: string;
 }): Promise<void> {
   const kit = getApiKit();
+  // The Transaction Service requires EIP-55 checksummed addresses and rejects
+  // lowercase ones with 422 "Checksum address validation failed" (api-kit
+  // throws the same for safeAddress/senderAddress before the request even
+  // leaves). Zhentan stores addresses lowercased for comparisons, so checksum
+  // every address at this boundary. getAddress is idempotent on valid input.
   const payload = {
-    safeAddress,
+    safeAddress: getAddress(safeAddress as Address),
     safeTransactionData: {
-      to: safeTx.to,
+      to: getAddress(safeTx.to as Address),
       value: safeTx.value,
       data: safeTx.data,
       operation: safeTx.operation,
       safeTxGas: safeTx.safeTxGas,
       baseGas: safeTx.baseGas,
       gasPrice: safeTx.gasPrice,
-      gasToken: safeTx.gasToken,
-      refundReceiver: safeTx.refundReceiver,
+      gasToken: getAddress(safeTx.gasToken as Address),
+      refundReceiver: getAddress(safeTx.refundReceiver as Address),
       nonce: safeTx.nonce,
     },
     safeTxHash,
-    senderAddress,
+    senderAddress: getAddress(senderAddress as Address),
     senderSignature,
     origin,
   };
@@ -156,6 +162,40 @@ export async function proposeToService({
 }
 
 /**
+ * The multisig tx the Transaction Service has indexed as EXECUTED at a given
+ * nonce, if any — the authoritative "who won this nonce slot" answer.
+ *
+ * Reading by nonce is race-free where inferring supersession from a nonce delta
+ * is NOT: `getSafeInfo().nonce` can advance before the per-tx `isExecuted` flag
+ * does (they are independently eventually-consistent), so "service nonce moved
+ * past mine" does not imply "a different tx beat me". This reads the SAME
+ * `isExecuted` index used to detect our own execution, so the two never
+ * disagree. `null` when nothing at that nonce is indexed executed yet.
+ */
+export async function getExecutedTxAtNonce(
+  safeAddress: string,
+  nonce: number
+): Promise<{
+  safeTxHash: string;
+  transactionHash: string | null;
+  isSuccessful: boolean | null;
+  executor: string | null;
+} | null> {
+  const res = await getApiKit().getMultisigTransactions(getAddress(safeAddress as Address), {
+    nonce: String(nonce),
+    executed: true,
+  });
+  const win = res.results?.[0];
+  if (!win) return null;
+  return {
+    safeTxHash: win.safeTxHash,
+    transactionHash: win.transactionHash ?? null,
+    isSuccessful: win.isSuccessful ?? null,
+    executor: win.executor ?? null,
+  };
+}
+
+/**
  * Next unused nonce for proposals: the Transaction Service's queue-aware
  * value when the Safe is indexed, otherwise the on-chain nonce. An
  * undeployed (counterfactual) Safe always starts at nonce 0 — the service
@@ -164,7 +204,9 @@ export async function proposeToService({
  */
 export async function getNextSafeNonce(safeAddress: string): Promise<number> {
   try {
-    const next = await getApiKit().getNextNonce(safeAddress);
+    // Checksum required — api-kit throws "Checksum address validation failed"
+    // on a lowercase address before hitting the service.
+    const next = await getApiKit().getNextNonce(getAddress(safeAddress as Address));
     return Number(next);
   } catch {
     const code = await getRelayerPublicClient().getCode({

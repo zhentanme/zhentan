@@ -9,6 +9,7 @@ interface StatusBadgeProps {
 const styleMap: Record<TransactionStatus, string> = {
   pending: "bg-watch/15 text-watch",
   in_review: "bg-watch/15 text-watch",
+  confirming: "bg-safe/10 text-safe",
   executed: "bg-safe/15 text-safe",
   rejected: "bg-danger/15 text-danger",
 };

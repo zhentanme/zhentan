@@ -9,10 +9,8 @@
  */
 import { supabase } from "../lib/supabase/client.js";
 import type { TransactionRow } from "../lib/supabase/types.js";
-import { updateTransaction, rowToTx } from "../lib/supabase/index.js";
-import { getApiKit } from "../lib/safe/service.js";
-import { readSafeNonce } from "../lib/safe/onchain.js";
-import { finishExecution } from "../routes/execute.js";
+import { rowToTx } from "../lib/supabase/index.js";
+import { reconcileSafeTx } from "../lib/safe/reconcile.js";
 
 const SYNC_INTERVAL_MS = 60_000;
 
@@ -30,48 +28,11 @@ async function getUnresolvedSafeTxRows(): Promise<TransactionRow[]> {
 }
 
 async function syncOne(row: TransactionRow): Promise<void> {
-  const safeTxHash = row.safe_tx_hash!;
-  const apiKit = getApiKit();
-
-  let serviceTx;
-  try {
-    serviceTx = await apiKit.getTransaction(safeTxHash);
-  } catch {
-    // Not in the service (proposal mirror failed or not indexed yet) — fall
-    // through to the nonce check so superseded txs still resolve.
-    serviceTx = null;
-  }
-
-  if (serviceTx?.isExecuted) {
-    // The service can report isExecuted before the receipt is indexed —
-    // wait for the hash rather than persisting an empty one (the row would
-    // then never be revisited).
-    if (!serviceTx.transactionHash) return;
-    const tx = rowToTx(row);
-    await finishExecution(
-      tx,
-      serviceTx.transactionHash,
-      serviceTx.isSuccessful ?? true,
-      // Actual executor — the user's backup key for Safe-UI overrides.
-      serviceTx.executor ?? tx.proposedBy
-    );
-    console.log(`safeSync: ${row.id} executed externally (${serviceTx.transactionHash})`);
-    return;
-  }
-
-  // Nonce consumed by a different transaction → this proposal can never
-  // execute; mark it superseded.
-  if (row.safe_nonce !== null) {
-    const onChainNonce = await readSafeNonce(row.safe_address);
-    if (onChainNonce > row.safe_nonce) {
-      await updateTransaction(row.id, {
-        rejected: true,
-        rejectedAt: new Date().toISOString(),
-        rejectReason: "Superseded: Safe nonce consumed by another transaction",
-        inReview: false,
-      });
-      console.log(`safeSync: ${row.id} superseded at nonce ${row.safe_nonce}`);
-    }
+  const outcome = await reconcileSafeTx(rowToTx(row));
+  if (outcome.status === "executed") {
+    console.log(`safeSync: ${row.id} executed externally (${outcome.txHash})`);
+  } else if (outcome.status === "superseded") {
+    console.log(`safeSync: ${row.id} superseded at nonce ${row.safe_nonce}`);
   }
 }
 

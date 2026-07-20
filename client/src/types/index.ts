@@ -118,6 +118,8 @@ export interface PendingTransaction {
 export type TransactionStatus =
   | "pending"
   | "in_review"
+  /** Executing on-chain; awaiting Transaction Service reconciliation. */
+  | "confirming"
   | "executed"
   | "rejected";
 
@@ -244,6 +246,12 @@ export interface SafeProposalContext {
   safeAddress: string;
   owners: string[];
   threshold: number;
+  /**
+   * Derivation version (1 = legacy 4337, 2 = vanilla). Legacy v1 wallets keep
+   * the agent as co-signer when screening is off (no backup key required);
+   * v2+ wallets must co-sign with the backup key to reach the threshold.
+   */
+  derivationVersion?: number | null;
 }
 
 export interface ProposeParams {
@@ -264,6 +272,12 @@ export interface ProposeParams {
   tokenIconUrl?: string | null;
   /** When true, server skips risk analysis and auto-execute; client will call execute. */
   screeningDisabled?: boolean;
+  /**
+   * Take the current executable nonce so this tx skips a stuck proposal
+   * (replacing whatever is pending at that nonce). Screening still applies —
+   * only the queue position changes.
+   */
+  forceExecute?: boolean;
   /** USD value at proposal time — for cross-token pattern aggregations */
   amountUSD?: string;
   /** Privy identity token for authenticating the backend request */
