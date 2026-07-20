@@ -141,19 +141,22 @@ export function useOnboarding(
       return;
     }
 
-    // New user without a Safe yet → onboarding needed, nothing to fetch.
-    if (!safeAddress) {
-      setComplete(false);
-      setLoading(false);
-      return;
-    }
-
-    // Fast path: confirmed on this device (covers the brand-new user who just
-    // finished, before the record re-resolves with the flag).
+    // Device already finished onboarding — trust it regardless of whether the
+    // Safe address resolved this render. Checked BEFORE the no-Safe bailout so
+    // a transient record-lookup miss can never bounce a completed user back
+    // into onboarding. (Only markOnboarding*Done / the backend paths ever set
+    // completed:true, so this is a strong signal.)
     const s = readStored(walletAddress);
     if (s.completed) {
       setOnboardingCompleteCookie();
       setComplete(true);
+      setLoading(false);
+      return;
+    }
+
+    // New user without a Safe yet → onboarding needed, nothing to fetch.
+    if (!safeAddress) {
+      setComplete(false);
       setLoading(false);
       return;
     }

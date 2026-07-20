@@ -585,13 +585,20 @@ function DoneStep({
 
 function OnboardingContent() {
   const router = useRouter();
-  const { safeAddress, safeConfig, safeLoading, wallet, user, commitSafe } = useAuth();
+  const { safeAddress, safeConfig, safeLoading, wallet, user, commitSafe, recordOnboardingCompleted } = useAuth();
   const api = useApiClient();
 
   const [step, setStep] = useState(0);
   const [stepReady, setStepReady] = useState(false);
   const [savedUsername, setSavedUsername] = useState<string | null>(null);
   const totalSteps = 4;
+
+  // Already onboarded (per the backend record) → forward to the app. Without
+  // this, a completed user who lands on /onboarding (a stale deep-link, a
+  // back-nav) is stranded on the final step with no automatic way out.
+  useEffect(() => {
+    if (recordOnboardingCompleted === true) router.replace("/home");
+  }, [recordOnboardingCompleted, router]);
 
   // Restore step from localStorage on mount. Keyed by the embedded wallet —
   // the Safe address doesn't exist until the backup key is linked (step 0).
