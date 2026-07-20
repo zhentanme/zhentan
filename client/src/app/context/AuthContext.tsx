@@ -71,6 +71,12 @@ export interface AuthContextType {
   safeConfig: SafeConfig | null;
   /** Re-resolve the Safe record from the backend (after onboarding/upgrade/settings changes) */
   refreshSafe: () => void;
+  /**
+   * Authoritative onboarding-completed flag from the backend record — already
+   * fetched to resolve the address, so no extra round-trip. `null` until the
+   * record loads (or for brand-new users with no record yet).
+   */
+  recordOnboardingCompleted: boolean | null;
   /** Telegram user ID from linked account */
   telegramUserId?: string;
   /** Raw Privy user for accessing linkedAccounts */
@@ -348,11 +354,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPendingProfile,
       safeConfig,
       refreshSafe,
+      recordOnboardingCompleted: safeRecord?.onboarding_completed ?? null,
       telegramUserId,
       privyUser: privyUser ?? null,
       identityToken: identityToken ?? null,
     }),
-    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, pendingProfile, safeConfig, refreshSafe, telegramUserId, privyUser, identityToken]
+    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, pendingProfile, safeConfig, refreshSafe, safeRecord, telegramUserId, privyUser, identityToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

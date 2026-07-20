@@ -49,6 +49,7 @@ export async function resolveCoSigner(
 ): Promise<LocalAccount | null> {
   if (!screeningDisabled || safe.threshold <= 1) return null;
   const coSigner = (await getBackupAccount?.()) ?? null;
+  console.log(coSigner)
   if (!coSigner) {
     throw new Error(
       "Sending without screening needs your backup key's signature — connect your backup wallet and retry, or approve it from the Safe app."

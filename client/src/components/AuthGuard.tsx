@@ -7,7 +7,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useOnboarding } from "@/lib/useOnboarding";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, wallet, loading, safeAddress, safeLoading, telegramUserId } = useAuth();
+  const { user, wallet, loading, safeAddress, safeLoading, recordOnboardingCompleted, telegramUserId } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -17,6 +17,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       walletAddress: wallet?.address,
       safeAddress,
       ready: !loading && !!user && !!wallet && !safeLoading && !skipOnboardingCheck,
+      recordOnboardingCompleted,
     },
     telegramUserId
   );

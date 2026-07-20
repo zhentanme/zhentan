@@ -108,10 +108,17 @@ export function useOnboarding(
     walletAddress,
     safeAddress,
     ready,
+    recordOnboardingCompleted,
   }: {
     walletAddress: string | null | undefined;
     safeAddress: string | null;
     ready: boolean;
+    /**
+     * Authoritative onboarding flag from the backend user record, already
+     * fetched by useSafeAddress to resolve the address. `null` while the
+     * record is still loading or for brand-new users with no record yet.
+     */
+    recordOnboardingCompleted: boolean | null;
   },
   telegramUserId?: string
 ): OnboardingStatus {
@@ -122,6 +129,18 @@ export function useOnboarding(
   useEffect(() => {
     if (!ready || !walletAddress) return;
 
+    // The backend record is the source of truth — it came back with the Safe
+    // address resolution, so no second round-trip and no localStorage-key
+    // dependency. Cache the result locally + set the cookie for the middleware
+    // fast path.
+    if (recordOnboardingCompleted === true) {
+      patchStored(walletAddress, { completed: true, step: 3 });
+      setOnboardingCompleteCookie();
+      setComplete(true);
+      setLoading(false);
+      return;
+    }
+
     // New user without a Safe yet → onboarding needed, nothing to fetch.
     if (!safeAddress) {
       setComplete(false);
@@ -129,10 +148,9 @@ export function useOnboarding(
       return;
     }
 
+    // Fast path: confirmed on this device (covers the brand-new user who just
+    // finished, before the record re-resolves with the flag).
     const s = readStored(walletAddress);
-
-    // Fast path: already confirmed on this device.
-    // Re-assert the cookie — it may have been cleared on logout while localStorage persisted.
     if (s.completed) {
       setOnboardingCompleteCookie();
       setComplete(true);
@@ -140,33 +158,17 @@ export function useOnboarding(
       return;
     }
 
-    // Legacy-key migration: entries written before the wallet-address re-key
-    // live under `onboarding_${safeAddress}`. Without this, an existing
-    // account whose completion was only recorded locally gets bounced back
-    // into onboarding, and the flag never lands under the proper key.
-    const legacy = readStored(safeAddress);
-    if (legacy.completed) {
-      patchStored(walletAddress, { completed: true, step: 3 });
-      try {
-        localStorage.removeItem(storageKey(safeAddress));
-      } catch {}
-      setOnboardingCompleteCookie();
-      setComplete(true);
-      setLoading(false);
-      return;
-    }
-
-    // Fetch from backend — handles new devices and returning users
+    // Fallback: the record hasn't loaded yet (recordOnboardingCompleted null)
+    // but a backend record may still exist — e.g. username+telegram set
+    // outside onboarding. One best-effort fetch; a failure leaves the user in
+    // onboarding, which is the safe default for a genuinely new account.
     api.users
       .get(safeAddress)
       .then((data) => {
         const backendCompleted = data?.onboarding_completed === true;
-        // Also auto-complete if user already has both username + telegram set
-        // (e.g. set up outside of onboarding, or migrated from before this feature)
         const naturallyComplete = !!data?.username && !!telegramUserId;
-
         if (backendCompleted || naturallyComplete) {
-          patchStored(walletAddress, { completed: true });
+          patchStored(walletAddress, { completed: true, step: 3 });
           setOnboardingCompleteCookie();
           setComplete(true);
         }
@@ -174,7 +176,7 @@ export function useOnboarding(
       .catch(() => {})
       .finally(() => setLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, walletAddress, safeAddress]);
+  }, [ready, walletAddress, safeAddress, recordOnboardingCompleted]);
 
   return { loading, complete };
 }

@@ -12,7 +12,7 @@ import { useOnboarding } from "@/lib/useOnboarding";
 import { useLoginWithOAuth } from "@privy-io/react-auth";
 
 export default function LoginPage() {
-  const { user, wallet, loading, safeAddress, safeLoading, telegramUserId } = useAuth();
+  const { user, wallet, loading, safeAddress, safeLoading, recordOnboardingCompleted, telegramUserId } = useAuth();
   const { initOAuth, loading: oauthLoading } = useLoginWithOAuth();
   const [signingInGoogle, setSigningInGoogle] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -23,6 +23,7 @@ export default function LoginPage() {
       walletAddress: wallet?.address,
       safeAddress,
       ready: !loading && !!user && !!wallet && !safeLoading,
+      recordOnboardingCompleted,
     },
     telegramUserId
   );
