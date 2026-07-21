@@ -15,7 +15,7 @@ import {
 import { notify } from "../notifications/index.js";
 import { SAFE_ABI, MULTISEND_CALL_ONLY } from "../lib/constants.js";
 import { decodeMultiSendData } from "@safe-global/protocol-kit";
-import { classifyProfile } from "../lib/safe/profiles.js";
+import { classifyProfile, type WalletState } from "../lib/safe/profiles.js";
 import {
   computeSafeTxHash,
   recoverSafeTxSigner,
@@ -24,7 +24,7 @@ import {
 import { deploySafe, isSafeDeployed } from "../lib/safe/deploy.js";
 import { DERIVATION_V1_4337, type DerivationVersion } from "../lib/safe/derive.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
-import { readSafeOwners, readSafeThreshold } from "../lib/safe/onchain.js";
+import { readSafeOwners } from "../lib/safe/onchain.js";
 import type { PendingTransaction, SafeTxData } from "../types.js";
 
 /**
@@ -150,7 +150,9 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
  * simulated end state must classify to a managed profile (or detached, for
  * the exit) different from the current one.
  */
-async function validateTransitionTx(pendingTx: PendingTransaction & { calldata?: string }): Promise<void> {
+async function validateTransitionTx(
+  pendingTx: PendingTransaction & { calldata?: string }
+): Promise<{ endState: WalletState; endThreshold: number }> {
   const { safeAddress } = pendingTx;
   // For SafeTx proposals, validate the SIGNED payload (its hash was already
   // recomputed and signature-verified) — not the loose display fields.
@@ -234,17 +236,40 @@ async function validateTransitionTx(pendingTx: PendingTransaction & { calldata?:
   if (endState === currentState) {
     throw new Error("Transition does not change the wallet profile");
   }
+  // The simulated end state IS the post-execution truth (the tx is validated
+  // hard and executed atomically) — return it so finishTransition can persist
+  // a deterministic threshold instead of racing an RPC read.
+  return { endState, endThreshold: threshold };
 }
 
-/** After an executed transition: mirror the on-chain owner set + threshold onto the record. */
-async function finishTransition(safeAddress: string): Promise<void> {
-  const [owners, threshold] = await Promise.all([
-    readSafeOwners(safeAddress),
-    readSafeThreshold(safeAddress),
-  ]);
+/**
+ * After an executed transition: mirror the new owner set + threshold onto the
+ * record. The threshold is taken from the VALIDATED simulation, never a
+ * post-execution chain read — a load-balanced RPC (1rpc.io) can serve the
+ * post-upgrade owners from one replica and the pre-upgrade threshold from
+ * another, persisting an inconsistent state (e.g. `[embedded, agent]` with
+ * threshold 1 → classifies as "unknown", no upgrade banner). Only the owner
+ * SET is read from chain (for its correct linked-list order, which detach
+ * later relies on), retried through replica lag until it matches the profile
+ * the transition is known to produce.
+ */
+async function finishTransition(
+  safeAddress: string,
+  target: { endState: WalletState; endThreshold: number }
+): Promise<void> {
+  const agent = getAgentAddress();
+  let owners = await readSafeOwners(safeAddress);
+  for (
+    let i = 0;
+    i < 6 && classifyProfile(owners, target.endThreshold, agent) !== target.endState;
+    i++
+  ) {
+    await new Promise((r) => setTimeout(r, 1200));
+    owners = await readSafeOwners(safeAddress);
+  }
   await upsertUserDetails(safeAddress, {
     safe_owners: owners,
-    safe_threshold: threshold,
+    safe_threshold: target.endThreshold,
     safe_deployed: true,
   });
 }
@@ -266,6 +291,9 @@ export function createQueueRouter(): IRouter {
       const isSafeTx = pendingTx.txType === "safetx";
       // "upgrade" is the pre-profiles wire name for what is now any profile transition.
       const isUpgrade = pendingTx.upgrade === true || pendingTx.transition === true;
+      // The transition's simulated end state (owners+threshold), captured at
+      // validation and reused to persist a deterministic post-execution profile.
+      let transitionTarget: { endState: WalletState; endThreshold: number } | undefined;
 
       if (isSafeTx) {
         try {
@@ -279,7 +307,7 @@ export function createQueueRouter(): IRouter {
 
       if (isUpgrade) {
         try {
-          await validateTransitionTx(pendingTx);
+          transitionTarget = await validateTransitionTx(pendingTx);
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Invalid transition transaction";
           res.status(400).json({ error: msg });
@@ -344,6 +372,11 @@ export function createQueueRouter(): IRouter {
       // Auto-execute through the legacy 4337 path (agent co-signs, gasless),
       // then persist the new on-chain owner set and flip to SafeTx mode.
       if (isUpgrade) {
+        // Set above when isUpgrade validation passed; guard for the type system.
+        if (!transitionTarget) {
+          res.status(500).json({ error: "Transition target unresolved" });
+          return;
+        }
         // Idempotency: if a previous attempt already added the owner on-chain
         // but the DB flip failed (or a retry races), addOwnerWithThreshold
         // would revert with "already an owner" — reconcile from chain instead.
@@ -356,7 +389,7 @@ export function createQueueRouter(): IRouter {
             record?.external_wallet_address &&
             onChainOwners.includes(record.external_wallet_address.toLowerCase())
           ) {
-            await finishTransition(pendingTx.safeAddress);
+            await finishTransition(pendingTx.safeAddress, transitionTarget);
             res.json({ success: true, id: pendingTx.id, upgraded: true, alreadyUpgraded: true });
             return;
           }
@@ -384,7 +417,7 @@ export function createQueueRouter(): IRouter {
             // the next attempt.
             let upgradeWarning: string | undefined;
             try {
-              await finishTransition(pendingTx.safeAddress);
+              await finishTransition(pendingTx.safeAddress, transitionTarget);
             } catch (err) {
               upgradeWarning = err instanceof Error ? err.message : String(err);
               console.error("finishTransition failed (will self-heal on retry):", upgradeWarning);

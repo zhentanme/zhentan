@@ -103,7 +103,18 @@ export function useSafeAddress({
     computingRef.current = computeKey;
 
     let cancelled = false;
-    setState((s) => ({ ...s, loading: true }));
+    // Background refresh: a record-backed resolution for this same signer
+    // re-runs SILENTLY — no `loading` flip. The record wins over live inputs
+    // anyway, so the current state stays valid while the refresh is in flight.
+    // Flipping `loading` here unmounts gate-level UI (AuthGuard swaps the page
+    // for a full-screen loader), which killed any open dialog whenever a
+    // backup key was picked (setBackupAddress re-runs this hook) or a
+    // transition called refreshSafe().
+    const isBackgroundRefresh = (s: SafeResolution) =>
+      !!s.record &&
+      !!s.safeAddress &&
+      s.record.signer_address?.toLowerCase() === embeddedAddress.toLowerCase();
+    setState((s) => (isBackgroundRefresh(s) ? s : { ...s, loading: true }));
 
     const scheduleRetry = () =>
       setTimeout(() => {
@@ -208,14 +219,24 @@ export function useSafeAddress({
       };
     })()
       .then((result) => {
-        if (!cancelled) setState(result);
+        if (cancelled) return;
+        setState((s) => {
+          // A transient failure (kept-loading empty result) must not wipe a
+          // valid record-backed state mid-background-refresh — keep showing
+          // the last-known-good record; the retry will reconcile.
+          if (isBackgroundRefresh(s) && result.loading) return s;
+          return result;
+        });
       })
       .catch((err) => {
         // Network-level failure: stay loading — resolving to "no Safe" here
         // would misroute an existing user into onboarding. Retry shortly.
+        // (Background refreshes keep their last-known-good state instead.)
         console.error("Failed to resolve Safe address:", err);
         if (!cancelled) {
-          setState((s) => ({ ...s, safeAddress: null, loading: true }));
+          setState((s) =>
+            isBackgroundRefresh(s) ? s : { ...s, safeAddress: null, loading: true }
+          );
           scheduleRetry();
         }
       })

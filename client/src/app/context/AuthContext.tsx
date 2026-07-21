@@ -103,22 +103,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasAttemptedCreate = useRef(false);
   const hasSyncedUser = useRef(false);
 
-  const primaryWallet = useMemo(
+  // The embedded Privy wallet, when one exists (Google / no-wallet logins).
+  const embeddedWallet = useMemo(
     () => wallets.find((w) => w.walletClientType === "privy"),
     [wallets]
   );
 
+  // The external wallet the user AUTHENTICATED with (wallet login) — the one
+  // Privy records in linkedAccounts. Backup keys are connected but never linked
+  // (BackupAddressPicker uses connectWallet), so they never appear here.
+  const linkedExternalAddress = useMemo(() => {
+    const accounts = privyUser?.linkedAccounts ?? [];
+    const external = accounts.find(
+      (a) =>
+        a.type === "wallet" &&
+        "walletClientType" in a &&
+        a.walletClientType !== "privy" &&
+        "address" in a
+    );
+    return external && "address" in external ? (external.address as string) : null;
+  }, [privyUser]);
+
+  // Owner #1 / the signer: the embedded wallet if there is one, otherwise the
+  // connected external wallet used to log in. A wallet-login user has no
+  // embedded wallet — their connected wallet is the signer.
+  const primaryWallet = useMemo(() => {
+    if (embeddedWallet) return embeddedWallet;
+    if (!linkedExternalAddress) return undefined;
+    return wallets.find(
+      (w) =>
+        w.walletClientType !== "privy" &&
+        w.address.toLowerCase() === linkedExternalAddress.toLowerCase()
+    );
+  }, [embeddedWallet, wallets, linkedExternalAddress]);
+
+  // Authenticated by connecting an external wallet (not Google + embedded).
+  // Such users must NEVER have an embedded wallet minted for them.
+  const isWalletLogin = !embeddedWallet && !!linkedExternalAddress;
+
   useEffect(() => {
     if (!ready || !authenticated || primaryWallet) return;
+    // Wallet-login users sign with their connected wallet — minting an embedded
+    // wallet here would violate "use the wallet connected as signer".
+    // `createOnLogin: "users-without-wallets"` already prevents it; this guard
+    // also closes the race before the external wallet populates `wallets`.
+    if (isWalletLogin) return;
     if (hasAttemptedCreate.current) return;
     hasAttemptedCreate.current = true;
     createWallet().catch((e) => {
       console.error("Privy createWallet failed:", e);
       hasAttemptedCreate.current = false;
     });
-  }, [ready, authenticated, primaryWallet, createWallet]);
+  }, [ready, authenticated, primaryWallet, isWalletLogin, createWallet]);
 
-  // Switch embedded wallet to app chain (bsc) for signing
+  // Switch the signer wallet (embedded or connected external) to the app chain.
   useEffect(() => {
     if (!primaryWallet) return;
     primaryWallet.switchChain(bsc.id).catch((e) => {
@@ -158,19 +196,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setBackupAddressState(addr);
   }, []);
 
-  // Privy-linked external wallet — legacy fallback for accounts that linked a
-  // wallet before the signature-free picker existed.
-  const privyLinkedExternal = useMemo(() => {
-    const accounts = privyUser?.linkedAccounts ?? [];
-    const external = accounts.find(
-      (a) =>
-        a.type === "wallet" &&
-        "walletClientType" in a &&
-        a.walletClientType !== "privy" &&
-        "address" in a
-    );
-    return external && "address" in external ? (external.address as string) : null;
-  }, [privyUser]);
+  // Legacy backup fallback: a wallet linked before the signature-free picker
+  // existed. Only a backup when there IS an embedded signer — for a wallet-login
+  // user the linked external wallet is the SIGNER, not a backup key.
+  const privyLinkedExternal = embeddedWallet ? linkedExternalAddress : null;
 
   const loading = !ready || (authenticated && !primaryWallet);
 
@@ -259,7 +288,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [safeAddress, safeRecord, derivedOwners, derivedThreshold, agentAddress, derivationVersion]);
 
   useEffect(() => {
-    if (!safeAddress || !identityToken || hasSyncedUser.current) return;
+    // The signer address is load-bearing: it's the ONLY key `/users/by-signer`
+    // can find this account by. Never sync without it — a row written with a
+    // null signer_address is invisible to that lookup forever, so the user is
+    // treated as new on return and bounced back into onboarding.
+    if (!safeAddress || !identityToken || !wallet?.address || hasSyncedUser.current)
+      return;
     // Freshly derived Safes wait for the onboarding commit; record-backed
     // users sync immediately as before.
     if (safeDerived && !safeCommitted) return;
@@ -284,7 +318,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             derivationVersion: derivationVersion ?? undefined,
           }),
       }),
-    }).catch((e) => console.error("Failed to sync user details:", e));
+    })
+      .then((res) => {
+        // Re-arm on a server error so signer_address isn't left unset forever.
+        if (!res.ok) hasSyncedUser.current = false;
+      })
+      .catch((e) => {
+        console.error("Failed to sync user details:", e);
+        hasSyncedUser.current = false;
+      });
   }, [
     safeAddress,
     identityToken,
