@@ -57,6 +57,14 @@ export interface PendingTransaction {
   safeAddress: string;
   /** Defaults to "4337" for legacy rows without the discriminator. */
   txType?: TxExecutionType;
+  /**
+   * Non-transfer rows, computed at read time (never stored): "creation" is
+   * the Safe deployment itself, "config" is owner/config management (the
+   * wallet-profile transitions). Absent for ordinary transfers.
+   */
+  txKind?: "config" | "creation";
+  /** Display label for txKind rows, e.g. "Backup key added". */
+  kindLabel?: string;
   /** 4337 flow only. */
   userOp?: Record<string, unknown>;
   /** 4337 flow only. */

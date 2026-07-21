@@ -17,6 +17,8 @@ import { notify } from "../notifications/index.js";
 import { fetchTransfers, type ZerionHistoryItem } from "../lib/zerion.js";
 import { executeRejection } from "../lib/safe/reject.js";
 import { reconcileSafeTx } from "../lib/safe/reconcile.js";
+import { classifyTxKind } from "../lib/safe/txKind.js";
+import type { UserDetailsRow } from "../lib/supabase/types.js";
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
@@ -57,6 +59,39 @@ function zerionOnlyToActivity(z: ZerionHistoryItem, safeAddress: string): Transa
     proposedAt: z.timestamp,
     executedAt: z.timestamp,
     txHash: z.hash,
+    success: true,
+    status: "executed",
+  };
+}
+
+/**
+ * Synthesized "Safe created" history item. The deployment is sent by the
+ * agent EOA (not the Safe), so Zerion never returns it and no queue row
+ * exists — the user record's deploy receipt is its only trace. Only built
+ * when the deploy hash is recorded (v2 eager deploys); legacy v1 accounts
+ * deployed inside their first 4337 userOp have no reliable receipt to show.
+ */
+function creationActivity(record: UserDetailsRow): TransactionWithStatus | null {
+  if (!record.safe_deployed || !record.safe_deploy_tx_hash) return null;
+  return {
+    id: `creation:${record.safe_address}`,
+    source: "zhentan-only",
+    txKind: "creation",
+    kindLabel: "Safe account created",
+    to: record.safe_address,
+    amount: "0",
+    token: "",
+    tokenAddress: "",
+    proposedBy: record.signer_address ?? record.safe_address,
+    signatures: [],
+    ownerAddresses: record.creation_owners ?? [],
+    threshold: record.creation_threshold ?? record.safe_threshold ?? 2,
+    safeAddress: record.safe_address,
+    userOp: {},
+    partialSignatures: "",
+    proposedAt: record.created_at,
+    executedAt: record.created_at,
+    txHash: record.safe_deploy_tx_hash,
     success: true,
     status: "executed",
   };
@@ -137,13 +172,24 @@ export function createTransactionsRouter(): IRouter {
       }
 
       // Fetch our records and Zerion history in parallel; Zerion has a 4s timeout
-      const [ourResult, zerionResult] = await Promise.allSettled([
+      const [ourResult, zerionResult, recordResult] = await Promise.allSettled([
         getTransactionsByAddress(safeAddress),
         withTimeout(fetchTransfers(safeAddress), 4000),
+        getUserDetails(safeAddress),
       ]);
 
       const ourTxs = ourResult.status === "fulfilled" ? ourResult.value : [];
       const zerionItems = zerionResult.status === "fulfilled" ? zerionResult.value : [];
+      const record = recordResult.status === "fulfilled" ? recordResult.value : null;
+
+      // Config classification needs the agent address; without a configured
+      // agent the precise transition labels degrade gracefully.
+      let agentAddress = "";
+      try {
+        agentAddress = getAgentAddress();
+      } catch {
+        /* no agent configured */
+      }
 
       // Reconcile unresolved SafeTx rows on read — the SAME service-backed flow
       // safeSync runs on a timer, but for the rows we're about to render. A tx
@@ -194,6 +240,9 @@ export function createTransactionsRouter(): IRouter {
       const ourActivity: TransactionWithStatus[] = ourTxs.map((tx) => {
         const base: TransactionWithStatus = {
           ...tx,
+          // Config rows (transitions, legacy upgrades) render as wallet
+          // events, not zero-value transfers. Computed from stored calldata.
+          ...(classifyTxKind(tx, agentAddress) ?? {}),
           source: "zhentan-only",
           // `confirming` is a transient read-time state (chain ahead of the
           // service) — it isn't derivable from stored fields, so apply it here.
@@ -220,6 +269,7 @@ export function createTransactionsRouter(): IRouter {
         const row = ourActivity.find(
           (t) =>
             !t.txHash &&
+            !t.txKind && // config rows are not transfers — never fold one into a Zerion send
             (t.status === "pending" ||
               t.status === "in_review" ||
               t.status === "confirming") &&
@@ -240,8 +290,12 @@ export function createTransactionsRouter(): IRouter {
         .filter((z) => !matchedHashes.has(z.hash.toLowerCase()))
         .map((z) => zerionOnlyToActivity(z, safeAddress));
 
+      // Safe deployment — synthesized from the deploy receipt on the user
+      // record (Zerion never sees it: the agent EOA sent it, not the Safe).
+      const creation = record ? creationActivity(record) : null;
+
       // Merge, sort newest-first, cap at the 100 most recent
-      const transactions = [...ourActivity, ...zerionOnlyActivity]
+      const transactions = [...ourActivity, ...zerionOnlyActivity, ...(creation ? [creation] : [])]
         .sort((a, b) => new Date(b.proposedAt).getTime() - new Date(a.proposedAt).getTime())
         .slice(0, MAX_TRANSACTIONS);
 
@@ -264,9 +318,16 @@ export function createTransactionsRouter(): IRouter {
         return;
       }
       const txs = await getTransactionsByAddress(safeAddress);
+      let agentAddress = "";
+      try {
+        agentAddress = getAgentAddress();
+      } catch {
+        /* no agent configured */
+      }
       const transactions: TransactionWithStatus[] = txs
         .map((tx) => ({
           ...tx,
+          ...(classifyTxKind(tx, agentAddress) ?? {}),
           source: "zhentan-only" as const,
           status: getTransactionStatus(tx),
         }))
@@ -288,7 +349,19 @@ export function createTransactionsRouter(): IRouter {
         res.status(404).json({ error: `Transaction not found: ${id}` });
         return;
       }
-      res.json({ transaction: { ...tx, status: getTransactionStatus(tx) } });
+      let agentAddress = "";
+      try {
+        agentAddress = getAgentAddress();
+      } catch {
+        /* no agent configured */
+      }
+      res.json({
+        transaction: {
+          ...tx,
+          ...(classifyTxKind(tx, agentAddress) ?? {}),
+          status: getTransactionStatus(tx),
+        },
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       res.status(500).json({ error: message });
