@@ -8,7 +8,7 @@ import {
   NATIVE_TOKEN_ADDRESS,
 } from "./constants";
 import { apiFetch } from "./api/client";
-import { buildSafeTxProposal, resolveCoSigner } from "./safe/proposeSafeTx";
+import { buildSafeTxProposal } from "./safe/proposeSafeTx";
 import type { SafeCall } from "./safe/safeTx";
 import type { ProposeParams } from "@/types";
 
@@ -17,7 +17,6 @@ export async function proposeTransaction({
   amount,
   safe,
   getOwnerAccount,
-  getBackupAccount,
   tokenAddress: tokenAddressParam,
   tokenDecimals,
   tokenSymbol,
@@ -52,12 +51,14 @@ export async function proposeTransaction({
     calls = [{ to: tokenAddress as Address, value: 0n, data }];
   }
 
-  const coSigner = await resolveCoSigner(screeningDisabled, safe, getBackupAccount);
+  // No inline co-signing: a screening-off send in a protected wallet always
+  // proposes at 1/n and lands on the queued screen, where the user signs
+  // with the backup key deliberately (or in the Safe app) — no surprise
+  // wallet popup mid-propose.
   const signedFields = await buildSafeTxProposal({
     calls,
     safe,
     getOwnerAccount,
-    coSigner,
     identityToken,
     forceExecute,
   });

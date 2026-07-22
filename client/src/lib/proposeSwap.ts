@@ -4,7 +4,7 @@ import { parseUnits, encodeFunctionData, type Address } from "viem";
 
 import { ERC20_APPROVE_ABI, NATIVE_TOKEN_ADDRESS } from "./constants";
 import { apiFetch } from "./api/client";
-import { buildSafeTxProposal, resolveCoSigner } from "./safe/proposeSafeTx";
+import { buildSafeTxProposal } from "./safe/proposeSafeTx";
 import type { SafeCall } from "./safe/safeTx";
 import type { SafeProposalContext, TokenPosition } from "@/types";
 
@@ -32,8 +32,6 @@ export interface ProposeSwapParams {
   quote: SwapQuote;
   safe: SafeProposalContext;
   getOwnerAccount: () => Promise<import("viem").LocalAccount | null>;
-  /** Backup-key signer (screening-off co-signing). */
-  getBackupAccount?: () => Promise<import("viem").LocalAccount | null>;
   /** When true, server skips risk analysis; requires user signatures to meet the threshold. */
   screeningDisabled?: boolean;
   amountUSD?: string;
@@ -47,7 +45,6 @@ export async function proposeSwap({
   quote,
   safe,
   getOwnerAccount,
-  getBackupAccount,
   screeningDisabled,
   amountUSD,
   identityToken,
@@ -82,8 +79,9 @@ export async function proposeSwap({
     data: quote.transaction.data as `0x${string}`,
   });
 
-  const coSigner = await resolveCoSigner(screeningDisabled, safe, getBackupAccount);
-  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, coSigner, identityToken });
+  // No inline co-signing — screening-off swaps queue at 1/n and the backup
+  // key signs from the queued screen (see propose.ts for the rationale).
+  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken });
 
   const txId = `swap-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {

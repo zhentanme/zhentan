@@ -268,8 +268,6 @@ export interface ProposeParams {
   /** Safe identity + execution mode (from useAuth().safeConfig). */
   safe: SafeProposalContext;
   getOwnerAccount: () => Promise<import("viem").LocalAccount | null>;
-  /** Backup-key signer (screening-off co-signing). From useAuth().getBackupAccount. */
-  getBackupAccount?: () => Promise<import("viem").LocalAccount | null>;
   /** ERC20 token contract address (default: USDC from env) */
   tokenAddress?: string;
   /** Token decimals (default: USDC decimals) */

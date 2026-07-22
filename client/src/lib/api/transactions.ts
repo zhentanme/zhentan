@@ -56,5 +56,23 @@ export function transactionsApi(req: ApiFetchFn) {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
+
+    /**
+     * Complete a USER-proposed screening-off tx queued below threshold: submit
+     * the backup key's co-signature; the server verifies it and the relayer
+     * executes relay-only (the agent signs nothing it didn't screen).
+     */
+    async cosign(
+      id: string,
+      signature: string
+    ): Promise<{ status: string; txId: string; execution: { status?: string; txHash?: string; error?: string } }> {
+      const res = await req(`/transactions/${encodeURIComponent(id)}/cosign`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
   };
 }

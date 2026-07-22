@@ -255,6 +255,20 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
   ];
   const relayOnly = userSigs.length >= tx.threshold;
 
+  // Defense in depth for queued-awaiting-co-sign rows: a screening-off tx
+  // below threshold must NEVER fall through to the agent-signs branch, no
+  // matter which surface called /execute (client, Telegram, MCP, agent cron).
+  // Legacy v1 wallets are exempt — the agent is their co-signer by design.
+  if (!relayOnly && tx.screeningDisabled) {
+    const record = await getUserDetails(tx.safeAddress);
+    const legacyExempt = (record?.derivation_version ?? 1) === 1;
+    if (!legacyExempt) {
+      throw new Error(
+        "Awaiting backup co-signature — co-sign from your transaction history or the Safe app"
+      );
+    }
+  }
+
   const agentSignature = relayOnly ? null : await protocolKit.signHash(tx.safeTxHash);
 
   // Mirror confirmations to the service so the Safe UI shows n/n —

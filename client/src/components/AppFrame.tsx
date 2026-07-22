@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/Sidebar";
 import { RightRail } from "@/components/RightRail";
+import { SignerMismatchBanner } from "@/components/SignerMismatchNotice";
 import { TopBar } from "@/components/TopBar";
 
 /** Routes that show the right co-sign rail on desktop. */
@@ -20,6 +21,8 @@ export function AppFrame({ children }: { children: React.ReactNode }) {
           ends at the same line — whether or not the rail is rendered. */}
       <div className="lg:pl-64 xl:pr-[22rem]">
         <TopBar />
+        {/* Profile has its own inline warning beside the signer row. */}
+        {pathname !== "/profile" && <SignerMismatchBanner />}
         {children}
       </div>
     </div>

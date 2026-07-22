@@ -4,6 +4,11 @@ import { useState, useEffect, useRef } from "react";
 
 import { apiFetch } from "./api/client";
 import type { UserDetails } from "./api/users";
+import {
+  readIdentityCache,
+  writeIdentityCache,
+  removeIdentityCache,
+} from "./identityCache";
 import type { WalletProfile } from "./safe/profiles";
 
 // Derivation happens SERVER-SIDE only (POST /safe/derive) — the initializer
@@ -41,6 +46,8 @@ interface UseSafeAddressParams {
   externalAddress: string | undefined;
   /** Privy identity token for the backend calls. */
   identityToken: string | null | undefined;
+  /** Privy user id — keys the local identity cache (stale-while-revalidate). */
+  privyUserId?: string | null;
   /** Bump to force a re-resolution (e.g. after onboarding or an upgrade). */
   refreshKey?: number;
 }
@@ -60,6 +67,7 @@ export function useSafeAddress({
   profile,
   externalAddress,
   identityToken,
+  privyUserId,
   refreshKey = 0,
 }: UseSafeAddressParams): SafeResolution {
   // Starts in the loading state: guards must never observe "resolved, no
@@ -98,11 +106,35 @@ export function useSafeAddress({
       return;
     }
 
-    const computeKey = `${embeddedAddress}|${profile ?? ""}|${externalAddress ?? ""}|${identityToken ? "t" : ""}|${refreshKey}|${retry}`;
+    const computeKey = `${embeddedAddress}|${profile ?? ""}|${externalAddress ?? ""}|${identityToken ? "t" : ""}|${privyUserId ?? ""}|${refreshKey}|${retry}`;
     if (computingRef.current === computeKey) return;
     computingRef.current = computeKey;
 
     let cancelled = false;
+
+    // Stale-while-revalidate: hydrate the last-known record for this signer so
+    // a reload (or an account-switch round trip) renders instantly instead of
+    // blocking on the network. The by-signer fetch below stays authoritative —
+    // it runs as a background refresh and overwrites this state either way.
+    if (privyUserId) {
+      const cachedRecord = readIdentityCache(privyUserId, embeddedAddress);
+      if (cachedRecord) {
+        setState((s) =>
+          s.record || s.safeAddress
+            ? s
+            : {
+                safeAddress: cachedRecord.safe_address,
+                loading: false,
+                record: cachedRecord,
+                derived: false,
+                derivationVersion: cachedRecord.derivation_version ?? null,
+                derivedOwners: null,
+                derivedThreshold: null,
+              }
+        );
+      }
+    }
+
     // Background refresh: a record-backed resolution for this same signer
     // re-runs SILENTLY — no `loading` flip. The record wins over live inputs
     // anyway, so the current state stays valid while the refresh is in flight.
@@ -152,6 +184,8 @@ export function useSafeAddress({
       }
       const data = (await res.json()) as { user: UserDetails | null };
       if (data.user?.safe_address) {
+        // Refresh the local identity cache so the next boot hydrates instantly.
+        if (privyUserId) writeIdentityCache(privyUserId, embeddedAddress, data.user);
         return {
           safeAddress: data.user.safe_address,
           loading: false,
@@ -162,6 +196,10 @@ export function useSafeAddress({
           derivedThreshold: null,
         };
       }
+
+      // The backend explicitly reports no record — drop any stale cached
+      // identity so it can't resurrect a deleted account on a later boot.
+      if (privyUserId) removeIdentityCache(privyUserId);
 
       // 2. New user: server-side derivation with the chosen creation profile.
       //    The protected profile also needs the backup key address.
@@ -247,7 +285,7 @@ export function useSafeAddress({
     return () => {
       cancelled = true;
     };
-  }, [embeddedAddress, profile, externalAddress, identityToken, refreshKey, retry]);
+  }, [embeddedAddress, profile, externalAddress, identityToken, privyUserId, refreshKey, retry]);
 
   return state;
 }

@@ -17,7 +17,8 @@ import type { Address, LocalAccount } from "viem";
 import { useSafeAddress } from "@/lib/useSafeAddress";
 import { classifyProfile, type WalletProfile, type WalletState } from "@/lib/safe/profiles";
 import { apiFetch } from "@/lib/api/client";
-import { clearOnboardingCompleteCookie } from "@/lib/useOnboarding";
+import { clearIdentityCache } from "@/lib/identityCache";
+import { clearOnboardingCompleteCookie, clearOnboardingStorage } from "@/lib/useOnboarding";
 
 export interface AuthUser {
   email?: string;
@@ -28,6 +29,38 @@ export interface AuthUser {
 
 export interface AuthWallet {
   address: string;
+}
+
+/** Brand of the connected signing wallet (wallet login) — from Privy's EIP-6963 metadata. */
+export interface SignerWalletMeta {
+  /** Wallet product name, e.g. "MetaMask", "Rabby Wallet". */
+  name: string;
+  /** Wallet logo (usually a data URI) reported by the wallet itself. */
+  icon?: string;
+  /** Privy wallet client type, e.g. "metamask", "rabby_wallet". */
+  clientType: string;
+}
+
+/**
+ * Wallet-login sessions are pinned to the SIWE-linked signer, but the
+ * extension exposes ONE active account: switching accounts (or locking /
+ * disconnecting the wallet) makes the signer unavailable while the session
+ * stays authenticated. This state names that condition so the UI can explain
+ * it instead of hanging on a loader.
+ */
+export interface SignerMismatch {
+  /** The linked signer address the session is pinned to. */
+  expected: string;
+  /** The wallet's currently active account — null when locked/disconnected. */
+  active: string | null;
+  /** Wallet product name, e.g. "MetaMask" — best-effort. */
+  walletName: string | null;
+}
+
+/** Wallet rendered in signer rows (profile / account dialog). */
+export interface SignerDisplay {
+  address: string;
+  meta: SignerWalletMeta | null;
 }
 
 export interface SafeConfig {
@@ -63,6 +96,30 @@ export interface AuthContextType {
   safeAddress: string | null;
   /** Whether the Safe address is still being computed */
   safeLoading: boolean;
+  /**
+   * Brand of the connected signing wallet (name/icon) for wallet-login users.
+   * Null for embedded signers (Google) and until the wallet (re)connects.
+   */
+  signerWalletMeta: SignerWalletMeta | null;
+  /**
+   * Wallet login only: the extension's active account can't sign for this
+   * Safe — it's neither the linked signer nor any other owner (switching to
+   * the backup key is legitimate co-signing, not a mistake). Non-blocking —
+   * the app keeps rendering the pinned identity's data; clears reactively.
+   */
+  signerMismatch: SignerMismatch | null;
+  /**
+   * Wallet to render in signer rows: the extension's currently ACTIVE wallet
+   * when one is connected — a switched account shows as itself, which helps
+   * the user notice and switch back — otherwise the pinned signer identity.
+   */
+  signerDisplay: SignerDisplay | null;
+  /**
+   * Prompt the active wallet's account picker (wallet_requestPermissions) so
+   * the user can switch back to the signer. Resolves false when no wallet is
+   * reachable or the request is unsupported — show "switch manually" copy.
+   */
+  requestSignerSwitch: () => Promise<boolean>;
   /** Backup key address (owner #2) — from the record, this session's choice, or a legacy Privy link */
   externalWalletAddress: string | null;
   /** Set the backup key for this session (pasted / ENS-resolved / connected — no signature) */
@@ -182,10 +239,93 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [privyUser, telegramUserId]);
 
+  // The session's signer IDENTITY — stable across extension account switches.
+  // Embedded users: the Privy wallet. Wallet-login users: the SIWE-linked
+  // address, even while a different account is active in the extension —
+  // identity must not flicker with the active account. Signing AVAILABILITY
+  // is primaryWallet's concern, surfaced as `signerMismatch`.
   const wallet: AuthWallet | null = useMemo(() => {
-    if (!primaryWallet?.address) return null;
-    return { address: primaryWallet.address };
+    if (embeddedWallet?.address) return { address: embeddedWallet.address };
+    if (linkedExternalAddress) return { address: linkedExternalAddress };
+    return null;
+  }, [embeddedWallet, linkedExternalAddress]);
+
+  // Which wallet product signs for a wallet-login user — Privy reports the
+  // wallet's own EIP-6963 name/icon on the connected wallet object.
+  const signerWalletMeta: SignerWalletMeta | null = useMemo(() => {
+    if (!primaryWallet || primaryWallet.walletClientType === "privy") return null;
+    return {
+      name: primaryWallet.meta?.name ?? primaryWallet.walletClientType,
+      icon: primaryWallet.meta?.icon,
+      clientType: primaryWallet.walletClientType,
+    };
   }, [primaryWallet]);
+
+  // ── Wrong-account detection (wallet login) ─────────────────────────────────
+  // Privy's injected connector tracks the extension's ACTIVE account: switching
+  // accounts REPLACES the signer's entry in `wallets`, so `primaryWallet`
+  // disappears while the session stays authenticated. Surface that as an
+  // explicit state instead of an indefinite `loading`.
+
+  // Last-known signer brand — survives the signer dropping out of `wallets`
+  // so the mismatch UI can still name the wallet product.
+  const [lastSignerMeta, setLastSignerMeta] = useState<SignerWalletMeta | null>(null);
+  useEffect(() => {
+    if (signerWalletMeta) setLastSignerMeta(signerWalletMeta);
+  }, [signerWalletMeta]);
+
+  // The external wallet currently active in the extension. Prefer the product
+  // the user signed in with — a connected backup wallet (different product)
+  // must not masquerade as the signer.
+  const activeExternalWallet = useMemo(() => {
+    const externals = wallets.filter((w) => w.walletClientType !== "privy");
+    if (externals.length === 0) return undefined;
+    return (
+      externals.find((w) => w.walletClientType === lastSignerMeta?.clientType) ??
+      externals[0]
+    );
+  }, [wallets, lastSignerMeta]);
+
+  // No external wallet at all is ambiguous — Privy may still be reconnecting,
+  // or the extension is locked/disconnected. Give reconnection a grace window
+  // before surfacing the blocked state.
+  const signerUnavailable =
+    ready && authenticated && isWalletLogin && !primaryWallet && !activeExternalWallet;
+  const [signerUnavailableTimedOut, setSignerUnavailableTimedOut] = useState(false);
+  useEffect(() => {
+    if (!signerUnavailable) {
+      setSignerUnavailableTimedOut(false);
+      return;
+    }
+    const t = setTimeout(() => setSignerUnavailableTimedOut(true), 6000);
+    return () => clearTimeout(t);
+  }, [signerUnavailable]);
+
+  // (The mismatch itself is computed below, after safeConfig — whether the
+  // active account warrants a warning depends on the Safe's owner set.)
+
+  // Brand shown in the UI: live while the signer is connected, last-known
+  // during a mismatch — the signer row keeps naming its wallet product even
+  // while the extension is on another account.
+  const displayedSignerMeta = signerWalletMeta ?? lastSignerMeta;
+
+  // Re-open the active extension's account picker so the user can hop back to
+  // the signer. Recovery itself is reactive (accountsChanged clears the
+  // mismatch) — this just saves them digging through the extension UI.
+  const requestSignerSwitch = useCallback(async (): Promise<boolean> => {
+    if (!activeExternalWallet) return false;
+    try {
+      const provider = await activeExternalWallet.getEthereumProvider();
+      await provider.request({
+        method: "wallet_requestPermissions",
+        params: [{ eth_accounts: {} }],
+      });
+      return true;
+    } catch (e) {
+      console.warn("wallet_requestPermissions failed:", e);
+      return false;
+    }
+  }, [activeExternalWallet]);
 
   // Backup key (owner #2) chosen this session — pasted, ENS-resolved, or read
   // from a signature-free wallet connection. Held locally until the user-sync
@@ -201,14 +341,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // user the linked external wallet is the SIGNER, not a backup key.
   const privyLinkedExternal = embeddedWallet ? linkedExternalAddress : null;
 
-  const loading = !ready || (authenticated && !primaryWallet);
+  // Loading waits for IDENTITY (embedded-wallet creation / linked accounts),
+  // never for signer availability — a wallet-login session with the wrong
+  // account active renders normally with `signerMismatch` set, instead of
+  // stranding the user on an unexplained spinner.
+  const loading = !ready || (authenticated && !wallet);
 
   const login = useCallback(() => {
     privyLogin();
   }, [privyLogin]);
 
   const logout = useCallback(async () => {
+    // A logged-out machine keeps no identity residue — both caches rebuild
+    // from the backend record on the next login.
     clearOnboardingCompleteCookie();
+    clearOnboardingStorage();
+    clearIdentityCache();
     await privyLogout();
   }, [privyLogout]);
 
@@ -243,6 +391,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile: pendingProfile,
     externalAddress: externalAddressInput ?? undefined,
     identityToken,
+    privyUserId: privyUser?.id,
     refreshKey: safeRefreshKey,
   });
 
@@ -286,6 +435,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       derivationVersion: derivationVersion ?? null,
     };
   }, [safeAddress, safeRecord, derivedOwners, derivedThreshold, agentAddress, derivationVersion]);
+
+  // The active account may itself be part of this Safe — switching to the
+  // backup key is a legitimate co-signing setup, not a mistake — so only
+  // accounts OUTSIDE the known owner set warrant a warning.
+  const activeIsOwner = useMemo(() => {
+    if (!activeExternalWallet) return false;
+    const active = activeExternalWallet.address.toLowerCase();
+    const known = [
+      ...(safeConfig?.owners ?? []),
+      ...(externalWalletAddress ? [externalWalletAddress] : []),
+    ];
+    return known.some((o) => o.toLowerCase() === active);
+  }, [activeExternalWallet, safeConfig, externalWalletAddress]);
+
+  const signerMismatch: SignerMismatch | null = useMemo(() => {
+    if (!ready || !authenticated || !isWalletLogin || primaryWallet) return null;
+    if (!linkedExternalAddress) return null;
+    if (activeExternalWallet) {
+      if (activeIsOwner) return null;
+      // A non-owner account is active — detectable immediately. Name the
+      // ACTIVE product: that's whose picker requestSignerSwitch opens.
+      return {
+        expected: linkedExternalAddress,
+        active: activeExternalWallet.address,
+        walletName: activeExternalWallet.meta?.name ?? lastSignerMeta?.name ?? null,
+      };
+    }
+    if (signerUnavailableTimedOut) {
+      // Locked or disconnected — surfaced only after the grace window.
+      return {
+        expected: linkedExternalAddress,
+        active: null,
+        walletName: lastSignerMeta?.name ?? null,
+      };
+    }
+    return null;
+  }, [
+    ready,
+    authenticated,
+    isWalletLogin,
+    primaryWallet,
+    linkedExternalAddress,
+    activeExternalWallet,
+    activeIsOwner,
+    signerUnavailableTimedOut,
+    lastSignerMeta,
+  ]);
+
+  // Wallet rendered in signer rows: the ACTIVE connected wallet when one
+  // exists — a switched account shows as itself (warning beside it when it
+  // isn't an owner) — otherwise the pinned signer identity.
+  const signerDisplay: SignerDisplay | null = useMemo(() => {
+    if (embeddedWallet?.address) return { address: embeddedWallet.address, meta: null };
+    if (primaryWallet) return { address: primaryWallet.address, meta: signerWalletMeta };
+    if (activeExternalWallet) {
+      return {
+        address: activeExternalWallet.address,
+        meta: {
+          name: activeExternalWallet.meta?.name ?? activeExternalWallet.walletClientType,
+          icon: activeExternalWallet.meta?.icon,
+          clientType: activeExternalWallet.walletClientType,
+        },
+      };
+    }
+    if (linkedExternalAddress) return { address: linkedExternalAddress, meta: lastSignerMeta };
+    return null;
+  }, [embeddedWallet, primaryWallet, signerWalletMeta, activeExternalWallet, linkedExternalAddress, lastSignerMeta]);
 
   useEffect(() => {
     // The signer address is load-bearing: it's the ONLY key `/users/by-signer`
@@ -396,6 +612,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       getBackupAccount,
       safeAddress,
       safeLoading,
+      signerWalletMeta: displayedSignerMeta,
+      signerMismatch,
+      signerDisplay,
+      requestSignerSwitch,
       externalWalletAddress,
       setBackupAddress,
       backupAddressLocked,
@@ -409,7 +629,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       privyUser: privyUser ?? null,
       identityToken: identityToken ?? null,
     }),
-    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, pendingProfile, safeConfig, refreshSafe, safeRecord, telegramUserId, privyUser, identityToken]
+    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, displayedSignerMeta, signerMismatch, signerDisplay, requestSignerSwitch, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, pendingProfile, safeConfig, refreshSafe, safeRecord, telegramUserId, privyUser, identityToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

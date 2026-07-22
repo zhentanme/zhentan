@@ -35,6 +35,22 @@ function storageKey(walletAddress: string) {
   return `onboarding_${walletAddress}`;
 }
 
+/**
+ * Remove every per-wallet onboarding fast-path entry — logout hygiene. The
+ * backend record (`onboarding_completed`) rebuilds this on the next login, so
+ * nothing durable is lost.
+ */
+export function clearOnboardingStorage() {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("onboarding_")) localStorage.removeItem(key);
+    }
+  } catch {
+    // storage unavailable — nothing to clear
+  }
+}
+
 function readStored(walletAddress: string): StoredState {
   try {
     const raw = localStorage.getItem(storageKey(walletAddress));

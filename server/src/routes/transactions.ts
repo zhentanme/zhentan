@@ -449,6 +449,92 @@ export function createTransactionsRouter(): IRouter {
     }
   });
 
+  // POST /transactions/:id/cosign — a backup key adds its co-signature to a
+  // USER-proposed screening-off SafeTx queued below threshold (the mirror
+  // image of /sign, which completes an AGENT-proposed tx). Once the user's
+  // signatures meet the threshold, the relayer executes relay-only — the
+  // agent contributes no signature to a transaction it didn't screen.
+  router.post("/:id/cosign", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { signature } = req.body ?? {};
+      if (!signature) {
+        res.status(400).json({ error: "Missing signature" });
+        return;
+      }
+      const tx = await getTransaction(id);
+      if (!tx) {
+        res.status(404).json({ error: `Transaction not found: ${id}` });
+        return;
+      }
+      if (tx.txType !== "safetx" || !tx.safeTxHash) {
+        res.status(400).json({ error: "Not a SafeTx" });
+        return;
+      }
+      if (!tx.userSignature) {
+        res.status(409).json({ error: "Transaction has no proposer signature to complete" });
+        return;
+      }
+      if (tx.executedAt || tx.rejected) {
+        res.status(409).json({ error: "Transaction already resolved" });
+        return;
+      }
+      // Ownership: client calls carry req.user; the tx must be theirs.
+      if (
+        req.user &&
+        tx.safeAddress.toLowerCase() !== req.user.safe_address.toLowerCase()
+      ) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+      // The co-signature must recover to a DISTINCT non-agent owner — same
+      // rules as co-signatures supplied at propose time.
+      const recovered = (
+        await recoverSafeTxSigner(tx.safeTxHash as Hex, signature as Hex)
+      ).toLowerCase();
+      const agent = getAgentAddress().toLowerCase();
+      const owners = (tx.ownerAddresses ?? []).map((o) => o.toLowerCase());
+      if (recovered === agent || !owners.includes(recovered)) {
+        res.status(400).json({ error: "Signature does not recover to a user owner" });
+        return;
+      }
+      const alreadySigned = new Set(
+        [tx.proposedBy, ...(tx.userSignatures ?? []).map((s) => s.signer)].map((s) =>
+          (s ?? "").toLowerCase()
+        )
+      );
+      if (alreadySigned.has(recovered)) {
+        res.status(409).json({ error: "This owner has already signed" });
+        return;
+      }
+
+      await updateTransaction(id, {
+        userSignatures: [
+          ...(tx.userSignatures ?? []),
+          { signer: recovered, data: signature },
+        ],
+      });
+
+      // Execute via the relayer — relay-only now that the threshold is met
+      // (execute mirrors the co-signature to the Transaction Service too).
+      const port = Number(process.env.PORT) || 3001;
+      const agentSecret = process.env.AGENT_SECRET;
+      const execRes = await fetch(`http://localhost:${port}/execute`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(agentSecret && { Authorization: `Bearer ${agentSecret}` }),
+        },
+        body: JSON.stringify({ txId: id }),
+      });
+      const execResult = (await execRes.json()) as Record<string, unknown>;
+      res.json({ status: "cosigned", txId: id, execution: execResult });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      res.status(500).json({ error: message });
+    }
+  });
+
   // PATCH /transactions/:id — update inReview / rejected fields
   // Use id = "latest" with safeAddress in body to target the most recent in-review tx
   router.patch("/:id", async (req: Request, res: Response) => {

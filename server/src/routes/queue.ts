@@ -92,11 +92,18 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
     seenSigners.add(recovered);
   }
 
-  // Screening can only be disabled when the user's own signatures meet the
-  // threshold — otherwise "off" would mean the agent rubber-stamps
-  // unscreened transactions. This arithmetic makes it impossible in guarded
-  // wallets (1 user key vs threshold 2), automatic in starter (t=1), and a
-  // deliberate two-signature act in protected.
+  // Screening-off proposals execute relay-only: the user's own signatures
+  // must meet the threshold, because the agent never signs what it didn't
+  // screen. Below-threshold proposals are still ACCEPTED when the user's
+  // keys could complete them — a protected wallet whose backup key isn't
+  // connected right now queues at 1/n (mirrored to the Safe Transaction
+  // Service) and finishes later via in-app co-sign or the Safe app;
+  // /execute refuses the row until the signatures arrive.
+  //
+  // Rejected outright only when no completing signature can ever exist:
+  // guarded wallets have one user key against the threshold, so the only
+  // possible second signer is the agent — queueing would park the nonce on
+  // a transaction nothing in the world can complete.
   //
   // EXCEPTION — legacy v1 accounts: pre-refactor 2-of-2 Safes have no backup
   // key, and their users have relied on the agent as co-signer since before
@@ -110,9 +117,12 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
     seenSigners.size < pendingTx.threshold &&
     !legacyExempt
   ) {
-    throw new Error(
-      "Screening cannot be disabled for this wallet — your keys alone don't meet the signing threshold. Co-sign with your backup key or use the Safe app."
-    );
+    const userOwnerCount = owners.filter((o) => o !== agent).length;
+    if (userOwnerCount < pendingTx.threshold) {
+      throw new Error(
+        "Screening cannot be disabled for this wallet — your keys alone can never meet the signing threshold. Add a backup key first."
+      );
+    }
   }
 
   const rejectionTx: SafeTxData = {

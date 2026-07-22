@@ -39,13 +39,18 @@ export interface ProposalSafeTxFields {
 /**
  * Screening-off rule: the agent must not sign what it didn't screen, so the
  * user's own signatures have to meet the threshold. At threshold 1 (starter)
- * the primary signature suffices; above that the backup key must co-sign,
- * which needs an active connection session for that wallet.
+ * the primary signature suffices; above that the backup key must co-sign.
  *
- * EXCEPTION — legacy v1 wallets: pre-refactor 2-of-2 Safes have no backup key
- * and predate this rule. The agent stays their co-signer with screening off,
- * so the embedded signature alone is enough (the server allows it, and the
- * agent signs on execute without running risk analysis).
+ * ONLY the WalletConnect dapp flow still co-signs inline at propose time — a
+ * connected dapp waits synchronously for a result, so the backup session (if
+ * any) signs right away. User-initiated sends/swaps deliberately do NOT:
+ * they propose at 1/n, land on the queued screen, and the user co-signs
+ * explicitly from there (useCoSignTransaction) or in the Safe app. The
+ * server refuses to execute the row until the signatures arrive.
+ *
+ * Legacy v1 wallets (pre-refactor 2-of-2) have no backup key: the agent
+ * remains their co-signer, so the embedded signature alone is enough (it
+ * signs on execute without running risk analysis).
  */
 export async function resolveCoSigner(
   screeningDisabled: boolean | undefined,
@@ -53,13 +58,7 @@ export async function resolveCoSigner(
   getBackupAccount?: () => Promise<LocalAccount | null>
 ): Promise<LocalAccount | null> {
   if (!screeningDisabled || safe.threshold <= 1) return null;
-  const coSigner = (await getBackupAccount?.()) ?? null;
-  if (coSigner) return coSigner;
-  // Legacy v1: no backup key required — the agent remains the co-signer.
-  if ((safe.derivationVersion ?? 1) === 1) return null;
-  throw new Error(
-    "Sending without screening needs your backup key's signature — connect your backup wallet and retry, or approve it from the Safe app."
-  );
+  return (await getBackupAccount?.()) ?? null;
 }
 
 export async function buildSafeTxProposal({
