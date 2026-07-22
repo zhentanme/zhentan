@@ -2,16 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Settings, User, Bell, Shield, ShieldOff } from "lucide-react";
+import { Home, Settings, User, Bell, Shield, ShieldOff, type LucideIcon } from "lucide-react";
 import { clsx } from "clsx";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
 import { BrandMark } from "@/components/BrandMark";
 
-export const navItems = [
+export const navItems: {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  badge?: boolean;
+  /** Guided-tour anchor — stamped as data-tour on both navs. */
+  tour?: string;
+}[] = [
   { href: "/home", label: "Home", icon: Home },
-  { href: "/requests", label: "Requests", icon: Bell, badge: true },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/requests", label: "Requests", icon: Bell, badge: true, tour: "nav-requests" },
+  { href: "/settings", label: "Settings", icon: Settings, tour: "nav-settings" },
   { href: "/profile", label: "Profile", icon: User },
 ];
 
@@ -27,6 +34,7 @@ export function TopBar() {
         <div className="h-14 px-5 flex items-center justify-between">
           <BrandMark href="/home" size="sm" priority />
           <div
+            data-tour="agent-status"
             className={clsx(
               "inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
               isScreeningActive
@@ -54,6 +62,7 @@ export function TopBar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  data-tour={item.tour}
                   className={clsx(
                     "relative flex flex-col items-center justify-center gap-2 flex-1 py-2 rounded-xl transition-all touch-manipulation",
                     active ? "text-gold" : "text-muted-foreground"

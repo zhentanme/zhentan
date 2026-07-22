@@ -24,6 +24,8 @@ import { useApiClient } from "@/lib/api/client";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { useSafeTransitions } from "@/lib/useSafeUpgrade";
 import { useForceExecuteSetting } from "@/lib/useForceExecute";
+import { useTour } from "@/components/tour/TourProvider";
+import { mainTour, upgradeTour } from "@/lib/tours";
 
 /**
  * The exit door: removes the agent as an owner, leaving a plain 2-of-2 Safe
@@ -105,6 +107,7 @@ function SettingsPageContent() {
   const autoOpenedRef = useRef(false);
   const prevFullyActivatedRef = useRef<boolean | null>(null);
   const { telegramUserId, privyUser, safeAddress, safeConfig } = useAuth();
+  const { start: startTour } = useTour();
   const {
     screeningMode,
     botConnected,
@@ -294,7 +297,7 @@ function SettingsPageContent() {
             >
               {/* Zhentan Guard card */}
               <motion.div variants={staggerItem}>
-                <div className="relative rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
+                <div data-tour="guard-card" className="relative rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
                   {/* Guard block */}
                   <div className="flex items-center gap-4 p-5 border-b border-border">
                     <div
@@ -419,7 +422,7 @@ function SettingsPageContent() {
                 <div className="pt-6 border-t border-dashed border-border">
                   <span className="eyebrow text-muted-foreground/60">Wallet</span>
                 </div>
-                <div className="mt-4 rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
+                <div data-tour="wallet-card" className="mt-4 rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
                   <div className="flex items-center gap-4 p-5">
                     <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-gold/10 text-gold">
                       <LayoutGrid className="h-5 w-5" />
@@ -563,6 +566,32 @@ function SettingsPageContent() {
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
+                  {safeAddress && (
+                    <div className="flex items-center justify-between gap-6 py-4 border-t border-border/60">
+                      <div className="min-w-0">
+                        <p className="eyebrow text-muted-foreground">Product tour</p>
+                        <p className="text-xs text-muted-foreground/60 mt-1">
+                          Replay the walkthrough of your wallet
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startTour(
+                            /* Upgraded legacy accounts get their settings-focused
+                               tour; everyone else replays the full walkthrough. */
+                            (safeConfig?.derivationVersion ?? 1) === 1 &&
+                              safeConfig?.profile === "protected"
+                              ? upgradeTour(safeAddress)
+                              : mainTour(safeAddress)
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors shrink-0 cursor-pointer"
+                      >
+                        Replay
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </motion.div>

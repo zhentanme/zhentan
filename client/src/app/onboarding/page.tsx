@@ -616,7 +616,7 @@ function DoneStep({
 
 function OnboardingContent() {
   const router = useRouter();
-  const { safeAddress, safeConfig, safeLoading, wallet, user, commitSafe, recordOnboardingCompleted } = useAuth();
+  const { safeAddress, safeConfig, safeLoading, wallet, user, commitSafe, recordOnboardingCompleted, refreshSafe } = useAuth();
   const api = useApiClient();
 
   const [step, setStep] = useState(0);
@@ -695,6 +695,10 @@ function OnboardingContent() {
       });
     }
     markOnboardingTelegramDone(wallet.address);
+    // The in-memory record still says onboarding_completed=false — refresh it
+    // so record-driven consumers (e.g. the first-time tour) see completion
+    // without waiting for the next full page load.
+    refreshSafe();
     router.replace("/home");
   };
 

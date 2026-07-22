@@ -38,6 +38,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                data-tour={item.tour}
                 className={clsx(
                   "group relative flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                   active
