@@ -1,25 +1,51 @@
 ---
 title: Queue Transaction
-description: Submit a transaction for risk scoring and queuing.
+description: Propose a signed SafeTx for risk scoring, service mirroring, and queuing.
 ---
 
 ## POST /queue
 
-Receives a proposed transaction from the client. Runs `analyzeRisk()` inline and returns a verdict of APPROVE, REVIEW, or BLOCK.
+Receives a **signed SafeTx proposal** from the client. The server hard-validates it (signature recovery against the recorded owner set, threshold arithmetic, nonce/hash consistency), mirrors it to the **Safe Transaction Service** — so it appears in app.safe.global at 1 of 2 — then runs `analyzeRisk()` inline.
 
-- **APPROVE (< 40):** co-signs and executes the UserOperation immediately, returns `txHash`
-- **REVIEW (40–70):** queues for Telegram review, returns `id` and `verdict`
-- **BLOCK (> 70):** rejects and alerts via Telegram, returns `verdict`
+- **Screening on:**
+  - **APPROVE (< 40):** the agent confirms via the service and relays `execTransaction`
+  - **REVIEW (40–70):** queued for Telegram review, returns `id` and `verdict`
+  - **BLOCK (> 70):** rejected with alert — the pre-signed same-nonce cancel consumes the nonce
+- **Screening off (`screeningDisabled: true`):** queue-only — the server never analyzes, and the agent never signs. If the user signatures already meet the threshold, the client calls [`/execute`](/api/execute-transaction) (relay-only). Below threshold, the row waits for the backup key's [co-signature](/api/cosign-transaction).
+
+<Note>
+Proposals with `screeningDisabled` below the threshold are **rejected outright** for wallets whose own keys can never meet it (guarded wallets) — screening cannot be disabled there. [Legacy v1 accounts](/technology/legacy) without a backup key are exempt.
+</Note>
 
 ## Request
 
 ```json
 {
-  "to": "0xRecipientAddress",
-  "value": "0",
-  "data": "0x",
+  "id": "tx-1a2b3c4d",
+  "txType": "safetx",
   "safeAddress": "0xYourSafeAddress",
+  "safeTx": {
+    "to": "0xRecipientOrToken",
+    "value": "0",
+    "data": "0x...",
+    "operation": 0,
+    "safeTxGas": "0",
+    "baseGas": "0",
+    "gasPrice": "0",
+    "gasToken": "0x0000000000000000000000000000000000000000",
+    "refundReceiver": "0x0000000000000000000000000000000000000000",
+    "nonce": 7
+  },
+  "safeTxHash": "0x...",
+  "safeNonce": 7,
+  "proposedBy": "0xEmbeddedOwner",
   "userSignature": "0x...",
+  "userSignatures": [{ "signer": "0xBackupOwner", "data": "0x..." }],
+  "rejectionSignature": "0x...",
+  "ownerAddresses": ["0xEmbedded", "0xBackup", "0xAgent"],
+  "threshold": 2,
+  "screeningDisabled": false,
+  "to": "0xRecipientAddress",
   "token": "USDC",
   "amount": "100"
 }
@@ -27,28 +53,31 @@ Receives a proposed transaction from the client. Runs `analyzeRisk()` inline and
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `to` | `string` | Yes | Recipient address |
-| `value` | `string` | Yes | Native value in wei (usually `"0"` for token transfers) |
-| `data` | `string` | Yes | Calldata |
-| `safeAddress` | `string` | Yes | User's Safe smart account address |
-| `userSignature` | `string` | Yes | Owner's 1-of-2 signature |
-| `token` | `string` | No | Token symbol for display |
-| `amount` | `string` | No | Human-readable amount for display |
+| `id` | `string` | Yes | Client-generated transaction ID |
+| `txType` | `string` | Yes | `"safetx"` for all user transactions |
+| `safeAddress` | `string` | Yes | User's Safe address |
+| `safeTx` | `object` | Yes | The full SafeTx payload (EIP-712 message) |
+| `safeTxHash` | `string` | Yes | EIP-712 hash — recomputed and verified server-side |
+| `safeNonce` | `number` | Yes | Safe nonce (queue-tail, or current with force-execute) |
+| `proposedBy` | `string` | Yes | Owner address the signature must recover to |
+| `userSignature` | `string` | Yes | Proposer's EIP-712 signature over `safeTxHash` |
+| `userSignatures` | `array` | No | Additional co-signatures (each must recover to a distinct non-agent owner) |
+| `rejectionSignature` | `string` | Yes | Proposer's signature over the same-nonce empty cancel tx |
+| `screeningDisabled` | `boolean` | No | Queue-only mode — requires user signatures to meet the threshold before execution |
+| `token`, `amount`, `to` | `string` | No | Display metadata |
 
 ## Response
 
 ```json
 {
-  "id": "tx-1234567890",
-  "verdict": "APPROVE",
-  "score": 15,
-  "txHash": "0x..."
+  "success": true,
+  "id": "tx-1a2b3c4d",
+  "risk": { "riskScore": 15, "verdict": "APPROVE", "reasons": [] }
 }
 ```
 
 | Field | Description |
 |-------|-------------|
 | `id` | Transaction ID in the queue |
-| `verdict` | `APPROVE`, `REVIEW`, or `BLOCK` |
-| `score` | Risk score (0–100) |
-| `txHash` | On-chain hash (present only if APPROVE) |
+| `risk` | Present when screening is on — score, verdict, reasons |
+| `serviceWarning` | Present if the Safe Transaction Service mirror failed (queuing still succeeds) |

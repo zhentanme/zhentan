@@ -1,0 +1,45 @@
+---
+title: Co-Sign Transaction
+description: Add the backup key's signature to a queued screening-off SafeTx, then relay-execute.
+---
+
+## POST /transactions/:id/cosign
+
+Completes a **user-proposed screening-off SafeTx** queued below the threshold: the backup key signs the transaction's `safeTxHash`, the server verifies the signature recovers to a **distinct non-agent owner** of that Safe, appends it, and triggers execution — **relay-only**, since the user's signatures now meet the threshold and the agent signs nothing it didn't screen.
+
+This is the mirror image of `POST /transactions/:id/sign`, which completes an *agent-proposed* (pre-signed) transaction with the user's primary signature.
+
+The same transaction can always be completed in the Safe app instead — confirm with the backup key at app.safe.global and Zhentan's sync worker reconciles the execution.
+
+## Request
+
+```json
+{
+  "signature": "0x..."
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `signature` | `string` | Yes | Backup key's EIP-712 signature over the transaction's `safeTxHash` |
+
+## Validation
+
+- The transaction must be a queued SafeTx with a proposer signature and no terminal state
+- The signature must recover to an owner of the Safe that is **not the agent** and has **not already signed**
+- Ownership: authenticated calls must belong to the transaction's Safe
+
+## Response
+
+```json
+{
+  "status": "cosigned",
+  "txId": "tx-1a2b3c4d",
+  "execution": { "status": "executed", "txHash": "0x..." }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `status` | `cosigned` — the signature was verified and stored |
+| `execution` | Result of the relay execution triggered immediately after |

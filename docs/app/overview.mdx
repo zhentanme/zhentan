@@ -20,15 +20,29 @@ Zhentan is a smart wallet with built-in AI screening. Every transaction you init
   </Card>
 </CardGroup>
 
+## Wallet Profiles
+
+Your wallet is a Safe multisig with one of four [computed profiles](/technology/signing#wallet-profiles):
+
+| Profile | Keys | What it means |
+|---------|------|---------------|
+| **Starter** | You | Instant onboarding — your signature alone executes; no screening yet |
+| **Guarded** | You + agent | Screening always on (your key can't reach the threshold alone) |
+| **Protected** | You + backup + agent | The full model — screening by choice, override always available |
+| **Detached** | You + backup | Exit state — a stock Safe, agent removed |
+
+Add a backup key anytime (paste an address, ENS/.bnb name, or connect a wallet — no signature needed) to move from Guarded to Protected.
+
 ## Screening Modes
 
 | Mode | Behavior |
 |------|----------|
 | **ON** | Full pipeline — APPROVE / REVIEW / BLOCK on every transaction |
-| **OFF** | Regular multisig — agent auto-executes without screening |
+| **OFF** (Protected) | Transactions queue at 1 of 2 and execute once your backup key co-signs — in-app or in the Safe app. The agent relays without signing |
+| **OFF** (Legacy v1) | The agent co-signs without risk analysis — see [Legacy Accounts](/technology/legacy) |
 
-Toggle anytime from Telegram: `screening on` / `screening off`
+Toggle from Settings (Zhentan Guard) or Telegram: `screening on` / `screening off`. Guarded wallets can't turn screening off — add a backup key first.
 
-## Gasless Transactions
+## Gas
 
-All transactions on Zhentan are gasless. The Pimlico paymaster sponsors gas fees via ERC-4337 account abstraction — you never need BNB to execute transactions.
+You never need BNB — the agent relays every execution on-chain and pays gas. Your signatures authorize; the agent submits.

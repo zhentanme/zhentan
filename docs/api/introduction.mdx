@@ -20,9 +20,14 @@ The API is currently unauthenticated. It is designed to run locally alongside th
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/queue` | Queue a transaction and get a risk verdict |
-| `POST` | `/execute` | Agent co-signs and submits a UserOperation |
-| `GET` | `/transactions` | List pending transactions |
+| `POST` | `/queue` | Propose a signed SafeTx — validated, mirrored to the Safe Transaction Service, risk-scored |
+| `POST` | `/execute` | Relay a queued SafeTx on-chain (agent pays gas; relay-only when user signatures meet the threshold) |
+| `POST` | `/transactions/:id/cosign` | Backup key completes a screening-off SafeTx queued below threshold |
+| `POST` | `/transactions/:id/sign` | User completes an agent-proposed (pre-signed) transaction |
+| `GET` | `/transactions` | List transactions with status |
+| `POST` | `/safe/derive` | Server-side counterfactual address derivation for a new account |
+| `GET` | `/users/by-signer/:address` | Resolve an existing account by its signer key |
+| `GET` | `/safe/nonce` | Next unused Safe nonce (Transaction Service queue-aware) |
 | `GET` | `/invoices` | List pending invoices |
 | `POST` | `/notify-resolve` | Update Telegram message with final outcome |
 | `GET` | `/portfolio` | Live portfolio data via Zerion |
