@@ -270,10 +270,12 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         // queued at 1/n and mirrored to the Safe app — the backup key
         // completes it later from history or app.safe.global. Executing now
         // would need the agent to sign an unscreened tx; the server refuses.
+        // Profile is computed from the live owner set, so an upgraded v1
+        // account (backup key added) gets the queued/co-sign flow too —
+        // only never-upgraded legacy wallets keep agent-co-signed sends.
         const sigCount = 1 + (pendingTx.userSignatures?.length ?? 0);
         const awaitingCoSign =
-          sigCount < pendingTx.threshold &&
-          (safeConfig.derivationVersion ?? 1) !== 1;
+          sigCount < pendingTx.threshold && safeConfig.profile === "protected";
         if (awaitingCoSign) {
           const optimistic: TransactionWithStatus = { ...pendingTx, status: "pending" };
           setProposedTx(optimistic);

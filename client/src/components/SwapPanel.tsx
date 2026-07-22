@@ -406,10 +406,11 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           // Screening OFF below threshold (backup key not connected): queued
           // at 1/n awaiting the backup co-signature — complete from history
           // or the Safe app. The server refuses to execute until then.
+          // Owner-computed profile: upgraded v1 accounts queue for co-sign
+          // like any protected wallet (see SendPanel for the rationale).
           const sigCount = 1 + (pendingTx.userSignatures?.length ?? 0);
           const awaitingCoSign =
-            sigCount < pendingTx.threshold &&
-            (safeConfig.derivationVersion ?? 1) !== 1;
+            sigCount < pendingTx.threshold && safeConfig.profile === "protected";
           if (awaitingCoSign) {
             setQueuedTx(pendingTx);
             setPhase("queued");

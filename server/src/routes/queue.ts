@@ -105,19 +105,23 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
   // possible second signer is the agent — queueing would park the nonce on
   // a transaction nothing in the world can complete.
   //
-  // EXCEPTION — legacy v1 accounts: pre-refactor 2-of-2 Safes have no backup
-  // key, and their users have relied on the agent as co-signer since before
-  // this model existed. Enforcing the rule would strand them the instant they
-  // pause screening. For v1 the agent stays their co-signer (it still signs,
-  // it just skips risk analysis); v2+ accounts get the strict rule.
+  // EXCEPTION — legacy v1 accounts WITHOUT a backup key: pre-refactor 2-of-2
+  // Safes predate this model, and their users have relied on the agent as
+  // co-signer since before it existed. Enforcing the rule would strand them
+  // the instant they pause screening, so the agent stays their co-signer (it
+  // still signs, it just skips risk analysis). The exemption is keyed on
+  // CAPABILITY, not version alone: once a v1 account upgrades and its own
+  // keys can meet the threshold, the strict v2 rule applies to it too.
   const derivationVersion = record.derivation_version ?? DERIVATION_V1_4337;
-  const legacyExempt = derivationVersion === DERIVATION_V1_4337;
+  const userOwnerCount = owners.filter((o) => o !== agent).length;
+  const legacyExempt =
+    derivationVersion === DERIVATION_V1_4337 &&
+    userOwnerCount < pendingTx.threshold;
   if (
     pendingTx.screeningDisabled &&
     seenSigners.size < pendingTx.threshold &&
     !legacyExempt
   ) {
-    const userOwnerCount = owners.filter((o) => o !== agent).length;
     if (userOwnerCount < pendingTx.threshold) {
       throw new Error(
         "Screening cannot be disabled for this wallet — your keys alone can never meet the signing threshold. Add a backup key first."
