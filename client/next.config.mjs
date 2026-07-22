@@ -23,6 +23,11 @@ const nextConfig = {
       "lucide-react": path.resolve(__dirname, "lucide-react-shim.mjs"),
       "lucide-react-real": path.resolve(__dirname, "node_modules/lucide-react"),
       "@farcaster/mini-app-solana": false,
+      // Privy optional deps for Stripe fiat onramp (unused here). Newer
+      // @privy-io/react-auth releases hard-import them, which breaks
+      // Vercel's fresh installs (no client-level lockfile pins the version).
+      "@stripe/crypto": false,
+      "@stripe/stripe-js": false,
       ...config.resolve.alias,
     };
     return config;
