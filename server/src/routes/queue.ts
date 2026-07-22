@@ -1,4 +1,5 @@
 import { Router, Request, Response, type IRouter } from "express";
+import { decodeFunctionData, isAddressEqual, type Address, type Hex } from "viem";
 import { analyzeRisk } from "../risk.js";
 import { notifyTelegram } from "../notify.js";
 import {
@@ -7,10 +8,285 @@ import {
   getPatternsForSafe,
   getTelegramChatId,
   getUserDetails,
+  upsertUserDetails,
   recordTxOutcome,
   incrementDailyStatsReview,
 } from "../lib/supabase/index.js";
 import { notify } from "../notifications/index.js";
+import { SAFE_ABI, MULTISEND_CALL_ONLY } from "../lib/constants.js";
+import { decodeMultiSendData } from "@safe-global/protocol-kit";
+import { classifyProfile, type WalletState } from "../lib/safe/profiles.js";
+import {
+  computeSafeTxHash,
+  recoverSafeTxSigner,
+  proposeToService,
+} from "../lib/safe/service.js";
+import { deploySafe, isSafeDeployed } from "../lib/safe/deploy.js";
+import { DERIVATION_V1_4337, type DerivationVersion } from "../lib/safe/derive.js";
+import { getAgentAddress } from "../lib/safe/relayer.js";
+import { readSafeOwners } from "../lib/safe/onchain.js";
+import type { PendingTransaction, SafeTxData } from "../types.js";
+
+/**
+ * Validates a client-submitted SafeTx proposal. The client's hash is never
+ * trusted — we recompute it from the raw fields — and both signatures must
+ * recover to a non-agent owner of this Safe (otherwise /queue would be a
+ * signature oracle for arbitrary payloads).
+ */
+async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<void> {
+  const { safeTx, safeTxHash, safeNonce, userSignature, rejectionSignature, safeAddress } =
+    pendingTx;
+  if (!safeTx || !safeTxHash || safeNonce === undefined || !userSignature || !rejectionSignature) {
+    throw new Error(
+      "SafeTx proposal requires safeTx, safeTxHash, safeNonce, userSignature, rejectionSignature"
+    );
+  }
+  if (safeTx.nonce !== safeNonce) {
+    throw new Error("safeTx.nonce does not match safeNonce");
+  }
+
+  const computedHash = computeSafeTxHash(safeAddress, safeTx);
+  if (computedHash.toLowerCase() !== safeTxHash.toLowerCase()) {
+    throw new Error("safeTxHash does not match the SafeTx contents");
+  }
+
+  // The owner set must come from the server-side record — proposals are only
+  // possible after the sync that creates it, so a missing record means the
+  // caller is spoofing a Safe they never registered.
+  const record = await getUserDetails(safeAddress);
+  if (!record) {
+    throw new Error("Unknown Safe — complete onboarding before proposing");
+  }
+  const agent = getAgentAddress().toLowerCase();
+  const owners = (
+    record.safe_owners?.length
+      ? record.safe_owners
+      : // Legacy record predating stored owner sets: the old 2-of-2 pair.
+        [record.signer_address ?? "", getAgentAddress()]
+  ).map((o) => o.toLowerCase());
+  const signer = (await recoverSafeTxSigner(safeTxHash as Hex, userSignature as Hex)).toLowerCase();
+  if (!owners.includes(signer) || signer === agent) {
+    throw new Error("userSignature does not recover to a user owner of this Safe");
+  }
+  if (signer !== pendingTx.proposedBy?.toLowerCase()) {
+    // Execution and attribution trust proposedBy as the signature's owner.
+    throw new Error("proposedBy does not match the signature's signer");
+  }
+
+  // Co-signatures (relay-only execution): each must recover to a DISTINCT
+  // non-agent owner and match its claimed signer.
+  const seenSigners = new Set([signer]);
+  for (const coSig of pendingTx.userSignatures ?? []) {
+    const recovered = (
+      await recoverSafeTxSigner(safeTxHash as Hex, coSig.data as Hex)
+    ).toLowerCase();
+    if (recovered !== coSig.signer.toLowerCase()) {
+      throw new Error("co-signature does not recover to its claimed signer");
+    }
+    if (!owners.includes(recovered) || recovered === agent) {
+      throw new Error("co-signature does not recover to a user owner of this Safe");
+    }
+    if (seenSigners.has(recovered)) {
+      throw new Error("duplicate co-signature signer");
+    }
+    seenSigners.add(recovered);
+  }
+
+  // Screening-off proposals execute relay-only: the user's own signatures
+  // must meet the threshold, because the agent never signs what it didn't
+  // screen. Below-threshold proposals are still ACCEPTED when the user's
+  // keys could complete them — a protected wallet whose backup key isn't
+  // connected right now queues at 1/n (mirrored to the Safe Transaction
+  // Service) and finishes later via in-app co-sign or the Safe app;
+  // /execute refuses the row until the signatures arrive.
+  //
+  // Rejected outright only when no completing signature can ever exist:
+  // guarded wallets have one user key against the threshold, so the only
+  // possible second signer is the agent — queueing would park the nonce on
+  // a transaction nothing in the world can complete.
+  //
+  // EXCEPTION — legacy v1 accounts WITHOUT a backup key: pre-refactor 2-of-2
+  // Safes predate this model, and their users have relied on the agent as
+  // co-signer since before it existed. Enforcing the rule would strand them
+  // the instant they pause screening, so the agent stays their co-signer (it
+  // still signs, it just skips risk analysis). The exemption is keyed on
+  // CAPABILITY, not version alone: once a v1 account upgrades and its own
+  // keys can meet the threshold, the strict v2 rule applies to it too.
+  const derivationVersion = record.derivation_version ?? DERIVATION_V1_4337;
+  const userOwnerCount = owners.filter((o) => o !== agent).length;
+  const legacyExempt =
+    derivationVersion === DERIVATION_V1_4337 &&
+    userOwnerCount < pendingTx.threshold;
+  if (
+    pendingTx.screeningDisabled &&
+    seenSigners.size < pendingTx.threshold &&
+    !legacyExempt
+  ) {
+    if (userOwnerCount < pendingTx.threshold) {
+      throw new Error(
+        "Screening cannot be disabled for this wallet — your keys alone can never meet the signing threshold. Add a backup key first."
+      );
+    }
+  }
+
+  const rejectionTx: SafeTxData = {
+    to: safeAddress,
+    value: "0",
+    data: "0x",
+    operation: 0,
+    safeTxGas: "0",
+    baseGas: "0",
+    gasPrice: "0",
+    gasToken: "0x0000000000000000000000000000000000000000",
+    refundReceiver: "0x0000000000000000000000000000000000000000",
+    nonce: safeNonce,
+  };
+  const rejectionHash = computeSafeTxHash(safeAddress, rejectionTx);
+  const rejectionSigner = (
+    await recoverSafeTxSigner(rejectionHash, rejectionSignature as Hex)
+  ).toLowerCase();
+  if (rejectionSigner !== signer) {
+    throw new Error("rejectionSignature does not recover to the proposing owner");
+  }
+}
+
+/**
+ * Hard validation for wallet-profile transition txs (the only thing /queue
+ * skips the risk engine for): owner-management calls on the caller's own
+ * Safe that move between MANAGED states.
+ *
+ *   starter → guarded     addOwnerWithThreshold(agent, 2)
+ *   starter → protected   MultiSend[addOwner(backup, 1), addOwner(agent, 2)]
+ *   guarded → protected   addOwnerWithThreshold(backup, 2)   (legacy upgrade)
+ *   protected → detached  removeOwner(prev, agent, 2)        (exit)
+ *
+ * Every added owner must be the agent or the REGISTERED backup key; the
+ * simulated end state must classify to a managed profile (or detached, for
+ * the exit) different from the current one.
+ */
+async function validateTransitionTx(
+  pendingTx: PendingTransaction & { calldata?: string }
+): Promise<{ endState: WalletState; endThreshold: number }> {
+  const { safeAddress } = pendingTx;
+  // For SafeTx proposals, validate the SIGNED payload (its hash was already
+  // recomputed and signature-verified) — not the loose display fields.
+  const to =
+    pendingTx.txType === "safetx" && pendingTx.safeTx ? pendingTx.safeTx.to : pendingTx.to;
+  const calldata =
+    pendingTx.txType === "safetx" && pendingTx.safeTx
+      ? pendingTx.safeTx.data
+      : pendingTx.calldata;
+  if (!to || !calldata) throw new Error("Transition tx requires to and calldata");
+
+  const record = await getUserDetails(safeAddress);
+  if (!record) throw new Error("Unknown Safe — complete onboarding first");
+
+  const agent = getAgentAddress();
+  const currentOwners =
+    record.safe_owners?.length
+      ? record.safe_owners
+      : [record.signer_address ?? "", agent];
+  const currentThreshold = record.safe_threshold ?? 2;
+  const currentState = classifyProfile(currentOwners, currentThreshold, agent);
+
+  // Unpack the inner owner-management calls: either a single self-call, or
+  // a MultiSendCallOnly batch of self-calls.
+  let innerCalls: { to: string; data: Hex }[];
+  if (isAddressEqual(to as Address, safeAddress as Address)) {
+    innerCalls = [{ to, data: calldata as Hex }];
+  } else if (isAddressEqual(to as Address, MULTISEND_CALL_ONLY as Address)) {
+    innerCalls = decodeMultiSendData(calldata).map((t: { to: string; data: string }) => ({
+      to: t.to,
+      data: t.data as Hex,
+    }));
+  } else {
+    throw new Error("Transition tx must target the Safe itself (or MultiSend it)");
+  }
+  if (innerCalls.length === 0) throw new Error("Transition tx has no calls");
+
+  // Simulate the end state call by call.
+  const owners = currentOwners.map((o) => o.toLowerCase());
+  let threshold = currentThreshold;
+
+  for (const call of innerCalls) {
+    if (!isAddressEqual(call.to as Address, safeAddress as Address)) {
+      throw new Error("Every transition call must target the Safe itself");
+    }
+    const decoded = decodeFunctionData({ abi: SAFE_ABI, data: call.data });
+    if (decoded.functionName === "addOwnerWithThreshold") {
+      const [newOwner, t] = decoded.args as readonly [Address, bigint];
+      const addr = newOwner.toLowerCase();
+      const isAgent = addr === agent.toLowerCase();
+      const isRegisteredBackup =
+        !!record.external_wallet_address &&
+        addr === record.external_wallet_address.toLowerCase();
+      if (!isAgent && !isRegisteredBackup) {
+        throw new Error(
+          "Transition may only add the agent or the registered backup key as owner"
+        );
+      }
+      if (owners.includes(addr)) throw new Error(`${newOwner} is already an owner`);
+      owners.push(addr);
+      threshold = Number(t);
+    } else if (decoded.functionName === "removeOwner") {
+      const [, removed, t] = decoded.args as readonly [Address, Address, bigint];
+      const addr = removed.toLowerCase();
+      if (addr !== agent.toLowerCase()) {
+        throw new Error("Transition may only remove the agent (detach)");
+      }
+      const idx = owners.indexOf(addr);
+      if (idx === -1) throw new Error("Agent is not an owner of this Safe");
+      owners.splice(idx, 1);
+      threshold = Number(t);
+    } else {
+      throw new Error(`Unsupported transition call: ${decoded.functionName}`);
+    }
+  }
+
+  const endState = classifyProfile(owners, threshold, agent);
+  if (endState !== "starter" && endState !== "guarded" && endState !== "protected" && endState !== "detached") {
+    throw new Error(`Transition ends in an unmanaged state (${endState})`);
+  }
+  if (endState === currentState) {
+    throw new Error("Transition does not change the wallet profile");
+  }
+  // The simulated end state IS the post-execution truth (the tx is validated
+  // hard and executed atomically) — return it so finishTransition can persist
+  // a deterministic threshold instead of racing an RPC read.
+  return { endState, endThreshold: threshold };
+}
+
+/**
+ * After an executed transition: mirror the new owner set + threshold onto the
+ * record. The threshold is taken from the VALIDATED simulation, never a
+ * post-execution chain read — a load-balanced RPC (1rpc.io) can serve the
+ * post-upgrade owners from one replica and the pre-upgrade threshold from
+ * another, persisting an inconsistent state (e.g. `[embedded, agent]` with
+ * threshold 1 → classifies as "unknown", no upgrade banner). Only the owner
+ * SET is read from chain (for its correct linked-list order, which detach
+ * later relies on), retried through replica lag until it matches the profile
+ * the transition is known to produce.
+ */
+async function finishTransition(
+  safeAddress: string,
+  target: { endState: WalletState; endThreshold: number }
+): Promise<void> {
+  const agent = getAgentAddress();
+  let owners = await readSafeOwners(safeAddress);
+  for (
+    let i = 0;
+    i < 6 && classifyProfile(owners, target.endThreshold, agent) !== target.endState;
+    i++
+  ) {
+    await new Promise((r) => setTimeout(r, 1200));
+    owners = await readSafeOwners(safeAddress);
+  }
+  await upsertUserDetails(safeAddress, {
+    safe_owners: owners,
+    safe_threshold: target.endThreshold,
+    safe_deployed: true,
+  });
+}
 
 export function createQueueRouter(): IRouter {
   const router = Router();
@@ -26,19 +302,166 @@ export function createQueueRouter(): IRouter {
         return;
       }
 
+      const isSafeTx = pendingTx.txType === "safetx";
+      // "upgrade" is the pre-profiles wire name for what is now any profile transition.
+      const isUpgrade = pendingTx.upgrade === true || pendingTx.transition === true;
+      // The transition's simulated end state (owners+threshold), captured at
+      // validation and reused to persist a deterministic post-execution profile.
+      let transitionTarget: { endState: WalletState; endThreshold: number } | undefined;
+
+      if (isSafeTx) {
+        try {
+          await validateSafeTxProposal(pendingTx);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Invalid SafeTx proposal";
+          res.status(400).json({ error: msg });
+          return;
+        }
+      }
+
+      if (isUpgrade) {
+        try {
+          transitionTarget = await validateTransitionTx(pendingTx);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Invalid transition transaction";
+          res.status(400).json({ error: msg });
+          return;
+        }
+      }
 
       try {
       await createTransaction(pendingTx);
-      } catch (err) { 
+      } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("Failed to create transaction in DB:", msg);
         res.status(500).json({ error: "Failed to save transaction" });
         return;
       }
 
+      // SafeTx flow: make sure the Safe exists on-chain (belt-and-braces for
+      // the eager onboarding deploy), then mirror the proposal to the Safe
+      // Transaction Service so it shows in app.safe.global. A service outage
+      // must not block the queue — Zhentan's DB stays the source of truth.
+      let serviceWarning: string | undefined;
+      if (isSafeTx) {
+        try {
+          const record = await getUserDetails(pendingTx.safeAddress);
+          if (!record?.safe_deployed && !(await isSafeDeployed(pendingTx.safeAddress))) {
+            // Deploy with the account's OWN derivation recipe — owner set,
+            // threshold and version from the record (legacy records without
+            // stored owners are the old v1 2-of-2 pair).
+            const owners =
+              record?.safe_owners ??
+              (record?.signer_address
+                ? [record.signer_address, getAgentAddress()]
+                : pendingTx.ownerAddresses);
+            const threshold = record?.safe_threshold ?? pendingTx.threshold ?? 2;
+            const version = (record?.derivation_version ??
+              DERIVATION_V1_4337) as DerivationVersion;
+            const result = await deploySafe(owners, threshold, version);
+            if (result.address.toLowerCase() !== pendingTx.safeAddress.toLowerCase()) {
+              throw new Error(
+                `Owner set deploys to ${result.address}, not ${pendingTx.safeAddress}`
+              );
+            }
+            await upsertUserDetails(pendingTx.safeAddress, {
+              safe_deployed: true,
+              ...(result.txHash && { safe_deploy_tx_hash: result.txHash }),
+            });
+          }
+          await proposeToService({
+            safeAddress: pendingTx.safeAddress,
+            safeTx: pendingTx.safeTx,
+            safeTxHash: pendingTx.safeTxHash,
+            senderAddress: pendingTx.proposedBy,
+            senderSignature: pendingTx.userSignature,
+          });
+        } catch (err) {
+          serviceWarning = err instanceof Error ? err.message : String(err);
+          console.error("Safe Transaction Service propose failed:", serviceWarning);
+        }
+      }
+
+      // ── Upgrade tx: validated hard above, skips the risk engine ─────
+      // Auto-execute through the legacy 4337 path (agent co-signs, gasless),
+      // then persist the new on-chain owner set and flip to SafeTx mode.
+      if (isUpgrade) {
+        // Set above when isUpgrade validation passed; guard for the type system.
+        if (!transitionTarget) {
+          res.status(500).json({ error: "Transition target unresolved" });
+          return;
+        }
+        // Idempotency: if a previous attempt already added the owner on-chain
+        // but the DB flip failed (or a retry races), addOwnerWithThreshold
+        // would revert with "already an owner" — reconcile from chain instead.
+        try {
+          const record = await getUserDetails(pendingTx.safeAddress);
+          const onChainOwners = (await readSafeOwners(pendingTx.safeAddress)).map((o) =>
+            o.toLowerCase()
+          );
+          if (
+            record?.external_wallet_address &&
+            onChainOwners.includes(record.external_wallet_address.toLowerCase())
+          ) {
+            await finishTransition(pendingTx.safeAddress, transitionTarget);
+            res.json({ success: true, id: pendingTx.id, upgraded: true, alreadyUpgraded: true });
+            return;
+          }
+        } catch {
+          // Undeployed Safe (readSafeOwners reverts) or transient RPC — fall
+          // through to the normal execute path.
+        }
+
+        const port = Number(process.env.PORT) || 3001;
+        try {
+          const agentSecret = process.env.AGENT_SECRET;
+          const execRes = await fetch(`http://localhost:${port}/execute`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(agentSecret && { Authorization: `Bearer ${agentSecret}` }),
+            },
+            body: JSON.stringify({ txId: pendingTx.id }),
+          });
+          const execResult = (await execRes.json()) as Record<string, unknown>;
+          if (execResult.status === "executed" || execResult.status === "already_executed") {
+            // The on-chain upgrade succeeded; a failure persisting the owner
+            // flip must not read as a failed upgrade (a retry would revert
+            // on-chain) — the chain-reconcile block above self-heals it on
+            // the next attempt.
+            let upgradeWarning: string | undefined;
+            try {
+              await finishTransition(pendingTx.safeAddress, transitionTarget);
+            } catch (err) {
+              upgradeWarning = err instanceof Error ? err.message : String(err);
+              console.error("finishTransition failed (will self-heal on retry):", upgradeWarning);
+            }
+            res.json({
+              success: true,
+              id: pendingTx.id,
+              autoExecuted: true,
+              upgraded: true,
+              txHash: execResult.txHash,
+              ...(upgradeWarning && { upgradeWarning }),
+            });
+            return;
+          }
+          console.error("Upgrade execute returned:", execResult);
+          res.status(500).json({
+            error: `Upgrade execution failed: ${execResult.error || "unknown"}`,
+            id: pendingTx.id,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Unknown error";
+          console.error("Upgrade execute failed:", msg);
+          res.status(500).json({ error: `Upgrade execution failed: ${msg}`, id: pendingTx.id });
+        }
+        return;
+      }
+
       // When screening is disabled, only queue; client will call execute.
       if (pendingTx.screeningDisabled) {
-        res.json({ success: true, id: pendingTx.id });
+        res.json({ success: true, id: pendingTx.id, ...(serviceWarning && { serviceWarning }) });
         return;
       }
 
@@ -100,6 +523,7 @@ export function createQueueRouter(): IRouter {
               risk,
               autoExecuted: true,
               txHash: execResult.txHash,
+              ...(serviceWarning && { serviceWarning }),
             });
             return;
           }
@@ -164,27 +588,37 @@ export function createQueueRouter(): IRouter {
         ],
       ];
 
-      if (risk.verdict === "REVIEW") {
-        notifyTelegram(
-          `🔍 REVIEW NEEDED — ${pendingTx.id}:\n` +
-            `${pendingTx.amount} ${pendingTx.token || "USDC"} → ${shortTo}\n` +
-            `Risk: ${risk.riskScore}/100\n` +
-            `Reasons: ${risk.reasons.join(", ")}`,
-          reviewButtons,
-          pendingTx.id,
-          chatId
+      // SafeTx proposals already sit in the Safe app queue at 1 of 2 — a
+      // PROTECTED wallet's user can go around the agent with their backup
+      // key there (guarded wallets have no second user key to sign with).
+      let overrideLine = "";
+      if (isSafeTx) {
+        const ownerRecord = await getUserDetails(pendingTx.safeAddress).catch(() => null);
+        const liveOwners =
+          ownerRecord?.safe_owners?.length
+            ? ownerRecord.safe_owners
+            : [ownerRecord?.signer_address ?? "", getAgentAddress()];
+        const profile = classifyProfile(
+          liveOwners,
+          ownerRecord?.safe_threshold ?? 2,
+          getAgentAddress()
         );
-      } else {
-        notifyTelegram(
-          `🚫 BLOCKED — ${pendingTx.id}:\n` +
-            `${pendingTx.amount} ${pendingTx.token || "USDC"} → ${shortTo}\n` +
-            `Risk: ${risk.riskScore}/100\n` +
-            `Reasons: ${risk.reasons.join(", ")}`,
-          reviewButtons,
-          pendingTx.id,
-          chatId
-        );
+        if (profile === "protected") {
+          overrideLine = `\nOr sign with your backup key: https://app.safe.global/transactions/queue?safe=bnb:${pendingTx.safeAddress}`;
+        }
       }
+
+      const header = risk.verdict === "REVIEW" ? "🔍 REVIEW NEEDED" : "🚫 BLOCKED";
+      notifyTelegram(
+        `${header} — ${pendingTx.id}:\n` +
+          `${pendingTx.amount} ${pendingTx.token || "USDC"} → ${shortTo}\n` +
+          `Risk: ${risk.riskScore}/100\n` +
+          `Reasons: ${risk.reasons.join(", ")}` +
+          overrideLine,
+        reviewButtons,
+        pendingTx.id,
+        chatId
+      );
 
       // Email notification for REVIEW/BLOCK (TG is handled above with keyboard buttons)
       getUserDetails(pendingTx.safeAddress ?? "")
@@ -207,7 +641,7 @@ export function createQueueRouter(): IRouter {
         })
         .catch((err) => console.error("Email notify failed:", err));
 
-      res.json({ success: true, id: pendingTx.id, risk });
+      res.json({ success: true, id: pendingTx.id, risk, ...(serviceWarning && { serviceWarning }) });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       res.status(500).json({ error: message });

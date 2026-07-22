@@ -1,32 +1,12 @@
 "use client";
 
-import {
-  createPublicClient,
-  http,
-  parseUnits,
-  encodeFunctionData,
-  type Address,
-} from "viem";
-import { bsc } from "viem/chains";
-import { toAccount } from "viem/accounts";
-import { entryPoint07Address } from "viem/account-abstraction";
-import { createSmartAccountClient } from "permissionless";
-import { createPimlicoClient } from "permissionless/clients/pimlico";
-import { toSafeSmartAccount } from "permissionless/accounts";
-import { SafeSmartAccount } from "permissionless/accounts/safe";
+import { parseUnits, encodeFunctionData, type Address } from "viem";
 
-import {
-  SAFE_SINGLETON,
-  SAFE_PROXY_FACTORY,
-  SAFE_VERSION,
-  ERC20_APPROVE_ABI,
-  BSC_RPC,
-  getPimlicoRpcUrl,
-  NATIVE_TOKEN_ADDRESS,
-} from "./constants";
-import { serializeUserOp } from "./serialize";
+import { ERC20_APPROVE_ABI, NATIVE_TOKEN_ADDRESS } from "./constants";
 import { apiFetch } from "./api/client";
-import type { TokenPosition } from "@/types";
+import { buildSafeTxProposal } from "./safe/proposeSafeTx";
+import type { SafeCall } from "./safe/safeTx";
+import type { SafeProposalContext, TokenPosition } from "@/types";
 
 export interface SwapQuote {
   buyAmount: string;
@@ -50,15 +30,12 @@ export interface ProposeSwapParams {
   toToken: TokenPosition;
   sellAmount: string;
   quote: SwapQuote;
-  ownerAddress: string;
+  safe: SafeProposalContext;
   getOwnerAccount: () => Promise<import("viem").LocalAccount | null>;
+  /** When true, server skips risk analysis; requires user signatures to meet the threshold. */
+  screeningDisabled?: boolean;
   amountUSD?: string;
   identityToken?: string | null;
-}
-
-function requireEnv(val: string | undefined, name: string): string {
-  if (!val) throw new Error(`Missing env var: ${name}`);
-  return val;
 }
 
 export async function proposeSwap({
@@ -66,68 +43,22 @@ export async function proposeSwap({
   toToken,
   sellAmount,
   quote,
-  ownerAddress,
+  safe,
   getOwnerAccount,
+  screeningDisabled,
   amountUSD,
   identityToken,
 }: ProposeSwapParams) {
-  const pimlicoApiKey = requireEnv(
-    process.env.NEXT_PUBLIC_PIMLICO_API_KEY,
-    "NEXT_PUBLIC_PIMLICO_API_KEY"
-  );
-  const ownerAddr2 = requireEnv(
-    process.env.NEXT_PUBLIC_AGENT_ADDRESS,
-    "NEXT_PUBLIC_AGENT_ADDRESS"
-  );
-
-  const ownerAccount = await getOwnerAccount();
-  if (!ownerAccount) throw new Error("Wallet not ready for signing");
-
-  const owners = [
-    toAccount(ownerAddress as `0x${string}`),
-    toAccount(ownerAddr2 as `0x${string}`),
-  ];
-
-  const publicClient = createPublicClient({
-    chain: bsc,
-    transport: http(BSC_RPC),
-  });
-
-  const paymasterClient = createPimlicoClient({
-    transport: http(getPimlicoRpcUrl(pimlicoApiKey)),
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-  });
-
-  const safeAccount = await toSafeSmartAccount({
-    client: publicClient,
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-    owners,
-    saltNonce: 0n,
-    safeSingletonAddress: SAFE_SINGLETON,
-    safeProxyFactoryAddress: SAFE_PROXY_FACTORY,
-    version: SAFE_VERSION,
-    threshold: 2n,
-  });
-
-  const smartAccountClient = createSmartAccountClient({
-    account: safeAccount,
-    chain: bsc,
-    paymaster: paymasterClient,
-    bundlerTransport: http(getPimlicoRpcUrl(pimlicoApiKey)),
-    userOperation: {
-      estimateFeesPerGas: async () =>
-        (await paymasterClient.getUserOperationGasPrice()).fast,
-    },
-  });
-
   const isNativeFromToken =
     fromToken.address?.toLowerCase() === NATIVE_TOKEN_ADDRESS.toLowerCase();
 
   const amountWei = parseUnits(sellAmount, fromToken.decimals);
 
-  const calls: { to: Address; value: bigint; data: `0x${string}` }[] = [];
+  const calls: SafeCall[] = [];
 
-  // Add ERC20 approval if selling a non-native token
+  // Add ERC20 approval if selling a non-native token. In SafeTx mode the
+  // approve + swap pair becomes one MultiSend batch; in 4337 mode the
+  // bundler executes both calls in one userOp.
   if (!isNativeFromToken && fromToken.address && quote.approvalAddress) {
     const approveData = encodeFunctionData({
       abi: ERC20_APPROVE_ABI,
@@ -148,18 +79,9 @@ export async function proposeSwap({
     data: quote.transaction.data as `0x${string}`,
   });
 
-  console.log("calls", calls);
-
-  const unsignedUserOp = await smartAccountClient.prepareUserOperation({ calls });
-
-  const partialSignatures = await SafeSmartAccount.signUserOperation({
-    version: SAFE_VERSION,
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-    chainId: bsc.id,
-    owners,
-    account: ownerAccount,
-    ...unsignedUserOp,
-  });
+  // No inline co-signing — screening-off swaps queue at 1/n and the backup
+  // key signs from the queued screen (see propose.ts for the rationale).
+  const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken });
 
   const txId = `swap-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {
@@ -170,15 +92,9 @@ export async function proposeSwap({
     tokenAddress: fromToken.address ?? NATIVE_TOKEN_ADDRESS,
     tokenIconUrl: fromToken.iconUrl ?? null,
     ...(amountUSD && { amountUSD }),
-    screeningDisabled: true,
-    proposedBy: ownerAccount.address,
-    signatures: [ownerAccount.address],
-    ownerAddresses: [ownerAddress, ownerAddr2],
-    threshold: 2,
-    safeAddress: safeAccount.address,
-    userOp: serializeUserOp(unsignedUserOp as unknown as Record<string, unknown>),
-    partialSignatures,
+    ...(screeningDisabled && { screeningDisabled: true }),
     proposedAt: new Date().toISOString(),
+    ...signedFields,
   };
 
   const res = await apiFetch("/queue", identityToken, {

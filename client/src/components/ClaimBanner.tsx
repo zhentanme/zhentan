@@ -136,12 +136,23 @@ export function ClaimBanner({
   const alreadyClaimed = !!status?.userClaim;
   const noSpotsLeft = status ? status.claimsRemaining <= 0 : false;
 
-  // If configured, hide the entire banner once claimed.
-  if (hideWhenClaimed) {
-    // In hideWhenClaimed mode, don't flash before status is known.
-    if (!statusLoaded) return null;
-    if (alreadyClaimed || dismissed) return null;
-  }
+  // A campaign is "active" only inside its start/end window. Outside it — or
+  // when no campaign exists / the status fetch failed (status stays null) —
+  // the banner must not render at all.
+  const now = Date.now();
+  const campaignActive =
+    !!status &&
+    new Date(status.campaign.starts_at).getTime() <= now &&
+    (status.campaign.ends_at === null ||
+      new Date(status.campaign.ends_at).getTime() > now);
+
+  // Wait for the campaign state before deciding (avoids a banner flashing in
+  // then vanishing), then never render without an active campaign.
+  if (!statusLoaded) return null;
+  if (!campaignActive) return null;
+
+  // Hide the entire banner once claimed, when configured.
+  if (hideWhenClaimed && (alreadyClaimed || dismissed)) return null;
 
   return (
     <>

@@ -57,7 +57,11 @@ const POLL_MS = 30_000;
 const FAST_POLL_MS = 8_000;
 
 function isActiveTx(t: TransactionWithStatus): boolean {
-  return t.status === "pending" || t.status === "in_review";
+  return (
+    t.status === "pending" ||
+    t.status === "in_review" ||
+    t.status === "confirming"
+  );
 }
 
 export function ActivityDataProvider({ children }: { children: ReactNode }) {

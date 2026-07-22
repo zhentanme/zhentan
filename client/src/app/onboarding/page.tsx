@@ -3,17 +3,20 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, AtSign, Check, MessageCircle, Loader2, X, XIcon } from "lucide-react";
+import { ArrowRight, ArrowLeft, AtSign, Check, KeyRound, MessageCircle, Loader2, ShieldCheck, X, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AuthGuard } from "@/components/AuthGuard";
+import { BackupAddressPicker } from "@/components/BackupAddressPicker";
 import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
 import { useLinkAccount, usePrivy } from "@privy-io/react-auth";
 import {
+  markOnboardingWalletLinked,
   markOnboardingUsernameSkipped,
   markOnboardingUsernameSet,
   markOnboardingTelegramDone,
+  readOnboardingStep,
 } from "@/lib/useOnboarding";
 
 /* ─── Step Indicator ─────────────────────────────────────────────── */
@@ -37,7 +40,214 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   );
 }
 
-/* ─── Step 1: Choose Username ────────────────────────────────────── */
+/* ─── Step 1: Gradual protection (add agent → add backup key) ─────── */
+
+function ProtectionStep({ onContinue }: { onContinue: () => void }) {
+  const {
+    externalWalletAddress,
+    setBackupAddress,
+    backupAddressLocked,
+    pendingProfile,
+    setPendingProfile,
+    safeAddress,
+    safeLoading,
+  } = useAuth();
+  // Two screens: "agent" (add screening → guarded, or skip → starter), then
+  // "backup" (add a backup key → protected, or skip → stay guarded). The end
+  // profile is wherever the user stops — each is a valid creation profile and
+  // upgrades later never change the address.
+  const [screen, setScreen] = useState<"agent" | "backup">("agent");
+  const [guardedAgreed, setGuardedAgreed] = useState(false);
+
+  const derived = !!safeAddress && !safeLoading;
+  const starterReady = pendingProfile === "starter" && derived;
+  const guardedReady = pendingProfile === "guarded" && guardedAgreed && derived;
+  const protectedReady =
+    pendingProfile === "protected" && !!externalWalletAddress && derived;
+
+  const chooseAgent = () => {
+    setPendingProfile("guarded");
+    setScreen("backup");
+  };
+  const chooseStarter = () => setPendingProfile("starter");
+  const chooseBackup = (addr: string) => {
+    setBackupAddress(addr);
+    setPendingProfile("protected");
+  };
+  const clearBackup = () => {
+    setBackupAddress(null);
+    setPendingProfile("guarded");
+  };
+  const backToAgent = () => {
+    setScreen("agent");
+    setBackupAddress(null);
+    setGuardedAgreed(false);
+    setPendingProfile(null);
+  };
+
+  return (
+    <motion.div
+      key="protection"
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      transition={{ type: "spring", bounce: 0.15 }}
+      className="flex flex-col items-center w-full"
+    >
+      {screen === "agent" ? (
+        /* ── Screen 1: add the screening agent? ── */
+        <>
+          <div className="w-14 h-14 rounded-2xl bg-gold/10 flex items-center justify-center mb-6">
+            <ShieldCheck className="w-7 h-7 text-gold" />
+          </div>
+
+          <h2 className="text-2xl font-bold text-center mb-2">Add AI screening?</h2>
+          <p className="text-sm text-muted-foreground text-center mb-6 max-w-xs">
+            Zhentan reviews every transaction before it executes — catching
+            scams and mistakes. Add it now or anytime later; your address never
+            changes.
+          </p>
+
+          <div className="w-full max-w-xs space-y-3">
+            <button
+              onClick={chooseAgent}
+              className="w-full text-left rounded-2xl px-5 py-4 border border-gold/25 bg-gold/[0.06] hover:bg-gold/[0.09] hover:border-gold/40 transition-all duration-200"
+            >
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-gold shrink-0" />
+                <p className="text-sm font-semibold text-foreground">
+                  Add the screening agent
+                </p>
+                <span className="px-2 py-0.5 rounded-pill bg-gold/12 text-gold text-[10px] font-mono uppercase tracking-wider">
+                  Recommended
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Zhentan reviews and co-signs every transaction.
+              </p>
+            </button>
+
+            <button
+              onClick={chooseStarter}
+              className={`w-full text-left rounded-2xl px-5 py-4 border transition-all duration-200 ${
+                pendingProfile === "starter"
+                  ? "border-gold/40 bg-foreground/6"
+                  : "border-foreground/8 bg-foreground/4 hover:bg-foreground/6 hover:border-foreground/15"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
+                <p className="text-sm font-semibold text-foreground">
+                  Just my key for now
+                </p>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                A standard wallet, no screening. Turn it on later in a tap.
+              </p>
+            </button>
+
+            {pendingProfile === "starter" && (
+              <>
+                <p className="text-[11px] text-muted-foreground/80 leading-relaxed rounded-xl p-3.5 bg-foreground/4 border border-foreground/8">
+                  No screening — transactions execute with just your signature.
+                  Zhentan relays them gas-free but never co-signs.
+                </p>
+                <Button onClick={onContinue} disabled={!starterReady} className="w-full">
+                  {starterReady ? "Continue" : "Creating your vault..."}
+                  {starterReady && <ArrowRight className="ml-2 h-4 w-4" />}
+                </Button>
+              </>
+            )}
+          </div>
+        </>
+      ) : (
+        /* ── Screen 2: add a backup key? ── */
+        <>
+          <div className="w-14 h-14 rounded-2xl bg-gold/10 flex items-center justify-center mb-6">
+            <KeyRound className="w-7 h-7 text-gold" />
+          </div>
+
+          <h2 className="text-2xl font-bold text-center mb-2">Add a backup key?</h2>
+          <p className="text-sm text-muted-foreground text-center mb-6 max-w-xs">
+            A second key you control — your override. With it you can always move
+            funds yourself at app.safe.global, even if Zhentan is ever offline.
+          </p>
+
+          <div className="w-full max-w-xs space-y-3">
+            {!externalWalletAddress ? (
+              <BackupAddressPicker onSelect={chooseBackup} />
+            ) : (
+              <div className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-safe/25 bg-safe/6">
+                <Check className="h-4 w-4 text-safe shrink-0" />
+                <p className="text-xs text-muted-foreground font-mono truncate flex-1">
+                  {externalWalletAddress}
+                </p>
+                {!backupAddressLocked && (
+                  <button
+                    onClick={clearBackup}
+                    className="shrink-0 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Change
+                  </button>
+                )}
+              </div>
+            )}
+
+            {externalWalletAddress ? (
+              <Button onClick={onContinue} disabled={!protectedReady} className="w-full">
+                {protectedReady ? "Continue" : "Creating your vault..."}
+                {protectedReady && <ArrowRight className="ml-2 h-4 w-4" />}
+              </Button>
+            ) : (
+              <div className="space-y-2.5 pt-1">
+                <label className="flex items-start gap-2.5 rounded-xl p-3.5 bg-watch/[0.07] border border-watch/15 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={guardedAgreed}
+                    onChange={(e) => setGuardedAgreed(e.target.checked)}
+                    className="mt-0.5 accent-gold"
+                  />
+                  <span className="text-[11px] text-watch/90 leading-relaxed">
+                    I understand that without a backup key, Zhentan must approve
+                    every transaction — and if its agent is ever offline, my
+                    funds wait until I add one. I can add a backup key anytime.
+                  </span>
+                </label>
+                <button
+                  onClick={onContinue}
+                  disabled={!guardedReady}
+                  className="w-full text-xs text-muted-foreground hover:text-foreground py-2 transition-colors disabled:opacity-50 disabled:cursor-default"
+                >
+                  {guardedReady
+                    ? "Continue without a backup key"
+                    : guardedAgreed
+                    ? "Creating your vault..."
+                    : "Continue without a backup key"}
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={backToAgent}
+              className="w-full inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground py-1.5 transition-colors"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back
+            </button>
+          </div>
+        </>
+      )}
+
+      <p className="mt-6 text-[11px] text-muted-foreground/70 text-center leading-relaxed max-w-xs">
+        Full protection is a 2-of-3 Safe: your key, your backup key, and the
+        screening agent. Any two signatures move funds — you&apos;re never locked
+        out, and Zhentan alone can never move a cent.
+      </p>
+    </motion.div>
+  );
+}
+
+/* ─── Step 2: Choose Username ────────────────────────────────────── */
 
 function UsernameStep({
   onSave,
@@ -406,53 +616,89 @@ function DoneStep({
 
 function OnboardingContent() {
   const router = useRouter();
-  const { safeAddress, user } = useAuth();
+  const { safeAddress, safeConfig, safeLoading, wallet, user, commitSafe, recordOnboardingCompleted, refreshSafe } = useAuth();
   const api = useApiClient();
 
   const [step, setStep] = useState(0);
   const [stepReady, setStepReady] = useState(false);
   const [savedUsername, setSavedUsername] = useState<string | null>(null);
-  const totalSteps = 3;
+  const totalSteps = 4;
 
-  // Restore step from localStorage on mount (once safeAddress is ready)
+  // Already onboarded (per the backend record) → forward to the app. Without
+  // this, a completed user who lands on /onboarding (a stale deep-link, a
+  // back-nav) is stranded on the final step with no automatic way out.
   useEffect(() => {
-    if (!safeAddress) return;
-    try {
-      const raw = localStorage.getItem(`onboarding_${safeAddress}`);
-      if (raw) {
-        const s = JSON.parse(raw);
-        if (typeof s.step === "number" && s.step >= 0 && s.step <= 2) {
-          setStep(s.step);
-        }
-      }
-    } catch {}
+    if (recordOnboardingCompleted === true) router.replace("/home");
+  }, [recordOnboardingCompleted, router]);
+
+  // Restore step from localStorage on mount. Keyed by the embedded wallet —
+  // the Safe address doesn't exist until the backup key is linked (step 0).
+  useEffect(() => {
+    if (!wallet?.address) return;
+    setStep(readOnboardingStep(wallet.address));
     setStepReady(true);
-  }, [safeAddress]);
+  }, [wallet?.address]);
+
+  // A restored step past 0 is only valid once the Safe resolves — without a
+  // backup key there is no Safe address, so send the user back to step 0.
+  useEffect(() => {
+    if (!stepReady || safeLoading) return;
+    if (step > 0 && !safeAddress) setStep(0);
+  }, [stepReady, safeLoading, step, safeAddress]);
+
+  const handleBackupKeyDone = () => {
+    if (!wallet?.address) return;
+    // Locks in the backup key: allows the user record (owner set + address)
+    // to persist. Before this, the choice is freely changeable.
+    commitSafe();
+    markOnboardingWalletLinked(wallet.address);
+    setStep(1);
+  };
 
   const handleSaveUsername = async (username: string) => {
-    if (!safeAddress) throw new Error("Wallet not ready");
+    if (!safeAddress || !wallet?.address) throw new Error("Wallet not ready");
     await api.users.upsert({ safeAddress, username });
-    markOnboardingUsernameSet(safeAddress);
+    markOnboardingUsernameSet(wallet.address);
     setSavedUsername(username);
-    setStep(1);
+    setStep(2);
   };
 
   const handleSkipUsername = () => {
-    if (!safeAddress) return;
-    markOnboardingUsernameSkipped(safeAddress);
-    setStep(1);
+    if (!wallet?.address) return;
+    markOnboardingUsernameSkipped(wallet.address);
+    setStep(2);
   };
 
-  const handleTelegramDone = () => setStep(2);
+  const handleTelegramDone = () => setStep(3);
 
-  const handleSkipTelegram = () => setStep(2);
+  const handleSkipTelegram = () => setStep(3);
 
   const handleFinish = async () => {
-    if (!safeAddress) return;
+    if (!safeAddress || !wallet?.address) return;
     // Persist on the server first — we want onboarding_completed set even if the
     // user never returns to this tab. Client-side flags and navigation follow.
-    await api.users.upsert({ safeAddress, onboardingCompleted: true });
-    markOnboardingTelegramDone(safeAddress);
+    // Stamp signerAddress here too: it's the key `/users/by-signer` finds this
+    // account by, and this write always runs on completion — so the row can
+    // never be left with a null signer_address (which would make a returning
+    // user look new and bounce them into onboarding).
+    await api.users.upsert({
+      safeAddress,
+      signerAddress: wallet.address,
+      onboardingCompleted: true,
+    });
+    // Eager deploy: the Safe must exist on-chain for app.safe.global and the
+    // Transaction Service. Agent pays gas; /queue re-checks as a fallback,
+    // so a failure here must not trap the user on this screen.
+    if (safeConfig) {
+      api.safe.deploy(safeConfig.owners, safeConfig.threshold).catch((err) => {
+        console.error("Eager Safe deploy failed (will retry on first tx):", err);
+      });
+    }
+    markOnboardingTelegramDone(wallet.address);
+    // The in-memory record still says onboarding_completed=false — refresh it
+    // so record-driven consumers (e.g. the first-time tour) see completion
+    // without waiting for the next full page load.
+    refreshSafe();
     router.replace("/home");
   };
 
@@ -489,20 +735,21 @@ function OnboardingContent() {
 
         {/* Step content */}
         <AnimatePresence mode="wait">
-          {step === 0 && (
+          {step === 0 && <ProtectionStep onContinue={handleBackupKeyDone} />}
+          {step === 1 && (
             <UsernameStep
               onSave={handleSaveUsername}
               onSkip={handleSkipUsername}
             />
           )}
-          {step === 1 && safeAddress && (
+          {step === 2 && safeAddress && (
             <ConnectStep
               safeAddress={safeAddress}
               onFinish={handleTelegramDone}
               onSkip={handleSkipTelegram}
             />
           )}
-          {step === 2 && (
+          {step === 3 && (
             <DoneStep
               username={savedUsername}
               socialName={user?.name ?? null}

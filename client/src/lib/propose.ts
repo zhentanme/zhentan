@@ -1,51 +1,31 @@
 "use client";
 
-import { createPublicClient, http, parseUnits, encodeFunctionData, type Address } from "viem";
-import { bsc } from "viem/chains";
-import { toAccount } from "viem/accounts";
-import { entryPoint07Address } from "viem/account-abstraction";
-import { createSmartAccountClient } from "permissionless";
-import { createPimlicoClient } from "permissionless/clients/pimlico";
-import { toSafeSmartAccount } from "permissionless/accounts";
-import { SafeSmartAccount } from "permissionless/accounts/safe";
+import { parseUnits, encodeFunctionData, type Address } from "viem";
 
 import {
-  SAFE_SINGLETON,
-  SAFE_PROXY_FACTORY,
-  SAFE_VERSION,
   USDC_DECIMALS,
   ERC20_TRANSFER_ABI,
-  BSC_RPC,
-  getPimlicoRpcUrl,
   NATIVE_TOKEN_ADDRESS,
-  NATIVE_DECIMALS,
 } from "./constants";
-import { serializeUserOp } from "./serialize";
 import { apiFetch } from "./api/client";
+import { buildSafeTxProposal } from "./safe/proposeSafeTx";
+import type { SafeCall } from "./safe/safeTx";
 import type { ProposeParams } from "@/types";
-
-// Next.js only inlines env vars when you use static access (process.env.NEXT_PUBLIC_*).
-// Dynamic process.env[key] is not replaced at build time, so it's empty in the client bundle.
-function requireEnv(val: string | undefined, name: string): string {
-  if (!val) throw new Error(`Missing env var: ${name}`);
-  return val;
-}
 
 export async function proposeTransaction({
   recipient,
   amount,
-  ownerAddress,
+  safe,
   getOwnerAccount,
   tokenAddress: tokenAddressParam,
   tokenDecimals,
   tokenSymbol,
   tokenIconUrl,
   screeningDisabled,
+  forceExecute,
   amountUSD,
   identityToken,
 }: ProposeParams) {
-  const pimlicoApiKey = requireEnv(process.env.NEXT_PUBLIC_PIMLICO_API_KEY, "NEXT_PUBLIC_PIMLICO_API_KEY");
-  const ownerAddr2 = requireEnv(process.env.NEXT_PUBLIC_AGENT_ADDRESS, "NEXT_PUBLIC_AGENT_ADDRESS");
   const tokenAddress = tokenAddressParam;
   if (!tokenAddress) throw new Error("Token address required");
   const decimals = tokenDecimals ?? USDC_DECIMALS;
@@ -53,47 +33,9 @@ export async function proposeTransaction({
   const isNative =
     tokenAddress.toLowerCase() === NATIVE_TOKEN_ADDRESS.toLowerCase();
 
-  const ownerAccount = await getOwnerAccount();
-  if (!ownerAccount) throw new Error("Wallet not ready for signing");
-  const owners = [toAccount(ownerAddress as `0x${string}`), toAccount(ownerAddr2 as `0x${string}`)];
-
-  const publicClient = createPublicClient({
-    chain: bsc,
-    transport: http(BSC_RPC),
-  });
-
-  const paymasterClient = createPimlicoClient({
-    transport: http(getPimlicoRpcUrl(pimlicoApiKey)),
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-  });
-
-  const safeAccount = await toSafeSmartAccount({
-    client: publicClient,
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-    owners,
-    saltNonce: 0n,
-    safeSingletonAddress: SAFE_SINGLETON,
-    safeProxyFactoryAddress: SAFE_PROXY_FACTORY,
-    version: SAFE_VERSION,
-    threshold: 2n,
-  });
-
-  console.log("Safe account:", safeAccount.address);
-
-  const smartAccountClient = createSmartAccountClient({
-    account: safeAccount,
-    chain: bsc,
-    paymaster: paymasterClient,
-    bundlerTransport: http(getPimlicoRpcUrl(pimlicoApiKey)),
-    userOperation: {
-      estimateFeesPerGas: async () =>
-        (await paymasterClient.getUserOperationGasPrice()).fast,
-    },
-  });
-
   const amountWei = parseUnits(amount.toString(), decimals);
 
-  let calls: { to: Address; value: bigint; data: `0x${string}` }[];
+  let calls: SafeCall[];
   if (isNative) {
     // Native BNB transfer: send value to recipient
     calls = [
@@ -109,22 +51,18 @@ export async function proposeTransaction({
     calls = [{ to: tokenAddress as Address, value: 0n, data }];
   }
 
-  // 1. Prepare unsigned user operation
-  const unsignedUserOp = await smartAccountClient.prepareUserOperation({
+  // No inline co-signing: a screening-off send in a protected wallet always
+  // proposes at 1/n and lands on the queued screen, where the user signs
+  // with the backup key deliberately (or in the Safe app) — no surprise
+  // wallet popup mid-propose.
+  const signedFields = await buildSafeTxProposal({
     calls,
+    safe,
+    getOwnerAccount,
+    identityToken,
+    forceExecute,
   });
 
-  // 2. Owner signs their part
-  const partialSignatures = await SafeSmartAccount.signUserOperation({
-    version: SAFE_VERSION,
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-    chainId: bsc.id,
-    owners,
-    account: ownerAccount,
-    ...unsignedUserOp,
-  });
-
-  // 3. Build pending tx object
   const txId = `tx-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {
     id: txId,
@@ -135,17 +73,10 @@ export async function proposeTransaction({
     tokenIconUrl: tokenIconUrl ?? null,
     ...(amountUSD && { amountUSD }),
     ...(screeningDisabled && { screeningDisabled: true }),
-    proposedBy: ownerAccount.address,
-    signatures: [ownerAccount.address],
-    ownerAddresses: [ownerAddress, ownerAddr2],
-    threshold: 2,
-    safeAddress: safeAccount.address,
-    userOp: serializeUserOp(unsignedUserOp as unknown as Record<string, unknown>),
-    partialSignatures,
     proposedAt: new Date().toISOString(),
+    ...signedFields,
   };
 
-  // 4. POST to API route or backend to save to queue
   const res = await apiFetch("/queue", identityToken, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

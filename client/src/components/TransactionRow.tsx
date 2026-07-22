@@ -10,6 +10,8 @@ import {
   ArrowDownLeft,
   Repeat2,
   ShieldCheck,
+  Sparkles,
+  Settings2,
   Zap,
   ArrowDownToLine,
   ArrowUpFromLine,
@@ -46,6 +48,16 @@ const FALLBACK_CONFIG: OpConfig = {
 };
 
 function getConfig(tx: TransactionWithStatus): OpConfig {
+  // Wallet events (Safe creation, owner/config transitions) — not transfers.
+  if (tx.txKind) {
+    return {
+      Icon: tx.txKind === "creation" ? Sparkles : Settings2,
+      label:
+        tx.kindLabel ?? (tx.txKind === "creation" ? "Safe account created" : "Wallet configuration"),
+      sign: "",
+      iconColor: "text-gold",
+    };
+  }
   const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
   return OP_CONFIG[op] ?? FALLBACK_CONFIG;
 }
@@ -146,9 +158,10 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
   const { Icon, label, iconColor } = config;
   const time = timeAgo(tx.proposedAt);
 
-  // Counterparty address — skip for ops where it's not meaningful
+  // Counterparty address — skip for ops where it's not meaningful, and for
+  // wallet events (the "counterparty" is the Safe itself).
   const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
-  const showAddress = !!tx.to && op !== "execute" && op !== "approve";
+  const showAddress = !tx.txKind && !!tx.to && op !== "execute" && op !== "approve";
   const addressPrefix = tx.direction === "receive" ? "from" : "to";
 
   return (
@@ -164,10 +177,16 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.3, type: "spring", bounce: 0.1 }}
     >
-      {/* Token avatar */}
-      <div className="w-10 h-10 rounded-full bg-foreground/8 flex items-center justify-center shrink-0 overflow-hidden">
-        <TokenAvatar iconUrl={tx.tokenIconUrl} symbol={tx.token} />
-      </div>
+      {/* Avatar: token for transfers, gold event tile for wallet events */}
+      {tx.txKind ? (
+        <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center shrink-0">
+          <Icon className="h-5 w-5 text-gold" />
+        </div>
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-foreground/8 flex items-center justify-center shrink-0 overflow-hidden">
+          <TokenAvatar iconUrl={tx.tokenIconUrl} symbol={tx.token} />
+        </div>
+      )}
 
       {/* Middle: label + time / address */}
       <div className="flex-1 min-w-0">
@@ -194,8 +213,8 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
         )}
       </div>
 
-      {/* Right: amount + USD */}
-      <AmountDisplay tx={tx} config={config} />
+      {/* Right: amount + USD (wallet events move no funds) */}
+      {!tx.txKind && <AmountDisplay tx={tx} config={config} />}
     </motion.div>
   );
 }

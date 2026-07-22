@@ -80,6 +80,8 @@ export function statusLabel(status: TransactionStatus): string {
       return "Pending";
     case "in_review":
       return "In Review";
+    case "confirming":
+      return "Confirming";
     case "executed":
       return "Executed";
     case "rejected":

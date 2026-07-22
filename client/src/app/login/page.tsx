@@ -1,25 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
 import { TwinTick } from "@/components/BrandMark";
 import { GuardianCard } from "@/components/GuardianCard";
 import { ThemeLoader } from "@/components/ThemeLoader";
 import { useAuth } from "@/app/context/AuthContext";
 import { useOnboarding } from "@/lib/useOnboarding";
-import { useLoginWithOAuth } from "@privy-io/react-auth";
+import { useLoginWithOAuth, usePrivy } from "@privy-io/react-auth";
+
+/* ── Supported-wallet brand marks ── */
+
+function MetaMaskIcon({ className }: { className?: string }) {
+  return (
+    <Image src="/metamask.webp" alt="MetaMask" width={18} height={18} className={className} />
+  );
+}
+
+function RabbyIcon({ className }: { className?: string }) {
+  return (
+    <Image src="/rabby.png" alt="Rabby" width={18} height={18} className={className} />
+  );
+}
 
 export default function LoginPage() {
-  const { user, wallet, loading, safeAddress, safeLoading, telegramUserId } = useAuth();
+  const { user, wallet, loading, safeAddress, safeLoading, recordOnboardingCompleted, telegramUserId } = useAuth();
   const { initOAuth, loading: oauthLoading } = useLoginWithOAuth();
+  const { login } = usePrivy();
   const [signingInGoogle, setSigningInGoogle] = useState(false);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
   const { loading: onboardingLoading, complete: onboardingComplete } = useOnboarding(
-    !loading && user && wallet && !safeLoading ? safeAddress : null,
+    {
+      walletAddress: wallet?.address,
+      safeAddress,
+      ready: !loading && !!user && !!wallet && !safeLoading,
+      recordOnboardingCompleted,
+    },
     telegramUserId
   );
 
@@ -39,6 +60,16 @@ export default function LoginPage() {
     } catch (err) {
       console.error("Google login failed:", err);
       setSigningInGoogle(false);
+    }
+  };
+
+  // Wallet login: connect an external wallet (MetaMask/hardware) and sign in.
+  // No embedded wallet is created — the connected wallet becomes the signer.
+  const handleWalletLogin = () => {
+    try {
+      login({ loginMethods: ["wallet"] });
+    } catch (err) {
+      console.error("Wallet login failed:", err);
     }
   };
 
@@ -120,6 +151,26 @@ export default function LoginPage() {
               </>
             )}
           </button>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleWalletLogin}
+              disabled={busy}
+              className="inline-flex items-center gap-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition disabled:opacity-60 disabled:cursor-default cursor-pointer"
+            >
+              <Wallet className="h-4 w-4 shrink-0" />
+              Continue with a wallet
+            </button>
+            <span className="h-4 w-px bg-border/60" aria-hidden />
+            <div
+              className="flex items-center gap-1.5"
+              title="MetaMask, Rabby & other wallets"
+            >
+              <MetaMaskIcon className="h-[18px] w-[18px] rounded-[5px] object-contain" />
+              <RabbyIcon className="h-[18px] w-[18px] rounded-[5px] object-contain" />
+            </div>
+          </div>
 
           <div className="mt-7 flex items-center gap-3 font-mono text-[11px] tracking-[0.12em] uppercase text-muted-foreground/70">
             <span>Secured by Safe</span>

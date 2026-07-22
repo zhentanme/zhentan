@@ -37,6 +37,15 @@ export interface TransactionRow {
   tx_hash: string | null;
   success: boolean | null;
   screening_disabled: boolean;
+  tx_type: "4337" | "safetx" | null;
+  safe_tx_hash: string | null;
+  safe_tx: Record<string, unknown> | null;
+  safe_nonce: number | null;
+  user_signature: string | null;
+  /** Additional user co-signatures [{signer, data}] — relay-only execution. */
+  user_signatures: { signer: string; data: string }[] | null;
+  rejection_signature: string | null;
+  confirmations: unknown[] | null;
 }
 
 export interface UserDetailsRow {
@@ -47,6 +56,19 @@ export interface UserDetailsRow {
   username: string | null;
   signer_address: string | null;
   onboarding_completed: boolean | null;
+  external_wallet_address: string | null;
+  safe_owners: string[] | null;
+  safe_threshold: number | null;
+  safe_deployed: boolean | null;
+  safe_deploy_tx_hash: string | null;
+  /** Vestigial — the per-user execution mode toggle was removed; all user txs are SafeTx. */
+  execution_mode: "safetx" | "4337" | null;
+  /** 1 = legacy 4337-module initializer, 2 = vanilla Safe. Null only before first sync. */
+  derivation_version: number | null;
+  /** Immutable birth certificate — exact derivation inputs; never mutated by upgrades. */
+  creation_owners: string[] | null;
+  creation_threshold: number | null;
+  creation_salt_nonce: string;
   created_at: string;
   updated_at: string;
 }

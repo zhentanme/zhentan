@@ -128,7 +128,7 @@ export const EVENTS = {
         title: "Transaction executed",
         subtitle: payload.autoApproved
           ? "Auto-approved by your personal detective and sent on-chain."
-          : "Approved by 2 of 2 signers and sent on-chain.",
+          : "Approved by you and your agent co-signer, and sent on-chain.",
         amount: payload.amount,
         token: payload.token,
         tokenLogoUrl: payload.tokenLogoUrl,

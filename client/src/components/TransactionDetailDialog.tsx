@@ -5,6 +5,8 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import type { TransactionWithStatus } from "@/types";
 import { useLiveTransaction } from "@/hooks/useLiveTransaction";
+import { CoSignButton } from "@/components/CoSignButton";
+import { useAuth } from "@/app/context/AuthContext";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { Dialog } from "./ui/Dialog";
 import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
@@ -303,6 +305,38 @@ function RiskDetailsSection({
   );
 }
 
+// ── Co-sign section ───────────────────────────────────────────────────────────
+
+/**
+ * Completion actions for a screening-off SafeTx queued below threshold: sign
+ * with the backup key in-app (relay-only execution — the agent never signs
+ * unscreened txs), or finish in the Safe app. When the backup wallet has no
+ * live session, the button opens Privy's connect modal first.
+ */
+function CoSignSection({ tx }: { tx: TransactionWithStatus }) {
+  // On success, useLiveTransaction flips the dialog to executed in place.
+  return (
+    <div className="space-y-2.5">
+      <p className="text-xs text-muted-foreground/80 text-center">
+        Waiting for your backup key — {1 + (tx.userSignatures?.length ?? 0)} of{" "}
+        {tx.threshold} signatures.
+      </p>
+      <CoSignButton tx={tx} />
+      <motion.a
+        href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+      >
+        Sign in Safe app
+        <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+      </motion.a>
+    </div>
+  );
+}
+
 // ── Status animation ──────────────────────────────────────────────────────────
 
 function StatusAnimation({ status }: { status: TransactionWithStatus["status"] }) {
@@ -332,6 +366,8 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
   const live = useLiveTransaction(
     open && txProp && txProp.source !== "zerion-only" ? txProp.id : null
   );
+  const { safeConfig } = useAuth();
+  const overrideAvailable = safeConfig?.profile === "protected";
 
   if (!txProp) return null;
 
@@ -491,6 +527,35 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
             reviewReason={tx.reviewReason}
             rejectReason={tx.rejectReason}
           />
+        )}
+
+        {/* Screening-off tx queued below threshold: the backup key completes
+            it — in-app co-sign (relay-only execution) or the Safe app. */}
+        {tx.txType === "safetx" &&
+          tx.status === "pending" &&
+          !tx.txHash &&
+          !!tx.screeningDisabled &&
+          overrideAvailable &&
+          1 + (tx.userSignatures?.length ?? 0) < (tx.threshold ?? 2) && (
+            <CoSignSection tx={tx} />
+          )}
+
+        {/* Override path: a flagged SafeTx already sits in the Safe app queue
+            at 1 of 2 — the user can confirm with their backup key and execute
+            there, going around the agent entirely. Only protected wallets
+            have a backup key to sign with. */}
+        {tx.txType === "safetx" && tx.status === "in_review" && !tx.txHash && overrideAvailable && (
+          <motion.a
+            href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            Sign with your backup key at Safe
+            <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+          </motion.a>
         )}
 
         {/* BSCScan explorer link */}

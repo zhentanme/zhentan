@@ -15,12 +15,12 @@ DeFi wallets offer no protection between "sign" and "execute." Once a user click
 
 ## 2. Solution
 
-Zhentan is a personalized wallet assistant that acts as an AI co-signer on a Safe 2-of-2 multisig. It learns your behavioral patterns and screens every transaction before it executes — blocking threats, flagging anomalies for review, and auto-approving routine activity.
+Zhentan is a personalized wallet assistant that acts as an AI co-signer on a Safe 2-of-3 multisig (the user holds two keys — embedded + backup wallet — and can always execute without the agent). It learns your behavioral patterns and screens every transaction before it executes — blocking threats, flagging anomalies for review, and auto-approving routine activity.
 
 **Key capabilities:**
 - **Behavioral learning:** Builds a profile of your typical recipients, amounts, time-of-day activity, and token categories — updated automatically after every confirmed transaction
 - **Instant risk scoring (0–100):** Every transaction is scored server-side against your learned patterns before reaching the agent
-- **Three-tier response:** APPROVE (agent auto-signs 2-of-2) / REVIEW (deep analysis + Telegram interactive buttons) / BLOCK (reject + alert)
+- **Three-tier response:** APPROVE (agent auto-co-signs, 2 of 3) / REVIEW (deep analysis + Telegram interactive buttons) / BLOCK (reject + alert)
 - **Deep analysis on REVIEW:** GoPlus + Honeypot.is checks run automatically for every REVIEW-tier transaction — address reputation, sanctions, honeypot detection, and token tax rates delivered to the user before they decide
 - **NanoBot/Hermes Agent as 2nd signer:** The agent communicates with the user via Telegram and holds the 2nd key — no transaction executes without its signature
 - **WalletConnect support:** Any DApp (PancakeSwap, Venus, etc.) routes through the same screening pipeline
@@ -44,7 +44,7 @@ sequenceDiagram
     S->>S: analyzeRisk() → score (0-100)
     S->>OC: notify (verdict + score)
     alt score < 40 (APPROVE)
-        OC->>OC: sign 2-of-2
+        OC->>OC: co-sign (2 of 3)
         OC->>BC: execute via bundler
         BC-->>App: txHash
         OC->>S: record-pattern
@@ -55,7 +55,7 @@ sequenceDiagram
         TG->>U: Interactive review with context
         U->>TG: Respond
         TG->>OC: user decision
-        OC->>OC: sign 2-of-2 (if approved)
+        OC->>OC: co-sign (2 of 3, if approved)
         OC->>BC: execute via bundler
         OC->>S: record-pattern
     else score > 70 (BLOCK)

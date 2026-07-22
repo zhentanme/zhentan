@@ -15,11 +15,16 @@
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop zhentan-server",
     "pm2:restart": "pm2 restart zhentan-server",
-    "pm2:logs": "pm2 logs zhentan-server"
+    "pm2:logs": "pm2 logs zhentan-server",
+    "safe:backfill-snapshots": "tsx --env-file=.env scripts/backfill-creation-snapshots.ts",
+    "safe:verify-derivations": "tsx --env-file=.env scripts/verify-derivations.ts"
   },
   "dependencies": {
     "@pancakeswap/sdk": "^5.9.0",
     "@pancakeswap/smart-router": "^7.6.0",
+    "@safe-global/api-kit": "^5.0.1",
+    "@safe-global/protocol-kit": "^8.0.4",
+    "@safe-global/types-kit": "^4.0.1",
     "@supabase/supabase-js": "^2.100.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

@@ -1,5 +1,32 @@
 export type TransactionDirection = "send" | "receive";
 
+/**
+ * How a transaction is signed and executed:
+ * - "4337"   — ERC-4337 userOp via the Safe4337Module + Pimlico (gasless).
+ * - "safetx" — standard SafeTx (EIP-712) proposed to the Safe Transaction
+ *              Service; visible in app.safe.global; agent confirms and
+ *              relays execTransaction.
+ */
+export type TxExecutionType = "4337" | "safetx";
+
+/**
+ * Standard Safe transaction fields (EIP-712 SafeTx message).
+ * All uint fields are decimal strings for lossless JSON transport.
+ * Must stay in sync with server/src/types.ts.
+ */
+export interface SafeTxData {
+  to: string;
+  value: string;
+  data: string;
+  operation: 0 | 1;
+  safeTxGas: string;
+  baseGas: string;
+  gasPrice: string;
+  gasToken: string;
+  refundReceiver: string;
+  nonce: number;
+}
+
 export interface DappMetadata {
   name: string;
   url: string;
@@ -40,8 +67,34 @@ export interface PendingTransaction {
   ownerAddresses: string[];
   threshold: number;
   safeAddress: string;
-  userOp: Record<string, unknown>;
-  partialSignatures: string;
+  /** Defaults to "4337" for legacy rows without the discriminator. */
+  txType?: TxExecutionType;
+  /**
+   * Non-transfer rows, computed server-side at read time: "creation" is the
+   * Safe deployment itself, "config" is owner/config management (the
+   * wallet-profile transitions). Absent for ordinary transfers.
+   */
+  txKind?: "config" | "creation";
+  /** Display label for txKind rows, e.g. "Backup key added". */
+  kindLabel?: string;
+  /** 4337 flow only. */
+  userOp?: Record<string, unknown>;
+  /** 4337 flow only. */
+  partialSignatures?: string;
+  /** SafeTx flow only. */
+  safeTxHash?: string;
+  safeTx?: SafeTxData;
+  safeNonce?: number;
+  /** User's EIP-712 signature over safeTxHash. */
+  userSignature?: string;
+  /**
+   * Additional user co-signatures over safeTxHash (e.g. the backup key when
+   * screening is off). When user signatures alone meet the threshold, the
+   * agent relays without signing.
+   */
+  userSignatures?: { signer: string; data: string }[];
+  /** Pre-signed empty tx at the same nonce, used to cancel on reject. */
+  rejectionSignature?: string;
   proposedAt: string;
   /** Transaction origin: "send_panel" for manual sends, "walletconnect" for DApp requests */
   // source?: "send_panel" | "walletconnect";
@@ -73,6 +126,8 @@ export interface PendingTransaction {
 export type TransactionStatus =
   | "pending"
   | "in_review"
+  /** Executing on-chain; awaiting Transaction Service reconciliation. */
+  | "confirming"
   | "executed"
   | "rejected";
 
@@ -191,10 +246,27 @@ export interface PortfolioResponse {
   percentChange24h?: number | null;
 }
 
+/**
+ * Safe identity a proposal needs — sourced from AuthContext
+ * (`safeAddress` + `safeConfig`).
+ */
+export interface SafeProposalContext {
+  safeAddress: string;
+  owners: string[];
+  threshold: number;
+  /**
+   * Derivation version (1 = legacy 4337, 2 = vanilla). Legacy v1 wallets keep
+   * the agent as co-signer when screening is off (no backup key required);
+   * v2+ wallets must co-sign with the backup key to reach the threshold.
+   */
+  derivationVersion?: number | null;
+}
+
 export interface ProposeParams {
   recipient: string;
   amount: string;
-  ownerAddress: string;
+  /** Safe identity + execution mode (from useAuth().safeConfig). */
+  safe: SafeProposalContext;
   getOwnerAccount: () => Promise<import("viem").LocalAccount | null>;
   /** ERC20 token contract address (default: USDC from env) */
   tokenAddress?: string;
@@ -206,6 +278,12 @@ export interface ProposeParams {
   tokenIconUrl?: string | null;
   /** When true, server skips risk analysis and auto-execute; client will call execute. */
   screeningDisabled?: boolean;
+  /**
+   * Take the current executable nonce so this tx skips a stuck proposal
+   * (replacing whatever is pending at that nonce). Screening still applies —
+   * only the queue position changes.
+   */
+  forceExecute?: boolean;
   /** USD value at proposal time — for cross-token pattern aggregations */
   amountUSD?: string;
   /** Privy identity token for authenticating the backend request */

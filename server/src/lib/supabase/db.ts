@@ -26,7 +26,7 @@ import type { PatternsFile } from "../../risk.js";
 // Mappers: DB row ↔ app type
 // ─────────────────────────────────────────────────────────────
 
-function rowToTx(row: TransactionRow): PendingTransaction {
+export function rowToTx(row: TransactionRow): PendingTransaction {
   return {
     id: row.id,
     to: row.to_address,
@@ -40,8 +40,15 @@ function rowToTx(row: TransactionRow): PendingTransaction {
     ownerAddresses: row.owner_addresses ?? [],
     threshold: row.threshold ?? 2,
     safeAddress: row.safe_address,
-    userOp: row.user_op ?? {},
-    partialSignatures: row.partial_signatures ?? "",
+    txType: row.tx_type ?? "4337",
+    userOp: row.user_op ?? undefined,
+    partialSignatures: row.partial_signatures ?? undefined,
+    safeTxHash: row.safe_tx_hash ?? undefined,
+    safeTx: (row.safe_tx as unknown as PendingTransaction["safeTx"]) ?? undefined,
+    safeNonce: row.safe_nonce ?? undefined,
+    userSignature: row.user_signature ?? undefined,
+    userSignatures: row.user_signatures ?? undefined,
+    rejectionSignature: row.rejection_signature ?? undefined,
     proposedAt: row.proposed_at,
     executedAt: row.executed_at ?? undefined,
     executedBy: row.executed_by ?? undefined,
@@ -74,8 +81,16 @@ function txToRow(tx: PendingTransaction): TransactionRow {
     proposed_by: tx.proposedBy ?? null,
     owner_addresses: tx.ownerAddresses ?? null,
     threshold: tx.threshold ?? null,
+    tx_type: tx.txType ?? "4337",
     user_op: tx.userOp ?? null,
     partial_signatures: tx.partialSignatures ?? null,
+    safe_tx_hash: tx.safeTxHash ?? null,
+    safe_tx: (tx.safeTx as unknown as Record<string, unknown>) ?? null,
+    safe_nonce: tx.safeNonce ?? null,
+    user_signature: tx.userSignature ?? null,
+    user_signatures: tx.userSignatures ?? null,
+    rejection_signature: tx.rejectionSignature ?? null,
+    confirmations: null,
     proposed_at: tx.proposedAt,
     risk_score: tx.riskScore ?? null,
     risk_verdict: tx.riskVerdict ?? null,
@@ -189,8 +204,15 @@ export async function updateTransaction(
     ownerAddresses: "owner_addresses",
     threshold: "threshold",
     safeAddress: "safe_address",
+    txType: "tx_type",
     userOp: "user_op",
     partialSignatures: "partial_signatures",
+    safeTxHash: "safe_tx_hash",
+    safeTx: "safe_tx",
+    safeNonce: "safe_nonce",
+    userSignature: "user_signature",
+    userSignatures: "user_signatures",
+    rejectionSignature: "rejection_signature",
     proposedAt: "proposed_at",
     executedAt: "executed_at",
     executedBy: "executed_by",
@@ -874,6 +896,36 @@ export async function updateRequest(
   return rowToRequest(data!);
 }
 
+/** The request linked to a given transaction id (auto-approve flow), if any. */
+export async function getRequestByTxId(txId: string): Promise<QueuedRequest | null> {
+  const { data, error } = await supabase
+    .from("requests")
+    .select("*")
+    .eq("tx_id", txId)
+    .limit(1)
+    .returns<RequestRow[]>();
+  if (error) throw error;
+  return data && data[0] ? rowToRequest(data[0]) : null;
+}
+
+/**
+ * Keep a request in sync with its linked transaction's lifecycle. This is what
+ * makes request status authoritative (driven by the tx reconciliation) rather
+ * than by client polling — so pre-signed / override / background executions all
+ * land. No-op when the tx has no request (normal sends) or the request is
+ * already terminal (never move it backwards). Best-effort — callers may
+ * fire-and-forget.
+ */
+export async function syncLinkedRequest(
+  txId: string,
+  patch: Partial<QueuedRequest>
+): Promise<void> {
+  const req = await getRequestByTxId(txId);
+  if (!req) return;
+  if (req.status === "executed" || req.status === "rejected") return;
+  await updateRequest(req.id, patch);
+}
+
 // ─────────────────────────────────────────────────────────────
 // Pattern learning — called after a transaction outcome is known
 // ─────────────────────────────────────────────────────────────
@@ -1213,6 +1265,33 @@ export async function getUserByAddress(address: string): Promise<UserDetailsRow 
     .or(`safe_address.eq.${addr},signer_address.ilike.${addr}`)
     .maybeSingle();
   return data ?? null;
+}
+
+/**
+ * Writes the account's immutable birth certificate — the exact inputs that
+ * derived safe_address. Write-once: no-ops when a snapshot already exists
+ * (a DB trigger additionally rejects any mutation attempt).
+ */
+export async function setCreationSnapshot(
+  safeAddress: string,
+  snapshot: {
+    owners: string[];
+    threshold: number;
+    saltNonce: string;
+    derivationVersion: number;
+  }
+): Promise<void> {
+  const { error } = await supabase
+    .from("user_details")
+    .update({
+      creation_owners: snapshot.owners,
+      creation_threshold: snapshot.threshold,
+      creation_salt_nonce: snapshot.saltNonce,
+      derivation_version: snapshot.derivationVersion,
+    })
+    .eq("safe_address", safeAddress.toLowerCase())
+    .is("creation_owners", null);
+  if (error) throw error;
 }
 
 export async function upsertUserDetails(

@@ -19,7 +19,16 @@ export function executeApi(req: ApiFetchFn) {
         body: JSON.stringify({ txId }),
       });
       if (!res.ok) throw new Error(await res.text());
-      return res.json();
+      const data = (await res.json()) as ExecuteResult & { status: string; reason?: string };
+      // The server can also answer superseded / already_rejected / in_progress —
+      // none of which mean "your transaction went through". Callers treat a
+      // resolved promise as success, so surface those as errors.
+      if (data.status !== "executed" && data.status !== "already_executed") {
+        throw new Error(
+          data.reason || `Transaction not executed (status: ${data.status})`
+        );
+      }
+      return data;
     },
   };
 }

@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Shield, ShieldOff, LogOut, Copy, Check } from "lucide-react";
+import { Shield, ShieldOff, ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
 import { BrandMark } from "@/components/BrandMark";
+import { AccountDialog } from "@/components/AccountDialog";
 import { navItems } from "@/components/TopBar";
 import { useAuth } from "@/app/context/AuthContext";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
@@ -15,17 +16,10 @@ import { truncateAddress } from "@/lib/format";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { safeAddress, user, logout } = useAuth();
+  const { safeAddress, user } = useAuth();
   const { isScreeningActive } = useScreeningStatus();
   const { queuedCount } = useActivityData();
-  const [copied, setCopied] = useState(false);
-
-  const copyAddress = () => {
-    if (!safeAddress) return;
-    navigator.clipboard.writeText(safeAddress);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
+  const [accountOpen, setAccountOpen] = useState(false);
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden lg:flex w-64 flex-col border-r border-border bg-card/30 backdrop-blur-xl">
@@ -44,6 +38,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                data-tour={item.tour}
                 className={clsx(
                   "group relative flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors",
                   active
@@ -89,9 +84,13 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Account */}
+      {/* Account — opens the account dialog (identity, address, log out) */}
       <div className="p-3 mt-2 border-t border-border">
-        <div className="flex items-center gap-3 px-2 py-2">
+        <button
+          type="button"
+          onClick={() => setAccountOpen(true)}
+          className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-foreground/5 transition-colors cursor-pointer text-left"
+        >
           <div className="h-9 w-9 rounded-pill bg-gradient-to-br from-gold-light to-gold-500 flex items-center justify-center text-ink-900 font-bold text-sm shrink-0">
             {(user?.name || user?.email || "Z").charAt(0).toUpperCase()}
           </div>
@@ -100,26 +99,16 @@ export function Sidebar() {
               {user?.name || user?.email?.split("@")[0] || "Account"}
             </p>
             {safeAddress && (
-              <button
-                type="button"
-                onClick={copyAddress}
-                className="flex items-center gap-1 text-[11px] font-mono text-muted-foreground hover:text-gold transition-colors"
-              >
+              <p className="text-[11px] font-mono text-muted-foreground truncate">
                 {truncateAddress(safeAddress, 13)}
-                {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-              </button>
+              </p>
             )}
           </div>
-          <button
-            type="button"
-            onClick={logout}
-            aria-label="Log out"
-            className="p-2 rounded-md text-muted-foreground hover:text-danger hover:bg-foreground/5 transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+        </button>
       </div>
+
+      <AccountDialog open={accountOpen} onClose={() => setAccountOpen(false)} />
     </aside>
   );
 }

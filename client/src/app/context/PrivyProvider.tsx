@@ -15,10 +15,13 @@ export default function PrivyProvider({ children }: { children: React.ReactNode 
       config={{
         embeddedWallets: {
           ethereum: {
-            createOnLogin: "all-users",
+            // Only Google (and other no-wallet) logins mint an embedded wallet.
+            // A user who logs in by connecting an external wallet uses THAT
+            // wallet as their signer — no embedded wallet is created for them.
+            createOnLogin: "users-without-wallets",
           },
         },
-        loginMethods: ["google"],
+        loginMethods: ["google", "wallet"],
         appearance: {
           theme: "dark",
           accentColor: "#c49428",

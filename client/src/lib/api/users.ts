@@ -8,6 +8,10 @@ export interface UpsertUserBody {
   signerAddress?: string;
   username?: string;
   onboardingCompleted?: boolean;
+  externalWalletAddress?: string;
+  safeOwners?: string[];
+  safeThreshold?: number;
+  derivationVersion?: number;
 }
 
 export interface UserDetails {
@@ -18,6 +22,17 @@ export interface UserDetails {
   username: string | null;
   signer_address: string | null;
   onboarding_completed: boolean | null;
+  external_wallet_address: string | null;
+  safe_owners: string[] | null;
+  safe_threshold: number | null;
+  safe_deployed: boolean | null;
+  safe_deploy_tx_hash: string | null;
+  /** 1 = legacy 4337-module initializer, 2 = vanilla Safe. */
+  derivation_version: number | null;
+  /** Immutable birth certificate — exact derivation inputs; never mutated by upgrades. */
+  creation_owners: string[] | null;
+  creation_threshold: number | null;
+  creation_salt_nonce: string;
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +41,13 @@ export function usersApi(req: ApiFetchFn) {
   return {
     async get(safeAddress: string): Promise<UserDetails | null> {
       const res = await req(`/users?safe=${safeAddress}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.user ?? null;
+    },
+
+    async getBySigner(signerAddress: string): Promise<UserDetails | null> {
+      const res = await req(`/users/by-signer/${signerAddress}`);
       if (!res.ok) return null;
       const data = await res.json();
       return data.user ?? null;

@@ -9,13 +9,15 @@ import { proposeTransaction } from "@/lib/propose";
 import { useAuth } from "@/app/context/AuthContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
 import { useLiveTransaction } from "@/hooks/useLiveTransaction";
+import { CoSignButton } from "@/components/CoSignButton";
 import { UsdcIcon } from "./icons/UsdcIcon";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
 import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
-import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, MessageCircle, X, UserRound } from "lucide-react";
+import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, MessageCircle, X, UserRound, Zap } from "lucide-react";
+import { useForceExecuteSetting } from "@/lib/useForceExecute";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
-import { useApiClient } from "@/lib/api/client";
+import { useApiClient, apiFetch } from "@/lib/api/client";
 import { Dialog } from "./ui/Dialog";
 import { TokenRow } from "./TokenRow";
 import type { TransactionWithStatus, TokenPosition } from "@/types";
@@ -31,10 +33,45 @@ interface SendPanelProps {
 }
 
 export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, screeningMode = true }: SendPanelProps) {
-  const { user, wallet, getOwnerAccount, telegramUserId, identityToken } = useAuth();
+  const { user, wallet, getOwnerAccount, telegramUserId, identityToken, safeAddress, safeConfig } = useAuth();
   const api = useApiClient();
-  const { addOptimisticTransaction } = useActivityData();
+  const { addOptimisticTransaction, transactions } = useActivityData();
   const router = useRouter();
+  const { enabled: forceExecuteEnabled } = useForceExecuteSetting(safeAddress);
+  const [forceExecute, setForceExecute] = useState(false);
+  // Dynamically detect a real nonce collision: the queue-tail nonce being ahead
+  // of the current executable nonce means a proposal is already holding the
+  // slot, so a normal send would queue behind it. The force option only appears
+  // when this is true. Re-checked when the set of active proposals changes.
+  const [nonceBlocked, setNonceBlocked] = useState(false);
+  const activeSafeTxCount = transactions.filter(
+    (t) =>
+      t.txType === "safetx" &&
+      (t.status === "pending" || t.status === "in_review" || t.status === "confirming")
+  ).length;
+  useEffect(() => {
+    if (!forceExecuteEnabled || !safeAddress) {
+      setNonceBlocked(false);
+      return;
+    }
+    let cancelled = false;
+    apiFetch(`/safe/nonce?safe=${safeAddress}`, identityToken ?? null)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        if (typeof d.nonce === "number" && typeof d.current === "number") {
+          setNonceBlocked(d.nonce > d.current);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [forceExecuteEnabled, safeAddress, identityToken, activeSafeTxCount]);
+  // Drop a stale checkbox state if the collision clears while the panel is open.
+  useEffect(() => {
+    if (!nonceBlocked) setForceExecute(false);
+  }, [nonceBlocked]);
   const [showTgRequiredModal, setShowTgRequiredModal] = useState(false);
   const [recipient, setRecipient] = useState("");
   const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
@@ -45,7 +82,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sendPhase, setSendPhase] = useState<"form" | "proposing" | "proposed" | "sending" | "success" | "rejected">("form");
+  const [sendPhase, setSendPhase] = useState<"form" | "proposing" | "proposed" | "queued" | "sending" | "success" | "rejected">("form");
   const [proposedTx, setProposedTx] = useState<TransactionWithStatus | null>(null);
   const [executedResult, setExecutedResult] = useState<{
     to: string;
@@ -86,10 +123,10 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
 
   useEffect(() => { resetAmount(); }, [selectedToken?.id]);
 
-  // Live-track the proposed tx so the "Proposed" screen transitions in place when
-  // the agent (or the owner via Telegram) resolves it — no waiting on a refresh.
+  // Live-track the proposed/queued tx so the screen transitions in place when
+  // the agent, the owner (Telegram), or the Safe app resolves it.
   const liveProposed = useLiveTransaction(
-    sendPhase === "proposed" && proposedTx ? proposedTx.id : null
+    (sendPhase === "proposed" || sendPhase === "queued") && proposedTx ? proposedTx.id : null
   );
   useEffect(() => {
     if (!liveProposed) return;
@@ -210,25 +247,43 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           ? (parseFloat(amount) * price).toFixed(2)
           : undefined;
 
+      if (!safeAddress || !safeConfig) throw new Error("Wallet not ready");
       const pendingTx = await proposeTransaction({
         recipient: address,
         amount,
-        ownerAddress: wallet.address,
+        safe: { safeAddress, ...safeConfig },
         getOwnerAccount,
         tokenAddress: selectedToken?.address ?? undefined,
         tokenDecimals: selectedToken?.decimals,
         tokenSymbol: selectedToken?.symbol,
         tokenIconUrl: selectedToken?.iconUrl ?? undefined,
         screeningDisabled: !screeningMode,
+        forceExecute: forceExecuteEnabled && nonceBlocked && forceExecute,
         amountUSD,
         identityToken,
       });
 
       onRefreshActivities?.();
 
-      console.log("screeningMode", screeningMode);
       if (!screeningMode) {
-        // 2. Screening OFF: execute immediately
+        // Screening OFF below threshold (backup key not connected): the tx is
+        // queued at 1/n and mirrored to the Safe app — the backup key
+        // completes it later from history or app.safe.global. Executing now
+        // would need the agent to sign an unscreened tx; the server refuses.
+        // Profile is computed from the live owner set, so an upgraded v1
+        // account (backup key added) gets the queued/co-sign flow too —
+        // only never-upgraded legacy wallets keep agent-co-signed sends.
+        const sigCount = 1 + (pendingTx.userSignatures?.length ?? 0);
+        const awaitingCoSign =
+          sigCount < pendingTx.threshold && safeConfig.profile === "protected";
+        if (awaitingCoSign) {
+          const optimistic: TransactionWithStatus = { ...pendingTx, status: "pending" };
+          setProposedTx(optimistic);
+          addOptimisticTransaction(optimistic);
+          setSendPhase("queued");
+          return;
+        }
+        // 2. Screening OFF with the threshold met: execute immediately
         const data = await api.execute.run(pendingTx.id);
         setExecutedResult({
           to: data.to ?? address,
@@ -364,6 +419,79 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             </dd>
           </div>
         </dl>
+        <Button
+          type="button"
+          onClick={() => {
+            setSendPhase("form");
+            setProposedTx(null);
+            clearRecipient();
+            resetAmount();
+            onSuccess();
+          }}
+          className="w-full py-3.5"
+        >
+          Done
+        </Button>
+      </div>
+    );
+  }
+
+  // Screening OFF, below threshold: queued — awaiting the backup key's
+  // co-signature (from history's detail dialog or the Safe app).
+  if (!screeningMode && sendPhase === "queued" && proposedTx) {
+    const tx = proposedTx;
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center gap-3">
+          <ReviewAnimation size={80} />
+          <span className="text-sm font-semibold text-watch">Awaiting your backup key</span>
+          <p className="text-xs text-muted-foreground/80 text-center leading-relaxed max-w-xs">
+            Queued at 1 of {tx.threshold} signatures. Sign with your backup key to
+            send it now — or come back anytime from your transaction history.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+            <ArrowUpRight className="h-5 w-5" />
+          </div>
+          <TokenIcon token={tx.token} iconUrl={tx.tokenIconUrl} />
+          <span className="text-lg font-semibold text-foreground">{tx.amount} {tx.token}</span>
+        </div>
+        <dl className="space-y-3 text-sm">
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground/80">To</dt>
+            <dd className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]" title={tx.to}>
+              {truncateAddress(tx.to)}
+            </dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground/80">Signatures</dt>
+            <dd className="text-foreground/80">1 of {tx.threshold}</dd>
+          </div>
+        </dl>
+        <CoSignButton
+          tx={tx}
+          onExecuted={(result) => {
+            setExecutedResult({
+              to: tx.to,
+              amount: tx.amount,
+              token: tx.token,
+              txHash: result.txHash ?? "",
+              executedAt: new Date().toISOString(),
+              tokenIconUrl: tx.tokenIconUrl ?? undefined,
+            });
+            setSendPhase("success");
+          }}
+        />
+        <a
+          href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+        >
+          Sign in Safe app
+          <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+        </a>
         <Button
           type="button"
           onClick={() => {
@@ -788,6 +916,40 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
 
       {error && (
         <p className="text-sm text-danger">{error}</p>
+      )}
+
+      {forceExecuteEnabled && nonceBlocked && (
+        <button
+          type="button"
+          onClick={() => setForceExecute((v) => !v)}
+          className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors ${
+            forceExecute
+              ? "bg-gold/10 ring-1 ring-gold/30"
+              : "bg-gold/[0.04] ring-1 ring-gold/15 hover:bg-gold/[0.07]"
+          }`}
+        >
+          <span
+            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+              forceExecute ? "bg-gold/20 text-gold" : "bg-foreground/8 text-muted-foreground"
+            }`}
+          >
+            <Zap className="h-4 w-4" />
+          </span>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-medium text-foreground">
+              Force execute (skip the queue)
+            </span>
+            <span className="block text-xs text-muted-foreground/80 mt-0.5">
+              A pending transaction is holding the queue — force takes the current
+              nonce and replaces it, so this send executes now.
+            </span>
+          </span>
+          <span
+            className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
+              forceExecute ? "bg-gold border-gold" : "border-foreground/25"
+            }`}
+          />
+        </button>
       )}
 
       <Button

@@ -293,6 +293,7 @@ export function RightRail() {
 
   return (
     <aside
+      data-tour="agent-rail"
       className="fixed inset-y-0 right-0 z-40 hidden xl:flex w-[22rem] flex-col border-l border-border"
       style={{
         background:

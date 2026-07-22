@@ -9,7 +9,9 @@ import { TokenRow } from "./TokenRow";
 import { useAuth } from "@/app/context/AuthContext";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
 import { TickButtonSpinner } from "./TwinTickLoader";
-import { ExecutedAnimation } from "./animations/StatusAnimation";
+import { ExecutedAnimation, ReviewAnimation } from "./animations/StatusAnimation";
+import { CoSignButton } from "@/components/CoSignButton";
+import type { CoSignableTx } from "@/hooks/useCoSignTransaction";
 import {
   ArrowDownUp,
   ChevronDown,
@@ -21,6 +23,7 @@ import {
 import { formatTokenAmount, truncateAddress, formatDate } from "@/lib/format";
 import { BSC_EXPLORER_URL, NATIVE_TOKEN_ADDRESS } from "@/lib/constants";
 import { proposeSwap, type SwapQuote } from "@/lib/proposeSwap";
+import { pollForExecution } from "@/lib/pollExecution";
 import { useApiClient } from "@/lib/api/client";
 import type { SearchedToken } from "@/lib/api/tokens";
 import { parseUnits, formatUnits } from "viem";
@@ -115,7 +118,7 @@ interface SwapPanelProps {
   tokens: TokenPosition[];
 }
 
-type SwapPhase = "form" | "swapping" | "success" | "error";
+type SwapPhase = "form" | "swapping" | "queued" | "success" | "error";
 
 const SLIPPAGE_LADDER = [0.05, 0.1, 0.15, 0.2, 0.3, 0.49];
 
@@ -144,7 +147,7 @@ function isSlippageError(msg: string): boolean {
 }
 
 export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
-  const { wallet, safeAddress, getOwnerAccount, identityToken } = useAuth();
+  const { wallet, safeAddress, safeConfig, getOwnerAccount, identityToken } = useAuth();
   const api = useApiClient();
 
   const [fromToken, setFromToken] = useState<TokenPosition | null>(null);
@@ -201,6 +204,8 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
   const [swapStatus, setSwapStatus] = useState<string>("Processing swap");
   const [txHash, setTxHash] = useState<string | null>(null);
   const [executedAt, setExecutedAt] = useState<string | null>(null);
+  // Screening-off swap queued at 1/n — held for the queued phase's co-sign.
+  const [queuedTx, setQueuedTx] = useState<CoSignableTx | null>(null);
   const [fromSelectorOpen, setFromSelectorOpen] = useState(false);
   const [toSelectorOpen, setToSelectorOpen] = useState(false);
   const [tokenSearch, setTokenSearch] = useState("");
@@ -370,19 +375,52 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           setQuote(activeQuote);
         }
 
+        if (!safeConfig) throw new Error("Wallet not ready");
+
+        // Swaps go through the same screening pipeline as sends — no bypass.
+        let screeningOn = true;
+        try {
+          const status = await api.status.get(safeAddress);
+          screeningOn = status.screeningMode !== false;
+        } catch {
+          // Default to screening on if status fetch fails
+        }
+
         const pendingTx = await proposeSwap({
           fromToken,
           toToken,
           sellAmount,
           quote: activeQuote,
-          ownerAddress: wallet.address,
+          safe: { safeAddress, ...safeConfig },
           getOwnerAccount,
+          screeningDisabled: !screeningOn,
           amountUSD: activeQuote.sellAmountUSD || undefined,
           identityToken,
         });
 
-        const result = await api.execute.run(pendingTx.id);
-        setTxHash(result.txHash ?? null);
+        let swapTxHash: string | null;
+        if (screeningOn) {
+          // Agent screens, co-signs and executes — poll for the outcome.
+          swapTxHash = await pollForExecution(pendingTx.id, safeAddress, identityToken ?? null);
+        } else {
+          // Screening OFF below threshold (backup key not connected): queued
+          // at 1/n awaiting the backup co-signature — complete from history
+          // or the Safe app. The server refuses to execute until then.
+          // Owner-computed profile: upgraded v1 accounts queue for co-sign
+          // like any protected wallet (see SendPanel for the rationale).
+          const sigCount = 1 + (pendingTx.userSignatures?.length ?? 0);
+          const awaitingCoSign =
+            sigCount < pendingTx.threshold && safeConfig.profile === "protected";
+          if (awaitingCoSign) {
+            setQueuedTx(pendingTx);
+            setPhase("queued");
+            setLoading(false);
+            return;
+          }
+          const result = await api.execute.run(pendingTx.id);
+          swapTxHash = result.txHash ?? null;
+        }
+        setTxHash(swapTxHash);
         setExecutedAt(new Date().toISOString());
         setPhase("success");
         setLoading(false);
@@ -410,6 +448,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
     setQuoteError(null);
     setTxHash(null);
     setExecutedAt(null);
+    setQueuedTx(null);
     setError(null);
     setSwapStatus("Processing swap");
     setPhase("form");
@@ -441,6 +480,62 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             </span>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  // Queued phase: screening off, awaiting the backup key's co-signature.
+  if (phase === "queued") {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col items-center gap-3">
+          <ReviewAnimation size={80} />
+          <span className="text-sm font-semibold text-watch">Awaiting your backup key</span>
+          <p className="text-xs text-muted-foreground/80 text-center leading-relaxed max-w-xs">
+            Swap queued. Sign with your backup key to execute it now — the
+            quote may expire if it waits too long.
+          </p>
+        </div>
+        <div className="rounded-2xl bg-foreground/6 p-4 space-y-3">
+          <div className="flex items-center gap-3">
+            <TokenIcon token={fromToken} />
+            <span className="text-base font-semibold text-foreground">
+              {sellAmount} {fromToken?.symbol}
+            </span>
+          </div>
+          <div className="flex items-center pl-1">
+            <ArrowDownUp className="h-4 w-4 text-muted-foreground/60 ml-3" />
+          </div>
+          <div className="flex items-center gap-3">
+            <TokenIcon token={toToken} />
+            <span className="text-base font-semibold text-foreground">
+              ~{parseFloat(buyAmountFormatted).toFixed(4)} {toToken?.symbol}
+            </span>
+          </div>
+        </div>
+        {queuedTx && (
+          <CoSignButton
+            tx={queuedTx}
+            onExecuted={(result) => {
+              setTxHash(result.txHash ?? null);
+              setExecutedAt(new Date().toISOString());
+              setPhase("success");
+            }}
+          />
+        )}
+        {safeAddress && (
+          <a
+            href={`https://app.safe.global/transactions/queue?safe=bnb:${safeAddress}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+          >
+            Sign in Safe app
+          </a>
+        )}
+        <Button type="button" onClick={() => { reset(); onSuccess(); }} className="w-full py-3.5">
+          Done
+        </Button>
       </div>
     );
   }

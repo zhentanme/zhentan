@@ -16,9 +16,69 @@ import {
   ExternalLink,
   CheckCircle2,
   AlertCircle,
+  LayoutGrid,
+  Zap,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useApiClient } from "@/lib/api/client";
+import { UpgradeBanner } from "@/components/UpgradeBanner";
+import { useSafeTransitions } from "@/lib/useSafeUpgrade";
+import { useForceExecuteSetting } from "@/lib/useForceExecute";
+import { useTour } from "@/components/tour/TourProvider";
+import { mainTour, upgradeTour } from "@/lib/tours";
+
+/**
+ * The exit door: removes the agent as an owner, leaving a plain 2-of-2 Safe
+ * (embedded + backup) the user fully controls at the same address. Shown for
+ * protected wallets only — the one state that has an agent AND a backup key.
+ */
+function DetachZhentanCard() {
+  const { detach, busy, error, profile } = useSafeTransitions();
+  const [confirming, setConfirming] = useState(false);
+  const [done, setDone] = useState(false);
+
+  if (profile !== "protected" || done) return null;
+
+  return (
+    <motion.div variants={staggerItem}>
+      <div className="pt-6 border-t border-dashed border-border">
+        <span className="eyebrow text-danger/70">Danger zone</span>
+      </div>
+      <div className="mt-4 p-5 rounded-lg bg-card border border-danger/15">
+        <div className="flex items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-foreground">Detach Zhentan</h3>
+            <p className="text-xs text-muted-foreground/80 mt-0.5">
+              {confirming
+                ? "Removes the agent as an owner. Your Safe becomes a plain 2-of-2 (your two keys, both required) at the same address. Screening ends permanently."
+                : "Leave with a stock Safe — remove the screening agent from your wallet."}
+            </p>
+            {error && <p className="text-xs text-danger mt-1">{error}</p>}
+          </div>
+          <button
+            onClick={async () => {
+              if (!confirming) {
+                setConfirming(true);
+                return;
+              }
+              try {
+                await detach();
+                setDone(true);
+              } catch {
+                // error surfaced by the hook
+              }
+            }}
+            disabled={busy}
+            className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-md border border-danger/40 text-danger text-xs font-semibold hover:bg-danger/10 transition-colors disabled:opacity-60"
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            {busy ? "Detaching..." : confirming ? "Yes, detach permanently" : "Detach"}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -46,7 +106,8 @@ function SettingsPageContent() {
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoOpenedRef = useRef(false);
   const prevFullyActivatedRef = useRef<boolean | null>(null);
-  const { telegramUserId, privyUser, safeAddress } = useAuth();
+  const { telegramUserId, privyUser, safeAddress, safeConfig } = useAuth();
+  const { start: startTour } = useTour();
   const {
     screeningMode,
     botConnected,
@@ -89,7 +150,23 @@ function SettingsPageContent() {
     },
   });
 
+  const profile = safeConfig?.profile ?? null;
+  // Legacy v1 guarded wallets (pre-refactor 2-of-2) predate the strict model:
+  // their users have always relied on the agent as co-signer, so they may
+  // pause screening even though their key alone can't reach the threshold —
+  // the agent keeps co-signing, just without risk analysis.
+  const legacyV1Guarded =
+    profile === "guarded" && (safeConfig?.derivationVersion ?? 1) === 1;
+  // Screening is a CHOICE in protected wallets and legacy v1 guarded wallets.
+  // New guarded wallets can't reach the threshold without the agent, and
+  // starter/detached wallets have no agent to screen with.
+  const screeningTogglable = profile === "protected" || legacyV1Guarded;
+
+  const { enabled: forceExecuteEnabled, setEnabled: setForceExecuteEnabled } =
+    useForceExecuteSetting(safeAddress);
+
   const handleToggle = async () => {
+    if (!screeningTogglable) return;
     if (!fullyActivated) {
       setActivationOpen(true);
       return;
@@ -220,7 +297,7 @@ function SettingsPageContent() {
             >
               {/* Zhentan Guard card */}
               <motion.div variants={staggerItem}>
-                <div className="relative rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
+                <div data-tour="guard-card" className="relative rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
                   {/* Guard block */}
                   <div className="flex items-center gap-4 p-5 border-b border-border">
                     <div
@@ -246,17 +323,25 @@ function SettingsPageContent() {
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground/80 mt-0.5">
-                        {isScreeningActive
-                          ? "AI screening every signature against your patterns"
-                          : !fullyActivated
-                            ? "Finish setup to arm the co-signer"
-                            : "Screening disabled — transactions execute immediately"}
+                        {profile === "guarded"
+                          ? legacyV1Guarded
+                            ? isScreeningActive
+                              ? "AI screening every signature — pause it and the agent still co-signs"
+                              : "Screening off — the agent co-signs without risk analysis"
+                            : "Screening is always on — add a backup key to control it"
+                          : profile === "starter" || profile === "detached"
+                            ? "No agent on this wallet — activate protection to enable screening"
+                            : isScreeningActive
+                              ? "AI screening every signature against your patterns"
+                              : !fullyActivated
+                                ? "Finish setup to arm the co-signer"
+                                : "Screening off — your backup key co-signs instead of the agent"}
                       </p>
                     </div>
 
                     <button
                       onClick={handleToggle}
-                      disabled={toggling}
+                      disabled={toggling || !screeningTogglable}
                       aria-label="Toggle screening"
                       className={clsx(
                         "relative w-12 h-6 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default",
@@ -329,6 +414,83 @@ function SettingsPageContent() {
                 )}
               </AnimatePresence>
 
+              {/* Legacy 2-of-2 → 2-of-3 upgrade */}
+              <UpgradeBanner />
+
+              {/* WALLET section — every tx is a standard SafeTx, no modes */}
+              <motion.div variants={staggerItem}>
+                <div className="pt-6 border-t border-dashed border-border">
+                  <span className="eyebrow text-muted-foreground/60">Wallet</span>
+                </div>
+                <div data-tour="wallet-card" className="mt-4 rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
+                  <div className="flex items-center gap-4 p-5">
+                    <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-gold/10 text-gold">
+                      <LayoutGrid className="h-5 w-5" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-foreground">Standard Safe wallet</h3>
+                      <p className="text-xs text-muted-foreground/80 mt-0.5">
+                        {profile === "guarded"
+                          ? "Add your backup key to unlock the full Safe app experience"
+                          : profile === "starter"
+                            ? "A standard Safe with your key — activate protection anytime"
+                            : "Every transaction appears in app.safe.global — sign there with your backup key anytime"}
+                      </p>
+                    </div>
+
+                    {safeAddress && (
+                      <a
+                        href={`https://app.safe.global/home?safe=bnb:${safeAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors"
+                      >
+                        Open Safe
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* FORCE-EXECUTE (advanced) */}
+              <motion.div variants={staggerItem}>
+                <div className="pt-6 border-t border-dashed border-border">
+                  <span className="eyebrow text-muted-foreground/60">Advanced</span>
+                </div>
+                <div className="mt-4 rounded-lg bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
+                  <div className="flex items-center gap-4 p-5">
+                    <div className="w-10 h-10 rounded-md flex items-center justify-center shrink-0 bg-gold/10 text-gold">
+                      <Zap className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-foreground">Force-execute</h3>
+                      <p className="text-xs text-muted-foreground/80 mt-0.5">
+                        {forceExecuteEnabled
+                          ? "Send shows a “skip the queue” option — takes the current nonce, replacing any stuck transaction there. Screening still applies."
+                          : "Let a new transaction skip a stuck one by taking the current executable nonce (replaces whatever is pending there)."}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setForceExecuteEnabled(!forceExecuteEnabled)}
+                      aria-label="Toggle force-execute"
+                      className={clsx(
+                        "relative w-12 h-6 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer",
+                        forceExecuteEnabled ? "bg-gold" : "bg-foreground/12"
+                      )}
+                    >
+                      <span
+                        className={clsx(
+                          "absolute top-0.5 w-5 h-5 rounded-pill bg-ink-0 shadow-md transition-all",
+                          forceExecuteEnabled ? "left-6" : "left-0.5"
+                        )}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+
               {/* UPGRADE section */}
               <motion.div variants={staggerItem}>
                 <div className="pt-6 border-t border-dashed border-border">
@@ -380,6 +542,9 @@ function SettingsPageContent() {
                 </div>
               </motion.div>
 
+              {/* Danger zone — detach the agent (protected wallets only) */}
+              <DetachZhentanCard />
+
               {/* APP section */}
               <motion.div variants={staggerItem}>
                 <div className="pt-6 border-t border-dashed border-border">
@@ -401,6 +566,32 @@ function SettingsPageContent() {
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
+                  {safeAddress && (
+                    <div className="flex items-center justify-between gap-6 py-4 border-t border-border/60">
+                      <div className="min-w-0">
+                        <p className="eyebrow text-muted-foreground">Product tour</p>
+                        <p className="text-xs text-muted-foreground/60 mt-1">
+                          Replay the walkthrough of your wallet
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          startTour(
+                            /* Upgraded legacy accounts get their settings-focused
+                               tour; everyone else replays the full walkthrough. */
+                            (safeConfig?.derivationVersion ?? 1) === 1 &&
+                              safeConfig?.profile === "protected"
+                              ? upgradeTour(safeAddress)
+                              : mainTour(safeAddress)
+                          )
+                        }
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors shrink-0 cursor-pointer"
+                      >
+                        Replay
+                      </button>
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </motion.div>

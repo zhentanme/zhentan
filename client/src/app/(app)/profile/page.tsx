@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
 import {
-  Shield,
   Copy,
   Check,
   ExternalLink,
@@ -18,8 +17,10 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useApiClient } from "@/lib/api/client";
-import { useSafeAddress } from "@/lib/useSafeAddress";
 import { TwinTick } from "@/components/BrandMark";
+import { SignerMismatchInline } from "@/components/SignerMismatchNotice";
+import { WalletBrandIcon } from "@/components/WalletBrandIcon";
+import { truncateAddress } from "@/lib/format";
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -50,9 +51,8 @@ function ProfilePageContent() {
   const [usernameTaken, setUsernameTaken] = useState(false);
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
-  const { user, wallet, logout } = useAuth();
-  const { safeAddress: computedSafeAddress } = useSafeAddress(wallet?.address);
-  const safeAddress = computedSafeAddress || "";
+  const { user, signerDisplay, logout, safeAddress: authSafeAddress } = useAuth();
+  const safeAddress = authSafeAddress || "";
   const api = useApiClient();
 
   useEffect(() => {
@@ -118,7 +118,7 @@ function ProfilePageContent() {
   };
 
   const displayName =
-    user?.name && user.name !== "null" && user.name !== "" ? user.name : "Your wallet";
+    user?.name && user.name !== "null" && user.name !== "" ? user.name : "";
 
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -238,13 +238,26 @@ function ProfilePageContent() {
                 </div>
               )}
 
-              {/* Email */}
-              {user?.email && (
+              {/* Email — or the signing wallet for wallet-login accounts (no email) */}
+              {user?.email ? (
                 <div className="flex items-center gap-2 mt-3 text-sm text-foreground/90 min-w-0">
                   <Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="truncate">{user.email}</span>
                 </div>
-              )}
+              ) : signerDisplay ? (
+                /* The ACTIVE connected wallet — a switched account shows as
+                   itself, with a warning when it can't sign for this Safe. */
+                <div className="flex items-center gap-2 mt-3 text-sm text-foreground/90 min-w-0">
+                  <WalletBrandIcon meta={signerDisplay.meta} className="h-4 w-4" />
+                  <span className="truncate">
+                    {signerDisplay.meta?.name && (
+                      <span>{signerDisplay.meta.name} · </span>
+                    )}
+                    <span className="font-mono">{truncateAddress(signerDisplay.address, 13)}</span>
+                  </span>
+                  <SignerMismatchInline />
+                </div>
+              ) : null}
 
               {/* Ghost actions */}
               <div className="flex flex-wrap gap-2 mt-5">
@@ -276,8 +289,9 @@ function ProfilePageContent() {
           >
             <div className="min-w-0">
               <span className="eyebrow text-muted-foreground flex items-center gap-2">
-                <Shield className="h-3.5 w-3.5" />
-                Vault address
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/arch-safe.png" alt="" className="h-3.5 w-3.5 object-contain shrink-0" />
+                Safe address
               </span>
               <p className="font-mono text-sm text-foreground/90 break-all mt-2.5">
                 {safeAddress || "—"}

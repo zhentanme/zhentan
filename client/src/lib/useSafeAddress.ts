@@ -1,84 +1,291 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createPublicClient, http } from "viem";
-import { bsc } from "viem/chains";
-import { toAccount } from "viem/accounts";
-import { entryPoint07Address } from "viem/account-abstraction";
-import { toSafeSmartAccount } from "permissionless/accounts";
 
+import { apiFetch } from "./api/client";
+import type { UserDetails } from "./api/users";
 import {
-  SAFE_SINGLETON,
-  SAFE_PROXY_FACTORY,
-  SAFE_VERSION,
-  BSC_RPC,
-} from "./constants";
+  readIdentityCache,
+  writeIdentityCache,
+  removeIdentityCache,
+} from "./identityCache";
+import type { WalletProfile } from "./safe/profiles";
 
-const cache = new Map<string, string>();
+// Derivation happens SERVER-SIDE only (POST /safe/derive) — the initializer
+// bytes that define a Safe's address live in exactly one place
+// (server/src/lib/safe/derive.ts). This cache just avoids repeat calls for
+// the same owner set within a session.
+interface DerivedEntry {
+  safeAddress: string;
+  derivationVersion: number;
+  owners: string[];
+  threshold: number;
+}
+const cache = new Map<string, DerivedEntry>();
 
-export function useSafeAddress(ownerAddress: string | undefined) {
-  const [safeAddress, setSafeAddress] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+export interface SafeResolution {
+  safeAddress: string | null;
+  loading: boolean;
+  /** Backend user record when the address came from the DB (legacy + returning users). */
+  record: UserDetails | null;
+  /** True when the address was freshly derived (new user, no backend record yet). */
+  derived: boolean;
+  /** Derivation version for freshly derived Safes (from the server config). */
+  derivationVersion: number | null;
+  /** Creation recipe for freshly derived Safes (server-built owner order + threshold). */
+  derivedOwners: string[] | null;
+  derivedThreshold: number | null;
+}
+
+interface UseSafeAddressParams {
+  /** Privy embedded wallet address (owner #1). */
+  embeddedAddress: string | undefined;
+  /** Chosen creation profile — required to derive a new Safe. */
+  profile: WalletProfile | null | undefined;
+  /** Backup key address (owner #2) — required only for the protected profile. */
+  externalAddress: string | undefined;
+  /** Privy identity token for the backend calls. */
+  identityToken: string | null | undefined;
+  /** Privy user id — keys the local identity cache (stale-while-revalidate). */
+  privyUserId?: string | null;
+  /** Bump to force a re-resolution (e.g. after onboarding or an upgrade). */
+  refreshKey?: number;
+}
+
+/**
+ * Resolves the user's Safe address.
+ *
+ * 1. Backend record first (`GET /users/by-signer/:embedded`) — returning and
+ *    legacy users keep their stored address verbatim; never re-derived.
+ * 2. Otherwise ask the server to derive the counterfactual address for the
+ *    canonical owner set [embedded, external, agent] (`POST /safe/derive`).
+ *    Stays `null` until the external wallet is linked — the address cannot
+ *    exist without owner #2.
+ */
+export function useSafeAddress({
+  embeddedAddress,
+  profile,
+  externalAddress,
+  identityToken,
+  privyUserId,
+  refreshKey = 0,
+}: UseSafeAddressParams): SafeResolution {
+  // Starts in the loading state: guards must never observe "resolved, no
+  // Safe" before the first resolution pass has actually run.
+  const [state, setState] = useState<SafeResolution>({
+    safeAddress: null,
+    loading: true,
+    record: null,
+    derived: false,
+    derivationVersion: null,
+    derivedOwners: null,
+    derivedThreshold: null,
+  });
   const computingRef = useRef<string | null>(null);
+  // Bumped to re-run the effect after a failed backend lookup (kept in
+  // loading state) so a transient blip doesn't strand the user on a spinner.
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
-    if (!ownerAddress) {
-      setSafeAddress(null);
+    if (!embeddedAddress) {
+      setState({
+        safeAddress: null,
+        loading: false,
+        record: null,
+        derived: false,
+        derivationVersion: null,
+        derivedOwners: null,
+        derivedThreshold: null,
+      });
       return;
     }
 
-    // Return cached result
-    const cached = cache.get(ownerAddress);
-    if (cached) {
-      setSafeAddress(cached);
-      return;
-    }
-
-    // Avoid duplicate computation for same address
-    if (computingRef.current === ownerAddress) return;
-    computingRef.current = ownerAddress;
-
-    setLoading(true);
-
-    const ownerAddr2 = process.env.NEXT_PUBLIC_AGENT_ADDRESS;
-    if (!ownerAddr2) {
+    const agentAddress = process.env.NEXT_PUBLIC_AGENT_ADDRESS;
+    if (!agentAddress) {
       console.error("Missing NEXT_PUBLIC_AGENT_ADDRESS");
-      setLoading(false);
       return;
     }
 
-    const publicClient = createPublicClient({
-      chain: bsc,
-      transport: http(BSC_RPC),
-    });
+    const computeKey = `${embeddedAddress}|${profile ?? ""}|${externalAddress ?? ""}|${identityToken ? "t" : ""}|${privyUserId ?? ""}|${refreshKey}|${retry}`;
+    if (computingRef.current === computeKey) return;
+    computingRef.current = computeKey;
 
-    const owners = [
-      toAccount(ownerAddress as `0x${string}`),
-      toAccount(ownerAddr2 as `0x${string}`),
-    ];
+    let cancelled = false;
 
-    toSafeSmartAccount({
-      client: publicClient,
-      entryPoint: { address: entryPoint07Address, version: "0.7" },
-      owners,
-      saltNonce: 0n,
-      safeSingletonAddress: SAFE_SINGLETON,
-      safeProxyFactoryAddress: SAFE_PROXY_FACTORY,
-      version: SAFE_VERSION,
-      threshold: 2n,
-    })
-      .then((account) => {
-        cache.set(ownerAddress, account.address);
-        setSafeAddress(account.address);
+    // Stale-while-revalidate: hydrate the last-known record for this signer so
+    // a reload (or an account-switch round trip) renders instantly instead of
+    // blocking on the network. The by-signer fetch below stays authoritative —
+    // it runs as a background refresh and overwrites this state either way.
+    if (privyUserId) {
+      const cachedRecord = readIdentityCache(privyUserId, embeddedAddress);
+      if (cachedRecord) {
+        setState((s) =>
+          s.record || s.safeAddress
+            ? s
+            : {
+                safeAddress: cachedRecord.safe_address,
+                loading: false,
+                record: cachedRecord,
+                derived: false,
+                derivationVersion: cachedRecord.derivation_version ?? null,
+                derivedOwners: null,
+                derivedThreshold: null,
+              }
+        );
+      }
+    }
+
+    // Background refresh: a record-backed resolution for this same signer
+    // re-runs SILENTLY — no `loading` flip. The record wins over live inputs
+    // anyway, so the current state stays valid while the refresh is in flight.
+    // Flipping `loading` here unmounts gate-level UI (AuthGuard swaps the page
+    // for a full-screen loader), which killed any open dialog whenever a
+    // backup key was picked (setBackupAddress re-runs this hook) or a
+    // transition called refreshSafe().
+    const isBackgroundRefresh = (s: SafeResolution) =>
+      !!s.record &&
+      !!s.safeAddress &&
+      s.record.signer_address?.toLowerCase() === embeddedAddress.toLowerCase();
+    setState((s) => (isBackgroundRefresh(s) ? s : { ...s, loading: true }));
+
+    const scheduleRetry = () =>
+      setTimeout(() => {
+        if (!cancelled) setRetry((r) => r + 1);
+      }, 4000);
+
+    (async (): Promise<SafeResolution> => {
+      // 1. Backend record wins — covers legacy 2-of-2 users and returning
+      //    2-of-3 users, with owners/threshold/derivation as stored. Until
+      //    the identity token exists we cannot know whether a record exists,
+      //    so stay in the loading state.
+      const empty = (loading: boolean): SafeResolution => ({
+        safeAddress: null,
+        loading,
+        record: null,
+        derived: false,
+        derivationVersion: null,
+        derivedOwners: null,
+        derivedThreshold: null,
+      });
+
+      if (!identityToken) {
+        return empty(true);
+      }
+      const res = await apiFetch(
+        `/users/by-signer/${embeddedAddress}`,
+        identityToken
+      );
+      if (!res.ok) {
+        // Transient backend failure: keep loading rather than mis-deriving,
+        // and retry shortly.
+        console.error(`Safe address backend lookup failed: ${res.status}`);
+        scheduleRetry();
+        return empty(true);
+      }
+      const data = (await res.json()) as { user: UserDetails | null };
+      if (data.user?.safe_address) {
+        // Refresh the local identity cache so the next boot hydrates instantly.
+        if (privyUserId) writeIdentityCache(privyUserId, embeddedAddress, data.user);
+        return {
+          safeAddress: data.user.safe_address,
+          loading: false,
+          record: data.user,
+          derived: false,
+          derivationVersion: data.user.derivation_version ?? null,
+          derivedOwners: null,
+          derivedThreshold: null,
+        };
+      }
+
+      // The backend explicitly reports no record — drop any stale cached
+      // identity so it can't resurrect a deleted account on a later boot.
+      if (privyUserId) removeIdentityCache(privyUserId);
+
+      // 2. New user: server-side derivation with the chosen creation profile.
+      //    The protected profile also needs the backup key address.
+      if (!profile || (profile === "protected" && !externalAddress)) {
+        return empty(false);
+      }
+
+      const cacheKey = `${profile}|${embeddedAddress}|${externalAddress ?? ""}`.toLowerCase();
+      const cached = cache.get(cacheKey);
+      if (cached) {
+        return {
+          safeAddress: cached.safeAddress,
+          loading: false,
+          record: null,
+          derived: true,
+          derivationVersion: cached.derivationVersion,
+          derivedOwners: cached.owners,
+          derivedThreshold: cached.threshold,
+        };
+      }
+
+      const deriveRes = await apiFetch("/safe/derive", identityToken, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile,
+          embeddedAddress,
+          ...(externalAddress && { backupAddress: externalAddress }),
+        }),
+      });
+      if (!deriveRes.ok) {
+        const err = await deriveRes.json().catch(() => ({}));
+        console.error(
+          "Safe derivation failed:",
+          (err as { error?: string }).error ?? deriveRes.status
+        );
+        scheduleRetry();
+        return empty(true);
+      }
+      const derivedData = (await deriveRes.json()) as {
+        safeAddress: string;
+        owners: string[];
+        threshold: number;
+        derivationVersion: number;
+      };
+      cache.set(cacheKey, derivedData);
+      return {
+        safeAddress: derivedData.safeAddress,
+        loading: false,
+        record: null,
+        derived: true,
+        derivationVersion: derivedData.derivationVersion,
+        derivedOwners: derivedData.owners,
+        derivedThreshold: derivedData.threshold,
+      };
+    })()
+      .then((result) => {
+        if (cancelled) return;
+        setState((s) => {
+          // A transient failure (kept-loading empty result) must not wipe a
+          // valid record-backed state mid-background-refresh — keep showing
+          // the last-known-good record; the retry will reconcile.
+          if (isBackgroundRefresh(s) && result.loading) return s;
+          return result;
+        });
       })
       .catch((err) => {
-        console.error("Failed to compute Safe address:", err);
+        // Network-level failure: stay loading — resolving to "no Safe" here
+        // would misroute an existing user into onboarding. Retry shortly.
+        // (Background refreshes keep their last-known-good state instead.)
+        console.error("Failed to resolve Safe address:", err);
+        if (!cancelled) {
+          setState((s) =>
+            isBackgroundRefresh(s) ? s : { ...s, safeAddress: null, loading: true }
+          );
+          scheduleRetry();
+        }
       })
       .finally(() => {
-        setLoading(false);
         computingRef.current = null;
       });
-  }, [ownerAddress]);
 
-  return { safeAddress, loading };
+    return () => {
+      cancelled = true;
+    };
+  }, [embeddedAddress, profile, externalAddress, identityToken, privyUserId, refreshKey, retry]);
+
+  return state;
 }

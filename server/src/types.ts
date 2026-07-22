@@ -1,5 +1,31 @@
 export type TransactionDirection = "send" | "receive";
 
+/**
+ * How a transaction is signed and executed:
+ * - "4337"   — ERC-4337 userOp via the Safe4337Module + Pimlico (gasless).
+ * - "safetx" — standard SafeTx (EIP-712) proposed to the Safe Transaction
+ *              Service; visible in app.safe.global; agent confirms and
+ *              relays execTransaction (agent EOA pays gas).
+ */
+export type TxExecutionType = "4337" | "safetx";
+
+/**
+ * Standard Safe transaction fields (EIP-712 SafeTx message).
+ * All uint fields are decimal strings for lossless JSON transport.
+ */
+export interface SafeTxData {
+  to: string;
+  value: string;
+  data: string;
+  operation: 0 | 1;
+  safeTxGas: string;
+  baseGas: string;
+  gasPrice: string;
+  gasToken: string;
+  refundReceiver: string;
+  nonce: number;
+}
+
 export interface PendingTransaction {
   id: string;
   /**
@@ -29,8 +55,34 @@ export interface PendingTransaction {
   ownerAddresses: string[];
   threshold: number;
   safeAddress: string;
-  userOp: Record<string, unknown>;
-  partialSignatures: string;
+  /** Defaults to "4337" for legacy rows without the discriminator. */
+  txType?: TxExecutionType;
+  /**
+   * Non-transfer rows, computed at read time (never stored): "creation" is
+   * the Safe deployment itself, "config" is owner/config management (the
+   * wallet-profile transitions). Absent for ordinary transfers.
+   */
+  txKind?: "config" | "creation";
+  /** Display label for txKind rows, e.g. "Backup key added". */
+  kindLabel?: string;
+  /** 4337 flow only. */
+  userOp?: Record<string, unknown>;
+  /** 4337 flow only. */
+  partialSignatures?: string;
+  /** SafeTx flow only. */
+  safeTxHash?: string;
+  safeTx?: SafeTxData;
+  safeNonce?: number;
+  /** User's EIP-712 signature over safeTxHash. */
+  userSignature?: string;
+  /**
+   * Additional user co-signatures over safeTxHash (e.g. the backup key when
+   * screening is off). When user signatures alone meet the threshold, the
+   * agent relays without signing.
+   */
+  userSignatures?: { signer: string; data: string }[];
+  /** Pre-signed empty tx at the same nonce, used to cancel on reject. */
+  rejectionSignature?: string;
   proposedAt: string;
   executedAt?: string;
   executedBy?: string;
@@ -51,6 +103,8 @@ export interface PendingTransaction {
 export type TransactionStatus =
   | "pending"
   | "in_review"
+  /** Executing on-chain; awaiting Transaction Service reconciliation (transient, read-time only). */
+  | "confirming"
   | "executed"
   | "rejected";
 
