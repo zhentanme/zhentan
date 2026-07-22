@@ -7,15 +7,17 @@ description: System overview, component breakdown, and data flow.
 
 | Component | Role |
 |-----------|------|
-| `client/` | Next.js 14 frontend — onboarding, dashboard, send/receive, WalletConnect, invoices |
-| `server/` | Express API — inline risk analysis, queue management, Zerion portfolio |
-| `agent/` | NanoBot/Hermes skill pack — Telegram commands, deep analysis, 2nd signature, pattern recording |
+| `client/` | Next.js 14 frontend — onboarding, wallet profiles, dashboard, send/swap, WalletConnect, invoices |
+| `server/` | Express API — inline risk analysis, queue management, Safe Transaction Service integration, address derivation, relay execution, Zerion portfolio |
+| `agent/` | NanoBot/Hermes skill pack — Telegram commands, deep analysis, screening decisions, pattern recording |
 
 ```mermaid
 flowchart TD
-    U[User Browser] -->|Privy login + embedded wallet| C[Client :3000]
+    U[User Browser] -->|Privy login — Google + embedded wallet, or wallet login| C[Client :3000]
     D[DApp e.g. PancakeSwap] -->|WalletConnect| C
-    C -->|POST /queue — user signs 1-of-2| S[Server :3001]
+    C -->|POST /queue — SafeTx, EIP-712 signed 1-of-2| S[Server :3001]
+    S -->|propose 1/2| TS[Safe Transaction Service]
+    TS -->|visible + confirmable| SA[app.safe.global]
     S -->|analyzeRisk inline| R{Risk Score}
     R -->|< 40 APPROVE| OC[NanoBot/Hermes Agent]
     R -->|40-70 REVIEW| OC
@@ -23,19 +25,20 @@ flowchart TD
     OC -->|REVIEW: deep-analyze| EXT[GoPlus / Honeypot.is]
     EXT -->|address + token report| OC
     OC <-->|REVIEW: report + buttons\nBLOCK: alert| TG[Telegram / User]
-    OC -->|signs 2-of-2| B[Bundler]
-    B -->|UserOperation| BC[BNB Chain]
+    OC -->|confirm 2/2 via service| TS
+    OC -->|execTransaction — agent pays gas| BC[BNB Chain]
+    SA -->|override: backup key confirms + executes| BC
     BC -->|txHash| C
     BC -->|confirmed| OC
-    OC -->|record-pattern| P[(patterns.json)]
+    OC -->|record-pattern| P[(patterns)]
 ```
 
 ## Client
 
 - **Next.js 14** App Router, React 18, TypeScript, Tailwind CSS, Framer Motion
-- **Privy** for Google OAuth + embedded wallet creation
-- Deploys a Safe 2-of-2 smart account per user (owner = user's embedded wallet, co-signer = agent address)
-- Signs 1-of-2, then POSTs to `/queue`
+- **Privy** auth — Google OAuth + embedded wallet, or **wallet login** (MetaMask / Rabby as the signing key), plus a signature-free backup-key link
+- Wallets are Safe multisigs with [computed profiles](/technology/signing#wallet-profiles) — starter / guarded / protected / detached
+- Signs standard SafeTxs (EIP-712), 1 of the threshold, then POSTs to `/queue`
 - **WalletConnect v2** — acts as a wallet for DApps; requests flow through the same pipeline
 - **Portfolio** via Zerion API (live balances, prices, 24h change)
 
@@ -43,14 +46,18 @@ flowchart TD
 
 - **Express** with TypeScript (`tsx` for dev, PM2 for production)
 - Runs `analyzeRisk()` inline on every `/queue` request — no async roundtrip
-- File-based JSON storage shared with the agent
+- **Hard-validates every proposal**: signature recovery against the recorded owner set, threshold arithmetic for screening-off, and owner-management transitions
+- Mirrors every proposal to the **Safe Transaction Service** so it appears in app.safe.global at 1/2; a `safeSync` worker reconciles transactions confirmed or executed there directly
+- **Relays execution**: the agent EOA submits `execTransaction` and pays BNB gas — relay-only (no agent signature) whenever user signatures meet the threshold
+- Derives addresses server-side through a [versioned registry](/technology/signing#address-derivation); user records and transactions persist in Supabase (Postgres)
 
 ## Agent
 
-- **NanoBot/Hermes skill pack** — holds the 2nd signing key
+- **NanoBot/Hermes skill pack** — holds the agent owner key
 - Responds to Telegram commands from the owner
 - Runs deep analysis (GoPlus + Honeypot.is) on REVIEW-tier transactions
 - Records patterns after every confirmed transaction
+- **Never signs unscreened transactions** — with screening off it either relays only (v2) or, for [legacy v1 accounts](/technology/legacy), co-signs by explicit exemption
 
 ## Data Flow
 
@@ -58,19 +65,19 @@ flowchart TD
 sequenceDiagram
     participant C as Client
     participant S as Server
+    participant TS as Safe Tx Service
     participant OC as NanoBot/Hermes Agent
     participant EXT as GoPlus / Honeypot.is
     participant TG as Telegram
-    participant B as Bundler
     participant BC as BNB Chain
 
-    C->>S: POST /queue {tx, userSignature 1-of-2}
+    C->>S: POST /queue {SafeTx, EIP-712 signature 1-of-2}
+    S->>TS: propose (1/2 in app.safe.global)
     S->>S: analyzeRisk() → score
     S->>OC: notify (verdict + score)
     alt APPROVE
-        OC->>OC: sign 2-of-2
-        OC->>B: sendUserOperation
-        B->>BC: execute
+        OC->>TS: confirm (2/2)
+        OC->>BC: execTransaction (agent pays gas)
         BC-->>C: txHash
         OC->>S: record-pattern
     else REVIEW
@@ -78,33 +85,34 @@ sequenceDiagram
         EXT-->>OC: address reputation, token security
         OC->>TG: analysis report + [Approve] [Reject]
         TG-->>OC: user responds
-        OC->>OC: sign 2-of-2 (if approved)
-        OC->>B: sendUserOperation
-        B->>BC: execute
+        OC->>BC: execTransaction (if approved)
         OC->>S: record-pattern
     else BLOCK
         OC->>TG: blocked alert
+        Note over C,BC: Override: user confirms with backup key in the Safe app — safeSync reconciles
     end
 ```
 
-## State Files
+Rejections execute a **pre-signed empty transaction at the same nonce**, so a rejected proposal never leaves a nonce hole blocking later transactions.
 
-| File | Purpose |
-|------|---------|
-| `pending-queue.json` | Queued transactions awaiting processing |
-| `invoice-queue.json` | Pending invoice requests |
-| `state.json` | Screening mode and agent decisions |
-| `patterns.json` | Learned behavioral patterns |
+## State
+
+| Store | Purpose |
+|-------|---------|
+| Supabase (Postgres) | User records (owner sets, thresholds, immutable creation snapshots), transaction queue and outcomes |
+| Safe Transaction Service | Proposal mirror — the source the Safe app reads and writes |
+| `state.json` | Screening mode and agent decisions (agent runtime) |
+| `patterns.json` | Learned behavioral patterns (agent runtime) |
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
 | Chain | BNB Chain (BSC), Chain ID 56 |
-| Smart Account | Safe 1.4.1 + ERC-4337 (EntryPoint v0.7) |
-| Bundler/Paymaster | Pimlico (gasless) |
+| Smart Account | Safe 1.4.1 multisig — standard SafeTx flow via the Safe Transaction Service |
+| Gas | Agent EOA relays `execTransaction` and pays BNB (ERC-4337/Pimlico survives only for legacy queued rows) |
 | Frontend | Next.js 14, React 18, TypeScript, Tailwind CSS, Framer Motion |
-| Auth | Privy (embedded wallets + Google OAuth) |
-| Blockchain libs | viem, permissionless.js |
-| Backend | Express, tsx (dev), PM2 (production) |
+| Auth | Privy (Google OAuth + embedded wallets, wallet login, backup-key linking) |
+| Blockchain libs | viem, @safe-global/protocol-kit + api-kit |
+| Backend | Express, Supabase (Postgres), tsx (dev), PM2 (production) |
 | AI Agent | NanoBot/Hermes with Qwen3-235B / Claude Sonnet 4.5 via OpenRouter |

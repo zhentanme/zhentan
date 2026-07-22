@@ -61,9 +61,11 @@
             "group": "Technology",
             "pages": [
               "technology/overview",
+              "technology/signing",
               "technology/architecture",
               "technology/risk-scoring",
               "technology/agent",
+              "technology/legacy",
               "technology/contracts"
             ]
           }
@@ -88,7 +90,8 @@
           {
             "group": "Execute",
             "pages": [
-              "api/execute-transaction"
+              "api/execute-transaction",
+              "api/cosign-transaction"
             ]
           },
           {

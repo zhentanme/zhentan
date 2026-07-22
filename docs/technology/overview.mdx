@@ -3,9 +3,12 @@ title: Overview
 description: Technical overview of how Zhentan is built.
 ---
 
-Zhentan is built on three independently runnable components that work together: an instant deterministic scoring layer, an interactive AI agent layer, and a smart account execution layer.
+Zhentan is built on three independently runnable components that work together: an instant deterministic scoring layer, an interactive AI agent layer, and a Safe multisig execution layer where **the user always holds the majority of keys**.
 
 <CardGroup cols="2">
+  <Card title="Signing & Wallet Profiles" icon="signature" iconType="duotone" href="/technology/signing">
+    The 2-of-3 model — profiles, transitions, relay-only execution, and the Safe Transaction Service flow.
+  </Card>
   <Card title="Architecture" icon="diagram-project" iconType="duotone" href="/technology/architecture">
     System overview, component breakdown, and data flow diagrams.
   </Card>
@@ -15,14 +18,18 @@ Zhentan is built on three independently runnable components that work together: 
   <Card title="Agent" icon="robot" iconType="duotone" href="/technology/agent">
     The NanoBot/Hermes skill pack — skills, lifecycle, and Telegram commands.
   </Card>
+  <Card title="Legacy Accounts" icon="clock-rotate-left" iconType="duotone" href="/technology/legacy">
+    How pre-refactor 2-of-2 accounts work and how they upgrade to the full model.
+  </Card>
   <Card title="Contract Deployments" icon="file-contract" iconType="duotone" href="/technology/contracts">
-    Safe, ERC-4337, and infrastructure contract addresses on BNB Chain.
+    Safe and infrastructure contract addresses on BNB Chain.
   </Card>
 </CardGroup>
 
 ## Design Principles
 
+- **The user holds the majority** — in the full 2-of-3 model your two keys meet the threshold. The agent is an advisory speed bump you can always go around via the Safe app, never a gatekeeper.
+- **The agent never signs what it didn't screen** — when your signatures alone meet the threshold, the agent relays and pays gas without contributing a signature. Enforced server-side at proposal and again at execution.
 - **No LLM on the hot path** — inline risk scoring is deterministic and instant. The agent only steps in after a verdict is reached.
-- **Safe multisig is the foundation** — battle-tested infrastructure. Zhentan adds AI intelligence on top without replacing key management.
-- **The agent owns communication and the 2nd key** — no transaction executes without its signature, making it genuinely agentic.
+- **Safe multisig is the foundation** — every transaction is a standard SafeTx, visible and actionable in the official Safe app at every stage. Zhentan adds intelligence on top without replacing key management.
 - **Continuous learning** — patterns are recorded after every confirmed transaction. The profile improves automatically.

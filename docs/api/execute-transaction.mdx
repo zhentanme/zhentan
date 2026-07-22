@@ -1,32 +1,41 @@
 ---
 title: Execute Transaction
-description: Agent co-signs a pending transaction and submits it to the bundler.
+description: Relay a queued SafeTx on-chain — the agent pays gas, and signs only what it screened.
 ---
 
 ## POST /execute
 
-Called by the agent after the owner approves a REVIEW-tier transaction via Telegram. The agent co-signs 2-of-2 and submits the UserOperation to the Pimlico bundler.
+Executes a queued SafeTx. The agent EOA relays `execTransaction` and pays BNB gas. Its signing behavior depends on whose signatures are already on the row:
+
+- **User signatures below threshold, screening on:** the agent adds its confirmation (2 of 2) via the Safe Transaction Service, then executes. Called after an APPROVE verdict or a Telegram approval.
+- **User signatures meet the threshold** (starter wallets, or screening-off with a backup co-signature): **relay-only** — the agent submits and pays gas but contributes **no signature**.
+- **Screening off, below threshold:** refused with *"Awaiting backup co-signature"* — no caller (client, Telegram, MCP, or the agent itself) can make the agent sign an unscreened transaction. Complete the row via [`/cosign`](/api/cosign-transaction) or the Safe app. [Legacy v1 accounts](/technology/legacy) without a backup key are exempt.
+
+Idempotency and nonce races are handled server-side: if the Safe's on-chain nonce already passed the row's nonce, the server checks whether **this** transaction was executed from the Safe app (the override path) before marking it superseded.
 
 ## Request
 
 ```json
 {
-  "txId": "tx-1234567890"
+  "txId": "tx-1a2b3c4d"
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `txId` | `string` | Yes | ID of the pending transaction to execute |
+| `txId` | `string` | Yes | ID of the queued transaction to execute |
 
 ## Response
 
 ```json
 {
+  "status": "executed",
+  "txId": "tx-1a2b3c4d",
   "txHash": "0x..."
 }
 ```
 
 | Field | Description |
 |-------|-------------|
-| `txHash` | On-chain transaction hash after successful execution |
+| `status` | `executed`, `already_executed`, or `superseded` |
+| `txHash` | On-chain transaction hash |

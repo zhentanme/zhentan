@@ -1,0 +1,60 @@
+---
+title: Legacy Accounts (v1)
+description: How pre-refactor 2-of-2 accounts work today, what rules apply to them, and how they upgrade to the full model.
+---
+
+Accounts created before the 2-of-3 refactor are **v1 accounts**: Safe 2-of-2 multisigs with owners `[embedded, agent]`, deployed with the ERC-4337 module enabled and originally executed as gasless UserOperations via Pimlico.
+
+They keep working without any action — but they run under a few carefully-scoped exceptions, and everything normalizes the moment they upgrade.
+
+## What v1 Means Today
+
+| Aspect | v1 behavior |
+|--------|-------------|
+| **Profile** | Classifies as **Guarded** — one user key, agent co-signer, threshold 2 |
+| **Address derivation** | Pinned to the v1 recipe (4337-module initializer) **forever** — the derivation version is part of the account's immutable creation snapshot, so its address stays re-derivable |
+| **Execution** | New transactions use the standard SafeTx flow like everyone else; ERC-4337 survives **only** for pre-refactor queued rows (`tx_type='4337'`) |
+| **Screening off** | Allowed, with the agent as blind co-signer (see below) |
+
+## The Screening-Off Exception
+
+The strict rule — *the agent never signs what it didn't screen* — would strand a v1 user the instant they paused screening: their single key can't reach the threshold, and no backup key exists to complete the transaction. These users have relied on the agent as co-signer since before the rule existed.
+
+So v1 accounts get a capability-scoped exemption:
+
+<Note>
+A v1 account **without a backup key** may pause screening; the agent still co-signs (it just skips risk analysis). The exemption is keyed on **capability, not version** — it applies only while the account's own keys cannot meet the threshold. The moment a backup key is added, the strict v2 rules apply automatically.
+</Note>
+
+This is enforced in three places: at proposal validation, again at execution (defense in depth — no surface can make the agent sign an unscreened transaction for an upgraded account), and in the client flow.
+
+## Upgrading to the Full Model
+
+The upgrade is a single owner-management Safe transaction on the **same address**:
+
+```
+addOwnerWithThreshold(backupKey, 2)
+```
+
+After it executes, the account is a standard **Protected** wallet:
+
+- **Owner set**: `[embedded, backup, agent]`, threshold 2 — your two keys hold the majority.
+- **Screening becomes a real choice**: pausing it now routes transactions through the [queue-and-co-sign flow](/technology/signing#screening-off-queue-and-co-sign) — the agent relays without signing.
+- **The override path opens**: any flagged transaction can be completed from app.safe.global with your backup key.
+- **Same address, same history** — nothing migrates; the profile is recomputed from the new owner set.
+
+The app guides upgraded users through what changed with a short settings walkthrough on their first visit after upgrading.
+
+<Warning>
+The derivation version does **not** change on upgrade — it is the recipe that produced the account's address and must stay pinned for the address to remain re-derivable. "v1" describes how an account was born, not how it behaves: an upgraded v1 account follows every v2 signing rule.
+</Warning>
+
+## Adding a Backup Key
+
+The backup key is deliberately low-friction — it needs **no signature and no session** to be registered:
+
+- Paste any address
+- Resolve an ENS or `.bnb` name
+- Connect a wallet (signature-free read of the address)
+
+A cold or hardware wallet works fine as a backup: co-signing is only needed for screening-off execution or the override path, and both can also be completed in the Safe app.

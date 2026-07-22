@@ -13,10 +13,15 @@ description: Get Zhentan running locally with full AI screening in minutes.
 
 You'll also need accounts for:
 
-- [Privy](https://privy.io) — embedded wallet + Google OAuth
-- [Pimlico](https://pimlico.io) — gasless bundler API key
+- [Privy](https://privy.io) — embedded wallets, Google OAuth, and wallet login
+- [Safe API key](https://developer.safe.global) — Safe Transaction Service access (proposal mirroring + sync)
 - Telegram bot token — for review notifications
 - [Zerion](https://zerion.io) — portfolio data (optional)
+- [Pimlico](https://pimlico.io) — **legacy accounts only** (pre-refactor 4337 rows and treasury payouts)
+
+<Note>
+The agent EOA relays every execution and deploys Safes — it must hold BNB for gas. The `AGENT_MIN_BNB` threshold (default 0.05) triggers a low-balance alert.
+</Note>
 
 ## Install
 
@@ -34,7 +39,6 @@ pnpm install
 
     ```env
     NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
-    NEXT_PUBLIC_PIMLICO_API_KEY=your_pimlico_api_key
     NEXT_PUBLIC_AGENT_ADDRESS=0xYourAgentAddress
     NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
@@ -45,9 +49,12 @@ pnpm install
 
     ```env
     AGENT_PRIVATE_KEY=0xYourAgentPrivateKey
-    PIMLICO_API_KEY=your_pimlico_api_key
+    SAFE_API_KEY=your_safe_transaction_service_key
+    SAFE_DERIVATION_VERSION=2
+    AGENT_MIN_BNB=0.05
     TELEGRAM_BOT_TOKEN=your_telegram_bot_token
     ZERION_API_KEY=your_zerion_api_key
+    PIMLICO_API_KEY=your_pimlico_api_key   # legacy 4337 rows + treasury only
     PORT=3001
     QUEUE_PATH=./pending-queue.json
     ```
@@ -89,25 +96,25 @@ See `scripts/.env.example` and `server/.env.example` for full templates.
 ## Verify It Works
 
 1. Visit `http://localhost:3000`
-2. Sign in with Google → embedded wallet is created
-3. A Safe smart account is deployed on BNB Chain
+2. Sign in with Google (embedded wallet) or connect a wallet — then pick a [profile](/technology/signing#wallet-profiles) during onboarding
+3. A Safe multisig is deployed on BNB Chain (the agent pays gas)
 4. Navigate to **Send** → enter a recipient and amount
-5. Confirm → transaction is queued
+5. Confirm → the SafeTx is queued **and visible at app.safe.global at 1/2**
 6. Check server logs for the risk score and verdict
-7. **APPROVE**: tx executes automatically, txHash appears in the UI
-8. **REVIEW**: check Telegram for the interactive approve/reject message
+7. **APPROVE**: the agent confirms and relays — txHash appears in the UI
+8. **REVIEW**: check Telegram for the interactive approve/reject message (or override with your backup key in the Safe app)
 
 ## Troubleshooting
 
 <AccordionGroup>
   <Accordion title="Transaction stuck in queue">
-    Check server logs for Pimlico API errors. Verify `AGENT_PRIVATE_KEY` is correctly set in `server/.env`.
+    Verify `AGENT_PRIVATE_KEY` is set and the agent EOA holds BNB — it relays every execution. If the proposal isn't visible in app.safe.global, check `SAFE_API_KEY`.
   </Accordion>
   <Accordion title="No Telegram notification">
     Verify `TELEGRAM_BOT_TOKEN` is set in `server/.env` and the bot has been started in your Telegram chat.
   </Accordion>
   <Accordion title="Safe not deploying">
-    Confirm BNB Chain RPC is reachable and your Pimlico API key has BSC network access enabled.
+    Confirm BNB Chain RPC is reachable and the agent EOA has enough BNB to pay deployment gas.
   </Accordion>
   <Accordion title="Balance not showing">
     `ZERION_API_KEY` may be missing from `server/.env`. Portfolio data requires a valid Zerion API key.

@@ -54,6 +54,19 @@ When a transaction is in REVIEW, you'll get a Telegram message with:
 
 Tap **Approve** to execute, or **Reject** to block it.
 
+## Overriding the Agent
+
+The agent advises — it doesn't gatekeep. In a **Protected** wallet, every proposal already sits in [app.safe.global](https://app.safe.global) at 1 of 2 signatures. If the agent flags or blocks something you're sure about, confirm it there with your backup key and execute — Zhentan syncs the result back automatically.
+
+## Turning Screening Off
+
+Screening is a choice in Protected wallets:
+
+1. Toggle it off in **Settings → Zhentan Guard** (or via Telegram).
+2. Your transactions now need **both of your keys** — the agent never signs what it didn't screen. Each send queues at 1 of 2 and completes when you co-sign with your backup wallet, either in-app (from transaction history) or in the Safe app.
+
+Guarded wallets can't turn screening off — with one user key against a threshold of two, no second signature could exist. Add a backup key first. [Legacy v1 accounts](/technology/legacy) are the exception: their agent co-signs without analysis until they upgrade.
+
 ## Learning Over Time
 
 After every confirmed transaction, Zhentan records the pattern. Recipients you transact with regularly become "known," amounts normalize, and your screening becomes more accurate over time — with fewer false REVIEW alerts.

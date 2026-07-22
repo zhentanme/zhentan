@@ -1,9 +1,16 @@
 ---
 title: Contract Deployments
-description: Safe, ERC-4337, and infrastructure contract addresses on BNB Chain.
+description: Safe and infrastructure contract addresses on BNB Chain.
 ---
 
-All Zhentan smart accounts are Safe 1.4.1 proxies with an ERC-4337 module, deployed on BNB Chain (BSC). Transactions are submitted as ERC-4337 UserOperations via Pimlico's bundler and paymaster.
+All Zhentan smart accounts are **Safe 1.4.1 proxies** on BNB Chain (BSC). Account creation is versioned — the recipe that derives an account's address is pinned forever in its immutable creation snapshot:
+
+| Derivation | Recipe | Applies to |
+|------------|--------|-----------|
+| **v2** (current) | Vanilla stock Safe — protocol-kit initializer, `CompatibilityFallbackHandler`, **no modules** | All new accounts |
+| **v1** (legacy) | Permissionless initializer with the `Safe4337Module` enabled | Pre-refactor accounts, [pinned forever](/technology/legacy) |
+
+Transactions execute as standard Safe `execTransaction` calls relayed by the agent EOA (which pays BNB gas). ERC-4337 UserOperations survive **only** for legacy pre-refactor queued transactions.
 
 ## Smart Account Infrastructure
 
@@ -11,13 +18,20 @@ All Zhentan smart accounts are Safe 1.4.1 proxies with an ERC-4337 module, deplo
 |----------|---------|-------------|
 | Safe Singleton 1.4.1 | [`0x29fcB43b46531BcA003ddC8FCB67FFE91900C762`](https://bscscan.com/address/0x29fcB43b46531BcA003ddC8FCB67FFE91900C762) | Smart account implementation used by all Safe proxies |
 | Safe Proxy Factory | [`0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67`](https://bscscan.com/address/0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67) | Deploys per-user Safe proxy instances |
-| Safe4337Module | [`0x75cf11467937ce3F2f357CE24ffc3DBF8fD5c226`](https://bscscan.com/address/0x75cf11467937ce3F2f357CE24ffc3DBF8fD5c226) | ERC-4337 module enabling UserOperation support on Safe |
+| Safe4337Module | [`0x75cf11467937ce3F2f357CE24ffc3DBF8fD5c226`](https://bscscan.com/address/0x75cf11467937ce3F2f357CE24ffc3DBF8fD5c226) | ERC-4337 module — **v1 (legacy) accounts only** |
 
-## ERC-4337
+## ERC-4337 (Legacy Only)
 
 | Contract | Address | Description |
 |----------|---------|-------------|
-| EntryPoint v0.7 | [`0x0000000071727De22E5E9d8BAf0edAc6f37da032`](https://bscscan.com/address/0x0000000071727De22E5E9d8BAf0edAc6f37da032) | ERC-4337 entry point — all UserOperations submitted via `handleUserOps()` |
+| EntryPoint v0.7 | [`0x0000000071727De22E5E9d8BAf0edAc6f37da032`](https://bscscan.com/address/0x0000000071727De22E5E9d8BAf0edAc6f37da032) | ERC-4337 entry point — used only for pre-refactor queued transactions |
+
+## Services
+
+| Service | Role |
+|---------|------|
+| [Safe Transaction Service](https://docs.safe.global/core-api/transaction-service-overview) | Every proposal is mirrored here at 1/2 — the same backend app.safe.global reads, which is what makes the [user override path](/technology/signing#the-2-of-3-model) work |
+| [Pimlico](https://pimlico.io) | Bundler/paymaster — legacy 4337 rows and treasury payouts only |
 
 ## Network
 
@@ -25,6 +39,5 @@ All Zhentan smart accounts are Safe 1.4.1 proxies with an ERC-4337 module, deplo
 |-----------|-------|
 | Chain | BNB Chain (BSC) |
 | Chain ID | 56 |
-| RPC | `https://1rpc.io/bnb` |
+| RPC | `https://1rpc.io/bnb` (overridable via env) |
 | Explorer | [bscscan.com](https://bscscan.com) |
-| Bundler / Paymaster | [Pimlico](https://pimlico.io) |

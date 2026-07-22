@@ -3,14 +3,14 @@ title: Introduction
 description: Your personalized onchain detective and assistant that learns and guards your onchain behavior.
 ---
 
-Zhentan is a personalized wallet assistant that acts as an AI co-signer on a Safe 2-of-2 multisig. It learns your behavioral patterns and screens every transaction before it executes — blocking threats, flagging anomalies for review, and auto-approving routine activity.
+Zhentan is a personalized wallet assistant that acts as an AI co-signer on a Safe multisig **where you always hold the majority of keys**. In the full 2-of-3 model — your embedded key, your backup key, and the agent — it learns your behavioral patterns and screens every transaction before it executes: blocking threats, flagging anomalies for review, and auto-approving routine activity. And because your two keys meet the signing threshold, you can always execute from the official Safe app without the agent.
 
 <CardGroup cols="2">
   <Card title="Zhentan App" icon="shield-check" iconType="duotone" href="/app/overview">
     Send, receive, and connect to DApps with AI-powered transaction screening on every action.
   </Card>
   <Card title="Technology" icon="microchip" iconType="duotone" href="/technology/overview">
-    Deep dive into the architecture — Safe multisig, ERC-4337, risk scoring, and the NanoBot/Hermes agent.
+    Deep dive into the architecture — the 2-of-3 signing model, Safe Transaction Service, risk scoring, and the NanoBot/Hermes agent.
   </Card>
   <Card title="Quickstart" icon="rocket-launch" iconType="duotone" href="/quickstart">
     Run Zhentan locally with full AI screening in minutes.
@@ -30,7 +30,7 @@ DeFi wallets offer no protection between "sign" and "execute." Once you click ap
 
 ## How It Works
 
-Zhentan adds an AI co-signer to your Safe wallet. Every transaction is scored 0–100 against your learned behavioral patterns before anything executes.
+Zhentan adds an AI co-signer to your Safe wallet. Every transaction is a standard SafeTx — visible in [app.safe.global](https://app.safe.global) from the moment you sign — scored 0–100 against your learned behavioral patterns before anything executes. The agent relays execution and pays gas; it never signs a transaction it didn't screen, and it can never move funds alone.
 
 | Score | Verdict | Action |
 |-------|---------|--------|
