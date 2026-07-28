@@ -11,7 +11,7 @@ import { ThemeLoaderSpinner } from "./ThemeLoader";
 import { TickButtonSpinner } from "./TwinTickLoader";
 import { ExecutedAnimation, ReviewAnimation } from "./animations/StatusAnimation";
 import { CoSignButton } from "@/components/CoSignButton";
-import type { CoSignableTx } from "@/hooks/useCoSignTransaction";
+import { useLiveTransaction } from "@/hooks/useLiveTransaction";
 import {
   ArrowDownUp,
   ChevronDown,
@@ -20,14 +20,13 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { formatTokenAmount, truncateAddress, formatDate } from "@/lib/format";
+import { formatTokenAmount, truncateAddress, formatDate, statusLabel } from "@/lib/format";
 import { BSC_EXPLORER_URL, NATIVE_TOKEN_ADDRESS } from "@/lib/constants";
 import { proposeSwap, type SwapQuote } from "@/lib/proposeSwap";
-import { pollForExecution } from "@/lib/pollExecution";
 import { useApiClient } from "@/lib/api/client";
 import type { SearchedToken } from "@/lib/api/tokens";
 import { parseUnits, formatUnits } from "viem";
-import type { TokenPosition } from "@/types";
+import type { TokenPosition, TransactionWithStatus } from "@/types";
 import { useTokenAmountInput } from "@/lib/useTokenAmountInput";
 
 // Popular BNB Chain tokens shown in the buy token selector even if not in portfolio
@@ -204,8 +203,9 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
   const [swapStatus, setSwapStatus] = useState<string>("Processing swap");
   const [txHash, setTxHash] = useState<string | null>(null);
   const [executedAt, setExecutedAt] = useState<string | null>(null);
-  // Screening-off swap queued at 1/n — held for the queued phase's co-sign.
-  const [queuedTx, setQueuedTx] = useState<CoSignableTx | null>(null);
+  // Unresolved swap resting on the queued screen: screening off (awaiting the
+  // backup key) or screening on (agent verdict pending / flagged for review).
+  const [queuedTx, setQueuedTx] = useState<TransactionWithStatus | null>(null);
   const [fromSelectorOpen, setFromSelectorOpen] = useState(false);
   const [toSelectorOpen, setToSelectorOpen] = useState(false);
   const [tokenSearch, setTokenSearch] = useState("");
@@ -213,6 +213,26 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
   const [searchLoading, setSearchLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Live-track the queued swap so the screen transitions in place when the
+  // agent, the owner (Telegram), or the Safe app resolves it.
+  const liveQueued = useLiveTransaction(
+    phase === "queued" && queuedTx ? queuedTx.id : null
+  );
+  useEffect(() => {
+    if (!liveQueued) return;
+    if (liveQueued.status === "executed") {
+      setTxHash(liveQueued.txHash ?? null);
+      setExecutedAt(liveQueued.executedAt ?? new Date().toISOString());
+      setPhase("success");
+    } else if (liveQueued.status === "rejected") {
+      setError(liveQueued.rejectReason || "Swap rejected by Zhentan");
+      setPhase("error");
+    } else if (liveQueued.status === "in_review") {
+      // Agent flagged it — keep the queued screen but reflect the update.
+      setQueuedTx((prev) => (prev ? { ...prev, ...liveQueued } : liveQueued));
+    }
+  }, [liveQueued]);
 
   // Portfolio tokens that can be sold (have balance)
   const sellableTokens = tokens.filter(
@@ -398,28 +418,31 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           identityToken,
         });
 
-        let swapTxHash: string | null;
         if (screeningOn) {
-          // Agent screens, co-signs and executes — poll for the outcome.
-          swapTxHash = await pollForExecution(pendingTx.id, safeAddress, identityToken ?? null);
-        } else {
-          // Screening OFF below threshold (backup key not connected): queued
-          // at 1/n awaiting the backup co-signature — complete from history
-          // or the Safe app. The server refuses to execute until then.
-          // Owner-computed profile: upgraded v1 accounts queue for co-sign
-          // like any protected wallet (see SendPanel for the rationale).
-          const sigCount = 1 + (pendingTx.userSignatures?.length ?? 0);
-          const awaitingCoSign =
-            sigCount < pendingTx.threshold && safeConfig.profile === "protected";
-          if (awaitingCoSign) {
-            setQueuedTx(pendingTx);
-            setPhase("queued");
-            setLoading(false);
-            return;
-          }
-          const result = await api.execute.run(pendingTx.id);
-          swapTxHash = result.txHash ?? null;
+          // Rest on the queued screen while the agent screens — the live poll
+          // flips it to success/error in place, and protected wallets can sign
+          // with the backup key to execute right away (relay-only).
+          setQueuedTx({ ...pendingTx, status: "pending" });
+          setPhase("queued");
+          setLoading(false);
+          return;
         }
+        // Screening OFF below threshold (backup key not connected): queued
+        // at 1/n awaiting the backup co-signature — complete from history
+        // or the Safe app. The server refuses to execute until then.
+        // Owner-computed profile: upgraded v1 accounts queue for co-sign
+        // like any protected wallet (see SendPanel for the rationale).
+        const sigCount = 1 + (pendingTx.userSignatures?.length ?? 0);
+        const awaitingCoSign =
+          sigCount < pendingTx.threshold && safeConfig.profile === "protected";
+        if (awaitingCoSign) {
+          setQueuedTx({ ...pendingTx, status: "pending" });
+          setPhase("queued");
+          setLoading(false);
+          return;
+        }
+        const result = await api.execute.run(pendingTx.id);
+        const swapTxHash = result.txHash ?? null;
         setTxHash(swapTxHash);
         setExecutedAt(new Date().toISOString());
         setPhase("success");
@@ -484,16 +507,34 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
     );
   }
 
-  // Queued phase: screening off, awaiting the backup key's co-signature.
+  // Queued phase: an unresolved swap at 1/n. Screening off: awaiting the
+  // backup key (the only completion path). Screening on: the agent's verdict
+  // is pending or flagged for review — protected wallets can co-sign to
+  // execute right away (relay-only) instead of waiting.
   if (phase === "queued") {
+    const screeningOff = !!queuedTx?.screeningDisabled;
+    const inReview = queuedTx?.status === "in_review";
+    const canCoSign =
+      !!queuedTx &&
+      safeConfig?.profile === "protected" &&
+      1 + (queuedTx.userSignatures?.length ?? 0) < (queuedTx.threshold ?? 2);
+    const heading = screeningOff
+      ? "Awaiting your backup key"
+      : statusLabel(queuedTx?.status ?? "pending");
+    const caption = screeningOff
+      ? "Swap queued. Sign with your backup key to execute it now — the quote may expire if it waits too long."
+      : inReview
+        ? "Flagged for your review — signing with your backup key executes it anyway."
+        : canCoSign
+          ? "Zhentan is screening your swap — signing with your backup key executes it right away."
+          : "Zhentan is screening your swap — it executes automatically once approved.";
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
           <ReviewAnimation size={80} />
-          <span className="text-sm font-semibold text-watch">Awaiting your backup key</span>
+          <span className="text-sm font-semibold text-watch">{heading}</span>
           <p className="text-xs text-muted-foreground/80 text-center leading-relaxed max-w-xs">
-            Swap queued. Sign with your backup key to execute it now — the
-            quote may expire if it waits too long.
+            {caption}
           </p>
         </div>
         <div className="rounded-2xl bg-foreground/6 p-4 space-y-3">
@@ -513,7 +554,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             </span>
           </div>
         </div>
-        {queuedTx && (
+        {canCoSign && queuedTx && (
           <CoSignButton
             tx={queuedTx}
             onExecuted={(result) => {
@@ -523,7 +564,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             }}
           />
         )}
-        {safeAddress && (
+        {canCoSign && safeAddress && (
           <a
             href={`https://app.safe.global/transactions/queue?safe=bnb:${safeAddress}`}
             target="_blank"

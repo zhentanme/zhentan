@@ -308,19 +308,25 @@ function RiskDetailsSection({
 // ── Co-sign section ───────────────────────────────────────────────────────────
 
 /**
- * Completion actions for a screening-off SafeTx queued below threshold: sign
- * with the backup key in-app (relay-only execution — the agent never signs
- * unscreened txs), or finish in the Safe app. When the backup wallet has no
- * live session, the button opens Privy's connect modal first.
+ * Backup-key completion actions for a SafeTx queued below threshold: sign
+ * in-app (relay-only execution — the agent never signs what it didn't screen,
+ * and once the user's keys meet the threshold it doesn't need to), or finish
+ * in the Safe app. Available whether screening is on (executes ahead of — or
+ * over — the agent's verdict) or off (the backup key is the only completion
+ * path). When the backup wallet has no live session, the button opens Privy's
+ * connect modal first.
  */
 function CoSignSection({ tx }: { tx: TransactionWithStatus }) {
+  const caption =
+    tx.status === "in_review"
+      ? "Flagged for your review — signing with your backup key executes it anyway."
+      : tx.screeningDisabled
+        ? `Waiting for your backup key — ${1 + (tx.userSignatures?.length ?? 0)} of ${tx.threshold} signatures.`
+        : "Zhentan is screening — signing with your backup key executes it right away.";
   // On success, useLiveTransaction flips the dialog to executed in place.
   return (
     <div className="space-y-2.5">
-      <p className="text-xs text-muted-foreground/80 text-center">
-        Waiting for your backup key — {1 + (tx.userSignatures?.length ?? 0)} of{" "}
-        {tx.threshold} signatures.
-      </p>
+      <p className="text-xs text-muted-foreground/80 text-center">{caption}</p>
       <CoSignButton tx={tx} />
       <motion.a
         href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
@@ -529,34 +535,19 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
           />
         )}
 
-        {/* Screening-off tx queued below threshold: the backup key completes
-            it — in-app co-sign (relay-only execution) or the Safe app. */}
+        {/* Unresolved SafeTx below threshold: the backup key can complete it —
+            in-app co-sign (relay-only execution) or the Safe app. Screening
+            off: the only completion path. Screening on (pending/in_review):
+            the user-override path — their two keys meet the threshold, so
+            signing executes without waiting on the agent's verdict. Only
+            protected wallets have a backup key to sign with. */}
         {tx.txType === "safetx" &&
-          tx.status === "pending" &&
+          (tx.status === "pending" || tx.status === "in_review") &&
           !tx.txHash &&
-          !!tx.screeningDisabled &&
           overrideAvailable &&
           1 + (tx.userSignatures?.length ?? 0) < (tx.threshold ?? 2) && (
             <CoSignSection tx={tx} />
           )}
-
-        {/* Override path: a flagged SafeTx already sits in the Safe app queue
-            at 1 of 2 — the user can confirm with their backup key and execute
-            there, going around the agent entirely. Only protected wallets
-            have a backup key to sign with. */}
-        {tx.txType === "safetx" && tx.status === "in_review" && !tx.txHash && overrideAvailable && (
-          <motion.a
-            href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            Sign with your backup key at Safe
-            <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-          </motion.a>
-        )}
 
         {/* BSCScan explorer link */}
         {explorerTxUrl && (

@@ -385,9 +385,17 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     );
   }
 
-  // Screening ON: proposed/pending phase (same as TransactionDetailDialog for pending)
+  // Screening ON: proposed/pending phase (same as TransactionDetailDialog for
+  // pending). Protected wallets also get the backup-key sign option — their
+  // two keys meet the threshold, so co-signing executes right away (relay-only)
+  // without waiting on the agent's verdict.
   if (screeningMode && sendPhase === "proposed" && proposedTx) {
     const tx = proposedTx;
+    const canCoSign =
+      safeConfig?.profile === "protected" &&
+      tx.txType === "safetx" &&
+      !tx.txHash &&
+      1 + (tx.userSignatures?.length ?? 0) < (tx.threshold ?? 2);
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
@@ -419,6 +427,38 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             </dd>
           </div>
         </dl>
+        {canCoSign && (
+          <div className="space-y-2.5">
+            <p className="text-xs text-muted-foreground/80 text-center">
+              {tx.status === "in_review"
+                ? "Flagged for your review — signing with your backup key executes it anyway."
+                : "Zhentan is screening — signing with your backup key executes it right away."}
+            </p>
+            <CoSignButton
+              tx={tx}
+              onExecuted={(result) => {
+                setExecutedResult({
+                  to: tx.to,
+                  amount: tx.amount,
+                  token: tx.token,
+                  txHash: result.txHash ?? "",
+                  executedAt: new Date().toISOString(),
+                  tokenIconUrl: tx.tokenIconUrl ?? undefined,
+                });
+                setSendPhase("success");
+              }}
+            />
+            <a
+              href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+            >
+              Sign in Safe app
+              <ExternalLink className="h-3.5 w-3.5 opacity-60" />
+            </a>
+          </div>
+        )}
         <Button
           type="button"
           onClick={() => {
