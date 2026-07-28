@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, KeyRound, ShieldCheck } from "lucide-react";
 
 import { useSafeTransitions } from "@/lib/useSafeUpgrade";
 import { UpgradeDialog } from "@/components/UpgradeDialog";
@@ -13,8 +13,17 @@ import { UpgradeDialog } from "@/components/UpgradeDialog";
  *   guarded → prominent amber WARNING — the agent is on but there's no backup
  *             key, so the user can't reach the threshold alone (lockout risk).
  * Renders nothing for protected/detached wallets.
+ *
+ * Variants: "banner" is the standalone card (home page); "row" renders as a
+ * divider-topped row inside the settings Protection card.
  */
-export function UpgradeBanner({ className }: { className?: string }) {
+export function UpgradeBanner({
+  className,
+  variant = "banner",
+}: {
+  className?: string;
+  variant?: "banner" | "row";
+}) {
   const { profile } = useSafeTransitions();
   const [open, setOpen] = useState(false);
 
@@ -37,7 +46,47 @@ export function UpgradeBanner({ className }: { className?: string }) {
             exit={{ opacity: 0, height: 0 }}
             className={className}
           >
-            {isGuarded ? (
+            {variant === "row" ? (
+              /* ── Settings Protection-card row ── */
+              isGuarded ? (
+                <div className="flex items-center gap-3.5 p-[18px] border-t border-border bg-watch/5">
+                  <div className="w-9 h-9 rounded-xl bg-watch/10 flex items-center justify-center shrink-0">
+                    <KeyRound className="h-[17px] w-[17px] text-watch" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Add a backup key</p>
+                    <p className="text-xs text-muted-foreground/85 mt-1 leading-relaxed">
+                      Zhentan must approve every transaction. If the agent goes
+                      offline, your funds wait until you add a key you control.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setOpen(true)}
+                    className="shrink-0 px-3.5 py-2 rounded-xl bg-gold text-ink-900 text-xs font-semibold hover:bg-gold/90 transition-colors cursor-pointer"
+                  >
+                    Add key
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3.5 p-[18px] border-t border-border">
+                  <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                    <ShieldCheck className="h-[17px] w-[17px] text-gold" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Activate Zhentan protection</p>
+                    <p className="text-xs text-muted-foreground/85 mt-1 leading-relaxed">
+                      Add AI screening — and a backup key you control.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setOpen(true)}
+                    className="shrink-0 px-3.5 py-2 rounded-xl bg-gold text-ink-900 text-xs font-semibold hover:bg-gold/90 transition-colors cursor-pointer"
+                  >
+                    Activate
+                  </button>
+                </div>
+              )
+            ) : isGuarded ? (
               /* ── Prominent lockout warning: agent on, no backup key ── */
               <div className="rounded-xl border border-watch/30 bg-watch/[0.08] overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3.5">
