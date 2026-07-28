@@ -688,11 +688,17 @@ function OnboardingContent() {
     });
     // Eager deploy: the Safe must exist on-chain for app.safe.global and the
     // Transaction Service. Agent pays gas; /queue re-checks as a fallback,
-    // so a failure here must not trap the user on this screen.
+    // so a failure here must not trap the user on this screen. The deploy also
+    // backfills owners/derivation_version on the record — refetch once it
+    // lands so a session holding an incomplete row (which reads as legacy and
+    // e.g. suppresses the first-time tour) heals without a reload.
     if (safeConfig) {
-      api.safe.deploy(safeConfig.owners, safeConfig.threshold).catch((err) => {
-        console.error("Eager Safe deploy failed (will retry on first tx):", err);
-      });
+      api.safe
+        .deploy(safeConfig.owners, safeConfig.threshold)
+        .then(() => refreshSafe())
+        .catch((err) => {
+          console.error("Eager Safe deploy failed (will retry on first tx):", err);
+        });
     }
     markOnboardingTelegramDone(wallet.address);
     // The in-memory record still says onboarding_completed=false — refresh it
