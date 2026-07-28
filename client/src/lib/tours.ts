@@ -32,6 +32,46 @@ export interface TourDefinition {
   onClose?: () => void;
 }
 
+// ── Pending-tour marker (session-scoped) ────────────────────────────────────
+// Tours are QUEUED by the flow where their milestone happens (onboarding
+// finish → "main"; a transition that adds the backup key → "upgrade") and
+// consumed by TourLauncher. sessionStorage survives the onboarding → /home
+// layout remount but dies with the tab — so a new device or cleared storage
+// never replays a tour from account state alone; Settings → Product tour is
+// the on-demand path.
+
+export type TourKey = "main" | "upgrade";
+
+const PENDING_KEY = "zhentan_tour_pending";
+/** Fired by queueTour so an already-mounted TourLauncher re-checks the marker. */
+export const TOUR_QUEUED_EVENT = "zhentan:tour-queued";
+
+export function queueTour(key: TourKey) {
+  try {
+    sessionStorage.setItem(PENDING_KEY, key);
+    window.dispatchEvent(new Event(TOUR_QUEUED_EVENT));
+  } catch {
+    // no storage → no auto-fire; the Settings replay still works
+  }
+}
+
+export function readPendingTour(): TourKey | null {
+  try {
+    const v = sessionStorage.getItem(PENDING_KEY);
+    return v === "main" || v === "upgrade" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingTour() {
+  try {
+    sessionStorage.removeItem(PENDING_KEY);
+  } catch {
+    // best-effort
+  }
+}
+
 // ── Seen-flags (device-local, deliberately NOT wiped on logout — replaying
 // the tour on every re-login would read as a bug; flags are per-Safe). ──────
 

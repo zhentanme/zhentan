@@ -13,6 +13,7 @@ import {
   proposeTransition,
 } from "@/lib/safe/transitions";
 import type { WalletState } from "@/lib/safe/profiles";
+import { queueTour } from "@/lib/tours";
 
 export interface SafeTransitionsState {
   /** Current wallet state (starter/guarded/protected/detached/unknown). */
@@ -111,6 +112,9 @@ export function useSafeTransitions(): SafeTransitionsState {
         ),
       { registerBackup: true }
     );
+    // Wallet just became protected — queue the settings walkthrough
+    // (TourLauncher waits for the wizard's success dialog to close).
+    queueTour("upgrade");
   }, [run, safeAddress, externalWalletAddress, agentAddress]);
 
   const enableAgentOnly = useCallback(async () => {
@@ -130,6 +134,9 @@ export function useSafeTransitions(): SafeTransitionsState {
       () => addBackupCalls(safeAddress as Address, externalWalletAddress as Address),
       { registerBackup: true }
     );
+    // Wallet just became protected — queue the settings walkthrough
+    // (this is the legacy upgrade path as well as the v2 add-backup).
+    queueTour("upgrade");
   }, [run, safeAddress, externalWalletAddress]);
 
   const detach = useCallback(async () => {
