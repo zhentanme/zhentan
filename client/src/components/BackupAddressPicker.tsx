@@ -9,8 +9,13 @@ import { getAddress, isAddress } from "viem";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
 
+export interface BackupCandidate {
+  address: string;
+  label?: string;
+}
+
 /**
- * Signature-free backup-key (owner #2) selection. Three ways in:
+ * Signature-free backup-key (owner #2) candidate selection. Three ways in:
  *   1. Connect a wallet — Privy connect modal, eth_requestAccounts only.
  *      No SIWE, no account linking, so the same hardware/backup wallet can
  *      serve any number of Zhentan accounts.
@@ -19,18 +24,12 @@ import { useApiClient } from "@/lib/api/client";
  *
  * The backup key never signs during setup (it's the override key used at
  * app.safe.global), so ownership is confirmed by the user, not a signature.
- * A preview + explicit confirm guards against typos: the chosen address is
- * baked into the Safe's derivation and can't be casually swapped later.
+ * The resolved candidate is held for an explicit confirm step (typo guard:
+ * the chosen address is baked into the Safe's derivation and can't be
+ * casually swapped later) — the layout around it decides how that confirm
+ * looks (the stacked picker's button, or onboarding's primary CTA).
  */
-export function BackupAddressPicker({
-  onSelect,
-  compact = false,
-}: {
-  /** Called with the checksummed address once the user confirms it. */
-  onSelect: (address: string) => void;
-  /** Tighter spacing for inline embeds (e.g. the upgrade banner). */
-  compact?: boolean;
-}) {
+export function useBackupCandidate() {
   const { wallet } = useAuth();
   const api = useApiClient();
 
@@ -39,7 +38,7 @@ export function BackupAddressPicker({
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Resolved-but-unconfirmed candidate shown in the preview row. */
-  const [candidate, setCandidate] = useState<{ address: string; label?: string } | null>(null);
+  const [candidate, setCandidate] = useState<BackupCandidate | null>(null);
 
   const agentAddress = process.env.NEXT_PUBLIC_AGENT_ADDRESS;
 
@@ -73,7 +72,23 @@ export function BackupAddressPicker({
     onError: () => setConnecting(false),
   });
 
-  const handleResolve = async () => {
+  const connect = () => {
+    setError(null);
+    setConnecting(true);
+    try {
+      connectWallet();
+    } catch {
+      setConnecting(false);
+    }
+  };
+
+  const updateInput = (value: string) => {
+    setInput(value);
+    setError(null);
+    setCandidate(null);
+  };
+
+  const resolveInput = async () => {
     const value = input.trim();
     if (!value) return;
     setError(null);
@@ -113,19 +128,45 @@ export function BackupAddressPicker({
     }
   };
 
+  const clearCandidate = () => setCandidate(null);
+  const clearError = () => setError(null);
+
+  return {
+    input,
+    updateInput,
+    resolving,
+    connecting,
+    error,
+    candidate,
+    connect,
+    resolveInput,
+    clearCandidate,
+    clearError,
+  };
+}
+
+/**
+ * Stacked backup-key picker (connect row + or-divider + address input) with
+ * its own confirm button — used by the upgrade dialog. Onboarding renders
+ * the segmented layout on the same useBackupCandidate logic.
+ */
+export function BackupAddressPicker({
+  onSelect,
+  compact = false,
+}: {
+  /** Called with the checksummed address once the user confirms it. */
+  onSelect: (address: string) => void;
+  /** Tighter spacing for inline embeds (e.g. the upgrade banner). */
+  compact?: boolean;
+}) {
+  const { input, updateInput, resolving, connecting, error, candidate, connect, resolveInput } =
+    useBackupCandidate();
+
   return (
     <div className={compact ? "space-y-2.5" : "space-y-3"}>
       {/* Option 1: connect (no signature) */}
       <button
-        onClick={() => {
-          setError(null);
-          setConnecting(true);
-          try {
-            connectWallet();
-          } catch {
-            setConnecting(false);
-          }
-        }}
+        onClick={connect}
         disabled={connecting}
         className="w-full flex items-center gap-3 rounded-xl px-4 py-3 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 hover:border-foreground/12 transition-all duration-200 disabled:opacity-60 disabled:cursor-default"
       >
@@ -154,13 +195,9 @@ export function BackupAddressPicker({
         <input
           type="text"
           value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            setError(null);
-            setCandidate(null);
-          }}
+          onChange={(e) => updateInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleResolve();
+            if (e.key === "Enter") resolveInput();
           }}
           placeholder="0x address, name.eth or name.bnb"
           spellCheck={false}
@@ -168,7 +205,7 @@ export function BackupAddressPicker({
           className="flex-1 min-w-0 bg-foreground/6 border border-border rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:font-sans placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
         />
         <button
-          onClick={handleResolve}
+          onClick={resolveInput}
           disabled={resolving || !input.trim()}
           className="shrink-0 px-3.5 py-2 rounded-md border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-50 disabled:cursor-default"
         >
