@@ -158,7 +158,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { identityToken } = useIdentityToken();
 
   const hasAttemptedCreate = useRef(false);
-  const hasSyncedUser = useRef(false);
+  // Signer the /users sync last ran for. Identity-keyed rather than a boolean:
+  // this provider outlives logout/login (root layout), so a once-latch set by
+  // a previous account would swallow the next account's sync — the only
+  // pre-deploy write of its owner set + derivation version. A record without
+  // those reads as legacy/guarded until the eager deploy backfills it, which
+  // (among other things) suppressed the first-time tour.
+  const syncedUserFor = useRef<string | null>(null);
 
   // The embedded Privy wallet, when one exists (Google / no-wallet logins).
   const embeddedWallet = useMemo(
@@ -357,6 +363,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearOnboardingCompleteCookie();
     clearOnboardingStorage();
     clearIdentityCache();
+    // Re-arm the per-login one-shots too: the provider survives logout, so
+    // left latched they'd skip the next account's sync / wallet creation.
+    syncedUserFor.current = null;
+    hasAttemptedCreate.current = false;
     await privyLogout();
   }, [privyLogout]);
 
@@ -508,12 +518,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // can find this account by. Never sync without it — a row written with a
     // null signer_address is invisible to that lookup forever, so the user is
     // treated as new on return and bounced back into onboarding.
-    if (!safeAddress || !identityToken || !wallet?.address || hasSyncedUser.current)
-      return;
+    if (!safeAddress || !identityToken || !wallet?.address) return;
+    const signerKey = wallet.address.toLowerCase();
+    if (syncedUserFor.current === signerKey) return;
     // Freshly derived Safes wait for the onboarding commit; record-backed
     // users sync immediately as before.
     if (safeDerived && !safeCommitted) return;
-    hasSyncedUser.current = true;
+    syncedUserFor.current = signerKey;
     const google = (privyUser as { google?: { email?: string; name?: string } } | null)?.google;
     apiFetch("/users", identityToken, {
       method: "POST",
@@ -537,11 +548,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
       .then((res) => {
         // Re-arm on a server error so signer_address isn't left unset forever.
-        if (!res.ok) hasSyncedUser.current = false;
+        if (!res.ok) syncedUserFor.current = null;
       })
       .catch((e) => {
         console.error("Failed to sync user details:", e);
-        hasSyncedUser.current = false;
+        syncedUserFor.current = null;
       });
   }, [
     safeAddress,
