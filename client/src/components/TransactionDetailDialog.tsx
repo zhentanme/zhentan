@@ -25,6 +25,12 @@ import {
   ChevronDown,
   ChevronUp,
   ShieldAlert,
+  ShieldOff,
+  Sparkles,
+  Settings2,
+  KeyRound,
+  RefreshCw,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
@@ -56,7 +62,46 @@ const FALLBACK_CONFIG: OpConfig = {
   Icon: ArrowUpRight, label: "Transaction", sign: "", iconColor: "text-muted-foreground",
 };
 
-function getConfig(tx: TransactionWithStatus): OpConfig {
+// ── Wallet events (txKind rows) — one icon + explainer per server label ──────
+// Labels are the server's hardcoded contract (server/src/lib/safe/txKind.ts +
+// the synthesized creation row); unknown labels fall back by kind.
+
+const KIND_ICONS: Record<string, LucideIcon> = {
+  "Safe account created": Sparkles,
+  "Protection activated": ShieldCheck,
+  "Screening agent enabled": ShieldCheck,
+  "Backup key added": KeyRound,
+  "Backup key changed": RefreshCw,
+  "Screening agent removed": ShieldOff,
+  "Owners changed": Users,
+  "Wallet configuration": Settings2,
+};
+
+const KIND_DESCRIPTIONS: Record<string, string> = {
+  "Safe account created": "Your vault was deployed on-chain at its permanent address",
+  "Protection activated": "Backup key and screening agent added as owners of your vault",
+  "Screening agent enabled": "The screening agent was added as an owner — screening is on",
+  "Backup key added": "A key you control was added as an owner — your override at app.safe.global",
+  "Backup key changed": "Your backup key was swapped for a new one at the same address",
+  "Screening agent removed": "The agent was removed as an owner — a stock Safe from here on",
+  "Owners changed": "The owner set of your vault changed",
+  "Wallet configuration": "A configuration call on your vault — no funds moved",
+};
+
+function kindConfig(tx: TransactionWithStatus): OpConfig & { description?: string } {
+  const label =
+    tx.kindLabel ?? (tx.txKind === "creation" ? "Safe account created" : "Wallet configuration");
+  return {
+    Icon: KIND_ICONS[label] ?? (tx.txKind === "creation" ? Sparkles : Settings2),
+    label,
+    sign: "",
+    iconColor: "text-gold",
+    description: KIND_DESCRIPTIONS[label],
+  };
+}
+
+function getConfig(tx: TransactionWithStatus): OpConfig & { description?: string } {
+  if (tx.txKind) return kindConfig(tx);
   const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
   return OP_CONFIG[op] ?? FALLBACK_CONFIG;
 }
@@ -93,10 +138,36 @@ function TokenAvatar({ iconUrl, symbol, size = 40 }: { iconUrl?: string | null; 
 
 // ── Hero amount card ──────────────────────────────────────────────────────────
 
-function HeroAmount({ tx, config }: { tx: TransactionWithStatus; config: OpConfig }) {
+function HeroAmount({
+  tx,
+  config,
+}: {
+  tx: TransactionWithStatus;
+  config: OpConfig & { description?: string };
+}) {
   const { Icon, label, sign, iconColor } = config;
   const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
   const usd = formatUsd(tx.valueUSD);
+
+  // Wallet event (creation / config): gold event tile + label + explainer —
+  // these rows move no funds, so no token avatar or amount.
+  if (tx.txKind) {
+    return (
+      <div className="rounded-2xl bg-foreground/6 p-4 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center shrink-0 text-gold">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-base font-semibold text-foreground">{label}</p>
+          {config.description && (
+            <p className="text-xs text-muted-foreground/80 mt-0.5 leading-relaxed">
+              {config.description}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // Trade: dual-token layout — [sent] → [received]
   if (op === "trade" && tx.tradeReceived) {

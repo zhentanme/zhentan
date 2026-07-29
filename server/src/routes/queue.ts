@@ -159,14 +159,16 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
  *   starter → protected   MultiSend[addOwner(backup, 1), addOwner(agent, 2)]
  *   guarded → protected   addOwnerWithThreshold(backup, 2)   (legacy upgrade)
  *   protected → detached  removeOwner(prev, agent, 2)        (exit)
+ *   backup key swap       swapOwner(prev, oldBackup, newBackup)
  *
  * Every added owner must be the agent or the REGISTERED backup key; the
  * simulated end state must classify to a managed profile (or detached, for
- * the exit) different from the current one.
+ * the exit). The profile must change — except for a backup-key swap, which
+ * legitimately keeps the wallet protected while replacing an owner.
  */
 async function validateTransitionTx(
   pendingTx: PendingTransaction & { calldata?: string }
-): Promise<{ endState: WalletState; endThreshold: number }> {
+): Promise<{ endState: WalletState; endThreshold: number; endOwners: string[] }> {
   const { safeAddress } = pendingTx;
   // For SafeTx proposals, validate the SIGNED payload (its hash was already
   // recomputed and signature-verified) — not the loose display fields.
@@ -207,6 +209,7 @@ async function validateTransitionTx(
   // Simulate the end state call by call.
   const owners = currentOwners.map((o) => o.toLowerCase());
   let threshold = currentThreshold;
+  let swapped = false;
 
   for (const call of innerCalls) {
     if (!isAddressEqual(call.to as Address, safeAddress as Address)) {
@@ -238,6 +241,29 @@ async function validateTransitionTx(
       if (idx === -1) throw new Error("Agent is not an owner of this Safe");
       owners.splice(idx, 1);
       threshold = Number(t);
+    } else if (decoded.functionName === "swapOwner") {
+      const [, oldOwner, newOwner] = decoded.args as readonly [Address, Address, Address];
+      const oldAddr = oldOwner.toLowerCase();
+      const newAddr = newOwner.toLowerCase();
+      // Only the backup slot may be swapped — never the agent, never the
+      // account signer.
+      if (oldAddr === agent.toLowerCase()) {
+        throw new Error("Transition may not swap out the agent");
+      }
+      if (record.signer_address && oldAddr === record.signer_address.toLowerCase()) {
+        throw new Error("Transition may not swap out the account signer");
+      }
+      const isRegisteredBackup =
+        !!record.external_wallet_address &&
+        newAddr === record.external_wallet_address.toLowerCase();
+      if (!isRegisteredBackup || newAddr === agent.toLowerCase()) {
+        throw new Error("Swap may only install the registered backup key as owner");
+      }
+      const idx = owners.indexOf(oldAddr);
+      if (idx === -1) throw new Error(`${oldOwner} is not an owner of this Safe`);
+      if (owners.includes(newAddr)) throw new Error(`${newOwner} is already an owner`);
+      owners[idx] = newAddr;
+      swapped = true;
     } else {
       throw new Error(`Unsupported transition call: ${decoded.functionName}`);
     }
@@ -247,13 +273,13 @@ async function validateTransitionTx(
   if (endState !== "starter" && endState !== "guarded" && endState !== "protected" && endState !== "detached") {
     throw new Error(`Transition ends in an unmanaged state (${endState})`);
   }
-  if (endState === currentState) {
+  if (endState === currentState && !swapped) {
     throw new Error("Transition does not change the wallet profile");
   }
   // The simulated end state IS the post-execution truth (the tx is validated
   // hard and executed atomically) — return it so finishTransition can persist
-  // a deterministic threshold instead of racing an RPC read.
-  return { endState, endThreshold: threshold };
+  // a deterministic threshold and owner set instead of racing an RPC read.
+  return { endState, endThreshold: threshold, endOwners: owners };
 }
 
 /**
@@ -269,15 +295,16 @@ async function validateTransitionTx(
  */
 async function finishTransition(
   safeAddress: string,
-  target: { endState: WalletState; endThreshold: number }
+  target: { endState: WalletState; endThreshold: number; endOwners: string[] }
 ): Promise<void> {
-  const agent = getAgentAddress();
+  // Match the SIMULATED owner set, not just the classification — a swap keeps
+  // the profile identical before and after, so classification alone can't
+  // tell a lagging replica from the executed swap.
+  const want = new Set(target.endOwners.map((o) => o.toLowerCase()));
+  const matches = (list: string[]) =>
+    list.length === want.size && list.every((o) => want.has(o.toLowerCase()));
   let owners = await readSafeOwners(safeAddress);
-  for (
-    let i = 0;
-    i < 6 && classifyProfile(owners, target.endThreshold, agent) !== target.endState;
-    i++
-  ) {
+  for (let i = 0; i < 6 && !matches(owners); i++) {
     await new Promise((r) => setTimeout(r, 1200));
     owners = await readSafeOwners(safeAddress);
   }
@@ -307,7 +334,9 @@ export function createQueueRouter(): IRouter {
       const isUpgrade = pendingTx.upgrade === true || pendingTx.transition === true;
       // The transition's simulated end state (owners+threshold), captured at
       // validation and reused to persist a deterministic post-execution profile.
-      let transitionTarget: { endState: WalletState; endThreshold: number } | undefined;
+      let transitionTarget:
+        | { endState: WalletState; endThreshold: number; endOwners: string[] }
+        | undefined;
 
       if (isSafeTx) {
         try {

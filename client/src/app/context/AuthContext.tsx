@@ -158,12 +158,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { identityToken } = useIdentityToken();
 
   const hasAttemptedCreate = useRef(false);
-  // Signer the /users sync last ran for. Identity-keyed rather than a boolean:
-  // this provider outlives logout/login (root layout), so a once-latch set by
-  // a previous account would swallow the next account's sync — the only
-  // pre-deploy write of its owner set + derivation version. A record without
-  // those reads as legacy/guarded until the eager deploy backfills it, which
-  // (among other things) suppressed the first-time tour.
+  // "signer|safeAddress" the /users sync last ran for. Identity-keyed rather
+  // than a boolean: this provider outlives logout/login (root layout), so a
+  // once-latch set by a previous account would swallow the next account's
+  // sync — the only pre-deploy write of its owner set + derivation version.
+  // The Safe address is part of the key so a derivation that corrects the
+  // address mid-onboarding re-syncs the corrected row too.
   const syncedUserFor = useRef<string | null>(null);
 
   // The embedded Privy wallet, when one exists (Google / no-wallet logins).
@@ -519,12 +519,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // null signer_address is invisible to that lookup forever, so the user is
     // treated as new on return and bounced back into onboarding.
     if (!safeAddress || !identityToken || !wallet?.address) return;
-    const signerKey = wallet.address.toLowerCase();
-    if (syncedUserFor.current === signerKey) return;
+    // Keyed by signer AND Safe address: if the resolved address changes for
+    // the same signer (e.g. a derivation correcting mid-onboarding), the
+    // corrected row must get its own full sync — a signer-only latch would
+    // leave it without owners/derivation_version/backup registration.
+    const syncKey = `${wallet.address.toLowerCase()}|${safeAddress.toLowerCase()}`;
+    if (syncedUserFor.current === syncKey) return;
     // Freshly derived Safes wait for the onboarding commit; record-backed
     // users sync immediately as before.
     if (safeDerived && !safeCommitted) return;
-    syncedUserFor.current = signerKey;
+    syncedUserFor.current = syncKey;
     const google = (privyUser as { google?: { email?: string; name?: string } } | null)?.google;
     apiFetch("/users", identityToken, {
       method: "POST",

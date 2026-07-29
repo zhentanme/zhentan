@@ -16,6 +16,7 @@ import type { SafeProposalContext } from "@/types";
  *   starter → protected   MultiSend[addOwner(backup, 1), addOwner(agent, 2)]
  *   guarded → protected   addOwnerWithThreshold(backup, 2)
  *   protected → detached  removeOwner(prevOwner, agent, 2)
+ *   backup key swap       swapOwner(prevOwner, oldBackup, newBackup)
  *
  * From starter (threshold 1) the user's own signature authorizes the
  * transition and the agent merely relays; at threshold 2 the agent co-signs.
@@ -80,6 +81,33 @@ export function detachAgentCalls(
         abi: SAFE_ABI,
         functionName: "removeOwner",
         args: [prevOwner, agent, 2n],
+      }),
+    },
+  ];
+}
+
+/**
+ * Backup-key swap (profile stays protected): replace the old backup owner
+ * with a new one. Linked-list op like detach — `owners` must be the LIVE
+ * on-chain order.
+ */
+export function swapBackupCalls(
+  safeAddress: Address,
+  owners: string[],
+  oldBackup: Address,
+  newBackup: Address
+): SafeCall[] {
+  const idx = owners.findIndex((o) => o.toLowerCase() === oldBackup.toLowerCase());
+  if (idx === -1) throw new Error("Current backup key is not an owner of this Safe");
+  const prevOwner = (idx === 0 ? SENTINEL_OWNER : owners[idx - 1]) as Address;
+  return [
+    {
+      to: safeAddress,
+      value: 0n,
+      data: encodeFunctionData({
+        abi: SAFE_ABI,
+        functionName: "swapOwner",
+        args: [prevOwner, oldBackup, newBackup],
       }),
     },
   ];

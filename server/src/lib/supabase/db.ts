@@ -1245,10 +1245,18 @@ export async function getUserDetails(safeAddress: string): Promise<UserDetailsRo
 }
 
 export async function getUserBySignerAddress(signerAddress: string): Promise<UserDetailsRow | null> {
+  // Deterministic pick if a signer ever maps to multiple rows (e.g. an
+  // orphaned row from an interrupted onboarding): prefer the completed
+  // account, then the newest. `.maybeSingle()` without the limit ERRORS on
+  // multiple matches — and a swallowed error here reads as "no record",
+  // bouncing a returning user into onboarding.
   const { data } = await supabase
     .from("user_details")
     .select("*")
     .ilike("signer_address", signerAddress)
+    .order("onboarding_completed", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
   return data ?? null;
 }

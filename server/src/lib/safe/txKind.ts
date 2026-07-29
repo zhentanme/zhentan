@@ -75,8 +75,9 @@ export function classifyTxKind(
     const removed = calls
       .filter((c) => c.functionName === "removeOwner")
       .map((c) => String(c.args[1]).toLowerCase());
+    const swapped = calls.some((c) => c.functionName === "swapOwner");
 
-    if (added.length || removed.length) {
+    if (added.length || removed.length || swapped) {
       const addsAgent = agent !== "" && added.includes(agent);
       const addsBackup = added.some((a) => a !== agent);
       let kindLabel: string;
@@ -84,6 +85,9 @@ export function classifyTxKind(
       else if (addsAgent) kindLabel = "Screening agent enabled";
       else if (addsBackup) kindLabel = "Backup key added";
       else if (agent !== "" && removed.includes(agent)) kindLabel = "Screening agent removed";
+      // Validation only permits swapping the backup slot, so a swap IS a
+      // backup-key change.
+      else if (swapped) kindLabel = "Backup key changed";
       else kindLabel = "Owners changed";
       return { txKind: "config", kindLabel };
     }
