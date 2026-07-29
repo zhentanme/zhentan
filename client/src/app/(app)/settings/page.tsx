@@ -569,6 +569,9 @@ function SettingsPageContent() {
                 </div>
               </motion.div>
 
+              {/* DANGER ZONE — detach the agent (protected wallets only) */}
+              <DetachZhentanCard />
+
               {/* UPGRADE — future plans */}
               <motion.div variants={staggerItem}>
                 <SectionHeader label="Upgrade" />
@@ -586,10 +589,7 @@ function SettingsPageContent() {
                         Soon
                       </span>
                     </div>
-                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gold/[0.06] text-[11px] font-mono text-gold-300/80">
-                      Claude Sonnet 4.5
-                    </span>
-                    <p className="text-[11px] text-muted-foreground/80 mt-2.5 leading-relaxed">
+                    <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
                       Dedicated NanoBot/Hermes instance with advanced AI model
                     </p>
                   </div>
@@ -617,9 +617,6 @@ function SettingsPageContent() {
                   </div>
                 </div>
               </motion.div>
-
-              {/* DANGER ZONE — detach the agent (protected wallets only) */}
-              <DetachZhentanCard />
             </motion.div>
           </>
         )}
