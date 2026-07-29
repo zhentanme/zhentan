@@ -110,6 +110,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
     setPendingProfile,
     safeAddress,
     safeLoading,
+    safeConfig,
   } = useAuth();
 
   // Two screens: "protect" (screening choice) then "backup" (override key).
@@ -127,12 +128,24 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
 
   const cand = useBackupCandidate();
 
-  const derived = !!safeAddress && !safeLoading;
+  // Readiness gates check the RESOLVED derivation (safeConfig.profile is
+  // classified from the derived owner set), never just the pending inputs:
+  // right after a choice changes, safeAddress/safeConfig still describe the
+  // PREVIOUS derivation for a render or two — and the auto-advance effect
+  // runs before the provider effect that flips safeLoading. Committing in
+  // that window persists a row for the stale address (the duplicate-row bug).
+  const derived = !!safeAddress && !safeLoading && !!safeConfig;
+  const resolvedProfile = safeConfig?.profile ?? null;
   const guardedSelected = pendingProfile === "guarded" || pendingProfile === "protected";
   const starterSelected = pendingProfile === "starter";
-  const starterReady = starterSelected && derived;
-  const protectedReady = pendingProfile === "protected" && !!externalWalletAddress && derived;
-  const guardedReady = pendingProfile === "guarded" && derived;
+  const starterReady = starterSelected && derived && resolvedProfile === "starter";
+  const protectedReady =
+    pendingProfile === "protected" &&
+    !!externalWalletAddress &&
+    derived &&
+    resolvedProfile === "protected";
+  const guardedReady =
+    pendingProfile === "guarded" && derived && resolvedProfile === "guarded";
 
   useEffect(() => {
     if (advancePending && protectedReady) {
