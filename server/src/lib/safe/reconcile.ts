@@ -41,6 +41,38 @@ function isOwnSupersede(tx: { rejected?: boolean; rejectReason?: string }): bool
   return !!tx.rejected && !!tx.rejectReason?.startsWith("Superseded:");
 }
 
+// A supersede verdict can only be premature while the service indexer lags —
+// a window of seconds. Re-verify for an hour after the marking, then treat it
+// as final: without the bound, every dead "Superseded:" row is re-checked
+// against the service on every list read, forever.
+const SUPERSEDE_REVERIFY_WINDOW_MS = 60 * 60 * 1000;
+
+function supersedeIsFinal(tx: { rejectedAt?: string }): boolean {
+  const markedAt = new Date(tx.rejectedAt ?? NaN).getTime();
+  return !(Date.now() - markedAt < SUPERSEDE_REVERIFY_WINDOW_MS);
+}
+
+// Per-row cooldown on the Transaction Service lookup. Reconcile runs from
+// every GET /transactions list read AND the safeSync worker — without this,
+// N open tabs polling at 8s multiply into N×rows service calls a minute,
+// which is what exhausts the Safe API rate limit. Outcomes only change
+// on-chain, so one service check per row per window is plenty; within the
+// window we report `unresolved` and the row simply renders as-is.
+const SERVICE_CHECK_COOLDOWN_MS = 30_000;
+const lastServiceCheck = new Map<string, number>();
+
+function underCooldown(txId: string): boolean {
+  const last = lastServiceCheck.get(txId) ?? 0;
+  if (Date.now() - last < SERVICE_CHECK_COOLDOWN_MS) return true;
+  lastServiceCheck.set(txId, Date.now());
+  return false;
+}
+
+/** Forget resolved rows so the cooldown map only tracks live ones. */
+function clearCooldown(txId: string): void {
+  lastServiceCheck.delete(txId);
+}
+
 /**
  * Reconciles a single SafeTx proposal against service / on-chain truth.
  *
@@ -59,6 +91,7 @@ export async function reconcileSafeTx(
   // concurrent reconcile is never double-written or double-notified.
   const fresh = await getTransaction(tx.id);
   if (fresh?.executedAt) {
+    clearCooldown(tx.id);
     return {
       status: "executed",
       txHash: fresh.txHash ?? "",
@@ -67,10 +100,18 @@ export async function reconcileSafeTx(
     };
   }
   // A user-initiated rejection is final. Our own "Superseded:" marking falls
-  // through to be re-verified below (and healed if it actually executed).
-  if (fresh?.rejected && !isOwnSupersede(fresh)) return { status: "superseded" };
+  // through to be re-verified below (and healed if it actually executed) —
+  // but only within the re-verify window; after that it's final too.
+  if (fresh?.rejected && (!isOwnSupersede(fresh) || supersedeIsFinal(fresh))) {
+    clearCooldown(tx.id);
+    return { status: "superseded" };
+  }
 
   if (tx.safeNonce === undefined) return { status: "unresolved" };
+
+  // Checked against the service recently — nothing can have changed that the
+  // DB reads above wouldn't already reflect. Skip the service round-trip.
+  if (underCooldown(tx.id)) return { status: "unresolved" };
 
   // Authoritative: which safeTxHash did the service index as EXECUTED at OUR
   // nonce? We read by nonce and compare hashes rather than inferring from a
@@ -93,6 +134,7 @@ export async function reconcileSafeTx(
       // Actual executor — the user's backup key for a Safe-UI override.
       const executedBy = winner.executor ?? tx.proposedBy;
       await finishExecution(tx, winner.transactionHash, success, executedBy);
+      clearCooldown(tx.id);
       return { status: "executed", txHash: winner.transactionHash, success, executedBy };
     }
     // A DIFFERENT hash occupied our nonce → genuinely superseded (a rejection,
@@ -109,6 +151,7 @@ export async function reconcileSafeTx(
       rejectedAt: new Date().toISOString(),
       rejectReason: SUPERSEDE_REASON,
     }).catch((err) => console.error("syncLinkedRequest (superseded) failed:", err));
+    clearCooldown(tx.id);
     return { status: "superseded" };
   }
 
