@@ -41,6 +41,17 @@ function isOwnSupersede(tx: { rejected?: boolean; rejectReason?: string }): bool
   return !!tx.rejected && !!tx.rejectReason?.startsWith("Superseded:");
 }
 
+// A supersede verdict can only be premature while the service indexer lags —
+// a window of seconds. Re-verify for an hour after the marking, then treat it
+// as final: without the bound, every dead "Superseded:" row is re-checked
+// against the service on every list read, forever.
+const SUPERSEDE_REVERIFY_WINDOW_MS = 60 * 60 * 1000;
+
+function supersedeIsFinal(tx: { rejectedAt?: string }): boolean {
+  const markedAt = new Date(tx.rejectedAt ?? NaN).getTime();
+  return !(Date.now() - markedAt < SUPERSEDE_REVERIFY_WINDOW_MS);
+}
+
 // Per-row cooldown on the Transaction Service lookup. Reconcile runs from
 // every GET /transactions list read AND the safeSync worker — without this,
 // N open tabs polling at 8s multiply into N×rows service calls a minute,
@@ -89,8 +100,9 @@ export async function reconcileSafeTx(
     };
   }
   // A user-initiated rejection is final. Our own "Superseded:" marking falls
-  // through to be re-verified below (and healed if it actually executed).
-  if (fresh?.rejected && !isOwnSupersede(fresh)) {
+  // through to be re-verified below (and healed if it actually executed) —
+  // but only within the re-verify window; after that it's final too.
+  if (fresh?.rejected && (!isOwnSupersede(fresh) || supersedeIsFinal(fresh))) {
     clearCooldown(tx.id);
     return { status: "superseded" };
   }
