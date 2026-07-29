@@ -18,8 +18,6 @@ import {
   AlertCircle,
   LayoutGrid,
   Zap,
-  Globe,
-  Search,
   RotateCw,
   LogOut,
 } from "lucide-react";
@@ -515,22 +513,6 @@ function SettingsPageContent() {
                   />
                   <SettingsRow
                     className="border-t border-border"
-                    icon={<Globe className="h-[18px] w-[18px]" />}
-                    iconTint="bg-foreground/5 text-muted-foreground"
-                    title="Network"
-                    desc="Chain the agent co-signs on"
-                    action={
-                      <span className="shrink-0 inline-flex items-center gap-2 text-[13px] font-medium text-foreground">
-                        <span
-                          className="h-1.5 w-1.5 rounded-pill bg-safe shadow-[0_0_8px_rgba(63,190,118,0.6)]"
-                          aria-hidden
-                        />
-                        BNB Chain · Mainnet
-                      </span>
-                    }
-                  />
-                  <SettingsRow
-                    className="border-t border-border"
                     icon={<Zap className="h-[18px] w-[18px]" />}
                     iconTint="bg-gold/10 text-gold"
                     title="Force-execute"
@@ -555,24 +537,6 @@ function SettingsPageContent() {
                           )}
                         />
                       </button>
-                    }
-                  />
-                  <SettingsRow
-                    className="border-t border-border"
-                    icon={<Search className="h-[18px] w-[18px]" />}
-                    iconTint="bg-foreground/5 text-muted-foreground"
-                    title="Block explorer"
-                    desc="Where transaction links open"
-                    action={
-                      <a
-                        href="https://bscscan.com"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors"
-                      >
-                        BscScan
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
                     }
                   />
                   {safeAddress && (
