@@ -484,9 +484,9 @@ function SettingsPageContent() {
                 )}
               </AnimatePresence>
 
-              {/* WALLET — standard Safe + network, one card */}
+              {/* APP — wallet, network, force-execute, explorer, tour: one card */}
               <motion.div variants={staggerItem}>
-                <SectionHeader label="Wallet" />
+                <SectionHeader label="App" />
                 <div data-tour="wallet-card" className="rounded-2xl bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
                   <SettingsRow
                     icon={<LayoutGrid className="h-[18px] w-[18px]" />}
@@ -529,14 +529,8 @@ function SettingsPageContent() {
                       </span>
                     }
                   />
-                </div>
-              </motion.div>
-
-              {/* ADVANCED — force-execute */}
-              <motion.div variants={staggerItem}>
-                <SectionHeader label="Advanced" />
-                <div className="rounded-2xl bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
                   <SettingsRow
+                    className="border-t border-border"
                     icon={<Zap className="h-[18px] w-[18px]" />}
                     iconTint="bg-gold/10 text-gold"
                     title="Force-execute"
@@ -563,14 +557,8 @@ function SettingsPageContent() {
                       </button>
                     }
                   />
-                </div>
-              </motion.div>
-
-              {/* APP — explorer + product tour, one card */}
-              <motion.div variants={staggerItem}>
-                <SectionHeader label="App" />
-                <div className="rounded-2xl bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
                   <SettingsRow
+                    className="border-t border-border"
                     icon={<Search className="h-[18px] w-[18px]" />}
                     iconTint="bg-foreground/5 text-muted-foreground"
                     title="Block explorer"
