@@ -14,6 +14,15 @@ import { reconcileSafeTx } from "../lib/safe/reconcile.js";
 
 const SYNC_INTERVAL_MS = 60_000;
 
+// Age-based backoff: a row unresolved for over a day (an abandoned queued
+// tx, a wallet whose agent never ran) is checked hourly instead of every
+// tick. Without this, every stale row costs one Safe-service call per
+// minute forever — a week-old orphan alone burns ~10k requests of the API
+// rate budget.
+const STALE_AFTER_MS = 24 * 60 * 60 * 1000;
+const STALE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const nextStaleCheckAt = new Map<string, number>();
+
 async function getUnresolvedSafeTxRows(): Promise<TransactionRow[]> {
   const { data, error } = await supabase
     .from("transactions")
@@ -44,7 +53,17 @@ async function tick(): Promise<void> {
     console.error("safeSync: failed to list unresolved rows:", err);
     return;
   }
+  // Prune backoff entries for rows that resolved since the last tick.
+  const liveIds = new Set(rows.map((r) => r.id));
+  for (const id of nextStaleCheckAt.keys()) {
+    if (!liveIds.has(id)) nextStaleCheckAt.delete(id);
+  }
   for (const row of rows) {
+    const age = Date.now() - new Date(row.proposed_at).getTime();
+    if (Number.isFinite(age) && age > STALE_AFTER_MS) {
+      if (Date.now() < (nextStaleCheckAt.get(row.id) ?? 0)) continue;
+      nextStaleCheckAt.set(row.id, Date.now() + STALE_CHECK_INTERVAL_MS);
+    }
     try {
       await syncOne(row);
     } catch (err) {
