@@ -457,9 +457,8 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
 
   // Whether this is a zhentan-tracked tx (has our metadata)
   const isZhentanTx = tx.source !== "zerion-only";
-  // Whether counterparty address is meaningful for this op — never for wallet
-  // events, whose "counterparty" is the Safe itself.
-  const showCounterparty = !tx.txKind && !!tx.to && op !== "execute" && op !== "approve";
+  // Whether counterparty address is meaningful for this op
+  const showCounterparty = !!tx.to && op !== "execute" && op !== "approve";
   const counterpartyLabel =
     op === "receive" ? "From" : op === "send" ? "To" : "Interacted with";
 
@@ -529,35 +528,6 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
             </div>
           )}
 
-          {/* Wallet events: the vault and its key setup, not transfer fields */}
-          {tx.txKind && (
-            <div className="flex justify-between gap-2 sm:gap-4">
-              <dt className="text-muted-foreground/80 shrink-0">Vault</dt>
-              <dd
-                className="min-w-0 max-w-[50%] sm:max-w-[200px] truncate"
-                title={tx.safeAddress}
-              >
-                <a
-                  href={`${BSC_EXPLORER_URL}/address/${tx.safeAddress}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group inline-flex items-center gap-2 font-mono text-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline truncate"
-                >
-                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-foreground" />
-                  <span className="truncate">{truncateAddress(tx.safeAddress, 10)}</span>
-                </a>
-              </dd>
-            </div>
-          )}
-          {tx.txKind && (tx.ownerAddresses?.length ?? 0) > 0 && (
-            <div className="flex justify-between gap-2 sm:gap-4">
-              <dt className="text-muted-foreground/80 shrink-0">Keys</dt>
-              <dd className="text-foreground/80">
-                {tx.ownerAddresses.length} owners · {tx.threshold} required
-              </dd>
-            </div>
-          )}
-
           {/* Trade: explicit swap pair */}
           {op === "trade" && tx.tradeReceived && tx.amount && tx.token && (
             <div className="flex justify-between gap-2 sm:gap-4">
@@ -597,18 +567,16 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
             </div>
           )}
 
-          {/* Proposed — zhentan txs only. Creation rows are synthesized from
-              the deploy receipt (proposed = executed), so one date suffices. */}
-          {isZhentanTx && tx.txKind !== "creation" && (
+          {/* Proposed — zhentan txs only */}
+          {isZhentanTx && (
             <div className="flex justify-between gap-2 sm:gap-4">
               <dt className="text-muted-foreground/80 shrink-0">Proposed</dt>
               <dd className="text-foreground/80 truncate min-w-0">{formatDate(tx.proposedAt)}</dd>
             </div>
           )}
 
-          {/* Signatures — zhentan txs only. Not for creation: the deployment
-              is sent by the agent EOA, no Safe signatures exist. */}
-          {isZhentanTx && tx.txKind !== "creation" && (
+          {/* Signatures — zhentan txs only */}
+          {isZhentanTx && (
             <div className="flex justify-between gap-2 sm:gap-4">
               <dt className="text-muted-foreground/80 shrink-0">Signatures</dt>
               <dd className="text-foreground/80">
