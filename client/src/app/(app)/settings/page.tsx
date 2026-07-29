@@ -20,9 +20,13 @@ import {
   Zap,
   RotateCw,
   LogOut,
+  KeyRound,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { useApiClient } from "@/lib/api/client";
+import { Dialog } from "@/components/ui/Dialog";
+import { BackupAddressPicker } from "@/components/BackupAddressPicker";
+import { truncateAddress } from "@/lib/format";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { useSafeTransitions } from "@/lib/useSafeUpgrade";
 import { useForceExecuteSetting } from "@/lib/useForceExecute";
@@ -88,6 +92,82 @@ function SettingsRow({
     </button>
   ) : (
     <div className={clsx("flex items-center gap-3.5 p-[18px]", className)}>{inner}</div>
+  );
+}
+
+/**
+ * Change the backup key (protected wallets only): an on-chain owner swap —
+ * the new key replaces the old at the same address, hard-validated
+ * server-side and co-signed by the agent like any profile transition.
+ */
+function BackupKeyRow() {
+  const { swapBackup, busy, error, profile } = useSafeTransitions();
+  const { externalWalletAddress } = useAuth();
+  const [open, setOpen] = useState(false);
+
+  if (profile !== "protected" || !externalWalletAddress) return null;
+
+  return (
+    <>
+      <SettingsRow
+        className="border-t border-border"
+        icon={<KeyRound className="h-[17px] w-[17px]" />}
+        iconTint="bg-foreground/5 text-muted-foreground"
+        title="Backup key"
+        desc={
+          <span className="font-mono text-[11px] truncate block" title={externalWalletAddress}>
+            {truncateAddress(externalWalletAddress, 13)}
+          </span>
+        }
+        action={
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
+          >
+            Change
+          </button>
+        }
+      />
+      <Dialog
+        open={open}
+        onClose={() => {
+          if (!busy) setOpen(false);
+        }}
+        title="Change backup key"
+        className="max-w-md"
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-muted-foreground/85 leading-relaxed">
+            Swaps your override key on-chain at the same vault address: the new
+            key replaces{" "}
+            <span className="font-mono text-foreground/75">
+              {truncateAddress(externalWalletAddress, 13)}
+            </span>{" "}
+            as an owner. Pick a wallet you control — it never signs during this
+            step.
+          </p>
+          {busy ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-gold" />
+              Swapping owner on-chain...
+            </div>
+          ) : (
+            <BackupAddressPicker
+              onSelect={async (addr) => {
+                try {
+                  await swapBackup(addr);
+                  setOpen(false);
+                } catch {
+                  // error surfaced by the hook
+                }
+              }}
+            />
+          )}
+          {error && <p className="text-xs text-danger">{error}</p>}
+        </div>
+      </Dialog>
+    </>
   );
 }
 
@@ -511,6 +591,7 @@ function SettingsPageContent() {
                       )
                     }
                   />
+                  <BackupKeyRow />
                   <SettingsRow
                     className="border-t border-border"
                     icon={<Zap className="h-[18px] w-[18px]" />}

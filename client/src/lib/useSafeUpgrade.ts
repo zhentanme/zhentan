@@ -10,6 +10,7 @@ import {
   enableAgentCalls,
   addBackupCalls,
   detachAgentCalls,
+  swapBackupCalls,
   proposeTransition,
 } from "@/lib/safe/transitions";
 import type { WalletState } from "@/lib/safe/profiles";
@@ -30,6 +31,8 @@ export interface SafeTransitionsState {
   enableAgentOnly: () => Promise<void>;
   /** guarded → protected (add backup key; the legacy upgrade). */
   addBackup: () => Promise<void>;
+  /** Replace the backup key with a new one (profile stays protected). */
+  swapBackup: (newBackup: string) => Promise<void>;
   /** protected → detached (remove the agent — the exit). */
   detach: () => Promise<void>;
 }
@@ -47,6 +50,7 @@ export function useSafeTransitions(): SafeTransitionsState {
     getOwnerAccount,
     identityToken,
     refreshSafe,
+    wallet,
   } = useAuth();
   const api = useApiClient();
 
@@ -139,6 +143,46 @@ export function useSafeTransitions(): SafeTransitionsState {
     queueTour("upgrade");
   }, [run, safeAddress, externalWalletAddress]);
 
+  const swapBackup = useCallback(
+    async (newBackup: string) => {
+      if (!safeAddress || !safeConfig || !agentAddress) return;
+      const agent = agentAddress.toLowerCase();
+      const signer = wallet?.address?.toLowerCase() ?? "";
+      // The backup slot is the user owner that is neither agent nor signer.
+      const oldBackup = safeConfig.owners.find(
+        (o) => o.toLowerCase() !== agent && o.toLowerCase() !== signer
+      );
+      if (!oldBackup) {
+        setError("This wallet has no backup key to swap");
+        throw new Error("This wallet has no backup key to swap");
+      }
+      if (oldBackup.toLowerCase() === newBackup.toLowerCase()) {
+        setError("That's already your backup key");
+        throw new Error("That's already your backup key");
+      }
+      // Register the NEW key first — the server validates swap calldata
+      // against the registered backup. Best-effort restore on failure so the
+      // record can't drift from the on-chain owner set.
+      await api.users.upsert({ safeAddress, externalWalletAddress: newBackup });
+      try {
+        await run("Change backup key", () =>
+          swapBackupCalls(
+            safeAddress as Address,
+            safeConfig.owners,
+            oldBackup as Address,
+            newBackup as Address
+          )
+        );
+      } catch (err) {
+        await api.users
+          .upsert({ safeAddress, externalWalletAddress: oldBackup })
+          .catch(() => {});
+        throw err;
+      }
+    },
+    [run, safeAddress, safeConfig, agentAddress, wallet?.address, api]
+  );
+
   const detach = useCallback(async () => {
     if (!agentAddress || !safeAddress || !safeConfig) return;
     await run("Detach Zhentan", () =>
@@ -155,6 +199,7 @@ export function useSafeTransitions(): SafeTransitionsState {
     activateProtection,
     enableAgentOnly,
     addBackup,
+    swapBackup,
     detach,
   };
 }

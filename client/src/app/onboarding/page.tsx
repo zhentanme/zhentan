@@ -253,6 +253,12 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
           </div>
 
           <PrimaryCta cta={protectCta} />
+          {starterSelected && (
+            <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
+              Your vault address is minted on creation — adding protection
+              later never changes it.
+            </p>
+          )}
         </>
       ) : (
         /* ── 1b: add the override key ── */
@@ -436,6 +442,15 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
           </AnimatePresence>
 
           <PrimaryCta cta={backupCta} />
+
+          {/* Finality note: the CTA below mints the address / locks the key */}
+          {(cand.candidate || externalWalletAddress || skipped) && (
+            <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
+              {skipped && !cand.candidate && !externalWalletAddress
+                ? "Your vault address is minted on creation — adding an override key later never changes it."
+                : "Creating your vault makes this key a permanent owner — changing it later is an on-chain owner swap in Settings."}
+            </p>
+          )}
 
           <div className="flex items-center justify-between mt-3">
             <button
