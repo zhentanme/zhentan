@@ -27,6 +27,7 @@ import {
 } from "../constants.js";
 import { getPancakeSwapQuote } from "../pancakeswap.js";
 import { fetchTokenPositions } from "../zerion.js";
+import { findFallbackAddressBySymbol } from "../token-fallbacks.js";
 import type { RequestKind, SafeTxData } from "../../types.js";
 
 export interface SafeCall {
@@ -112,11 +113,17 @@ async function buildTransferCalls(params: TransferBuildParams): Promise<BuiltCal
 
 async function buildSwapCalls(params: SwapBuildParams): Promise<BuiltCalls | null> {
   const { safeAddress, fromToken, toToken, sellAmount } = params;
-  const [from, to] = await Promise.all([
+  // Sell token must come from the Safe's holdings (you can't sell what you
+  // don't hold, and parseUnits needs its trusted decimals). The BUY token
+  // usually isn't held yet — fall back to the known-token table; only its
+  // ADDRESS is needed here (the quoter reads decimals/symbol on-chain).
+  const [from, toHeld] = await Promise.all([
     resolveTokenBySymbol(safeAddress, fromToken),
     resolveTokenBySymbol(safeAddress, toToken),
   ]);
-  if (!from || !to) return null;
+  const toAddress = toHeld?.address ?? findFallbackAddressBySymbol(toToken);
+  if (!from || !toAddress) return null;
+  const to = { address: toAddress };
 
   const sellAmountWei = parseUnits(sellAmount, from.decimals);
   const quote = await getPancakeSwapQuote({

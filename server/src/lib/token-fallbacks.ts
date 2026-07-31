@@ -133,3 +133,15 @@ export function getTokenFallback(address: string | null | undefined): TokenFallb
   if (!address) return undefined;
   return TOKEN_FALLBACKS[address.toLowerCase()];
 }
+
+/** Reverse lookup: token symbol → contract address (lowercase key of the
+ *  table). Lets the swap builder resolve a BUY token the Safe doesn't hold
+ *  yet — its decimals and metadata are then read on-chain by the quoter.
+ */
+export function findFallbackAddressBySymbol(symbol: string): string | undefined {
+  const sym = symbol.trim().toUpperCase();
+  for (const [address, meta] of Object.entries(TOKEN_FALLBACKS)) {
+    if (meta.symbol.toUpperCase() === sym) return address;
+  }
+  return undefined;
+}
