@@ -125,13 +125,14 @@ export async function agentProposeFromRequest(
     };
     await createTransaction(tx);
 
-    // Transfers finalize at creation: their calldata can't go stale, and the
-    // eager nonce + agent-signed 1/2 mirror makes the pending request visible
-    // in app.safe.global immediately (parity with the pre-draft flow). Swaps
-    // stay lazy — finalize re-quotes them when the user approves. Best-effort:
+    // APPROVE-scored drafts (any kind) finalize at creation: the eager nonce
+    // + agent-signed 1/2 mirror makes the pending request visible in
+    // app.safe.global immediately (parity with the pre-draft flow). Swap
+    // quotes are refreshed again at approval — see finalizeDraft. REVIEW-band
+    // swaps stay lazy so a dismissed one never parks a nonce. Best-effort:
     // a failure here leaves a lazy draft the approve flow finalizes instead.
-    if (kind === "transfer") {
-      await finalizeDraft(tx).catch((err) =>
+    if ((riskVerdict ?? "APPROVE") === "APPROVE") {
+      await finalizeDraft(tx, { freshQuote: false }).catch((err) =>
         console.error("agentPropose: eager finalize failed (draft stays lazy):", err)
       );
     }

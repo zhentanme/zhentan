@@ -371,11 +371,12 @@ export function createTransactionsRouter(): IRouter {
     }
   });
 
-  // POST /transactions/:id/finalize — assign the Safe nonce and compute the
-  // EIP-712 hash for an agent-proposed DRAFT so the user can sign it. Nonce
-  // assignment is deferred to this moment (not draft creation) so a dismissed
-  // draft never parks a nonce that would block the queue tail. Idempotent —
-  // a second call returns the already-finalized transaction.
+  // POST /transactions/:id/finalize — make an agent-proposed DRAFT signable:
+  // assign the Safe nonce, compute the EIP-712 hash, mirror at 1/2. Swap
+  // drafts additionally get their quote rebuilt here — including
+  // eager-finalized ones, re-proposed fresh at the same nonce — so the user
+  // always signs a current route/min-out (see finalizeDraft). Idempotent for
+  // signed or non-swap finalized rows.
   router.post("/:id/finalize", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
