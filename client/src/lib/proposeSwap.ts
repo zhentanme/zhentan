@@ -90,6 +90,9 @@ export async function proposeSwap({
     amount: sellAmount,
     token: `${fromToken.symbol} → ${toToken.symbol}`,
     tokenAddress: fromToken.address ?? NATIVE_TOKEN_ADDRESS,
+    // The buy token is the analysis target server-side (deep-analyze scans
+    // what the user ends up holding, not what they already own).
+    toTokenAddress: toToken.address ?? undefined,
     tokenIconUrl: fromToken.iconUrl ?? null,
     ...(amountUSD && { amountUSD }),
     ...(screeningDisabled && { screeningDisabled: true }),

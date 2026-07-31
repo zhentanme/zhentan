@@ -46,6 +46,8 @@ export interface TransactionRow {
   user_signatures: { signer: string; data: string }[] | null;
   rejection_signature: string | null;
   confirmations: unknown[] | null;
+  /** Swap rows: the token being bought (analysis target). */
+  to_token_address: string | null;
 }
 
 export interface UserDetailsRow {
@@ -86,10 +88,15 @@ export interface UserSettingsRow {
 export interface RequestRow {
   id: string;
   request_type: string | null;
+  /** Settlement kind: 'transfer' (default) | 'swap'. */
+  kind: string | null;
   safe_address: string | null;
   to_address: string | null;
   amount: string | null;
   token: string | null;
+  from_token: string | null;
+  to_token: string | null;
+  slippage: number | null;
   description: string | null;
   invoice_number: string | null;
   issue_date: string | null;

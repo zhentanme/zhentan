@@ -1,115 +1,100 @@
 /**
- * Agent-initiated proposal for low-risk requests (the "auto-approve" path).
+ * Agent-initiated proposals (the request → transaction half of the pipeline).
  *
- * When a request scores APPROVE, the agent builds the transfer SafeTx and adds
- * ITS co-signature up front — the tx lands at 1-of-2, pre-screened. The user
- * then completes it with a single signature and the relayer executes, or
- * rejects it. This inverts the normal ordering (agent signs first), which is
- * only sound because the agent DID screen it — consistent with "the agent never
- * signs what it didn't screen". The user's signature is still mandatory to
- * reach the threshold, so the agent can never move funds alone.
+ * The agent builds the SafeTx for a queued request — any kind in the builder
+ * registry (transfer, swap) — and stores it as a DRAFT: a normal row the user
+ * completes with one signature. A draft is born with the full call payload
+ * but no nonce, hash, or signature; finalizeDraft() is what makes it signable
+ * (nonce + hash + agent-signed 1/2 mirror to the Transaction Service).
  *
- * An agent-proposed tx is identified by `userSignature` being null (a
- * user-proposed tx always carries it) — no schema change needed.
+ * WHEN a draft finalizes is per-kind:
+ *   - TRANSFERS finalize eagerly right here — their calldata can't go stale,
+ *     and the mirror makes the pending request visible in app.safe.global
+ *     immediately. Dismissing one parks its nonce until superseded (the
+ *     pre-draft flow behaved the same way).
+ *   - SWAPS finalize lazily when the user approves — the quote (route +
+ *     min-out) is rebuilt fresh at that moment; a queue-time quote reverts
+ *     on-chain (GS013) by the time the user signs. A dismissed swap draft
+ *     never parks a nonce.
+ *
+ * The agent's execution signature happens at /execute like every screened
+ * transaction; the user's signature is always mandatory to reach the
+ * threshold, so the agent can never move funds alone. An agent-proposed row
+ * is identified by `userSignature` being null (a user-proposed tx always
+ * carries it).
  */
-import { encodeFunctionData, parseUnits, type Address, type Hex } from "viem";
 import { randomUUID } from "crypto";
 
-import { ERC20_TRANSFER_ABI, NATIVE_TOKEN_ADDRESS } from "../constants.js";
-import { fetchTokenPositions } from "../zerion.js";
-import {
-  getNextSafeNonce,
-  computeSafeTxHash,
-  getProtocolKit,
-  proposeToService,
-} from "./service.js";
+import { KIND_BUILDERS, buildSafeTxFromCalls, type BuiltCalls } from "./builders.js";
+import { finalizeDraft } from "./finalizeDraft.js";
 import { isSafeDeployed } from "./deploy.js";
 import { getAgentAddress } from "./relayer.js";
 import { getUserDetails, createTransaction } from "../supabase/index.js";
-import type { PendingTransaction, SafeTxData } from "../../types.js";
-
-/** Resolve a token symbol → { address, decimals } from the Safe's holdings. */
-async function resolveToken(
-  safeAddress: string,
-  symbol: string
-): Promise<{ address: string; decimals: number } | null> {
-  if (symbol.toUpperCase() === "BNB") {
-    return { address: NATIVE_TOKEN_ADDRESS, decimals: 18 };
-  }
-  try {
-    const { tokens } = await fetchTokenPositions(safeAddress);
-    const t = tokens.find(
-      (x) => x.address && x.symbol?.toUpperCase() === symbol.toUpperCase()
-    );
-    if (t?.address) return { address: t.address, decimals: t.decimals };
-  } catch {
-    /* fall through */
-  }
-  return null;
-}
+import type { PendingTransaction, RequestKind } from "../../types.js";
 
 export interface AgentProposeInput {
+  kind: RequestKind;
   safeAddress: string;
-  to: string;
-  amount: string; // human-readable
-  token: string; // symbol
+  /** transfer: recipient address. Ignored for swaps (display shows the router). */
+  to?: string;
+  /** transfer: human-readable amount. */
+  amount?: string;
+  /** transfer: token symbol. */
+  token?: string;
+  /** swap: sell-token symbol. */
+  fromToken?: string;
+  /** swap: buy-token symbol. */
+  toToken?: string;
+  /** swap: human-readable sell amount. */
+  sellAmount?: string;
+  /** swap: slippage fraction (0.005 = 0.5%). */
+  slippage?: number;
   riskScore: number;
+  riskVerdict?: "APPROVE" | "REVIEW" | "BLOCK";
   riskReasons: string[];
 }
 
 /**
- * Builds + agent-signs a transfer SafeTx for an APPROVE request and stores it as
- * a pending (1-of-2) transaction, mirrored to the Transaction Service. Returns
- * the tx id, or null when it can't pre-sign (undeployed Safe, unknown embedded
- * owner, unresolvable token, or a build error) — the request then just stays
- * queued with its risk score.
+ * Builds a draft SafeTx for a request and stores it as a pending row awaiting
+ * the user's signature. Returns the tx id, or null when the draft can't be
+ * built (undeployed Safe, unknown embedded owner, unresolvable token, no
+ * swap route, or a build error) — the request then just stays queued with its
+ * risk score.
  */
 export async function agentProposeFromRequest(
   input: AgentProposeInput
 ): Promise<string | null> {
-  const { safeAddress, to, amount, token, riskScore, riskReasons } = input;
+  const { kind, safeAddress, riskScore, riskVerdict, riskReasons } = input;
   try {
     const record = await getUserDetails(safeAddress);
     const embedded = record?.signer_address;
     if (!embedded) return null; // no known user owner to co-sign later
     if (!record?.safe_deployed && !(await isSafeDeployed(safeAddress))) return null;
 
-    const tk = await resolveToken(safeAddress, token);
-    if (!tk) return null;
+    let built: BuiltCalls | null = null;
+    if (kind === "swap") {
+      if (!input.fromToken || !input.toToken || !input.sellAmount) return null;
+      built = await KIND_BUILDERS.swap({
+        safeAddress,
+        fromToken: input.fromToken,
+        toToken: input.toToken,
+        sellAmount: input.sellAmount,
+        slippage: input.slippage,
+      });
+    } else {
+      if (!input.to || !input.amount || !input.token) return null;
+      built = await KIND_BUILDERS.transfer({
+        safeAddress,
+        to: input.to,
+        amount: input.amount,
+        token: input.token,
+      });
+    }
+    if (!built) return null;
 
-    const amountWei = parseUnits(amount, tk.decimals);
-    const isNative = tk.address.toLowerCase() === NATIVE_TOKEN_ADDRESS.toLowerCase();
-    const call = isNative
-      ? { to: to as Address, value: amountWei, data: "0x" as Hex }
-      : {
-          to: tk.address as Address,
-          value: 0n,
-          data: encodeFunctionData({
-            abi: ERC20_TRANSFER_ABI,
-            functionName: "transfer",
-            args: [to as Address, amountWei],
-          }),
-        };
-
-    const nonce = await getNextSafeNonce(safeAddress);
-    const safeTx: SafeTxData = {
-      to: call.to,
-      value: call.value.toString(),
-      data: call.data,
-      operation: 0,
-      safeTxGas: "0",
-      baseGas: "0",
-      gasPrice: "0",
-      gasToken: NATIVE_TOKEN_ADDRESS,
-      refundReceiver: NATIVE_TOKEN_ADDRESS,
-      nonce,
-    };
-    const safeTxHash = computeSafeTxHash(safeAddress, safeTx);
-
-    // Agent's pre-signature — it screened this as APPROVE, so signing is
-    // consistent with the invariant. The user's signature is still required.
-    const protocolKit = await getProtocolKit(safeAddress);
-    const agentSig = await protocolKit.signHash(safeTxHash);
+    // Placeholder nonce — replaced at finalize time; the stored hash-less
+    // draft can't be signed or executed until then.
+    const safeTx = buildSafeTxFromCalls(built.calls, 0);
 
     const owners =
       record.safe_owners?.length
@@ -120,39 +105,36 @@ export async function agentProposeFromRequest(
     const tx: PendingTransaction = {
       id: txId,
       txType: "safetx",
-      to,
-      amount,
-      token,
-      tokenAddress: isNative ? NATIVE_TOKEN_ADDRESS : tk.address,
-      proposedBy: embedded, // the eventual user co-signer (owner #1)
-      // userSignature left undefined → marks this agent-proposed, awaiting user
+      draft: true,
+      to: built.display.to,
+      amount: built.display.amount,
+      token: built.display.token,
+      tokenAddress: built.display.tokenAddress,
+      ...(built.display.toTokenAddress && { toTokenAddress: built.display.toTokenAddress }),
+      proposedBy: embedded, // the eventual user signer (owner #1)
+      // userSignature left undefined → awaiting the user
       signatures: [],
       ownerAddresses: owners,
       threshold: record.safe_threshold ?? 2,
       safeAddress,
       safeTx,
-      safeTxHash,
-      safeNonce: nonce,
       riskScore,
-      riskVerdict: "APPROVE",
+      riskVerdict: riskVerdict ?? "APPROVE",
       riskReasons,
       proposedAt: new Date().toISOString(),
     };
     await createTransaction(tx);
 
-    // Mirror at 1-of-2 (agent as proposer + its signature) so it also shows in
-    // app.safe.global. Best-effort — local assembly executes regardless.
-    try {
-      await proposeToService({
-        safeAddress,
-        safeTx,
-        safeTxHash,
-        senderAddress: getAgentAddress(),
-        senderSignature: agentSig.data,
-        origin: "Zhentan (agent pre-approved)",
-      });
-    } catch (err) {
-      console.error("agentPropose: service mirror failed (continuing):", err);
+    // APPROVE-scored drafts (any kind) finalize at creation: the eager nonce
+    // + agent-signed 1/2 mirror makes the pending request visible in
+    // app.safe.global immediately (parity with the pre-draft flow). Swap
+    // quotes are refreshed again at approval — see finalizeDraft. REVIEW-band
+    // swaps stay lazy so a dismissed one never parks a nonce. Best-effort:
+    // a failure here leaves a lazy draft the approve flow finalizes instead.
+    if ((riskVerdict ?? "APPROVE") === "APPROVE") {
+      await finalizeDraft(tx, { freshQuote: false }).catch((err) =>
+        console.error("agentPropose: eager finalize failed (draft stays lazy):", err)
+      );
     }
 
     return txId;

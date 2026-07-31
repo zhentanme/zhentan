@@ -108,6 +108,41 @@ export const ERC20_TRANSFER_ABI = [
   },
 ] as const;
 
+export const ERC20_APPROVE_ABI = [
+  {
+    name: "approve",
+    type: "function" as const,
+    stateMutability: "nonpayable" as const,
+    inputs: [
+      { name: "spender", type: "address" as const },
+      { name: "amount", type: "uint256" as const },
+    ],
+    outputs: [{ type: "bool" as const }],
+  },
+] as const;
+
+export const MULTISEND_ABI = [
+  {
+    name: "multiSend",
+    type: "function" as const,
+    stateMutability: "payable" as const,
+    inputs: [{ name: "transactions", type: "bytes" as const }],
+    outputs: [],
+  },
+] as const;
+
+/**
+ * DEX routers the kind decoder recognizes as swap targets. A call to any
+ * other contract classifies as "dapp-call" and is scored accordingly —
+ * membership here is a classification aid, not a security boundary.
+ */
+export const KNOWN_ROUTERS: Record<string, string> = {
+  // PancakeSwap Smart Router (BSC)
+  "0x13f4ea83d0bd40e75c8222255bc855a974568dd4": "PancakeSwap",
+  // LI.FI Diamond (canonical cross-chain router, same address on BSC)
+  "0x1231deb6f5749ef6ce6943a275a1d3e7486f4eae": "LI.FI",
+};
+
 export function getPimlicoRpcUrl(apiKey: string): string {
   return `https://api.pimlico.io/v2/binance/rpc?apikey=${apiKey}`;
 }
