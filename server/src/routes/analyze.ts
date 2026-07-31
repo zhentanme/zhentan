@@ -1,6 +1,7 @@
 import { Router, Request, Response, type IRouter } from "express";
 import { getTransaction, getLastInReviewTransaction, getRecipientProfile } from "../lib/supabase/index.js";
 import { getSafeAddressFromCallerId } from "../lib/caller.js";
+import { decodeTxKind } from "../lib/safe/kind.js";
 
 const BSC_CHAIN_ID = "56";
 
@@ -175,16 +176,27 @@ export function createAnalyzeRouter(): IRouter {
         return;
       }
 
-      // Fetch recipient profile from DB
-      const profile = tx.safeAddress
-        ? await getRecipientProfile(tx.to.toLowerCase(), tx.safeAddress)
-        : null;
+      // Classify from calldata so each kind scans its actual risk surface:
+      // transfers scan the recipient + sent token; swaps scan the router and
+      // the token being BOUGHT (what the user ends up holding) — the sell
+      // token is already theirs.
+      const decoded = decodeTxKind(tx);
+      const isSwap = decoded.kind === "swap";
 
-      const tokenAddr = (tx.tokenAddress || "").toLowerCase();
+      // Fetch recipient profile from DB (payment kinds only — a router is
+      // not a recipient)
+      const profile =
+        tx.safeAddress && !isSwap && decoded.kind !== "approval"
+          ? await getRecipientProfile(tx.to.toLowerCase(), tx.safeAddress)
+          : null;
+
+      // Swaps: prefer the buy token (stored at proposal time); fall back to
+      // the sell token so pre-refactor rows still get a token scan.
+      const tokenAddr = (
+        (isSwap ? tx.toTokenAddress || tx.tokenAddress : tx.tokenAddress) || ""
+      ).toLowerCase();
       const isKnownStable = KNOWN_STABLECOINS.has(tokenAddr);
 
-      console.log("tokenAddr", tokenAddr);
-      console.log("isKnownStable", isKnownStable);
       // Run external API checks in parallel
       const [addressSecurity, tokenSecurity, honeypot] = await Promise.all([
         checkAddressSecurity(tx.to),
@@ -195,11 +207,31 @@ export function createAnalyzeRouter(): IRouter {
       const allFlags: string[] = [];
       const addrFlags = (addressSecurity as { flags?: string[] }).flags;
       if (addrFlags) allFlags.push(...addrFlags);
-      if (!profile) allFlags.push("Unknown recipient (not in patterns)");
+      if (isSwap) {
+        if (decoded.routerName === null) {
+          allFlags.push(`Unrecognized swap router: ${decoded.router}`);
+        }
+        if (decoded.approval?.infinite) {
+          allFlags.push("Unlimited token approval granted to the router");
+        }
+      } else if (decoded.kind === "approval") {
+        if (decoded.infinite) allFlags.push("Unlimited token approval");
+      } else if (!profile) {
+        allFlags.push("Unknown recipient (not in patterns)");
+      }
 
       res.json({
         txId: id,
         callerId,
+        kind: decoded.kind,
+        ...(isSwap && {
+          swap: {
+            router: decoded.router,
+            routerName: decoded.routerName,
+            analyzedToken: tokenAddr || null,
+            analyzedTokenIs: tx.toTokenAddress ? "buy-token" : "sell-token",
+          },
+        }),
         to: tx.to,
         amount: tx.amount,
         token: tx.token,

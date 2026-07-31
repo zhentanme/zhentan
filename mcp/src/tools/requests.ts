@@ -26,16 +26,30 @@ export function registerRequestTools(server: McpServer) {
   server.registerTool(
     "queue_request",
     {
-      title: "Queue a payment request",
+      title: "Queue a payment or swap request",
       description:
-        "Queue an incoming payment request (a parsed invoice or a general transfer instruction) to the user's " +
+        "Queue an incoming request (a parsed invoice, a transfer instruction, or a token swap) to the user's " +
         "Zhentan dashboard for approval. This does NOT move funds — the user approves it in the app. " +
-        "Use when the user forwards an invoice or asks to send/pay someone.",
+        "Use when the user forwards an invoice, asks to send/pay someone, or asks to swap tokens. " +
+        'For swaps set kind: "swap" with fromToken/toToken (symbols) and amount = sell amount; ' +
+        "to/token are not used and invoice fields are invalid.",
       inputSchema: {
-        type: z.enum(["invoice", "transfer"]).describe('"invoice" for invoice documents, "transfer" for send/pay instructions'),
-        to: ADDRESS.describe("Recipient wallet address"),
-        amount: z.string().regex(/^\d+(\.\d+)?$/, "amount must be a positive decimal string"),
-        token: z.string().min(1).describe('Token symbol, e.g. "USDC"'),
+        type: z.enum(["invoice", "transfer"]).optional().describe('"invoice" for invoice documents, "transfer" for send/pay instructions. Omit for swaps.'),
+        kind: z
+          .enum(["transfer", "swap"])
+          .optional()
+          .describe('How the request settles on-chain. Default "transfer" (invoices are always transfers); "swap" for token swaps.'),
+        to: ADDRESS.optional().describe("Recipient wallet address (required unless kind is swap)"),
+        amount: z.string().regex(/^\d+(\.\d+)?$/, "amount must be a positive decimal string").describe("Transfer amount, or the SELL amount for swaps"),
+        token: z.string().min(1).optional().describe('Token symbol, e.g. "USDC" (required unless kind is swap)'),
+        fromToken: z.string().min(1).optional().describe('Swaps only: sell-token symbol, e.g. "USDC"'),
+        toToken: z.string().min(1).optional().describe('Swaps only: buy-token symbol, e.g. "WBNB"'),
+        slippage: z
+          .number()
+          .min(0.0001)
+          .max(0.5)
+          .optional()
+          .describe("Swaps only: slippage as a fraction (0.005 = 0.5%). Default 0.005."),
         callerId: CALLER_ID.describe("Required — resolves which user's Safe owns this request"),
         description: z.string().max(500).optional().describe("For transfers: the user's instruction in one sentence"),
         invoiceNumber: z.string().optional(),
@@ -51,15 +65,17 @@ export function registerRequestTools(server: McpServer) {
           .max(100)
           .optional()
           .describe(
-            "Always set this. Your 0–100 risk assessment of the request — score it yourself " +
-              "(the server does not): unknown vs known recipient, amount vs the recipient's history, " +
-              "hour-of-day, and single-tx/daily/custom limits.",
+            "CONTEXTUAL risk only (0–100), and only when you see a red flag the server cannot: " +
+              "a suspicious invoice, a social-engineering smell, a resolved name that doesn't match its address. " +
+              "The server already scores recipient history, amounts, velocity and time-of-day deterministically — " +
+              "do NOT re-derive those factors. Your score can only raise the server's, never lower it. " +
+              "Omit entirely for routine requests.",
           ),
         riskNotes: z
           .string()
           .max(500)
           .optional()
-          .describe("Always set this. One line justifying the riskScore."),
+          .describe("One line naming the contextual red flag. Required when riskScore is set."),
       },
     },
     async (args) => {

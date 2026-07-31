@@ -40,9 +40,25 @@ export function transactionsApi(req: ApiFetchFn) {
     },
 
     /**
-     * Complete an agent-proposed (pre-signed, 1-of-2) tx: submit the user's
-     * signature over its safeTxHash; the server verifies it, stores it, and the
-     * relayer executes. Used by the auto-approve request flow.
+     * Finalize an agent-proposed DRAFT: the server assigns the Safe nonce and
+     * computes the EIP-712 hash so the user can sign. Deferred to this moment
+     * so a dismissed draft never parks a nonce. Idempotent — returns the
+     * transaction with its final safeTx/safeTxHash either way.
+     */
+    async finalize(id: string): Promise<{ transaction: TransactionWithStatus }> {
+      const res = await req(`/transactions/${encodeURIComponent(id)}/finalize`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+
+    /**
+     * Complete an agent-proposed tx: submit the user's signature over its
+     * safeTxHash; the server verifies it, stores it, and the relayer executes
+     * (the agent co-signs at execution — it screened the request when it
+     * built the draft). Used by the request draft flow after finalize().
      */
     async sign(
       id: string,

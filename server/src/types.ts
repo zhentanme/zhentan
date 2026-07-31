@@ -83,6 +83,15 @@ export interface PendingTransaction {
   userSignatures?: { signer: string; data: string }[];
   /** Pre-signed empty tx at the same nonce, used to cancel on reject. */
   rejectionSignature?: string;
+  /**
+   * Agent-proposed row awaiting the user's decision. Drafts carry a safeTx
+   * with a placeholder nonce and NO safeTxHash — the nonce is assigned and
+   * the hash computed only when the user finalizes to sign, so dismissing a
+   * draft never parks a Safe nonce.
+   */
+  draft?: boolean;
+  /** Swap rows: the token being bought (the actual risk surface for analysis). */
+  toTokenAddress?: string;
   proposedAt: string;
   executedAt?: string;
   executedBy?: string;
@@ -121,6 +130,13 @@ export type RequestStatus = "queued" | "approved" | "executed" | "rejected";
 /** 'invoice' = parsed invoice document; 'transfer' = general transaction instruction */
 export type RequestType = "invoice" | "transfer";
 
+/**
+ * How a request SETTLES on-chain, orthogonal to `type` (which is
+ * presentation: an invoice is a transfer with billing metadata). Defaults to
+ * "transfer"; invoices are always transfers.
+ */
+export type RequestKind = "transfer" | "swap";
+
 export interface InvoiceService {
   description: string;
   qty: number;
@@ -142,11 +158,19 @@ export interface InvoiceParty {
 export interface QueuedRequest {
   id: string;
   type: RequestType;
+  /** Settlement kind — absent means "transfer" (all pre-kind rows). */
+  kind?: RequestKind;
   /** Owner Safe address — requests are scoped per-Safe. */
   safeAddress?: string;
   to: string;
   amount: string;
   token: string;
+  /** Swap requests: sell-token symbol. */
+  fromToken?: string;
+  /** Swap requests: buy-token symbol. */
+  toToken?: string;
+  /** Swap requests: slippage as a fraction (0.005 = 0.5%). */
+  slippage?: number;
   /** Free-text instruction/summary from the agent (e.g. the user's original ask). */
   description?: string;
   invoiceNumber?: string;
