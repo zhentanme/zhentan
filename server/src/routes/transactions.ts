@@ -2,14 +2,8 @@ import { Router, Request, Response, type IRouter } from "express";
 import type { Hex } from "viem";
 import type { TransactionWithStatus } from "../types.js";
 import { getTransactionStatus } from "../lib/format.js";
-import {
-  recoverSafeTxSigner,
-  computeSafeTxHash,
-  getNextSafeNonce,
-  getProtocolKit,
-  getApiKit,
-  proposeToService,
-} from "../lib/safe/service.js";
+import { recoverSafeTxSigner, getApiKit } from "../lib/safe/service.js";
+import { finalizeDraft, SwapRefreshError } from "../lib/safe/finalizeDraft.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
 import {
   getTransactionsByAddress,
@@ -18,9 +12,7 @@ import {
   updateTransaction,
   getUserDetails,
   syncLinkedRequest,
-  getRequestByTxId,
 } from "../lib/supabase/index.js";
-import { KIND_BUILDERS, buildSafeTxFromCalls } from "../lib/safe/builders.js";
 import { getSafeAddressFromCallerId } from "../lib/caller.js";
 import { notify } from "../notifications/index.js";
 import { fetchTransfers, type ZerionHistoryItem } from "../lib/zerion.js";
@@ -408,83 +400,16 @@ export function createTransactionsRouter(): IRouter {
         res.status(403).json({ error: "Forbidden" });
         return;
       }
-      if (tx.safeTxHash) {
-        // Already finalized (or a user proposal, which is born finalized).
-        res.json({ transaction: { ...tx, status: getTransactionStatus(tx) } });
-        return;
-      }
-
-      // Swap drafts re-quote NOW: their calldata (route + min-out) was built
-      // when the agent queued the request, and a quote goes stale between
-      // then and the user's approval — a stale min-out reverts on-chain
-      // (GS013). Nothing is signed yet, so rebuilding is free; the user
-      // signs the fresh payload this endpoint returns.
-      let safeTxBase = tx.safeTx;
-      let display: { to?: string; toTokenAddress?: string } = {};
-      const linkedRequest = await getRequestByTxId(id).catch(() => null);
-      if (linkedRequest?.kind === "swap" && linkedRequest.fromToken && linkedRequest.toToken) {
-        const rebuilt = await KIND_BUILDERS.swap({
-          safeAddress: tx.safeAddress,
-          fromToken: linkedRequest.fromToken,
-          toToken: linkedRequest.toToken,
-          sellAmount: linkedRequest.amount,
-          slippage: linkedRequest.slippage,
-        });
-        if (!rebuilt) {
-          res.status(502).json({
-            error: "Swap route could not be refreshed — ask Zhentan to queue the swap again",
-          });
+      try {
+        const finalized = await finalizeDraft(tx);
+        res.json({ transaction: { ...finalized, status: getTransactionStatus(finalized) } });
+      } catch (err) {
+        if (err instanceof SwapRefreshError) {
+          res.status(502).json({ error: err.message });
           return;
         }
-        safeTxBase = buildSafeTxFromCalls(rebuilt.calls, 0);
-        display = {
-          to: rebuilt.display.to,
-          toTokenAddress: rebuilt.display.toTokenAddress,
-        };
+        throw err;
       }
-
-      const nonce = await getNextSafeNonce(tx.safeAddress);
-      const safeTx = { ...safeTxBase!, nonce };
-      const safeTxHash = computeSafeTxHash(tx.safeAddress, safeTx);
-      await updateTransaction(id, {
-        safeTx,
-        safeTxHash,
-        safeNonce: nonce,
-        ...(display.to && { to: display.to }),
-        ...(display.toTokenAddress && { toTokenAddress: display.toTokenAddress }),
-      });
-
-      // Mirror to the Transaction Service at 1/2 — the agent proposes with
-      // its own signature (it screened this draft, so signing is consistent
-      // with the invariant), making the tx visible in app.safe.global from
-      // the moment the user starts signing, exactly like the pre-draft flow.
-      // Best-effort: a service outage must not block signing — execution
-      // assembles signatures locally.
-      try {
-        const protocolKit = await getProtocolKit(tx.safeAddress);
-        const agentSig = await protocolKit.signHash(safeTxHash);
-        await proposeToService({
-          safeAddress: tx.safeAddress,
-          safeTx,
-          safeTxHash,
-          senderAddress: getAgentAddress(),
-          senderSignature: agentSig.data,
-          origin: "Zhentan (agent draft)",
-        });
-      } catch (err) {
-        console.error("Draft finalize: service mirror failed (continuing):", err);
-      }
-
-      const finalized = {
-        ...tx,
-        ...(display.to && { to: display.to }),
-        ...(display.toTokenAddress && { toTokenAddress: display.toTokenAddress }),
-        safeTx,
-        safeTxHash,
-        safeNonce: nonce,
-        draft: undefined,
-      };
-      res.json({ transaction: { ...finalized, status: getTransactionStatus(finalized) } });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       res.status(500).json({ error: message });

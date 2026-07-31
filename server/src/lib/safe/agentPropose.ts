@@ -3,26 +3,30 @@
  *
  * The agent builds the SafeTx for a queued request — any kind in the builder
  * registry (transfer, swap) — and stores it as a DRAFT: a normal row the user
- * completes with one signature. Drafts carry the full call payload but NO
- * nonce, hash, or signature of any party:
+ * completes with one signature. A draft is born with the full call payload
+ * but no nonce, hash, or signature; finalizeDraft() is what makes it signable
+ * (nonce + hash + agent-signed 1/2 mirror to the Transaction Service).
  *
- *   - The nonce is assigned and the EIP-712 hash computed only when the user
- *     finalizes to sign (POST /transactions/:id/finalize). A dismissed draft
- *     therefore never parks a Safe nonce and needs no on-chain rejection.
- *   - The agent's signature happens at execution time like every screened
- *     transaction (/execute signs fresh) — consistent with "the agent never
- *     signs what it didn't screen", and the user's signature is still
- *     mandatory to reach the threshold, so the agent can never move funds
- *     alone.
- *   - Drafts are never mirrored to the Transaction Service (a mirror needs a
- *     nonce). Visibility in app.safe.global starts once the user signs.
+ * WHEN a draft finalizes is per-kind:
+ *   - TRANSFERS finalize eagerly right here — their calldata can't go stale,
+ *     and the mirror makes the pending request visible in app.safe.global
+ *     immediately. Dismissing one parks its nonce until superseded (the
+ *     pre-draft flow behaved the same way).
+ *   - SWAPS finalize lazily when the user approves — the quote (route +
+ *     min-out) is rebuilt fresh at that moment; a queue-time quote reverts
+ *     on-chain (GS013) by the time the user signs. A dismissed swap draft
+ *     never parks a nonce.
  *
- * An agent-proposed row is identified by `draft: true` (plus `userSignature`
- * being null — a user-proposed tx always carries it).
+ * The agent's execution signature happens at /execute like every screened
+ * transaction; the user's signature is always mandatory to reach the
+ * threshold, so the agent can never move funds alone. An agent-proposed row
+ * is identified by `userSignature` being null (a user-proposed tx always
+ * carries it).
  */
 import { randomUUID } from "crypto";
 
 import { KIND_BUILDERS, buildSafeTxFromCalls, type BuiltCalls } from "./builders.js";
+import { finalizeDraft } from "./finalizeDraft.js";
 import { isSafeDeployed } from "./deploy.js";
 import { getAgentAddress } from "./relayer.js";
 import { getUserDetails, createTransaction } from "../supabase/index.js";
@@ -120,6 +124,18 @@ export async function agentProposeFromRequest(
       proposedAt: new Date().toISOString(),
     };
     await createTransaction(tx);
+
+    // Transfers finalize at creation: their calldata can't go stale, and the
+    // eager nonce + agent-signed 1/2 mirror makes the pending request visible
+    // in app.safe.global immediately (parity with the pre-draft flow). Swaps
+    // stay lazy — finalize re-quotes them when the user approves. Best-effort:
+    // a failure here leaves a lazy draft the approve flow finalizes instead.
+    if (kind === "transfer") {
+      await finalizeDraft(tx).catch((err) =>
+        console.error("agentPropose: eager finalize failed (draft stays lazy):", err)
+      );
+    }
+
     return txId;
   } catch (err) {
     console.error("agentPropose failed (request stays queued):", err);
