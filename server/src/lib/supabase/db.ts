@@ -3,6 +3,7 @@
  * Replaces the readFileSync / writeFileSync pattern across all routes.
  */
 import { supabase } from "./client.js";
+import { decodeTxKind } from "../safe/kind.js";
 import type {
   TransactionRow,
   UserDetailsRow,
@@ -46,6 +47,12 @@ export function rowToTx(row: TransactionRow): PendingTransaction {
     safeTxHash: row.safe_tx_hash ?? undefined,
     safeTx: (row.safe_tx as unknown as PendingTransaction["safeTx"]) ?? undefined,
     safeNonce: row.safe_nonce ?? undefined,
+    // Derived, never stored: only agent-proposed drafts lack a hash — every
+    // user proposal is required to carry one (validateSafeTxProposal), so
+    // this can't drift from the row's actual state. Finalizing (assigning
+    // the nonce + hash) is exactly what ends draft-ness.
+    draft: row.tx_type === "safetx" && !row.safe_tx_hash ? true : undefined,
+    toTokenAddress: row.to_token_address ?? undefined,
     userSignature: row.user_signature ?? undefined,
     userSignatures: row.user_signatures ?? undefined,
     rejectionSignature: row.rejection_signature ?? undefined,
@@ -107,6 +114,7 @@ function txToRow(tx: PendingTransaction): TransactionRow {
     tx_hash: tx.txHash ?? null,
     success: tx.success ?? null,
     screening_disabled: tx.screeningDisabled ?? false,
+    to_token_address: tx.toTokenAddress ?? null,
   };
 }
 
@@ -114,10 +122,14 @@ function rowToRequest(row: RequestRow): QueuedRequest {
   return {
     id: row.id,
     type: row.request_type === "transfer" ? "transfer" : "invoice",
+    kind: row.kind === "swap" ? "swap" : "transfer",
     safeAddress: row.safe_address ?? undefined,
     to: row.to_address ?? "",
     amount: row.amount ?? "",
     token: row.token ?? "",
+    fromToken: row.from_token ?? undefined,
+    toToken: row.to_token ?? undefined,
+    slippage: row.slippage ?? undefined,
     description: row.description ?? undefined,
     invoiceNumber: row.invoice_number ?? undefined,
     issueDate: row.issue_date ?? undefined,
@@ -142,10 +154,14 @@ function requestToRow(req: QueuedRequest): RequestRow {
   return {
     id: req.id,
     request_type: req.type ?? "invoice",
+    kind: req.kind ?? "transfer",
     safe_address: req.safeAddress?.toLowerCase() ?? null,
     to_address: req.to ?? null,
     amount: req.amount ?? null,
     token: req.token ?? null,
+    from_token: req.fromToken ?? null,
+    to_token: req.toToken ?? null,
+    slippage: req.slippage ?? null,
     description: req.description ?? null,
     invoice_number: req.invoiceNumber ?? null,
     issue_date: req.issueDate ?? null,
@@ -986,8 +1002,17 @@ export async function updatePatternsAfterExecution(
   const dayOfWeek = now.getUTCDay();
   const today = now.toISOString().split("T")[0];
 
+  // Swaps and approvals have no payment recipient — `tx.to` is a router or
+  // token contract, and learning it as a recipient would corrupt the trust
+  // profile the risk engine scores real payments against. Token, time,
+  // velocity and daily patterns still learn from every kind.
+  const decoded = decodeTxKind(tx);
+  const hasRecipient = decoded.kind !== "swap" && decoded.kind !== "approval";
+
   await Promise.all([
-    _updateRecipientProfile(safe, tx.to.toLowerCase(), amount, hourUtc, dayOfWeek, now),
+    ...(hasRecipient
+      ? [_updateRecipientProfile(safe, tx.to.toLowerCase(), amount, hourUtc, dayOfWeek, now)]
+      : []),
     _updateTimePattern(safe, hourUtc, dayOfWeek, amount),
     _updateTokenPattern(safe, tx),
     incrementVelocityWindow(safe, "hourly", amount),

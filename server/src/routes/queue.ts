@@ -16,6 +16,7 @@ import { notify } from "../notifications/index.js";
 import { SAFE_ABI, MULTISEND_CALL_ONLY } from "../lib/constants.js";
 import { decodeMultiSendData } from "@safe-global/protocol-kit";
 import { classifyProfile, type WalletState } from "../lib/safe/profiles.js";
+import { decodeSafeTxKind } from "../lib/safe/kind.js";
 import {
   computeSafeTxHash,
   recoverSafeTxSigner,
@@ -498,7 +499,12 @@ export function createQueueRouter(): IRouter {
       let risk;
       try {
         const patterns = await getPatternsForSafe(pendingTx.safeAddress ?? "");
-        risk = analyzeRisk(pendingTx, patterns);
+        // Classify from the SIGNED calldata so swaps/approvals are scored by
+        // their own strategy instead of as a "transfer to the router".
+        const decoded = isSafeTx
+          ? decodeSafeTxKind(pendingTx.safeTx, pendingTx.safeAddress)
+          : undefined;
+        risk = analyzeRisk(pendingTx, patterns, decoded);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("Risk analysis failed:", msg);

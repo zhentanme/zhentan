@@ -77,13 +77,14 @@ function RequestsPageContent() {
       if (!user || !wallet) throw new Error("Please log in first");
       if (!safeAddress) throw new Error("Wallet not ready");
 
-      // Auto-approve path: the agent already built + pre-signed this tx (1-of-2).
-      // Fetch it, add the user's signature over the same safeTxHash, and the
-      // relayer executes — no fresh proposal, no re-screening.
+      // Draft path: the agent already built this tx (transfer or swap) as a
+      // draft. Finalize assigns the Safe nonce + hash NOW (deferred so a
+      // dismissed draft never parks a nonce), then the user signs that final
+      // payload and the relayer executes — no fresh proposal, no re-screening.
       if (request.txId) {
-        const { transaction } = await api.transactions.get(request.txId);
+        const { transaction } = await api.transactions.finalize(request.txId);
         if (!transaction.safeTx || !transaction.safeAddress) {
-          throw new Error("Pre-signed transaction is unavailable");
+          throw new Error("Prepared transaction is unavailable");
         }
         const account = await getOwnerAccount();
         if (!account) throw new Error("Wallet not ready for signing");
@@ -97,7 +98,15 @@ function RequestsPageContent() {
         return { txId: request.txId };
       }
 
-      // No pre-sign → the user proposes a fresh tx and it goes through screening.
+      // Swap requests settle only through an agent-built draft — there is no
+      // client-side swap builder to fall back to.
+      if (request.kind === "swap") {
+        throw new Error(
+          "This swap couldn't be prepared (no route or unknown token). Ask Zhentan to queue it again."
+        );
+      }
+
+      // No draft → the user proposes a fresh tx and it goes through screening.
       const token = resolveToken(request.token);
       if (!token?.address) {
         throw new Error(`Unsupported token: ${request.token}`);

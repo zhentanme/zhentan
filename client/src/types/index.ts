@@ -60,6 +60,13 @@ export interface PendingTransaction {
   tokenAddress: string;
   /** Token icon URL for display in activity (e.g. from Zerion). Stored when proposing. */
   tokenIconUrl?: string | null;
+  /** Swap rows: the token being bought (the analysis target server-side). */
+  toTokenAddress?: string;
+  /**
+   * Agent-proposed row awaiting the user's decision. Drafts have no nonce or
+   * safeTxHash yet — call /transactions/:id/finalize before signing.
+   */
+  draft?: boolean;
   /** When true, server skips risk analysis; client triggers execute. */
   screeningDisabled?: boolean;
   proposedBy: string;
@@ -311,6 +318,12 @@ export type RequestStatus = "queued" | "approved" | "executed" | "rejected";
 export type RequestType = "invoice" | "transfer";
 
 /**
+ * How a request settles on-chain, orthogonal to `type` (presentation — an
+ * invoice is a transfer with billing metadata). Absent means "transfer".
+ */
+export type RequestKind = "transfer" | "swap";
+
+/**
  * An incoming payment request routed through the agent — either a parsed
  * invoice or a general transfer instruction. Invoice-specific fields are
  * undefined for non-invoice requests.
@@ -318,9 +331,16 @@ export type RequestType = "invoice" | "transfer";
 export interface QueuedRequest {
   id: string;
   type: RequestType;
+  kind?: RequestKind;
   to: string;
   amount: string;
   token: string;
+  /** Swap requests: sell-token symbol. */
+  fromToken?: string;
+  /** Swap requests: buy-token symbol. */
+  toToken?: string;
+  /** Swap requests: slippage as a fraction (0.005 = 0.5%). */
+  slippage?: number;
   /** Free-text instruction/summary from the agent (e.g. the user's original ask). */
   description?: string;
   invoiceNumber?: string;

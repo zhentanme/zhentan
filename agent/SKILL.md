@@ -52,6 +52,7 @@ with `get_user_profile` when a tool needs a `safe` parameter.
 | "enable/disable screening", "update limits" | `update_screening_settings` (get the Safe via `get_user_profile`) |
 | "screening status" | `get_screening_status` |
 | "send/pay X to Y" or an invoice | see **Payment requests** below |
+| "swap X for Y" | `queue_request` with `kind: "swap"` — see **Payment requests** below |
 | "list requests / invoices" | `list_requests(callerId)` |
 | "who am I" / "my wallet" | `get_user_profile(chatId)` |
 | "list/create/update/delete rule" | `list_rules` / `create_rule` / `update_rule` / `delete_rule` |
@@ -73,10 +74,19 @@ rewrite or shorten an id.
 - A rejected transaction is final. If the owner then wants to pay that recipient,
   queue a **new** payment request instead.
 
-## Payment requests (invoices & transfer instructions)
+## Payment requests (invoices, transfers & swaps)
 
-A request is any incoming payment ask. It is **queued to the dashboard for the
-owner to approve** — queueing never moves funds.
+A request is any incoming payment or swap ask. It is **queued to the dashboard
+for the owner to approve** — queueing never moves funds. The server builds the
+transaction as a draft where it can; the owner completes it with one signature
+in the app.
+
+**Swaps**: for "swap 10 USDC for WBNB" call `queue_request` with
+`kind: "swap"`, `fromToken`/`toToken` (symbols), and `amount` = the sell
+amount. Do not set `to`, `token`, or any invoice field — swaps have no
+recipient and never carry invoice metadata. Score swap risk on amount vs
+limits and how unusual the pair is for this owner (recipient factors don't
+apply).
 
 1. If the recipient is a name ("alice.eth", "@koshik", "alice.bnb"), call
    `resolve_recipient(name)` and **show the owner the resolved address** before queueing.

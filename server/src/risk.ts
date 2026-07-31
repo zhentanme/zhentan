@@ -1,4 +1,5 @@
 import type { PendingTransaction } from "./types.js";
+import type { DecodedKind } from "./lib/safe/kind.js";
 
 // ─────────────────────────────────────────────────────────────
 // PatternsFile — assembled by getPatternsForSafe() in db.ts
@@ -129,7 +130,8 @@ export interface RiskResult {
 
 export function analyzeRisk(
   tx: PendingTransaction,
-  patterns: PatternsFile
+  patterns: PatternsFile,
+  decoded?: DecodedKind
 ): RiskResult {
   let riskScore = 0;
   const reasons: string[] = [];
@@ -142,10 +144,49 @@ export function analyzeRisk(
   const dayOfWeek = now.getUTCDay(); // 0=Sun
   const today = now.toISOString().split("T")[0];
 
-  const recipient = patterns.recipients[tx.to.toLowerCase()];
+  // ── 0. Kind-specific scoring ──────────────────────────────
+  // Swaps and standalone approvals have no payment recipient: `tx.to` is a
+  // DEX router or token contract, so recipient trust/history is skipped for
+  // them (it would score the router as an "unknown recipient" and pollute
+  // the verdict). Amount limits, velocity and time checks below still apply.
+  const isSwap = decoded?.kind === "swap";
+  const isApproval = decoded?.kind === "approval";
+
+  if (decoded?.kind === "swap") {
+    if (decoded.routerName === null) {
+      riskScore += 50;
+      reasons.push(`Swap routed through an unrecognized router (${decoded.router})`);
+    } else {
+      reasons.push(`Swap via ${decoded.routerName}`);
+    }
+    if (decoded.approval) {
+      if (decoded.approval.infinite) {
+        riskScore += 30;
+        reasons.push("Swap grants an UNLIMITED token approval to the router");
+      } else if (decoded.approval.amountWei > decoded.sellAmountWei) {
+        riskScore += 15;
+        reasons.push("Swap approves more than the sell amount");
+      }
+    }
+  }
+
+  if (decoded?.kind === "approval") {
+    if (decoded.infinite) {
+      riskScore += 40;
+      reasons.push(`UNLIMITED approval granted to ${decoded.spender}`);
+    } else {
+      riskScore += 15;
+      reasons.push(`Token approval granted to ${decoded.spender}`);
+    }
+  }
+
+  const recipient =
+    isSwap || isApproval ? undefined : patterns.recipients[tx.to.toLowerCase()];
 
   // ── 1. Recipient trust level ──────────────────────────────
-  if (!recipient) {
+  if (isSwap || isApproval) {
+    // No payment recipient — scored by kind above.
+  } else if (!recipient) {
     // First-time recipient — apply the user's configured action
     const action = limits.unknownRecipientAction;
     if (action === "block") {

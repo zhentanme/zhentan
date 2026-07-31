@@ -2,7 +2,7 @@ import { Router, Request, Response, type IRouter } from "express";
 import type { Hex } from "viem";
 import type { TransactionWithStatus } from "../types.js";
 import { getTransactionStatus } from "../lib/format.js";
-import { recoverSafeTxSigner } from "../lib/safe/service.js";
+import { recoverSafeTxSigner, computeSafeTxHash, getNextSafeNonce } from "../lib/safe/service.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
 import {
   getTransactionsByAddress,
@@ -206,6 +206,7 @@ export function createTransactionsRouter(): IRouter {
           .filter(
             (t) =>
               t.txType === "safetx" &&
+              !!t.safeTxHash && // drafts have no hash to reconcile by
               !t.txHash &&
               (!t.rejected || t.rejectReason?.startsWith("Superseded:"))
           )
@@ -270,6 +271,7 @@ export function createTransactionsRouter(): IRouter {
           (t) =>
             !t.txHash &&
             !t.txKind && // config rows are not transfers — never fold one into a Zerion send
+            !t.draft && // an unsigned draft can't be the source of an on-chain send
             (t.status === "pending" ||
               t.status === "in_review" ||
               t.status === "confirming") &&
@@ -368,11 +370,59 @@ export function createTransactionsRouter(): IRouter {
     }
   });
 
+  // POST /transactions/:id/finalize — assign the Safe nonce and compute the
+  // EIP-712 hash for an agent-proposed DRAFT so the user can sign it. Nonce
+  // assignment is deferred to this moment (not draft creation) so a dismissed
+  // draft never parks a nonce that would block the queue tail. Idempotent —
+  // a second call returns the already-finalized transaction.
+  router.post("/:id/finalize", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const tx = await getTransaction(id);
+      if (!tx) {
+        res.status(404).json({ error: `Transaction not found: ${id}` });
+        return;
+      }
+      if (tx.txType !== "safetx" || !tx.safeTx) {
+        res.status(400).json({ error: "Not a SafeTx" });
+        return;
+      }
+      if (tx.executedAt || tx.rejected) {
+        res.status(409).json({ error: "Transaction already resolved" });
+        return;
+      }
+      // Ownership: client calls carry req.user; the tx must be theirs.
+      if (
+        req.user &&
+        tx.safeAddress.toLowerCase() !== req.user.safe_address.toLowerCase()
+      ) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+      if (tx.safeTxHash) {
+        // Already finalized (or a user proposal, which is born finalized).
+        res.json({ transaction: { ...tx, status: getTransactionStatus(tx) } });
+        return;
+      }
+
+      const nonce = await getNextSafeNonce(tx.safeAddress);
+      const safeTx = { ...tx.safeTx, nonce };
+      const safeTxHash = computeSafeTxHash(tx.safeAddress, safeTx);
+      await updateTransaction(id, { safeTx, safeTxHash, safeNonce: nonce });
+
+      const finalized = { ...tx, safeTx, safeTxHash, safeNonce: nonce, draft: undefined };
+      res.json({ transaction: { ...finalized, status: getTransactionStatus(finalized) } });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      res.status(500).json({ error: message });
+    }
+  });
+
   // POST /transactions/:id/sign — the user adds their signature to an
-  // agent-proposed (pre-signed, 1-of-2) tx, then the relayer executes it. This
-  // is the completion half of the auto-approve flow: the agent already
-  // contributed its co-signature at request time, so the user's one signature
-  // reaches the threshold and the agent EOA relays execTransaction.
+  // agent-proposed tx, then the relayer executes it. This is the completion
+  // half of the request draft flow: the draft was finalized above (nonce +
+  // hash), the user's signature is added here, and the agent co-signs at
+  // execution time — it screened the request when it built the draft.
   router.post("/:id/sign", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -384,6 +434,12 @@ export function createTransactionsRouter(): IRouter {
       const tx = await getTransaction(id);
       if (!tx) {
         res.status(404).json({ error: `Transaction not found: ${id}` });
+        return;
+      }
+      if (tx.draft && !tx.safeTxHash) {
+        res.status(409).json({
+          error: "Draft not finalized — call /transactions/:id/finalize first",
+        });
         return;
       }
       if (tx.txType !== "safetx" || !tx.safeTxHash) {
