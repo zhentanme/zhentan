@@ -84,9 +84,9 @@ in the app.
 **Swaps**: for "swap 10 USDC for WBNB" call `queue_request` with
 `kind: "swap"`, `fromToken`/`toToken` (symbols), and `amount` = the sell
 amount. Do not set `to`, `token`, or any invoice field — swaps have no
-recipient and never carry invoice metadata. Score swap risk on amount vs
-limits and how unusual the pair is for this owner (recipient factors don't
-apply).
+recipient and never carry invoice metadata. The server scores swaps itself
+(amount, velocity, route); as with transfers, add `riskScore`/`riskNotes`
+only for contextual red flags.
 
 1. If the recipient is a name ("alice.eth", "@koshik", "alice.bnb"), call
    `resolve_recipient(name)` and **show the owner the resolved address** before queueing.
@@ -97,30 +97,24 @@ apply).
    - transfers: `description` — the instruction in one sentence
    - invoices: `invoiceNumber`, `issueDate`, `dueDate`, `billedFrom`/`billedTo`,
      `services` `[{description, qty, rate, total}]`
-3. **Always score the request before queueing — `riskScore` (0–100) and `riskNotes`
-   are required on every `queue_request`, for both transfers and invoices.** Unlike
-   live transactions (which the server scores automatically), a request is scored by
-   **you**: call `get_screening_status(safe, includePatterns: true)` and apply the
-   **Risk scoring reference** below — unknown vs known recipient, amount vs the
-   recipient's history, hour-of-day, and any single-tx / daily / custom limits. Set
-   `riskNotes` to one line justifying the score (e.g. "Unknown recipient, amount 4×
-   their average"). Never queue a request without a score.
+3. **Do NOT score behavioral factors — the server does.** Every request is
+   scored server-side by the same deterministic rules engine that screens live
+   transactions (recipient history, amount vs patterns, velocity, time-of-day,
+   custom rules). Hand-applying those rules drifts — you might call a
+   well-known recipient "unknown". Set `riskScore` + `riskNotes` **only** when
+   you see a **contextual red flag the server cannot**: a suspicious or
+   altered invoice, a social-engineering smell in the instruction, a resolved
+   name that doesn't match its address, urgency pressure. Your score can only
+   raise the server's, never lower it. For routine requests, omit both.
 4. `queue_request(...)` → confirm: "Request for [amount] [token] queued — approve it
    in your Zhentan dashboard."
 
-## Risk scoring reference
-
-| Factor | Score |
-|--------|-------|
-| Unknown recipient | +40 |
-| Amount > 3× recipient average | +25 |
-| Outside allowed hours (UTC) | +20 |
-| Exceeds single-tx limit | +30 |
-| Would exceed daily volume | +20 |
-| Custom rule triggered | varies |
+## Risk verdicts (server-computed)
 
 Verdicts: **APPROVE** (<40) · **REVIEW** (40–70) · **BLOCK** (>70).
-Thresholds are per-Safe — change them with `update_screening_settings`.
+Thresholds are per-Safe — change them with `update_screening_settings`. Use
+`get_screening_status(safe)` when the owner asks about their settings or
+patterns — not to score requests.
 
 ## Rules management
 

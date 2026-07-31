@@ -65,15 +65,17 @@ export function registerRequestTools(server: McpServer) {
           .max(100)
           .optional()
           .describe(
-            "Always set this. Your 0–100 risk assessment of the request — score it yourself " +
-              "(the server does not): unknown vs known recipient, amount vs the recipient's history, " +
-              "hour-of-day, and single-tx/daily/custom limits.",
+            "CONTEXTUAL risk only (0–100), and only when you see a red flag the server cannot: " +
+              "a suspicious invoice, a social-engineering smell, a resolved name that doesn't match its address. " +
+              "The server already scores recipient history, amounts, velocity and time-of-day deterministically — " +
+              "do NOT re-derive those factors. Your score can only raise the server's, never lower it. " +
+              "Omit entirely for routine requests.",
           ),
         riskNotes: z
           .string()
           .max(500)
           .optional()
-          .describe("Always set this. One line justifying the riskScore."),
+          .describe("One line naming the contextual red flag. Required when riskScore is set."),
       },
     },
     async (args) => {

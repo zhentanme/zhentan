@@ -81,49 +81,56 @@ export function createRequestsRouter(): IRouter {
       const hasInvoiceFields = Boolean(invoiceNumber || billedFrom || billedTo || (services && services.length) || dueDate);
       const requestType: RequestType = type ?? (hasInvoiceFields ? "invoice" : "transfer");
 
-      // Risk: the agent's own assessment wins. Only when it omits a score do we
-      // fall back to the same rules engine that scores live transactions, so a
-      // request never ends up without a score for the dashboard.
-      let finalRiskScore: number | undefined =
+      // Risk: the server engine ALWAYS scores the behavioral factors it owns
+      // (recipient history, amounts, velocity, time) — the same deterministic
+      // rules that score live transactions. The agent's score is advisory
+      // context the engine can't see (invoice anomalies, social-engineering
+      // smell): it can only RAISE the engine's score, never lower or replace
+      // it. An LLM hand-applying the rules table drifts (e.g. scoring a
+      // well-known recipient as unknown) — the engine must win on its turf.
+      const agentScore: number | undefined =
         riskScore != null && Number.isFinite(Number(riskScore))
           ? Math.max(0, Math.min(100, Math.round(Number(riskScore))))
           : undefined;
+
+      let finalRiskScore: number | undefined = agentScore;
       let finalRiskNotes: string | undefined = riskNotes ?? undefined;
 
-      if (finalRiskScore == null) {
-        try {
-          const patterns = await getPatternsForSafe(safeAddress);
-          const synthTx = {
-            to: to ?? "",
-            amount: String(amount),
-            token: token ?? fromToken,
-          } as unknown as PendingTransaction;
-          // Swap fallback scoring matches what the swap builder produces by
-          // construction: a known router (LI.FI first, PancakeSwap fallback)
-          // and an exact-amount approval — so only the amount/velocity/time
-          // factors contribute.
-          const syntheticDecoded: DecodedKind | undefined =
-            requestKind === "swap"
-              ? {
-                  kind: "swap",
-                  router: "",
-                  routerName: "LI.FI / PancakeSwap",
-                  sellTokenAddress: null,
-                  sellAmountWei: 0n,
-                  approval: null,
-                }
-              : undefined;
-          const risk = analyzeRisk(synthTx, patterns, syntheticDecoded);
-          finalRiskScore = risk.riskScore;
-          if (!finalRiskNotes) {
-            finalRiskNotes = `${risk.verdict}: ${risk.reasons.join("; ")}`;
-          }
-        } catch (err) {
-          console.error(
-            "Request risk scoring failed:",
-            err instanceof Error ? err.message : err
-          );
-        }
+      try {
+        const patterns = await getPatternsForSafe(safeAddress);
+        const synthTx = {
+          to: to ?? "",
+          amount: String(amount),
+          token: token ?? fromToken,
+        } as unknown as PendingTransaction;
+        // Swap scoring matches what the swap builder produces by
+        // construction: a known router (LI.FI first, PancakeSwap fallback)
+        // and an exact-amount approval — so only the amount/velocity/time
+        // factors contribute.
+        const syntheticDecoded: DecodedKind | undefined =
+          requestKind === "swap"
+            ? {
+                kind: "swap",
+                router: "",
+                routerName: "LI.FI / PancakeSwap",
+                sellTokenAddress: null,
+                sellAmountWei: 0n,
+                approval: null,
+              }
+            : undefined;
+        const engine = analyzeRisk(synthTx, patterns, syntheticDecoded);
+        finalRiskScore = Math.max(engine.riskScore, agentScore ?? 0);
+        const engineNotes = `${engine.verdict}: ${engine.reasons.join("; ")}`;
+        finalRiskNotes =
+          agentScore != null && agentScore > engine.riskScore && riskNotes
+            ? `${engineNotes} | Agent: ${riskNotes}`
+            : engineNotes;
+      } catch (err) {
+        // Engine unavailable — the agent's score (if any) stands alone.
+        console.error(
+          "Request risk scoring failed:",
+          err instanceof Error ? err.message : err
+        );
       }
 
       // Draft path: the agent builds the SafeTx as a DRAFT row (no nonce, no
