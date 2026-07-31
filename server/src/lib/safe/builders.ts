@@ -25,7 +25,6 @@ import {
   MULTISEND_CALL_ONLY,
   NATIVE_TOKEN_ADDRESS,
 } from "../constants.js";
-import { getPancakeSwapQuote } from "../pancakeswap.js";
 import { fetchTokenPositions } from "../zerion.js";
 import { findFallbackAddressBySymbol } from "../token-fallbacks.js";
 import type { RequestKind, SafeTxData } from "../../types.js";
@@ -65,7 +64,47 @@ export interface SwapBuildParams {
 }
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
-const DEFAULT_SLIPPAGE = 0.005;
+
+interface ServerSwapQuote {
+  transaction: { to: string; value: string; data: string };
+  approvalAddress: string;
+}
+
+/**
+ * Quote through the server's own /swap endpoint — the same LI.FI-first,
+ * PancakeSwap-fallback flow the client swap UI uses, including the slippage
+ * ladder that auto-escalates from 5% for thin pools. Agent-built swaps must
+ * ride the identical proven path: a direct PancakeSwap quote at tight
+ * slippage builds calldata that reverts on exactly the pairs users actually
+ * trade (fee-on-transfer / low-liquidity tokens).
+ */
+async function fetchServerSwapQuote(params: {
+  fromTokenAddress: string;
+  toTokenAddress: string;
+  amountWei: bigint;
+  safeAddress: string;
+  slippage?: number;
+}): Promise<ServerSwapQuote | null> {
+  const port = Number(process.env.PORT) || 3001;
+  const qs = new URLSearchParams({
+    fromToken: params.fromTokenAddress,
+    toToken: params.toTokenAddress,
+    amount: params.amountWei.toString(),
+    fromAddress: params.safeAddress,
+  });
+  if (params.slippage != null) qs.set("slippage", String(params.slippage));
+  const agentSecret = process.env.AGENT_SECRET;
+  try {
+    const res = await fetch(`http://localhost:${port}/swap?${qs.toString()}`, {
+      headers: { ...(agentSecret && { Authorization: `Bearer ${agentSecret}` }) },
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as { quote?: ServerSwapQuote };
+    return body.quote ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /** Resolve a token symbol → { address, decimals } from the Safe's holdings. */
 export async function resolveTokenBySymbol(
@@ -126,12 +165,12 @@ async function buildSwapCalls(params: SwapBuildParams): Promise<BuiltCalls | nul
   const to = { address: toAddress };
 
   const sellAmountWei = parseUnits(sellAmount, from.decimals);
-  const quote = await getPancakeSwapQuote({
-    fromToken: from.address,
-    toToken: to.address,
-    amount: sellAmountWei.toString(),
-    fromAddress: safeAddress,
-    slippage: params.slippage ?? DEFAULT_SLIPPAGE,
+  const quote = await fetchServerSwapQuote({
+    fromTokenAddress: from.address,
+    toTokenAddress: to.address,
+    amountWei: sellAmountWei,
+    safeAddress,
+    slippage: params.slippage,
   });
   if (!quote) return null;
 

@@ -99,14 +99,15 @@ export function createRequestsRouter(): IRouter {
             token: token ?? fromToken,
           } as unknown as PendingTransaction;
           // Swap fallback scoring matches what the swap builder produces by
-          // construction: PancakeSwap route, exact-amount approval — so only
-          // the amount/velocity/time factors contribute.
+          // construction: a known router (LI.FI first, PancakeSwap fallback)
+          // and an exact-amount approval — so only the amount/velocity/time
+          // factors contribute.
           const syntheticDecoded: DecodedKind | undefined =
             requestKind === "swap"
               ? {
                   kind: "swap",
                   router: "",
-                  routerName: "PancakeSwap",
+                  routerName: "LI.FI / PancakeSwap",
                   sellTokenAddress: null,
                   sellAmountWei: 0n,
                   approval: null,

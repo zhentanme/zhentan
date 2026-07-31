@@ -245,6 +245,7 @@ export async function updateTransaction(
     riskReasons: "risk_reasons",
     screeningDisabled: "screening_disabled",
     amountUSD: "amount_usd",
+    toTokenAddress: "to_token_address",
   };
 
   const row: Partial<TransactionRow> = {};

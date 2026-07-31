@@ -11,7 +11,9 @@ import {
   updateTransaction,
   getUserDetails,
   syncLinkedRequest,
+  getRequestByTxId,
 } from "../lib/supabase/index.js";
+import { KIND_BUILDERS, buildSafeTxFromCalls } from "../lib/safe/builders.js";
 import { getSafeAddressFromCallerId } from "../lib/caller.js";
 import { notify } from "../notifications/index.js";
 import { fetchTransfers, type ZerionHistoryItem } from "../lib/zerion.js";
@@ -405,12 +407,55 @@ export function createTransactionsRouter(): IRouter {
         return;
       }
 
-      const nonce = await getNextSafeNonce(tx.safeAddress);
-      const safeTx = { ...tx.safeTx, nonce };
-      const safeTxHash = computeSafeTxHash(tx.safeAddress, safeTx);
-      await updateTransaction(id, { safeTx, safeTxHash, safeNonce: nonce });
+      // Swap drafts re-quote NOW: their calldata (route + min-out) was built
+      // when the agent queued the request, and a quote goes stale between
+      // then and the user's approval — a stale min-out reverts on-chain
+      // (GS013). Nothing is signed yet, so rebuilding is free; the user
+      // signs the fresh payload this endpoint returns.
+      let safeTxBase = tx.safeTx;
+      let display: { to?: string; toTokenAddress?: string } = {};
+      const linkedRequest = await getRequestByTxId(id).catch(() => null);
+      if (linkedRequest?.kind === "swap" && linkedRequest.fromToken && linkedRequest.toToken) {
+        const rebuilt = await KIND_BUILDERS.swap({
+          safeAddress: tx.safeAddress,
+          fromToken: linkedRequest.fromToken,
+          toToken: linkedRequest.toToken,
+          sellAmount: linkedRequest.amount,
+          slippage: linkedRequest.slippage,
+        });
+        if (!rebuilt) {
+          res.status(502).json({
+            error: "Swap route could not be refreshed — ask Zhentan to queue the swap again",
+          });
+          return;
+        }
+        safeTxBase = buildSafeTxFromCalls(rebuilt.calls, 0);
+        display = {
+          to: rebuilt.display.to,
+          toTokenAddress: rebuilt.display.toTokenAddress,
+        };
+      }
 
-      const finalized = { ...tx, safeTx, safeTxHash, safeNonce: nonce, draft: undefined };
+      const nonce = await getNextSafeNonce(tx.safeAddress);
+      const safeTx = { ...safeTxBase!, nonce };
+      const safeTxHash = computeSafeTxHash(tx.safeAddress, safeTx);
+      await updateTransaction(id, {
+        safeTx,
+        safeTxHash,
+        safeNonce: nonce,
+        ...(display.to && { to: display.to }),
+        ...(display.toTokenAddress && { toTokenAddress: display.toTokenAddress }),
+      });
+
+      const finalized = {
+        ...tx,
+        ...(display.to && { to: display.to }),
+        ...(display.toTokenAddress && { toTokenAddress: display.toTokenAddress }),
+        safeTx,
+        safeTxHash,
+        safeNonce: nonce,
+        draft: undefined,
+      };
       res.json({ transaction: { ...finalized, status: getTransactionStatus(finalized) } });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
