@@ -3,7 +3,11 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { callApi, ApiTimeoutError } from "../api.js";
 import { ok, fail, failFrom } from "../result.js";
 
-const TX_ID = z.string().regex(/^tx-[a-z0-9-]+$/i, "txId must look like tx-XXXXXXXX");
+// All new ids mint as tx-XXXXXXXX; swap- and req-tx- are legacy prefixes still
+// present on rows queued before ids were unified.
+const TX_ID = z
+  .string()
+  .regex(/^(tx|swap|req-tx)-[a-z0-9-]+$/i, "txId must look like tx-XXXXXXXX");
 const CALLER_ID = z
   .string()
   .regex(/^telegram:\d+$/, 'callerId must be "telegram:<numeric user id>"');

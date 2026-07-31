@@ -116,7 +116,7 @@ export async function agentProposeFromRequest(
         ? record.safe_owners
         : [embedded, getAgentAddress()];
 
-    const txId = `req-tx-${randomUUID().slice(0, 8)}`;
+    const txId = `tx-${randomUUID().slice(0, 8)}`;
     const tx: PendingTransaction = {
       id: txId,
       txType: "safetx",

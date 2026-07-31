@@ -83,7 +83,7 @@ export async function proposeSwap({
   // key signs from the queued screen (see propose.ts for the rationale).
   const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken });
 
-  const txId = `swap-${crypto.randomUUID().slice(0, 8)}`;
+  const txId = `tx-${crypto.randomUUID().slice(0, 8)}`;
   const pendingTx = {
     id: txId,
     to: quote.transaction.to,

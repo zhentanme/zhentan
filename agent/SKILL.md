@@ -58,8 +58,9 @@ with `get_user_profile` when a tool needs a `safe` parameter.
 | "activity history" / "event log" | `get_event_log(safe)` |
 
 Omitting `txId` on execute/reject/review/analyze targets the owner's most recent
-in-review transaction (pass `callerId`). Pass tx-ids exactly as written, including
-the `tx-` prefix.
+in-review transaction (pass `callerId`). Pass transaction ids exactly as written,
+including their prefix (`tx-`, or `swap-`/`req-tx-` on older transactions) — never
+rewrite or shorten an id.
 
 ## Approve / reject rules (critical)
 
