@@ -2,7 +2,14 @@ import { Router, Request, Response, type IRouter } from "express";
 import type { Hex } from "viem";
 import type { TransactionWithStatus } from "../types.js";
 import { getTransactionStatus } from "../lib/format.js";
-import { recoverSafeTxSigner, computeSafeTxHash, getNextSafeNonce } from "../lib/safe/service.js";
+import {
+  recoverSafeTxSigner,
+  computeSafeTxHash,
+  getNextSafeNonce,
+  getProtocolKit,
+  getApiKit,
+  proposeToService,
+} from "../lib/safe/service.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
 import {
   getTransactionsByAddress,
@@ -447,6 +454,27 @@ export function createTransactionsRouter(): IRouter {
         ...(display.toTokenAddress && { toTokenAddress: display.toTokenAddress }),
       });
 
+      // Mirror to the Transaction Service at 1/2 — the agent proposes with
+      // its own signature (it screened this draft, so signing is consistent
+      // with the invariant), making the tx visible in app.safe.global from
+      // the moment the user starts signing, exactly like the pre-draft flow.
+      // Best-effort: a service outage must not block signing — execution
+      // assembles signatures locally.
+      try {
+        const protocolKit = await getProtocolKit(tx.safeAddress);
+        const agentSig = await protocolKit.signHash(safeTxHash);
+        await proposeToService({
+          safeAddress: tx.safeAddress,
+          safeTx,
+          safeTxHash,
+          senderAddress: getAgentAddress(),
+          senderSignature: agentSig.data,
+          origin: "Zhentan (agent draft)",
+        });
+      } catch (err) {
+        console.error("Draft finalize: service mirror failed (continuing):", err);
+      }
+
       const finalized = {
         ...tx,
         ...(display.to && { to: display.to }),
@@ -530,6 +558,16 @@ export function createTransactionsRouter(): IRouter {
       syncLinkedRequest(id, { status: "approved" }).catch((err) =>
         console.error("syncLinkedRequest (approved) failed:", err)
       );
+      // Mirror the user's confirmation to the Transaction Service (the agent
+      // proposed this draft at finalize, so the service is missing exactly
+      // this signature). Best-effort — execution assembles locally.
+      getApiKit()
+        .confirmTransaction(tx.safeTxHash, userSignature)
+        .catch((err) => {
+          if (!/already/i.test(String(err))) {
+            console.error("Draft sign: service confirm failed (continuing):", err);
+          }
+        });
 
       // Execute via the relayer (agent re-signs its part + the user's sig → n/n).
       const port = Number(process.env.PORT) || 3001;
