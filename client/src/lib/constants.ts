@@ -89,8 +89,6 @@ export const SAFE_TX_TYPES = {
   ],
 } as const;
 
-export const USDC_DECIMALS = 18;
-
 export const ERC20_TRANSFER_ABI = [
   {
     name: "transfer",

@@ -248,13 +248,14 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           : undefined;
 
       if (!safeAddress || !safeConfig) throw new Error("Wallet not ready");
+      if (!selectedToken) throw new Error("Select a token to send");
       const pendingTx = await proposeTransaction({
         recipient: address,
         amount,
         safe: { safeAddress, ...safeConfig },
         getOwnerAccount,
-        tokenAddress: selectedToken?.address ?? undefined,
-        tokenDecimals: selectedToken?.decimals,
+        tokenAddress: selectedToken.address ?? undefined,
+        tokenDecimals: selectedToken.decimals,
         tokenSymbol: selectedToken?.symbol,
         tokenIconUrl: selectedToken?.iconUrl ?? undefined,
         screeningDisabled: !screeningMode,

@@ -97,6 +97,6 @@ See `scripts/.env.example` and `server/.env.example` for templates.
 
 ## Known Issues
 
-- **USDC decimals discrepancy**: `client/src/lib/constants.ts` declares `USDC_DECIMALS = 18`, but scripts use 6 decimals. BSC mainnet USDC uses 18 decimals; other chains may differ.
+- **USDC decimals discrepancy**: RESOLVED — `USDC_DECIMALS` removed from `client/src/lib/constants.ts`; `proposeTransaction` now requires `tokenDecimals: number` and fails loudly if missing. Token decimals come from on-chain/portfolio metadata. Note: `scripts/test/*` and `scripts/propose-tx.js` still hardcode `6` for their default BSC-testnet USDC token (`0x1c7D...7238`, a 6-decimals contract) — correct for that token, intentionally left as standalone CLI tools.
 - **Queue file paths**: Scripts default to `~/.nanobot/workspace/skills/zhentan/pending-queue.json`. Override with `QUEUE_PATH` env var.
 - **Live demo** at zhentan.me runs without the NanoBot/Hermes agent (no screening). Full AI screening requires local setup with agent.
