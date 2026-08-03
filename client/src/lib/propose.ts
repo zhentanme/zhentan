@@ -3,7 +3,6 @@
 import { parseUnits, encodeFunctionData, type Address } from "viem";
 
 import {
-  USDC_DECIMALS,
   ERC20_TRANSFER_ABI,
   NATIVE_TOKEN_ADDRESS,
 } from "./constants";
@@ -28,7 +27,10 @@ export async function proposeTransaction({
 }: ProposeParams) {
   const tokenAddress = tokenAddressParam;
   if (!tokenAddress) throw new Error("Token address required");
-  const decimals = tokenDecimals ?? USDC_DECIMALS;
+  if (typeof tokenDecimals !== "number" || !Number.isFinite(tokenDecimals)) {
+    throw new Error("Token decimals required — refusing to assume a default");
+  }
+  const decimals = tokenDecimals;
   const symbol = tokenSymbol ?? "USDC";
   const isNative =
     tokenAddress.toLowerCase() === NATIVE_TOKEN_ADDRESS.toLowerCase();

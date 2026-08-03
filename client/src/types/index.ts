@@ -277,8 +277,8 @@ export interface ProposeParams {
   getOwnerAccount: () => Promise<import("viem").LocalAccount | null>;
   /** ERC20 token contract address (default: USDC from env) */
   tokenAddress?: string;
-  /** Token decimals (default: USDC decimals) */
-  tokenDecimals?: number;
+  /** Token decimals — required. Read from on-chain/portfolio metadata, never assumed. */
+  tokenDecimals: number;
   /** Token symbol for display (e.g. "USDC") */
   tokenSymbol?: string;
   /** Token icon URL for display in activity (e.g. from Zerion) */
