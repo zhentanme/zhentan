@@ -1,7 +1,8 @@
 import { Router, Request, Response, type IRouter } from "express";
-import { getTransaction, getLastInReviewTransaction, getRecipientProfile } from "../lib/supabase/index.js";
-import { getSafeAddressFromCallerId } from "../lib/caller.js";
+import { getLastInReviewTransaction, getRecipientProfile } from "../lib/supabase/index.js";
+import { assertOwnsTx, requireCallerSafe } from "../lib/authz.js";
 import { decodeTxKind } from "../lib/safe/kind.js";
+import type { PendingTransaction } from "../types.js";
 
 const BSC_CHAIN_ID = "56";
 
@@ -152,29 +153,22 @@ export function createAnalyzeRouter(): IRouter {
   // Use id = "latest" with ?safeAddress=0x... to analyze the most recent in-review tx
   router.get("/:id", async (req: Request, res: Response) => {
     try {
-      const callerId = (req.query.callerId as string | undefined) || null;
-      console.log("callerId", callerId);
-
-      let id = req.params.id;
-      if (id === "latest") {
-        const safeAddress = await getSafeAddressFromCallerId(callerId);
-        if (!safeAddress) {
-          res.status(400).json({ error: "Could not resolve Safe from callerId" });
-          return;
-        }
-        const latest = await getLastInReviewTransaction(safeAddress);
-        if (!latest) {
+      // Deep analysis exposes the recipient profile, decoded calldata and the
+      // full risk rationale, so it is gated like any other read of tx state.
+      let tx: PendingTransaction | null;
+      if (req.params.id === "latest") {
+        const safeAddress = requireCallerSafe(req, res);
+        if (!safeAddress) return;
+        tx = await getLastInReviewTransaction(safeAddress);
+        if (!tx) {
           res.status(404).json({ error: "No in-review transaction found for this Safe" });
           return;
         }
-        id = latest.id;
+      } else {
+        tx = await assertOwnsTx(req, res, req.params.id);
+        if (!tx) return;
       }
-
-      const tx = await getTransaction(id);
-      if (!tx) {
-        res.status(404).json({ error: `Transaction not found: ${id}` });
-        return;
-      }
+      const id = tx.id;
 
       // Classify from calldata so each kind scans its actual risk surface:
       // transfers scan the recipient + sent token; swaps scan the router and
@@ -222,7 +216,7 @@ export function createAnalyzeRouter(): IRouter {
 
       res.json({
         txId: id,
-        callerId,
+        callerId: req.callerId,
         kind: decoded.kind,
         ...(isSwap && {
           swap: {

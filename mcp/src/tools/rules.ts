@@ -3,8 +3,12 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { callApi } from "../api.js";
 import { ok, failFrom } from "../result.js";
 
-const ADDRESS = z.string().regex(/^0x[a-fA-F0-9]{40}$/, "must be a 0x… EVM address");
 const RULE_ID = z.string().uuid("rule id is a UUID (from list_rules)");
+// Required: the server scopes every rule operation to the Safe this resolves to.
+const CALLER_ID = z
+  .string()
+  .regex(/^telegram:\d+$/, 'callerId must be "telegram:<numeric user id>"')
+  .describe("Telegram caller identity from session context, e.g. telegram:593960240");
 
 const RULE_TYPE = z.enum([
   "amount_limit",
@@ -30,12 +34,12 @@ export function registerRuleTools(server: McpServer) {
       title: "List screening rules",
       description: "List the custom screening rules for a Safe (id, type, conditions, action, priority, active).",
       inputSchema: {
-        safe: ADDRESS,
+        callerId: CALLER_ID,
       },
     },
-    async ({ safe }) => {
+    async ({ callerId }) => {
       try {
-        const result = await callApi("GET", `/rules?safe=${encodeURIComponent(safe)}`);
+        const result = await callApi("GET", "/rules", undefined, 30_000, callerId);
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -52,7 +56,7 @@ export function registerRuleTools(server: McpServer) {
         "the rule's action (approve/review/block) and riskScoreDelta influence the verdict. " +
         "Confirm the rule's effect with the user before creating block rules.",
       inputSchema: {
-        safe: ADDRESS,
+        callerId: CALLER_ID,
         name: z.string().min(1).max(120),
         ruleType: RULE_TYPE,
         conditions: z.record(z.unknown()).describe(CONDITIONS_HINT),
@@ -62,9 +66,9 @@ export function registerRuleTools(server: McpServer) {
         description: z.string().max(500).optional(),
       },
     },
-    async (args) => {
+    async ({ callerId, ...args }) => {
       try {
-        const result = await callApi("POST", "/rules", { ...args });
+        const result = await callApi("POST", "/rules", { ...args, callerId }, 30_000, callerId);
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -81,6 +85,7 @@ export function registerRuleTools(server: McpServer) {
         "Get the rule id from list_rules first.",
       inputSchema: {
         id: RULE_ID,
+        callerId: CALLER_ID,
         name: z.string().min(1).max(120).optional(),
         ruleType: RULE_TYPE.optional(),
         conditions: z.record(z.unknown()).optional().describe(CONDITIONS_HINT),
@@ -91,9 +96,15 @@ export function registerRuleTools(server: McpServer) {
         isActive: z.boolean().optional(),
       },
     },
-    async ({ id, ...patch }) => {
+    async ({ id, callerId, ...patch }) => {
       try {
-        const result = await callApi("PATCH", `/rules/${encodeURIComponent(id)}`, { ...patch });
+        const result = await callApi(
+          "PATCH",
+          `/rules/${encodeURIComponent(id)}`,
+          { ...patch, callerId },
+          30_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -110,11 +121,18 @@ export function registerRuleTools(server: McpServer) {
         "the user which rule they mean before deleting.",
       inputSchema: {
         id: RULE_ID,
+        callerId: CALLER_ID,
       },
     },
-    async ({ id }) => {
+    async ({ id, callerId }) => {
       try {
-        const result = await callApi("DELETE", `/rules/${encodeURIComponent(id)}`);
+        const result = await callApi(
+          "DELETE",
+          `/rules/${encodeURIComponent(id)}`,
+          undefined,
+          30_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -130,14 +148,19 @@ export function registerRuleTools(server: McpServer) {
         "Fetch the behavioral event history for a Safe (proposals, approvals, rejections, rule triggers, " +
         "pattern updates) — newest first. Use when the user asks for activity history or an audit trail.",
       inputSchema: {
-        safe: ADDRESS,
+        callerId: CALLER_ID,
         limit: z.number().int().min(1).max(500).optional().describe("Max events to return (default 100)"),
       },
     },
-    async ({ safe, limit }) => {
+    async ({ callerId, limit }) => {
       try {
-        const query = `safe=${encodeURIComponent(safe)}${limit ? `&limit=${limit}` : ""}`;
-        const result = await callApi("GET", `/events?${query}`);
+        const result = await callApi(
+          "GET",
+          limit ? `/events?limit=${limit}` : "/events",
+          undefined,
+          30_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);

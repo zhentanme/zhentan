@@ -26,6 +26,7 @@ import { deploySafe, isSafeDeployed } from "../lib/safe/deploy.js";
 import { DERIVATION_V1_4337, type DerivationVersion } from "../lib/safe/derive.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
 import { readSafeOwners } from "../lib/safe/onchain.js";
+import { runExecutionById } from "./execute.js";
 import type { PendingTransaction, SafeTxData } from "../types.js";
 
 /**
@@ -442,18 +443,8 @@ export function createQueueRouter(): IRouter {
           // through to the normal execute path.
         }
 
-        const port = Number(process.env.PORT) || 3001;
         try {
-          const agentSecret = process.env.AGENT_SECRET;
-          const execRes = await fetch(`http://localhost:${port}/execute`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(agentSecret && { Authorization: `Bearer ${agentSecret}` }),
-            },
-            body: JSON.stringify({ txId: pendingTx.id }),
-          });
-          const execResult = (await execRes.json()) as Record<string, unknown>;
+          const execResult = await runExecutionById(pendingTx.id);
           if (execResult.status === "executed" || execResult.status === "already_executed") {
             // The on-chain upgrade succeeded; a failure persisting the owner
             // flip must not read as a failed upgrade (a retry would revert
@@ -478,7 +469,7 @@ export function createQueueRouter(): IRouter {
           }
           console.error("Upgrade execute returned:", execResult);
           res.status(500).json({
-            error: `Upgrade execution failed: ${execResult.error || "unknown"}`,
+            error: `Upgrade execution failed: ${execResult.status}`,
             id: pendingTx.id,
           });
         } catch (err) {
@@ -530,19 +521,11 @@ export function createQueueRouter(): IRouter {
 
       // ── APPROVE: auto-execute ────────────────────────────────
       if (risk.verdict === "APPROVE") {
-        const port = Number(process.env.PORT) || 3001;
-
         try {
-          const agentSecret = process.env.AGENT_SECRET;
-          const execRes = await fetch(`http://localhost:${port}/execute`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(agentSecret && { Authorization: `Bearer ${agentSecret}` }),
-            },
-            body: JSON.stringify({ txId: pendingTx.id }),
-          });
-          const execResult = (await execRes.json()) as Record<string, unknown>;
+          // In-process, deliberately: this is system-initiated work with no user
+          // principal behind it, so it must not travel back through the
+          // authenticated HTTP surface (see lib/authz.ts).
+          const execResult = await runExecutionById(pendingTx.id);
 
           if (execResult.status === "executed") {
             // tx_sent notification (TG + email) is fired by execute.ts
@@ -563,13 +546,17 @@ export function createQueueRouter(): IRouter {
             return;
           }
 
-          // Execute call didn't succeed — fall through, respond without auto-execute
+          // Execute didn't succeed — fall through, respond without auto-execute
           console.error("Auto-execute returned:", execResult);
+          const detail =
+            execResult.status === "superseded" && execResult.reason
+              ? `${execResult.status} (${execResult.reason})`
+              : execResult.status;
           notifyTelegram(
             `⚠️ Auto-approve attempted but execution failed for ${pendingTx.id}:\n` +
               `${pendingTx.amount} ${pendingTx.token || "USDC"} → ${shortTo}\n` +
               `Risk: ${risk.riskScore}/100 — ${risk.reasons.join(", ")}\n` +
-              `Error: ${execResult.error || "unknown"}\n` +
+              `Error: ${detail}\n` +
               `Reply \`approve ${pendingTx.id}\` to retry.`,
             undefined,
             undefined,
@@ -577,7 +564,7 @@ export function createQueueRouter(): IRouter {
           );
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Unknown error";
-          console.error("Auto-execute fetch failed:", msg);
+          console.error("Auto-execute failed:", msg);
           notifyTelegram(
             `⚠️ Auto-approve attempted but execution failed for ${pendingTx.id}:\n` +
               `${pendingTx.amount} ${pendingTx.token || "USDC"} → ${shortTo}\n` +

@@ -624,6 +624,22 @@ export async function getUserRules(safeAddress: string): Promise<UserRuleRow[]> 
   return data ?? [];
 }
 
+/**
+ * Fetches a single rule by id regardless of `is_active` — used for ownership
+ * checks, where a soft-deleted rule must still resolve to its owner so it can
+ * be re-activated by (and only by) that owner.
+ */
+export async function getUserRule(id: string): Promise<UserRuleRow | null> {
+  const { data, error } = await supabase
+    .from("user_rules")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle<UserRuleRow>();
+
+  if (error) throw error;
+  return data ?? null;
+}
+
 export async function createUserRule(
   safeAddress: string,
   rule: Omit<UserRuleRow, "id" | "safe_address" | "created_at" | "updated_at">

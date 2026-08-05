@@ -7,6 +7,7 @@ import {
   getPatternsForSafe,
 } from "../lib/supabase/index.js";
 import type { GlobalLimitsRow } from "../lib/supabase/types.js";
+import { assertOwnsSafe } from "../lib/authz.js";
 
 export function createStatusRouter(): IRouter {
   const router = Router();
@@ -15,11 +16,8 @@ export function createStatusRouter(): IRouter {
   // Returns user settings + full patterns (all dimensions)
   router.get("/", async (req: Request, res: Response) => {
     try {
-      const safe = req.query.safe as string | undefined;
-      if (!safe) {
-        res.status(400).json({ error: "Missing required query param: safe" });
-        return;
-      }
+      const safe = assertOwnsSafe(req, res, req.query.safe as string | undefined);
+      if (!safe) return;
 
       const [settings, patterns] = await Promise.all([
         getUserSettings(safe),
@@ -41,7 +39,7 @@ export function createStatusRouter(): IRouter {
   });
 
   // PATCH /status
-  // Accepts: safe (required), plus any combination of:
+  // Accepts: safe (optional; cross-checked against the caller), plus any combination of:
   //   User settings: screeningMode, telegramChatId, botConnected
   //   Global limits: maxSingleTx, maxHourlyVolume, maxDailyVolume,
   //     maxWeeklyVolume, maxDailyTxCount, allowedHoursUTC, allowedDaysUTC,
@@ -50,7 +48,7 @@ export function createStatusRouter(): IRouter {
   router.patch("/", async (req: Request, res: Response) => {
     try {
       const {
-        safe,
+        safe: claimedSafe,
         // User settings fields
         screeningMode,
         telegramChatId,
@@ -69,10 +67,11 @@ export function createStatusRouter(): IRouter {
         learningEnabled,
       } = req.body;
 
-      if (!safe) {
-        res.status(400).json({ error: "Missing required field: safe" });
-        return;
-      }
+      // Screening mode is the control this whole product rests on — turning it
+      // off for someone else must be impossible, so the target Safe comes from
+      // the caller and the body field is only ever a cross-check.
+      const safe = assertOwnsSafe(req, res, claimedSafe);
+      if (!safe) return;
 
       // ── Validate and persist user settings ──────────────────
       const settingsPatch: Parameters<typeof upsertUserSettings>[1] = {};

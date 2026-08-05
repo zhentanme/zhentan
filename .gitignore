@@ -34,3 +34,7 @@ ds-bundle/
 client/.ds-styles.css
 .design-sync/dist/
 client/.ds-dist/
+.local/
+docs
+*.swp
+*.swo

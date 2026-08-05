@@ -1,27 +1,46 @@
 import { Router, Request, Response, type IRouter } from "express";
 import type { Hex } from "viem";
-import type { TransactionWithStatus } from "../types.js";
+import type { PendingTransaction, TransactionWithStatus } from "../types.js";
 import { getTransactionStatus } from "../lib/format.js";
 import { recoverSafeTxSigner, getApiKit } from "../lib/safe/service.js";
 import { finalizeDraft, SwapRefreshError } from "../lib/safe/finalizeDraft.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
 import {
   getTransactionsByAddress,
-  getTransaction,
   getLastInReviewTransaction,
   updateTransaction,
   getUserDetails,
   syncLinkedRequest,
 } from "../lib/supabase/index.js";
-import { getSafeAddressFromCallerId } from "../lib/caller.js";
 import { notify } from "../notifications/index.js";
 import { fetchTransfers, type ZerionHistoryItem } from "../lib/zerion.js";
 import { executeRejection } from "../lib/safe/reject.js";
 import { reconcileSafeTx } from "../lib/safe/reconcile.js";
 import { classifyTxKind } from "../lib/safe/txKind.js";
+import { runExecutionById } from "./execute.js";
 import type { UserDetailsRow } from "../lib/supabase/types.js";
+import { assertOwnsSafe, assertOwnsTx, requireCallerSafe } from "../lib/authz.js";
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+
+/**
+ * Executes a transaction whose signature has already been persisted, reporting
+ * a relayer failure instead of throwing.
+ *
+ * `/sign` and `/cosign` store the signature before relaying. If relaying then
+ * throws, the request must still succeed: the signature is on record, so a
+ * client that retried on a 5xx would be rejected with "already signed" and the
+ * transaction would be stuck. The caller reports this outcome under `execution`.
+ */
+async function runExecutionSafely(txId: string) {
+  try {
+    return await runExecutionById(txId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error(`Relay after signature failed for ${txId}:`, message);
+    return { status: "failed" as const, txId, error: message };
+  }
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
@@ -165,12 +184,15 @@ export function createTransactionsRouter(): IRouter {
 
   router.get("/", async (req: Request, res: Response) => {
     try {
-      const safeAddress = req.query.safeAddress as string;
-
-      if (!safeAddress || !ADDRESS_RE.test(safeAddress)) {
-        res.status(400).json({ error: "Missing or invalid safeAddress" });
+      // safeAddress is optional now that the caller's own Safe is the default;
+      // supplying one only asserts it matches.
+      const requested = req.query.safeAddress as string | undefined;
+      if (requested && !ADDRESS_RE.test(requested)) {
+        res.status(400).json({ error: "Invalid safeAddress" });
         return;
       }
+      const safeAddress = assertOwnsSafe(req, res, requested);
+      if (!safeAddress) return;
 
       // Fetch our records and Zerion history in parallel; Zerion has a 4s timeout
       const [ourResult, zerionResult, recordResult] = await Promise.allSettled([
@@ -315,11 +337,13 @@ export function createTransactionsRouter(): IRouter {
   // incurs. Must be registered before "/:id" so it isn't matched as an id.
   router.get("/db", async (req: Request, res: Response) => {
     try {
-      const safeAddress = req.query.safeAddress as string;
-      if (!safeAddress || !ADDRESS_RE.test(safeAddress)) {
-        res.status(400).json({ error: "Missing or invalid safeAddress" });
+      const requested = req.query.safeAddress as string | undefined;
+      if (requested && !ADDRESS_RE.test(requested)) {
+        res.status(400).json({ error: "Invalid safeAddress" });
         return;
       }
+      const safeAddress = assertOwnsSafe(req, res, requested);
+      if (!safeAddress) return;
       const txs = await getTransactionsByAddress(safeAddress);
       let agentAddress = "";
       try {
@@ -347,11 +371,8 @@ export function createTransactionsRouter(): IRouter {
   router.get("/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const tx = await getTransaction(id);
-      if (!tx) {
-        res.status(404).json({ error: `Transaction not found: ${id}` });
-        return;
-      }
+      const tx = await assertOwnsTx(req, res, id);
+      if (!tx) return;
       let agentAddress = "";
       try {
         agentAddress = getAgentAddress();
@@ -380,25 +401,14 @@ export function createTransactionsRouter(): IRouter {
   router.post("/:id/finalize", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const tx = await getTransaction(id);
-      if (!tx) {
-        res.status(404).json({ error: `Transaction not found: ${id}` });
-        return;
-      }
+      const tx = await assertOwnsTx(req, res, id);
+      if (!tx) return;
       if (tx.txType !== "safetx" || !tx.safeTx) {
         res.status(400).json({ error: "Not a SafeTx" });
         return;
       }
       if (tx.executedAt || tx.rejected) {
         res.status(409).json({ error: "Transaction already resolved" });
-        return;
-      }
-      // Ownership: client calls carry req.user; the tx must be theirs.
-      if (
-        req.user &&
-        tx.safeAddress.toLowerCase() !== req.user.safe_address.toLowerCase()
-      ) {
-        res.status(403).json({ error: "Forbidden" });
         return;
       }
       try {
@@ -430,11 +440,8 @@ export function createTransactionsRouter(): IRouter {
         res.status(400).json({ error: "Missing userSignature" });
         return;
       }
-      const tx = await getTransaction(id);
-      if (!tx) {
-        res.status(404).json({ error: `Transaction not found: ${id}` });
-        return;
-      }
+      const tx = await assertOwnsTx(req, res, id);
+      if (!tx) return;
       if (tx.draft && !tx.safeTxHash) {
         res.status(409).json({
           error: "Draft not finalized — call /transactions/:id/finalize first",
@@ -451,14 +458,6 @@ export function createTransactionsRouter(): IRouter {
       }
       if (tx.executedAt || tx.rejected) {
         res.status(409).json({ error: "Transaction already resolved" });
-        return;
-      }
-      // Ownership: client calls carry req.user; the tx must be theirs.
-      if (
-        req.user &&
-        tx.safeAddress.toLowerCase() !== req.user.safe_address.toLowerCase()
-      ) {
-        res.status(403).json({ error: "Forbidden" });
         return;
       }
       // The signature must recover to the intended user owner (proposedBy) and
@@ -496,17 +495,13 @@ export function createTransactionsRouter(): IRouter {
         });
 
       // Execute via the relayer (agent re-signs its part + the user's sig → n/n).
-      const port = Number(process.env.PORT) || 3001;
-      const agentSecret = process.env.AGENT_SECRET;
-      const execRes = await fetch(`http://localhost:${port}/execute`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(agentSecret && { Authorization: `Bearer ${agentSecret}` }),
-        },
-        body: JSON.stringify({ txId: id }),
-      });
-      const execResult = (await execRes.json()) as Record<string, unknown>;
+      // In-process: ownership was already established above, so re-entering
+      // through HTTP would only re-authenticate the server to itself.
+      //
+      // The signature is already persisted, so a failure to execute must not be
+      // reported as a failure to sign — the client would retry and hit "already
+      // signed". Report it in `execution` and let the relayer be retried.
+      const execResult = await runExecutionSafely(id);
       res.json({ status: "signed", txId: id, execution: execResult });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -527,11 +522,8 @@ export function createTransactionsRouter(): IRouter {
         res.status(400).json({ error: "Missing signature" });
         return;
       }
-      const tx = await getTransaction(id);
-      if (!tx) {
-        res.status(404).json({ error: `Transaction not found: ${id}` });
-        return;
-      }
+      const tx = await assertOwnsTx(req, res, id);
+      if (!tx) return;
       if (tx.txType !== "safetx" || !tx.safeTxHash) {
         res.status(400).json({ error: "Not a SafeTx" });
         return;
@@ -542,14 +534,6 @@ export function createTransactionsRouter(): IRouter {
       }
       if (tx.executedAt || tx.rejected) {
         res.status(409).json({ error: "Transaction already resolved" });
-        return;
-      }
-      // Ownership: client calls carry req.user; the tx must be theirs.
-      if (
-        req.user &&
-        tx.safeAddress.toLowerCase() !== req.user.safe_address.toLowerCase()
-      ) {
-        res.status(403).json({ error: "Forbidden" });
         return;
       }
       // The co-signature must recover to a DISTINCT non-agent owner — same
@@ -582,17 +566,9 @@ export function createTransactionsRouter(): IRouter {
 
       // Execute via the relayer — relay-only now that the threshold is met
       // (execute mirrors the co-signature to the Transaction Service too).
-      const port = Number(process.env.PORT) || 3001;
-      const agentSecret = process.env.AGENT_SECRET;
-      const execRes = await fetch(`http://localhost:${port}/execute`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(agentSecret && { Authorization: `Bearer ${agentSecret}` }),
-        },
-        body: JSON.stringify({ txId: id }),
-      });
-      const execResult = (await execRes.json()) as Record<string, unknown>;
+      // As in /sign: the co-signature is stored, so an execution failure is
+      // reported rather than thrown.
+      const execResult = await runExecutionSafely(id);
       res.json({ status: "cosigned", txId: id, execution: execResult });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -604,33 +580,30 @@ export function createTransactionsRouter(): IRouter {
   // Use id = "latest" with safeAddress in body to target the most recent in-review tx
   router.patch("/:id", async (req: Request, res: Response) => {
     try {
-      const { action, reason, callerId } = req.body ?? {};
+      const { action, reason } = req.body ?? {};
 
       if (!action || !["review", "reject"].includes(action)) {
         res.status(400).json({ error: "action must be 'review' or 'reject'" });
         return;
       }
 
-      let id = req.params.id;
-      if (id === "latest") {
-        const safeAddress = await getSafeAddressFromCallerId(callerId);
-        if (!safeAddress) {
-          res.status(400).json({ error: "Could not resolve Safe from callerId" });
-          return;
-        }
-        const latest = await getLastInReviewTransaction(safeAddress);
-        if (!latest) {
+      // `latest` resolves against the caller's own Safe. Rejection burns a Safe
+      // nonce on-chain, so targeting someone else's queue here is a write, not
+      // just a read — the principal has to come from auth, never from the body.
+      let tx: PendingTransaction | null;
+      if (req.params.id === "latest") {
+        const safeAddress = requireCallerSafe(req, res);
+        if (!safeAddress) return;
+        tx = await getLastInReviewTransaction(safeAddress);
+        if (!tx) {
           res.status(404).json({ error: "No in-review transaction found for this Safe" });
           return;
         }
-        id = latest.id;
+      } else {
+        tx = await assertOwnsTx(req, res, req.params.id);
+        if (!tx) return;
       }
-
-      const tx = await getTransaction(id);
-      if (!tx) {
-        res.status(404).json({ error: `Transaction not found: ${id}` });
-        return;
-      }
+      const id = tx.id;
 
       if (!tx.inReview) {
         res.status(409).json({ error: `Transaction ${id} is not in review state` });

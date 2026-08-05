@@ -33,10 +33,15 @@ Only in-review transactions can be approved or rejected. Rejection is final.
 
 ## Caller identity
 
-Most tools take `callerId` = `telegram:<origin.from>` (the numeric Telegram user id
-from session context). Tools that take `chatId` want just the number. Pass it so the
-server resolves the right Safe — never ask the user for their Safe address; fetch it
-with `get_user_profile` when a tool needs a `safe` parameter.
+**Every Safe-scoped tool requires `callerId` = `telegram:<origin.from>`** (the numeric
+Telegram user id from session context) — including the ones where you also pass a
+transaction id. The server authorizes each call against the Safe that `callerId`
+resolves to, so a call without it is refused. Tools that take `chatId` want just the
+number.
+
+Never ask the user for their Safe address, and never pass one: the server derives it
+from `callerId`. `get_user_profile` is for showing the user their own details, not for
+feeding a Safe address into other tools.
 
 ## Command → tool map
 
@@ -48,20 +53,20 @@ with `get_user_profile` when a tool needs a `safe` parameter.
 | "mark for review tx-XXX" | `review_transaction` |
 | "deep analyze [tx-XXX]" | `analyze_transaction` → format per the analysis layout in your soul |
 | "risk score of tx-XXX" / "status of tx-XXX" | `check_transaction_status` |
-| "check pending" / "my transactions" | `get_user_profile(chatId)` for the Safe → `list_transactions(safeAddress, onlyOpen: true)` |
-| "enable/disable screening", "update limits" | `update_screening_settings` (get the Safe via `get_user_profile`) |
-| "screening status" | `get_screening_status` |
+| "check pending" / "my transactions" | `list_transactions(callerId, onlyOpen: true)` |
+| "enable/disable screening", "update limits" | `update_screening_settings(callerId, …)` |
+| "screening status" | `get_screening_status(callerId)` |
 | "send/pay X to Y" or an invoice | see **Payment requests** below |
 | "swap X for Y" | `queue_request` with `kind: "swap"` — see **Payment requests** below |
 | "list requests / invoices" | `list_requests(callerId)` |
 | "who am I" / "my wallet" | `get_user_profile(chatId)` |
-| "list/create/update/delete rule" | `list_rules` / `create_rule` / `update_rule` / `delete_rule` |
-| "activity history" / "event log" | `get_event_log(safe)` |
+| "list/create/update/delete rule" | `list_rules` / `create_rule` / `update_rule` / `delete_rule` (all take `callerId`) |
+| "activity history" / "event log" | `get_event_log(callerId)` |
 
 Omitting `txId` on execute/reject/review/analyze targets the owner's most recent
-in-review transaction (pass `callerId`). Pass transaction ids exactly as written,
-including their prefix (`tx-`, or `swap-`/`req-tx-` on older transactions) — never
-rewrite or shorten an id.
+in-review transaction. Pass transaction ids exactly as written, including their
+prefix (`tx-`, or `swap-`/`req-tx-` on older transactions) — never rewrite or
+shorten an id.
 
 ## Approve / reject rules (critical)
 

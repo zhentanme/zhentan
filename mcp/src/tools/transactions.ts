@@ -8,9 +8,13 @@ import { ok, fail, failFrom } from "../result.js";
 const TX_ID = z
   .string()
   .regex(/^(tx|swap|req-tx)-[a-z0-9-]+$/i, "txId must look like tx-XXXXXXXX");
+// Required on every Safe-scoped tool, not just the ones that omit a txId. The
+// server authorizes each call against the Safe this resolves to, so a call
+// without it has no principal and is refused.
 const CALLER_ID = z
   .string()
-  .regex(/^telegram:\d+$/, 'callerId must be "telegram:<numeric user id>"');
+  .regex(/^telegram:\d+$/, 'callerId must be "telegram:<numeric user id>"')
+  .describe("Telegram caller identity from session context, e.g. telegram:593960240");
 
 interface TxStatus {
   transaction?: {
@@ -29,8 +33,14 @@ interface TxStatus {
   };
 }
 
-async function fetchStatus(txId: string) {
-  const { transaction } = await callApi<TxStatus>("GET", `/transactions/${encodeURIComponent(txId)}`);
+async function fetchStatus(txId: string, callerId: string) {
+  const { transaction } = await callApi<TxStatus>(
+    "GET",
+    `/transactions/${encodeURIComponent(txId)}`,
+    undefined,
+    30_000,
+    callerId,
+  );
   return transaction;
 }
 
@@ -39,11 +49,11 @@ async function fetchStatus(txId: string) {
  * server usually finished anyway — poll the transaction status instead of
  * failing (and NEVER re-submit).
  */
-async function recoverAfterTimeout(txId: string) {
+async function recoverAfterTimeout(txId: string, callerId: string) {
   for (let attempt = 0; attempt < 6; attempt++) {
     await new Promise((r) => setTimeout(r, 5_000));
     try {
-      const tx = await fetchStatus(txId);
+      const tx = await fetchStatus(txId, callerId);
       if (tx?.txHash) {
         return ok({
           status: "executed",
@@ -73,28 +83,26 @@ export function registerTransactionTools(server: McpServer) {
       description:
         "Co-sign and execute a pending Safe transaction on-chain. IRREVERSIBLE — moves funds. " +
         "Call ONLY when the user explicitly asked to APPROVE. Never call this for a reject — use reject_transaction. " +
-        "Omit txId to execute the user's most recent in-review transaction (callerId required in that case). " +
+        "Omit txId to execute the user's most recent in-review transaction. " +
         "Waits for on-chain inclusion; on timeout it automatically checks the real outcome.",
       inputSchema: {
         txId: TX_ID.optional().describe("Transaction id, e.g. tx-cc34ee59. Omit to target the latest in-review tx."),
-        callerId: CALLER_ID.optional().describe("Telegram caller identity, e.g. telegram:593960240"),
+        callerId: CALLER_ID,
       },
     },
     async ({ txId, callerId }) => {
-      if (!txId && !callerId) {
-        return fail("Provide txId, or callerId so the server can resolve the latest in-review transaction.");
-      }
       try {
         const result = await callApi(
           "POST",
           "/execute",
-          { ...(txId ? { txId } : {}), ...(callerId ? { callerId } : {}) },
+          { ...(txId ? { txId } : {}), callerId },
           150_000,
+          callerId,
         );
         return ok(result);
       } catch (err) {
         if (err instanceof ApiTimeoutError && txId) {
-          return recoverAfterTimeout(txId);
+          return recoverAfterTimeout(txId, callerId);
         }
         if (err instanceof ApiTimeoutError) {
           return fail(
@@ -114,24 +122,23 @@ export function registerTransactionTools(server: McpServer) {
       description:
         "Reject a pending in-review Safe transaction so it will NOT execute. No funds move. " +
         "Use whenever the user says reject/deny/block a transaction. " +
-        "Omit txId to reject the user's most recent in-review transaction (callerId required in that case).",
+        "Omit txId to reject the user's most recent in-review transaction.",
       inputSchema: {
         txId: TX_ID.optional().describe("Transaction id to reject. Omit to target the latest in-review tx."),
         reason: z.string().max(500).optional().describe("Why it was rejected (shown to the user)."),
-        callerId: CALLER_ID.optional(),
+        callerId: CALLER_ID,
       },
     },
     async ({ txId, reason, callerId }) => {
-      if (!txId && !callerId) {
-        return fail("Provide txId, or callerId so the server can resolve the latest in-review transaction.");
-      }
       try {
         const id = txId ?? "latest";
-        const result = await callApi("PATCH", `/transactions/${encodeURIComponent(id)}`, {
-          action: "reject",
-          reason: reason ?? "Rejected by owner",
-          ...(callerId ? { callerId } : {}),
-        });
+        const result = await callApi(
+          "PATCH",
+          `/transactions/${encodeURIComponent(id)}`,
+          { action: "reject", reason: reason ?? "Rejected by owner", callerId },
+          30_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -145,24 +152,23 @@ export function registerTransactionTools(server: McpServer) {
       title: "Mark transaction for review",
       description:
         "Flag a pending Safe transaction for manual review. Does not execute or reject it. " +
-        "Omit txId to target the user's most recent in-review transaction (callerId required in that case).",
+        "Omit txId to target the user's most recent in-review transaction.",
       inputSchema: {
         txId: TX_ID.optional(),
         reason: z.string().max(500).optional(),
-        callerId: CALLER_ID.optional(),
+        callerId: CALLER_ID,
       },
     },
     async ({ txId, reason, callerId }) => {
-      if (!txId && !callerId) {
-        return fail("Provide txId, or callerId so the server can resolve the latest in-review transaction.");
-      }
       try {
         const id = txId ?? "latest";
-        const result = await callApi("PATCH", `/transactions/${encodeURIComponent(id)}`, {
-          action: "review",
-          reason: reason ?? "Flagged for manual review",
-          ...(callerId ? { callerId } : {}),
-        });
+        const result = await callApi(
+          "PATCH",
+          `/transactions/${encodeURIComponent(id)}`,
+          { action: "review", reason: reason ?? "Flagged for manual review", callerId },
+          30_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -179,11 +185,12 @@ export function registerTransactionTools(server: McpServer) {
         "plus risk score, verdict and reasons. Use after an execute timeout, or whenever the user asks about a transaction.",
       inputSchema: {
         txId: TX_ID.describe("Transaction id, e.g. tx-cc34ee59"),
+        callerId: CALLER_ID,
       },
     },
-    async ({ txId }) => {
+    async ({ txId, callerId }) => {
       try {
-        const tx = await fetchStatus(txId);
+        const tx = await fetchStatus(txId, callerId);
         if (!tx) return fail(`Transaction ${txId} not found.`);
         return ok(tx);
       } catch (err) {
@@ -201,15 +208,19 @@ export function registerTransactionTools(server: McpServer) {
         'Use for "check pending" / "show my transactions". Set onlyOpen to true to show only ' +
         "transactions that have not executed and are not rejected.",
       inputSchema: {
-        safeAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "must be a 0x… EVM address"),
+        callerId: CALLER_ID,
         onlyOpen: z.boolean().optional().describe("true = only not-yet-executed, not-rejected transactions"),
       },
     },
-    async ({ safeAddress, onlyOpen }) => {
+    async ({ callerId, onlyOpen }) => {
       try {
+        // No safeAddress: the server lists the Safe the callerId resolves to.
         const { transactions } = await callApi<{ transactions: Record<string, unknown>[] }>(
           "GET",
-          `/transactions?safeAddress=${encodeURIComponent(safeAddress)}`,
+          "/transactions",
+          undefined,
+          30_000,
+          callerId,
         );
         let list = (transactions ?? []).map((t) => ({
           id: t.id,
@@ -242,21 +253,23 @@ export function registerTransactionTools(server: McpServer) {
       description:
         "Run a deep security analysis of a transaction: recipient history, address security (GoPlus), " +
         "token safety, honeypot simulation, and an overall verdict with flags. " +
-        "Omit txId to analyze the user's most recent in-review transaction (callerId required in that case). " +
+        "Omit txId to analyze the user's most recent in-review transaction. " +
         "External scanners are involved — this can take ~20 seconds.",
       inputSchema: {
         txId: TX_ID.optional(),
-        callerId: CALLER_ID.optional(),
+        callerId: CALLER_ID,
       },
     },
     async ({ txId, callerId }) => {
-      if (!txId && !callerId) {
-        return fail("Provide txId, or callerId so the server can resolve the latest in-review transaction.");
-      }
       try {
         const id = txId ?? "latest";
-        const query = callerId ? `?callerId=${encodeURIComponent(callerId)}` : "";
-        const result = await callApi("GET", `/analyze/${encodeURIComponent(id)}${query}`, undefined, 60_000);
+        const result = await callApi(
+          "GET",
+          `/analyze/${encodeURIComponent(id)}`,
+          undefined,
+          60_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -276,16 +289,18 @@ export function registerTransactionTools(server: McpServer) {
         txId: TX_ID,
         action: z.enum(["approved", "rejected"]),
         txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/).optional().describe("On-chain hash (for approved)"),
-        safeAddress: z
-          .string()
-          .regex(/^0x[a-fA-F0-9]{40}$/)
-          .optional()
-          .describe("Safe address — helps locate the chat if the message cache was lost"),
+        callerId: CALLER_ID,
       },
     },
-    async (args) => {
+    async ({ callerId, ...args }) => {
       try {
-        const result = await callApi("POST", "/notify-resolve", { ...args });
+        const result = await callApi(
+          "POST",
+          "/notify-resolve",
+          { ...args, callerId },
+          30_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);
