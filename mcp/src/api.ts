@@ -6,7 +6,9 @@
  * selects the server (defaults to production).
  */
 
-const BASE_URL = (process.env.ZHENTAN_API_URL ?? "https://api.zhentan.me").replace(/\/$/, "");
+// No default: silently falling back to production means a misconfigured local
+// or staging agent operates on real users' Safes. Fail loudly instead.
+const BASE_URL = (process.env.ZHENTAN_API_URL ?? "").replace(/\/$/, "");
 const AGENT_SECRET = process.env.AGENT_SECRET;
 
 export class ApiError extends Error {
@@ -24,21 +26,41 @@ export class ApiTimeoutError extends Error {
   }
 }
 
+/**
+ * Appends the caller identity to the query string.
+ *
+ * Every Safe-scoped route resolves *which user* a call acts for from this, and
+ * the server takes it from the query or the body — the query works for all
+ * methods, including the ones that send no body.
+ */
+function withCallerId(path: string, callerId?: string): string {
+  if (!callerId) return path;
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}callerId=${encodeURIComponent(callerId)}`;
+}
+
 export async function callApi<T = Record<string, unknown>>(
   method: "GET" | "POST" | "PATCH" | "DELETE",
   path: string,
   body?: Record<string, unknown>,
   timeoutMs = 30_000,
+  callerId?: string,
 ): Promise<T> {
   if (!AGENT_SECRET) {
     throw new ApiError(
       "AGENT_SECRET is not set in the MCP server environment. Configure it in the MCP host's env block.",
     );
   }
+  if (!BASE_URL) {
+    throw new ApiError(
+      "ZHENTAN_API_URL is not set in the MCP server environment. Set it explicitly " +
+        "(e.g. https://api.zhentan.me for production, http://localhost:3001 for local).",
+    );
+  }
 
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}${path}`, {
+    res = await fetch(`${BASE_URL}${withCallerId(path, callerId)}`, {
       method,
       headers: {
         Authorization: `Bearer ${AGENT_SECRET}`,

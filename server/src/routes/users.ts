@@ -8,6 +8,50 @@ import {
 } from "../lib/supabase/index.js";
 import { DEFAULT_SALT_NONCE } from "../lib/safe/derive.js";
 import { notify } from "../notifications/index.js";
+import { assertOwnsSafe, sameAddress } from "../lib/authz.js";
+
+/**
+ * Decides whether the caller may write the `user_details` row for `safeAddress`.
+ *
+ * This route can't authorize against `req.user` the way the others do. `req.user`
+ * is found by `signer_address`, and during onboarding that column is empty until
+ * the very last step — the username and Telegram writes happen before it. Gating
+ * on `req.user` would therefore reject every new user.
+ *
+ * So the anchor is the embedded wallet the Privy token proves, which exists from
+ * the first request. A row belongs to whoever's wallet it names; a row that names
+ * nobody yet is claimable by the caller creating it.
+ */
+async function mayWriteUser(
+  req: Request,
+  safeAddress: string
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const signer = req.signerAddress;
+
+  // Agent callers authorize the ordinary way — auth() resolved their Safe.
+  if (!signer) {
+    return req.callerSafe && sameAddress(req.callerSafe, safeAddress)
+      ? { ok: true }
+      : { ok: false, reason: "caller does not own this Safe" };
+  }
+
+  const existing = await getUserDetails(safeAddress);
+  if (!existing) return { ok: true }; // first write — claimed below
+
+  if (existing.signer_address) {
+    return sameAddress(existing.signer_address, signer)
+      ? { ok: true }
+      : { ok: false, reason: "caller does not own this Safe" };
+  }
+
+  // Mid-onboarding row: no signer yet, so fall back to the owner set the Safe
+  // was derived from. Empty owners means the row is still unclaimed.
+  const owners = existing.creation_owners ?? existing.safe_owners ?? [];
+  if (owners.length === 0) return { ok: true };
+  return owners.some((o) => sameAddress(o, signer))
+    ? { ok: true }
+    : { ok: false, reason: "caller is not an owner of this Safe" };
+}
 
 export function createUsersRouter(): IRouter {
   const router = Router();
@@ -36,6 +80,13 @@ export function createUsersRouter(): IRouter {
       res.status(400).json({ error: "Invalid signer address" });
       return;
     }
+    // This runs before a Safe exists, so it can't be gated on one — but a Privy
+    // caller may only look up their own wallet, otherwise it's an oracle for
+    // mapping any signer address to that user's record.
+    if (req.signerAddress && !sameAddress(req.signerAddress, address)) {
+      res.status(403).json({ error: "Forbidden: not your signer address" });
+      return;
+    }
     try {
       const user = await getUserBySignerAddress(address);
       res.json({ user });
@@ -46,11 +97,9 @@ export function createUsersRouter(): IRouter {
 
   // GET /users?safe=0x...
   router.get("/", async (req: Request, res: Response) => {
-    const safe = req.query.safe as string | undefined;
-    if (!safe) {
-      res.status(400).json({ error: "Missing required query param: safe" });
-      return;
-    }
+    // The row carries email, telegram id and signer address — own-record only.
+    const safe = assertOwnsSafe(req, res, req.query.safe as string | undefined);
+    if (!safe) return;
     try {
       const details = await getUserDetails(safe);
       res.json({ user: details });
@@ -83,12 +132,23 @@ export function createUsersRouter(): IRouter {
       return;
     }
     try {
+      const permitted = await mayWriteUser(req, safeAddress);
+      if (!permitted.ok) {
+        res.status(403).json({ error: `Forbidden: ${permitted.reason}` });
+        return;
+      }
+
+      // Bind the row to the wallet the token proved rather than the one the body
+      // claims. Without this an attacker could point a fresh row's signer at
+      // someone else, or redirect notifications by rewriting telegram_id.
+      const boundSigner = req.signerAddress ?? signerAddress;
+
       const before = await getUserDetails(safeAddress);
       await upsertUserDetails(safeAddress, {
         ...(email !== undefined && { email }),
         ...(name !== undefined && { name }),
         ...(telegramId !== undefined && { telegram_id: telegramId }),
-        ...(signerAddress !== undefined && { signer_address: signerAddress }),
+        ...(signerAddress !== undefined && { signer_address: boundSigner }),
         ...(username !== undefined && { username: username.toLowerCase() }),
         ...(onboardingCompleted !== undefined && { onboarding_completed: onboardingCompleted }),
         ...(externalWalletAddress !== undefined && { external_wallet_address: externalWalletAddress }),

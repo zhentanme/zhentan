@@ -1,12 +1,34 @@
 import { Router, Request, Response, type IRouter } from "express";
 import {
   getUserRules,
+  getUserRule,
   createUserRule,
   updateUserRule,
   deleteUserRule,
 } from "../lib/supabase/index.js";
+import { assertOwnsSafe, requireCallerSafe, sameAddress } from "../lib/authz.js";
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+
+/**
+ * Resolves a rule the caller is allowed to modify. A rule owned by someone else
+ * and a rule that doesn't exist both answer 404, so rule ids can't be probed.
+ *
+ * Deliberately not `getUserRules(callerSafe).find(...)`: that helper filters on
+ * `is_active`, which would make a soft-deleted rule unreachable and silently
+ * remove the ability to re-enable one.
+ */
+async function findOwnedRule(req: Request, res: Response, id: string) {
+  const callerSafe = requireCallerSafe(req, res);
+  if (!callerSafe) return null;
+
+  const rule = await getUserRule(id);
+  if (!rule || !sameAddress(rule.safe_address, callerSafe)) {
+    res.status(404).json({ error: `Rule not found: ${id}` });
+    return null;
+  }
+  return rule;
+}
 
 const VALID_RULE_TYPES = [
   "amount_limit",
@@ -27,11 +49,13 @@ export function createRulesRouter(): IRouter {
   // Returns all active rules for a Safe, sorted by priority.
   router.get("/", async (req: Request, res: Response) => {
     try {
-      const safe = req.query.safe as string | undefined;
-      if (!safe || !ADDRESS_RE.test(safe)) {
-        res.status(400).json({ error: "Missing or invalid safeAddress" });
+      const requested = req.query.safe as string | undefined;
+      if (requested && !ADDRESS_RE.test(requested)) {
+        res.status(400).json({ error: "Invalid safeAddress" });
         return;
       }
+      const safe = assertOwnsSafe(req, res, requested);
+      if (!safe) return;
 
       const rules = await getUserRules(safe);
       res.json({ rules });
@@ -42,12 +66,13 @@ export function createRulesRouter(): IRouter {
   });
 
   // POST /rules
-  // Creates a new custom rule for a Safe.
-  // Body: { safe, name, ruleType, conditions, action, riskScoreDelta?, priority?, description? }
+  // Creates a new custom rule for the CALLER's Safe. `safe` in the body is
+  // accepted only as an assertion to cross-check — it never selects the target.
+  // Body: { safe?, name, ruleType, conditions, action, riskScoreDelta?, priority?, description? }
   router.post("/", async (req: Request, res: Response) => {
     try {
       const {
-        safe,
+        safe: claimedSafe,
         name,
         ruleType,
         conditions,
@@ -57,10 +82,8 @@ export function createRulesRouter(): IRouter {
         description,
       } = req.body ?? {};
 
-      if (!safe || !ADDRESS_RE.test(safe)) {
-        res.status(400).json({ error: "Missing or invalid safe address" });
-        return;
-      }
+      const safe = assertOwnsSafe(req, res, claimedSafe);
+      if (!safe) return;
       if (!name || typeof name !== "string") {
         res.status(400).json({ error: "Missing required field: name" });
         return;
@@ -108,6 +131,7 @@ export function createRulesRouter(): IRouter {
         res.status(400).json({ error: "Missing rule id" });
         return;
       }
+      if (!(await findOwnedRule(req, res, id))) return;
 
       const patch: Parameters<typeof updateUserRule>[1] = {};
 
@@ -155,6 +179,7 @@ export function createRulesRouter(): IRouter {
         res.status(400).json({ error: "Missing rule id" });
         return;
       }
+      if (!(await findOwnedRule(req, res, id))) return;
 
       await deleteUserRule(id);
       res.json({ ok: true });

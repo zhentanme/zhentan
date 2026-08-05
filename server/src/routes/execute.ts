@@ -26,7 +26,7 @@ import {
   getUserByAddress,
   syncLinkedRequest,
 } from "../lib/supabase/index.js";
-import { getSafeAddressFromCallerId } from "../lib/caller.js";
+import { assertOwnsTx, requireCallerSafe } from "../lib/authz.js";
 import { notify } from "../notifications/index.js";
 import { getApiKit, getProtocolKit } from "../lib/safe/service.js";
 import { readSafeNonce } from "../lib/safe/onchain.js";
@@ -360,97 +360,123 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
 // Per-tx in-flight guard against concurrent execute calls in this process.
 const inFlight = new Set<string>();
 
+/** What `runExecution` reports back, mirroring the HTTP response shape. */
+export type ExecutionResult =
+  | { status: "already_rejected" }
+  | { status: "already_executed"; txId: string; txHash?: string }
+  | { status: "superseded"; txId: string; reason?: string }
+  | { status: "in_progress"; txId: string }
+  | {
+      status: "executed";
+      txId: string;
+      to: string;
+      amount: string;
+      token: string;
+      txHash?: string;
+      success?: boolean;
+    };
+
+/**
+ * Executes an already-authorized transaction.
+ *
+ * The caller is responsible for deciding that this transaction may be executed
+ * — this function performs no authorization of its own. Two very different
+ * callers rely on that split:
+ *
+ *   - `POST /execute`, which resolves a principal and checks ownership first.
+ *   - The risk engine's auto-execute in queue.ts, which is system-initiated and
+ *     has no principal at all. It calls this directly rather than looping back
+ *     through HTTP, so an ownership gate on the route can never strand the
+ *     APPROVE path.
+ */
+export async function runExecution(tx: PendingTransaction): Promise<ExecutionResult> {
+  if (tx.rejected) return { status: "already_rejected" };
+  if (tx.executedAt) return { status: "already_executed", txId: tx.id, txHash: tx.txHash };
+  if (inFlight.has(tx.id)) return { status: "in_progress", txId: tx.id };
+
+  inFlight.add(tx.id);
+  let outcome: ExecutionOutcome;
+  try {
+    outcome = tx.txType === "safetx" ? await executeSafeTx(tx) : await executeLegacy4337(tx);
+  } finally {
+    inFlight.delete(tx.id);
+  }
+
+  if (outcome.status === "superseded") {
+    return { status: "superseded", txId: tx.id, reason: outcome.reason };
+  }
+
+  if (outcome.status === "already_executed") {
+    if (outcome.txHash && !tx.executedAt) {
+      await finishExecution(
+        tx,
+        outcome.txHash,
+        outcome.success ?? true,
+        outcome.executedBy ?? getAgentAddress()
+      );
+    }
+    return { status: "already_executed", txId: tx.id, txHash: outcome.txHash };
+  }
+
+  await finishExecution(
+    tx,
+    outcome.txHash!,
+    outcome.success ?? true,
+    outcome.executedBy ?? getAgentAddress()
+  );
+
+  return {
+    status: "executed",
+    txId: tx.id,
+    to: tx.to,
+    amount: tx.amount,
+    token: tx.token,
+    txHash: outcome.txHash,
+    success: outcome.success,
+  };
+}
+
+/** Loads a transaction by id and executes it. Performs no authorization. */
+export async function runExecutionById(txId: string): Promise<ExecutionResult> {
+  const tx = await getTransaction(txId);
+  if (!tx) throw new Error(`Transaction ${txId} not found`);
+  return runExecution(tx);
+}
+
 export function createExecuteRouter(): IRouter {
   const router = Router();
 
   router.post("/", async (req: Request, res: Response) => {
-    let txId: string | undefined;
     try {
-      const { txId: rawTxId, callerId } = req.body ?? {};
+      const { txId: rawTxId } = req.body ?? {};
 
-      txId = rawTxId;
-      if (!txId) {
-        const safeAddress = await getSafeAddressFromCallerId(callerId);
-        if (!safeAddress) {
-          res.status(400).json({ error: "Missing txId and could not resolve Safe from callerId" });
-          return;
-        }
-        const latest = await getLastInReviewTransaction(safeAddress);
-        if (!latest) {
+      // Two ways in, both anchored on the authenticated principal:
+      //   - explicit txId → must belong to the caller's Safe
+      //   - no txId       → the caller's own latest in-review tx
+      // The body's `callerId` is not consulted here; auth() already resolved it
+      // into req.callerSafe, and re-reading it would reopen the impersonation
+      // path this gate exists to close.
+      let tx: PendingTransaction | null;
+      if (rawTxId) {
+        tx = await assertOwnsTx(req, res, rawTxId);
+        if (!tx) return;
+      } else {
+        const safeAddress = requireCallerSafe(req, res);
+        if (!safeAddress) return;
+        tx = await getLastInReviewTransaction(safeAddress);
+        if (!tx) {
           res.status(404).json({ error: "No in-review transaction found for this Safe" });
           return;
         }
-        txId = latest.id;
       }
 
-      const tx = await getTransaction(txId);
-      if (!tx) {
-        res.status(404).json({ error: `Transaction ${txId} not found` });
+      const result = await runExecution(tx);
+      if (result.status === "in_progress") {
+        res.status(409).json(result);
         return;
       }
-
-      if (tx.rejected) {
-        res.json({ status: "already_rejected" });
-        return;
-      }
-
-      if (tx.executedAt) {
-        res.json({ status: "already_executed", txHash: tx.txHash });
-        return;
-      }
-
-      if (inFlight.has(txId)) {
-        res.status(409).json({ status: "in_progress", txId });
-        return;
-      }
-      inFlight.add(txId);
-
-      let outcome: ExecutionOutcome;
-      try {
-        outcome =
-          tx.txType === "safetx"
-            ? await executeSafeTx(tx)
-            : await executeLegacy4337(tx);
-      } finally {
-        inFlight.delete(txId);
-      }
-
-      if (outcome.status === "superseded") {
-        res.json({ status: "superseded", txId: tx.id, reason: outcome.reason });
-        return;
-      }
-
-      if (outcome.status === "already_executed") {
-        if (outcome.txHash && !tx.executedAt) {
-          await finishExecution(
-            tx,
-            outcome.txHash,
-            outcome.success ?? true,
-            outcome.executedBy ?? getAgentAddress()
-          );
-        }
-        res.json({ status: "already_executed", txId: tx.id, txHash: outcome.txHash });
-        return;
-      }
-
-      await finishExecution(
-        tx,
-        outcome.txHash!,
-        outcome.success ?? true,
-        outcome.executedBy ?? getAgentAddress()
-      );
-
-      res.json({
-        status: "executed",
-        txId: tx.id,
-        to: tx.to,
-        amount: tx.amount,
-        token: tx.token,
-        txHash: outcome.txHash,
-        success: outcome.success,
-      });
+      res.json(result);
     } catch (err) {
-      if (txId) inFlight.delete(txId);
       const message = err instanceof Error ? err.message : "Unknown error";
       console.error("Execute error:", message);
       res.status(500).json({ error: message });

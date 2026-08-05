@@ -3,8 +3,6 @@
   "version": "0.1.0",
   "description": "NanoBot/Hermes agent skills for Zhentan transaction screening",
   "type": "module",
-  "scripts": {
-    "sign-and-execute": "node sign-and-execute.js"
-  },
+  "scripts": {},
   "dependencies": {}
 }

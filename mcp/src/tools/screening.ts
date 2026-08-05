@@ -3,10 +3,11 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { callApi } from "../api.js";
 import { ok, fail, failFrom } from "../result.js";
 
-const ADDRESS = z.string().regex(/^0x[a-fA-F0-9]{40}$/, "must be a 0x… EVM address");
+// Required: the server applies these settings to the Safe this resolves to.
 const CALLER_ID = z
   .string()
-  .regex(/^telegram:\d+$/, 'callerId must be "telegram:<numeric user id>"');
+  .regex(/^telegram:\d+$/, 'callerId must be "telegram:<numeric user id>"')
+  .describe("Telegram caller identity from session context, e.g. telegram:593960240");
 
 export function registerScreeningTools(server: McpServer) {
   server.registerTool(
@@ -17,27 +18,28 @@ export function registerScreeningTools(server: McpServer) {
         "Toggle screening mode and/or update per-Safe limits and risk thresholds. " +
         "Provide only the fields to change. Use when the user says enable/disable screening or update limits.",
       inputSchema: {
-        safe: ADDRESS.describe("The user's Safe address"),
+        callerId: CALLER_ID,
         screeningMode: z.boolean().optional().describe("true = screening on, false = off"),
         maxSingleTx: z.string().regex(/^\d+(\.\d+)?$/).optional(),
         maxDailyVolume: z.string().regex(/^\d+(\.\d+)?$/).optional(),
         riskThresholdApprove: z.number().int().min(0).max(100).optional(),
         riskThresholdBlock: z.number().int().min(0).max(100).optional(),
         learningEnabled: z.boolean().optional(),
-        callerId: CALLER_ID.optional(),
       },
     },
-    async ({ safe, callerId, ...settings }) => {
+    async ({ callerId, ...settings }) => {
       const changes = Object.entries(settings).filter(([, v]) => v !== undefined);
       if (changes.length === 0) {
         return fail("Provide at least one setting to change (screeningMode, maxSingleTx, riskThresholdApprove, …).");
       }
       try {
-        const result = await callApi("PATCH", "/status", {
-          safe,
-          ...Object.fromEntries(changes),
-          ...(callerId ? { callerId } : {}),
-        });
+        const result = await callApi(
+          "PATCH",
+          "/status",
+          { ...Object.fromEntries(changes), callerId },
+          30_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -54,13 +56,19 @@ export function registerScreeningTools(server: McpServer) {
         "telegram connection state. Set includePatterns to true to also return the learned behavioral " +
         "patterns (recipients, tokens, time grid) — large output, only when needed.",
       inputSchema: {
-        safe: ADDRESS.describe("The user's Safe address"),
+        callerId: CALLER_ID,
         includePatterns: z.boolean().optional().describe("Include learned behavioral patterns (large)"),
       },
     },
-    async ({ safe, includePatterns }) => {
+    async ({ callerId, includePatterns }) => {
       try {
-        const result = await callApi<Record<string, unknown>>("GET", `/status?safe=${encodeURIComponent(safe)}`);
+        const result = await callApi<Record<string, unknown>>(
+          "GET",
+          "/status",
+          undefined,
+          30_000,
+          callerId,
+        );
         if (!includePatterns) {
           delete result.patterns;
         }

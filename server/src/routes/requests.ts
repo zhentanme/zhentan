@@ -1,7 +1,7 @@
 import { Router, Request, Response, type IRouter } from "express";
 import type { RequestStatus, RequestType, RequestKind, QueuedRequest, PendingTransaction } from "../types.js";
 import { getRequests, getRequest, createRequest, updateRequest, updateTransaction, getTransaction, getPatternsForSafe } from "../lib/supabase/index.js";
-import { getSafeAddressFromCallerId } from "../lib/caller.js";
+import { requireCallerSafe, sameAddress } from "../lib/authz.js";
 import { analyzeRisk } from "../risk.js";
 import { agentProposeFromRequest } from "../lib/safe/agentPropose.js";
 import type { DecodedKind } from "../lib/safe/kind.js";
@@ -62,16 +62,13 @@ export function createRequestsRouter(): IRouter {
         return;
       }
 
-      // Resolve the owner Safe so the request is scoped to one user.
-      // Client calls carry req.user (Privy token); agent calls carry a
-      // "telegram:<id>" callerId we resolve to the user's Safe. Fall back to
-      // body.callerId so the agent path also works when auth is skipped in dev.
-      const safeAddress =
-        req.user?.safe_address ??
-        (await getSafeAddressFromCallerId(req.callerId ?? body.callerId));
+      // The request is scoped to the caller's own Safe — resolved in auth(),
+      // never from the body, so an agent call can't queue into another user's
+      // dashboard.
+      const safeAddress = req.callerSafe;
 
       if (!safeAddress) {
-        res.status(400).json({
+        res.status(403).json({
           error: "Could not resolve request owner. Provide a valid callerId (telegram:<id>) for a registered user.",
         });
         return;
@@ -229,11 +226,9 @@ export function createRequestsRouter(): IRouter {
 
   router.get("/", async (req: Request, res: Response) => {
     try {
-      // Scope to a single user's Safe. Client calls use the authenticated
-      // user; agent calls may scope by a "telegram:<id>" callerId query.
-      // Unauthenticated callers (or users mid-onboarding) see nothing.
-      const safeAddress =
-        req.user?.safe_address ?? (await getSafeAddressFromCallerId(req.callerId));
+      // Scope to the caller's own Safe. Callers with no resolvable Safe (users
+      // mid-onboarding) see nothing rather than everything.
+      const safeAddress = req.callerSafe;
       if (!safeAddress) {
         res.json({ requests: [], invoices: [] });
         return;
@@ -262,20 +257,15 @@ export function createRequestsRouter(): IRouter {
         return;
       }
 
-      const existing = await getRequest(id);
-      if (!existing) {
-        res.status(404).json({ error: `Request not found: ${id}` });
-        return;
-      }
+      const callerSafe = requireCallerSafe(req, res);
+      if (!callerSafe) return;
 
-      // Ownership: a client may only mutate requests belonging to their own Safe.
-      // Agent calls (authenticated via AGENT_SECRET, no req.user) are exempt.
-      if (
-        req.user &&
-        existing.safeAddress &&
-        existing.safeAddress.toLowerCase() !== req.user.safe_address.toLowerCase()
-      ) {
-        res.status(403).json({ error: "Forbidden" });
+      // A request that belongs to someone else answers 404, same as one that
+      // doesn't exist. The previous `req.user && …` form checked ownership only
+      // when a row happened to resolve, so a caller without one skipped it.
+      const existing = await getRequest(id);
+      if (!existing || !sameAddress(existing.safeAddress, callerSafe)) {
+        res.status(404).json({ error: `Request not found: ${id}` });
         return;
       }
 

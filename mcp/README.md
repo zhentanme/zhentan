@@ -18,24 +18,30 @@ and the secret lives in this process's env where the model can never see it.
 | `reject_transaction` | `PATCH /transactions/{id\|latest}` | structurally cannot touch `/execute` |
 | `review_transaction` | `PATCH /transactions/{id\|latest}` | |
 | `check_transaction_status` | `GET /transactions/:id` | status, txHash, risk verdict/reasons |
-| `list_transactions` | `GET /transactions?safeAddress=` | trimmed fields; `onlyOpen` filter for "check pending" |
+| `list_transactions` | `GET /transactions` | trimmed fields; `onlyOpen` filter for "check pending" |
 | `analyze_transaction` | `GET /analyze/{id\|latest}` | deep analysis (GoPlus, honeypot); 60s budget |
 | `resolve_notification` | `POST /notify-resolve` | closes the approve/reject loop (edits the Telegram message) |
 | `queue_request` | `POST /requests` | invoice or transfer instruction; address/amount validated |
 | `list_requests` | `GET /requests?callerId=` | per-user scope |
 | `update_request_status` | `PATCH /requests` | bookkeeping only |
 | `update_screening_settings` | `PATCH /status` | screening toggle + limits/thresholds |
-| `get_screening_status` | `GET /status?safe=` | config + optional learned patterns (`includePatterns`) |
+| `get_screening_status` | `GET /status` | config + optional learned patterns (`includePatterns`) |
 | `handle_bot_start` | `POST /bot-ping` | /start onboarding; marks bot connected, returns greeting details |
 | `get_user_profile` | `GET /me?chatId=` | friendly guidance when Telegram isn't linked |
 | `resolve_recipient` | `GET /resolve?name=` | generic: 0x address, ENS (.eth), SPACE ID (.bnb), or Zhentan username — same resolver as the UI |
 | `list_rules` / `create_rule` / `update_rule` / `delete_rule` | `/rules` | screening rules CRUD; delete is a soft-delete |
-| `get_event_log` | `GET /events?safe=` | behavioral audit trail (max 500) |
+| `get_event_log` | `GET /events` | behavioral audit trail (max 500) |
 
 This covers the agent's full surface — the agent is **curl-free**; the markdown
 skill is now a pure playbook referencing these tools. `POST /queue` is
 intentionally excluded — proposing signed transactions is the owner app's job,
 never the agent's.
+
+**Every Safe-scoped tool takes a required `callerId`** (`telegram:<numeric id>`).
+The server resolves it to exactly one Safe and authorizes the call against that
+Safe, so no tool accepts a `safe`/`safeAddress` argument any more — the model
+cannot aim a call at another user, and a call without a `callerId` is refused
+rather than served.
 
 ## Build
 
@@ -49,7 +55,7 @@ pnpm --filter zhentan-mcp build   # -> mcp/dist/index.js
 | Var | Required | Meaning |
 |---|---|---|
 | `AGENT_SECRET` | yes | Bearer token for the Zhentan server (never enters the model) |
-| `ZHENTAN_API_URL` | no | Server base URL; defaults to `https://api.zhentan.me` |
+| `ZHENTAN_API_URL` | yes | Server base URL, e.g. `https://api.zhentan.me` or `http://localhost:3001`. No default — a misconfigured agent must fail rather than silently operate on production Safes |
 | `MCP_TRANSPORT` | no | `stdio` (default). Streamable HTTP is a planned follow-up — see the tracking issue |
 
 ## nanobot configuration

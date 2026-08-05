@@ -78,9 +78,15 @@ export function registerRequestTools(server: McpServer) {
           .describe("One line naming the contextual red flag. Required when riskScore is set."),
       },
     },
-    async (args) => {
+    async ({ callerId, ...args }) => {
       try {
-        const result = await callApi("POST", "/requests", { ...args, sourceChannel: "telegram" });
+        const result = await callApi(
+          "POST",
+          "/requests",
+          { ...args, callerId, sourceChannel: "telegram" },
+          30_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -99,7 +105,7 @@ export function registerRequestTools(server: McpServer) {
     },
     async ({ callerId }) => {
       try {
-        const result = await callApi("GET", `/requests?callerId=${encodeURIComponent(callerId)}`);
+        const result = await callApi("GET", "/requests", undefined, 30_000, callerId);
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -120,12 +126,18 @@ export function registerRequestTools(server: McpServer) {
         txId: z.string().optional().describe("Associated transaction id when approving"),
         txHash: z.string().optional().describe("On-chain hash when marking executed"),
         rejectReason: z.string().max(500).optional(),
-        callerId: CALLER_ID.optional(),
+        callerId: CALLER_ID.describe("Required — scopes the update to this user's Safe"),
       },
     },
-    async (args) => {
+    async ({ callerId, ...args }) => {
       try {
-        const result = await callApi("PATCH", "/requests", { ...args });
+        const result = await callApi(
+          "PATCH",
+          "/requests",
+          { ...args, callerId },
+          30_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);
