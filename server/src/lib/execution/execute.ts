@@ -31,6 +31,7 @@ import {
 } from "../chain/sponsor.js";
 import { encodeExecTransaction } from "./assemble.js";
 import { isRejectionActive } from "../safe/rejectionState.js";
+import { claimExecutionLease, releaseExecutionLease } from "./lease.js";
 import { getSigningAuthority } from "../../agent/index.js";
 import { finishExecution } from "./finish.js";
 import type { PendingTransaction } from "../../types.js";
@@ -287,9 +288,6 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
   };
 }
 
-// Per-tx in-flight guard against concurrent execute calls in this process.
-const inFlight = new Set<string>();
-
 /** What `runExecution` reports back, mirroring the HTTP response shape. */
 export type ExecutionResult =
   | { status: "already_rejected" }
@@ -328,14 +326,22 @@ export async function runExecution(tx: PendingTransaction): Promise<ExecutionRes
     return { status: "already_rejected" };
   }
   if (tx.executedAt) return { status: "already_executed", txId: tx.id, txHash: tx.txHash };
-  if (inFlight.has(tx.id)) return { status: "in_progress", txId: tx.id };
 
-  inFlight.add(tx.id);
+  // Cross-process in-flight guard (D0): one atomic conditional UPDATE claims
+  // the row; a second claimant — same process or another — gets in_progress.
+  // Replaces the in-memory Set whose correctness rested on PM2 instances: 1.
+  if (!(await claimExecutionLease(tx.id))) {
+    return { status: "in_progress", txId: tx.id };
+  }
   let outcome: ExecutionOutcome;
   try {
     outcome = tx.txType === "safetx" ? await executeSafeTx(tx) : await executeLegacy4337(tx);
   } finally {
-    inFlight.delete(tx.id);
+    // Release must never mask the execution outcome/error; a failed release
+    // is self-healing anyway (the lease expires).
+    await releaseExecutionLease(tx.id).catch((err) =>
+      console.error(`Execution lease release failed for ${tx.id}:`, err)
+    );
   }
 
   if (outcome.status === "superseded") {

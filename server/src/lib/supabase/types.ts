@@ -37,6 +37,8 @@ export interface TransactionRow {
   cancel_attempts: number | null;
   cancel_last_error: string | null;
   cancel_next_retry_at: string | null;
+  execution_lease_owner: string | null;
+  execution_lease_expires_at: string | null;
   amount_usd: string | null;
   executed_at: string | null;
   executed_by: string | null;

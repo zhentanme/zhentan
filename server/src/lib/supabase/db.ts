@@ -118,6 +118,8 @@ function txToRow(tx: PendingTransaction): TransactionRow {
     cancel_attempts: tx.cancelAttempts ?? 0,
     cancel_last_error: tx.cancelLastError ?? null,
     cancel_next_retry_at: tx.cancelNextRetryAt ?? null,
+    execution_lease_owner: null,
+    execution_lease_expires_at: null,
     amount_usd: tx.amountUSD ?? null,
     executed_at: tx.executedAt ?? null,
     executed_by: tx.executedBy ?? null,
