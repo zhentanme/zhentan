@@ -51,9 +51,9 @@ description: Implementation lifecycle for the agent-service separation tasks (Gi
 8. **PR — ALWAYS against `preview`, never `main` directly**:
    - Base `preview`, one PR per task. Title: `<ID>: <short description>`
      (e.g. `B0: golden payload harness`).
-   - Body: `Implements #<issue> (closes on promotion to main)` — do NOT
-     rely on `Closes #` here: GitHub closing keywords only fire on merges
-     into the default branch, so the issue is closed by the promotion PR.
+   - Body: `Implements #<issue>` — do NOT rely on `Closes #` keywords
+     (they only fire on default-branch merges); the issue is closed
+     manually at the preview merge (step 9).
    - What/why in two sentences, verification evidence (command output,
      tx hashes for on-chain gates), the docs checklist with boxes ticked.
    - **Manual UI test section** — mandatory whenever the diff can break a
@@ -64,10 +64,13 @@ description: Implementation lifecycle for the agent-service separation tasks (Gi
    - Branch from `preview` (it should equal `main` + unpromoted tasks).
      Keep the diff reviewable; past ~600 non-mechanical lines, split.
 9. **Merge to `preview`** after review + checks; run the manual UI tests
-   there. Tick the task in the plan doc's index. Then return to step 1.
+   there. **Close the task issue now** (`gh issue close <n> --comment` with
+   the PR link and one-line outcome) — merged-to-preview IS done; promotion
+   is a release step, not part of the task. Tick the task in the plan doc's
+   index. Then return to step 1.
 10. **Promotion `preview` → `main`**: once the tested tasks' checklists
-    pass, open a promotion PR whose body lists `Closes #<issue>` for every
-    task it carries — issues close when it merges. Promote at least at
+    pass, open a promotion PR whose body *references* the tasks it carries
+    (issues are already closed at preview merge). Promote at least at
     every milestone gate (post-B3, post-D5); more often is fine.
     **Sync rule:** if `main` ever receives commits directly (hotfix),
     immediately open and merge a `main` → `preview` sync PR. Check drift
