@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit && npm run lint:layering",
-    "lint:layering": "! grep -rnE \"from ['\\\"][^'\\\"]*routes/\" --include='*.ts' src/lib",
+    "lint:layering": "! grep -rnE \"from ['\\\"][^'\\\"]*routes/\" --include='*.ts' src/lib && ! grep -rnE \"sign(Hash|Digest)\\(\" --include='*.ts' src | grep -v lib/agent/signer",
+    "test": "vitest run",
     "db:link": "supabase link",
     "db:new": "supabase migration new",
     "db:push": "supabase db push",
@@ -42,6 +43,7 @@
     "pm2": "^5.3.0",
     "supabase": "^2.105.0",
     "tsx": "^4.19.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

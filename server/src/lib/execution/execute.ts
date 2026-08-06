@@ -24,6 +24,7 @@ import {
 import { getApiKit, getProtocolKit } from "../safe/service.js";
 import { readSafeNonce } from "../safe/onchain.js";
 import { assertAgentGas, getAgentAddress, getRelayerPublicClient } from "../safe/relayer.js";
+import { getSigningAuthority } from "../agent/signer.js";
 import { finishExecution } from "./finish.js";
 import type { PendingTransaction } from "../../types.js";
 
@@ -195,7 +196,23 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
     }
   }
 
-  const agentSignature = relayOnly ? null : await protocolKit.signHash(tx.safeTxHash);
+  const agentSignature = relayOnly
+    ? null
+    : (
+        await getSigningAuthority().sign({
+          purpose: "execution",
+          safeAddress: tx.safeAddress,
+          safeTx: tx.safeTx,
+          expectedSafeTxHash: tx.safeTxHash,
+          transactionId: tx.id,
+          owners: tx.ownerAddresses,
+          threshold: tx.threshold,
+          decisionEvidence: {
+            riskScore: tx.riskScore,
+            riskVerdict: tx.riskVerdict,
+          },
+        })
+      ).signature;
 
   // Mirror confirmations to the service so the Safe UI shows n/n —
   // idempotent, and a service outage must not block execution (signatures
