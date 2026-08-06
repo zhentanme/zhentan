@@ -24,7 +24,7 @@ import { createSwapRouter } from "./routes/swap.js";
 import { createNotificationsRouter } from "./routes/notifications.js";
 import { createSafeRouter } from "./routes/safe.js";
 import { startSafeSyncWorker } from "./workers/safeSync.js";
-import { assertAgentGas } from "./lib/safe/relayer.js";
+import { assertSponsorGas, resolveSponsorPrivateKey } from "./lib/chain/sponsor.js";
 import { editNotification } from "./notify.js";
 import { markBotConnectedByChatId, getUserByTelegramId } from "./lib/supabase/index.js";
 
@@ -302,12 +302,17 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+// Fail fast on invalid sponsor config: a sponsor key that differs from the
+// agent key is not supported until sign/send separation (B1) — refuse to
+// boot rather than gas-check the wrong sender and misreport executedBy.
+if (process.env.SPONSOR_PRIVATE_KEY) resolveSponsorPrivateKey();
+
 const port = Number(process.env.PORT) || 3001;
 app.listen(port, () => {
   console.log(`Zhentan server listening on http://localhost:${port}`);
   startSafeSyncWorker();
   // Surface a low agent gas balance at boot rather than on the first execute.
   if (process.env.AGENT_PRIVATE_KEY) {
-    assertAgentGas().catch((err) => console.error("Startup gas check failed:", err));
+    assertSponsorGas().catch((err) => console.error("Startup gas check failed:", err));
   }
 });
