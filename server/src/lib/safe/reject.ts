@@ -12,7 +12,7 @@ import type { Hex } from "viem";
 import type { PendingTransaction, SafeTxData } from "../../types.js";
 import { computeSafeTxHash, getApiKit, getProtocolKit, proposeToService } from "./service.js";
 import { readSafeNonce } from "./onchain.js";
-import { assertAgentGas } from "./relayer.js";
+import { assertSponsorGas } from "../chain/sponsor.js";
 import { getSigningAuthority } from "../agent/signer.js";
 
 export interface RejectionResult {
@@ -52,7 +52,7 @@ export async function executeRejection(tx: PendingTransaction): Promise<Rejectio
     return { status: "skipped", reason: "nonce already consumed on-chain" };
   }
 
-  await assertAgentGas();
+  await assertSponsorGas();
 
   const rejectionTx = buildRejectionTxData(tx.safeAddress, tx.safeNonce);
   const rejectionHash = computeSafeTxHash(tx.safeAddress, rejectionTx);

@@ -24,7 +24,7 @@ import { createSwapRouter } from "./routes/swap.js";
 import { createNotificationsRouter } from "./routes/notifications.js";
 import { createSafeRouter } from "./routes/safe.js";
 import { startSafeSyncWorker } from "./workers/safeSync.js";
-import { assertAgentGas } from "./lib/safe/relayer.js";
+import { assertSponsorGas } from "./lib/chain/sponsor.js";
 import { editNotification } from "./notify.js";
 import { markBotConnectedByChatId, getUserByTelegramId } from "./lib/supabase/index.js";
 
@@ -308,6 +308,6 @@ app.listen(port, () => {
   startSafeSyncWorker();
   // Surface a low agent gas balance at boot rather than on the first execute.
   if (process.env.AGENT_PRIVATE_KEY) {
-    assertAgentGas().catch((err) => console.error("Startup gas check failed:", err));
+    assertSponsorGas().catch((err) => console.error("Startup gas check failed:", err));
   }
 });

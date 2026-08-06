@@ -23,7 +23,8 @@ import {
 } from "../supabase/index.js";
 import { getApiKit, getProtocolKit } from "../safe/service.js";
 import { readSafeNonce } from "../safe/onchain.js";
-import { assertAgentGas, getAgentAddress, getRelayerPublicClient } from "../safe/relayer.js";
+import { getAgentAddress, getRelayerPublicClient } from "../safe/relayer.js";
+import { assertSponsorGas, getSponsorAddress } from "../chain/sponsor.js";
 import { getSigningAuthority } from "../agent/signer.js";
 import { finishExecution } from "./finish.js";
 import type { PendingTransaction } from "../../types.js";
@@ -126,7 +127,7 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
     throw new Error("Missing SafeTx fields (safeTxHash/safeTx/safeNonce/userSignature)");
   }
 
-  await assertAgentGas();
+  await assertSponsorGas();
 
   // Nonce race guard: the user may have executed something at this nonce
   // directly from the Safe UI while this proposal waited. That "something"
@@ -288,7 +289,10 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
     status: "executed",
     txHash,
     success: receipt.status === "success",
-    executedBy: getAgentAddress(),
+    // The EOA that SENT execTransaction — the sponsor, not the agent
+    // identity. Identical while the keys are one; wrong the moment they
+    // split (which is why this reports sponsor).
+    executedBy: getSponsorAddress(),
   };
 }
 
@@ -347,7 +351,7 @@ export async function runExecution(tx: PendingTransaction): Promise<ExecutionRes
         tx,
         outcome.txHash,
         outcome.success ?? true,
-        outcome.executedBy ?? getAgentAddress()
+        outcome.executedBy ?? getSponsorAddress()
       );
     }
     return { status: "already_executed", txId: tx.id, txHash: outcome.txHash };
@@ -357,7 +361,7 @@ export async function runExecution(tx: PendingTransaction): Promise<ExecutionRes
     tx,
     outcome.txHash!,
     outcome.success ?? true,
-    outcome.executedBy ?? getAgentAddress()
+    outcome.executedBy ?? getSponsorAddress()
   );
 
   return {

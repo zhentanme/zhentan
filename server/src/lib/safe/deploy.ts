@@ -3,7 +3,7 @@
  * Transaction Service only indexes contracts that exist on-chain).
  *
  * Deployment bytes come from lib/safe/derive.ts (versioned — the initializer
- * must reproduce the account's stored address exactly), and the agent EOA
+ * must reproduce the account's stored address exactly), and the sponsor EOA
  * sends the factory call and pays gas.
  */
 import type { Address, Hex } from "viem";
@@ -14,7 +14,8 @@ import {
   type DerivationVersion,
 } from "./derive.js";
 import { SAFE_2OF3_THRESHOLD } from "./owners.js";
-import { getAgentWalletClient, getRelayerPublicClient, assertAgentGas } from "./relayer.js";
+import { getRelayerPublicClient } from "./relayer.js";
+import { getSponsorWalletClient, assertSponsorGas } from "../chain/sponsor.js";
 
 export interface CounterfactualSafe {
   address: Address;
@@ -52,9 +53,9 @@ export async function deploySafe(
     throw new Error(`No deployment tx available for undeployed Safe ${address}`);
   }
 
-  await assertAgentGas();
+  await assertSponsorGas();
 
-  const wallet = getAgentWalletClient();
+  const wallet = getSponsorWalletClient();
   const txHash = await wallet.sendTransaction({
     to: deploymentTx.to,
     value: deploymentTx.value,
