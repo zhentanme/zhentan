@@ -25,10 +25,11 @@ description: Implementation lifecycle for the agent-service separation tasks (Gi
 
 1. **Pick**: lowest open issue with all dependencies merged. Read the issue
    AND the plan § AND the files it names. Assign yourself / note in issue.
-2. **Branch** from up-to-date `main`:
+2. **Branch** from up-to-date `preview` (the integration branch — it equals
+   `main` plus not-yet-promoted tasks):
    `refactor/<id>-<slug>` for A/C (code motion), `feat/<id>-<slug>` for
-   D/E/F/IP, `fix/<id>-<slug>` for B4-style bug tasks.
-   Example: `refactor/a1-execution-out-of-routes`.
+   D/E/F/IP, `fix/<id>-<slug>` for B4-style bug tasks, `test/<id>-<slug>`
+   for harness tasks. Example: `refactor/a1-execution-out-of-routes`.
 3. **Tests first** where the issue's "Tests (from the start)" section lists
    them — write them against current behaviour before changing it, so the
    change is provably behaviour-preserving. Pure-motion tasks lean on
@@ -47,27 +48,31 @@ description: Implementation lifecycle for the agent-service separation tasks (Gi
 7. **Plan bookkeeping** (local, uncommitted but mandatory): mark the task
    complete in `.local/architecture/agent-service-separation-tasks.md`,
    record deviations/decisions discovered during implementation.
-8. **PR**:
-   - Title: `<ID>: <short description>` (e.g. `A1: move execution out of routes`)
-   - Body: `Closes #<issue>`, what/why in two sentences, verification
-     evidence (command output, tx hashes for on-chain gates), the docs
-     checklist copied with boxes ticked.
+8. **PR — ALWAYS against `preview`, never `main` directly**:
+   - Base `preview`, one PR per task. Title: `<ID>: <short description>`
+     (e.g. `B0: golden payload harness`).
+   - Body: `Implements #<issue> (closes on promotion to main)` — do NOT
+     rely on `Closes #` here: GitHub closing keywords only fire on merges
+     into the default branch, so the issue is closed by the promotion PR.
+   - What/why in two sentences, verification evidence (command output,
+     tx hashes for on-chain gates), the docs checklist with boxes ticked.
    - **Manual UI test section** — mandatory whenever the diff can break a
-     user-visible flow (see "Manual UI tests per change area" below). List
-     concrete click-through steps and the failure signature to watch for,
-     as a checkbox list the tester can tick on the preview deployment.
-   - Base `main`. Keep the diff reviewable; if it grows past ~600 lines of
-     non-mechanical change, stop and split.
-   - **ALWAYS also open a second PR from the same branch to `preview`** —
-     this is where the Vercel preview deployment and manual UI tests run.
-     Rules: no `Closes #` keyword on the preview PR (the issue closes on
-     the main merge); copy the Manual UI tests checklist into it (or state
-     "No UI-testable surface"); title prefix `<ID> (preview):`. If `preview`
-     is behind `main`, first open/merge a `main` → `preview` sync PR so the
-     preview PR's diff is only this task. Check with:
-     `git rev-list --left-right --count origin/preview...origin/main`.
-9. **Merge** only after checks pass; the issue auto-closes. Tick the task in
-   the plan doc's index. Then return to step 1.
+     user-visible flow (see "Manual UI tests per change area" below):
+     concrete click-through steps + the failure signature to watch for, as
+     a checkbox list run on the preview deployment. Pure tooling/docs PRs
+     state "No UI-testable surface" explicitly.
+   - Branch from `preview` (it should equal `main` + unpromoted tasks).
+     Keep the diff reviewable; past ~600 non-mechanical lines, split.
+9. **Merge to `preview`** after review + checks; run the manual UI tests
+   there. Tick the task in the plan doc's index. Then return to step 1.
+10. **Promotion `preview` → `main`**: once the tested tasks' checklists
+    pass, open a promotion PR whose body lists `Closes #<issue>` for every
+    task it carries — issues close when it merges. Promote at least at
+    every milestone gate (post-B3, post-D5); more often is fine.
+    **Sync rule:** if `main` ever receives commits directly (hotfix),
+    immediately open and merge a `main` → `preview` sync PR. Check drift
+    with `git rev-list --left-right --count origin/preview...origin/main`
+    before every new task branch.
 
 ## Invariants that no PR may violate
 
