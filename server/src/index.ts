@@ -24,7 +24,7 @@ import { createSwapRouter } from "./routes/swap.js";
 import { createNotificationsRouter } from "./routes/notifications.js";
 import { createSafeRouter } from "./routes/safe.js";
 import { startSafeSyncWorker } from "./workers/safeSync.js";
-import { assertSponsorGas } from "./lib/chain/sponsor.js";
+import { assertSponsorGas, resolveSponsorPrivateKey } from "./lib/chain/sponsor.js";
 import { editNotification } from "./notify.js";
 import { markBotConnectedByChatId, getUserByTelegramId } from "./lib/supabase/index.js";
 
@@ -301,6 +301,11 @@ app.get("/me", auth, async (req, res) => {
 app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
+
+// Fail fast on invalid sponsor config: a sponsor key that differs from the
+// agent key is not supported until sign/send separation (B1) — refuse to
+// boot rather than gas-check the wrong sender and misreport executedBy.
+if (process.env.SPONSOR_PRIVATE_KEY) resolveSponsorPrivateKey();
 
 const port = Number(process.env.PORT) || 3001;
 app.listen(port, () => {

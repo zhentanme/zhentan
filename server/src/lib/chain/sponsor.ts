@@ -37,6 +37,21 @@ export function resolveSponsorPrivateKey(
 ): string {
   const key = env.SPONSOR_PRIVATE_KEY || env.AGENT_PRIVATE_KEY;
   if (!key) throw new Error("Missing SPONSOR_PRIVATE_KEY and AGENT_PRIVATE_KEY");
+  // TEMPORARY — REMOVE AT B1 (sign/send separation). Until then, execution
+  // and rejection still send via protocol-kit with the AGENT key: a distinct
+  // sponsor would gas-check the wrong sender and misreport executedBy. This
+  // enforces the documented "leave unset" constraint instead of trusting it.
+  if (env.SPONSOR_PRIVATE_KEY && env.AGENT_PRIVATE_KEY) {
+    const sponsor = privateKeyToAccount(env.SPONSOR_PRIVATE_KEY as `0x${string}`).address;
+    const agent = privateKeyToAccount(env.AGENT_PRIVATE_KEY as `0x${string}`).address;
+    if (sponsor !== agent) {
+      throw new Error(
+        "SPONSOR_PRIVATE_KEY resolves to a different address than AGENT_PRIVATE_KEY. " +
+          "Until sign/send separation (B1) ships, execution still sends with the agent key — " +
+          "unset SPONSOR_PRIVATE_KEY or set it to the same key."
+      );
+    }
+  }
   return key;
 }
 
