@@ -100,20 +100,39 @@ export interface PendingTransaction {
   inReview?: boolean;
   reviewReason?: string;
   reviewedAt?: string;
+  /** Confirmed-rejected ONLY (`rejection_status = rejected_confirmed`, or a
+   * reconciled supersession). In-flight cancels live in `rejectionStatus`. */
   rejected?: boolean;
   rejectedAt?: string;
   rejectReason?: string;
+  /** Durable on-chain rejection lifecycle (B4); see lib/safe/rejectionState.ts. */
+  rejectionStatus?: RejectionStatus;
+  cancelSafeTxHash?: string;
+  cancelTxHash?: string;
+  cancelAttempts?: number;
+  cancelLastError?: string;
+  cancelNextRetryAt?: string | null;
   riskScore?: number;
   riskVerdict?: "APPROVE" | "REVIEW" | "BLOCK";
   riskReasons?: string[];
   screeningDisabled?: boolean;
 }
 
+export type RejectionStatus =
+  | "requested"
+  | "cancel_signing"
+  | "cancel_submitted"
+  | "rejected_confirmed"
+  | "failed_retryable"
+  | "superseded";
+
 export type TransactionStatus =
   | "pending"
   | "in_review"
   /** Executing on-chain; awaiting Transaction Service reconciliation (transient, read-time only). */
   | "confirming"
+  /** Rejection accepted; on-chain cancel not yet confirmed (B4 lifecycle). */
+  | "rejecting"
   | "executed"
   | "rejected";
 

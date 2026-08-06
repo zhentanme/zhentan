@@ -30,6 +30,7 @@ import {
   getSponsorWalletClient,
 } from "../chain/sponsor.js";
 import { encodeExecTransaction } from "./assemble.js";
+import { isRejectionActive } from "../safe/rejectionState.js";
 import { getSigningAuthority } from "../agent/signer.js";
 import { finishExecution } from "./finish.js";
 import type { PendingTransaction } from "../../types.js";
@@ -319,7 +320,13 @@ export type ExecutionResult =
  *     APPROVE path.
  */
 export async function runExecution(tx: PendingTransaction): Promise<ExecutionResult> {
-  if (tx.rejected) return { status: "already_rejected" };
+  // An in-flight rejection blocks execution just as a confirmed one does —
+  // `rejected` only flips at rejected_confirmed (B4), but the user's intent
+  // to cancel is already recorded and the cancel may already be in the
+  // mempool at this very nonce.
+  if (tx.rejected || isRejectionActive(tx.rejectionStatus)) {
+    return { status: "already_rejected" };
+  }
   if (tx.executedAt) return { status: "already_executed", txId: tx.id, txHash: tx.txHash };
   if (inFlight.has(tx.id)) return { status: "in_progress", txId: tx.id };
 

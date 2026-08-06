@@ -618,24 +618,37 @@ export function createTransactionsRouter(): IRouter {
         });
         res.json({ status: "marked_review", txId: id });
       } else {
-        await updateTransaction(id, {
-          rejected: true,
-          rejectedAt: new Date().toISOString(),
-          rejectReason: reason ?? "Rejected by owner",
-          inReview: false,
-        });
-
-        // SafeTx flow: consume the nonce on-chain with the pre-signed cancel
-        // tx, otherwise this rejection blocks every later proposal. Runs
-        // async — the rejection itself is already recorded.
+        // B4: the user's intent is recorded as `rejection_status =
+        // requested`; the user-visible `rejected` flag flips only when the
+        // on-chain cancel CONFIRMS (rejected_confirmed). A failed cancel is
+        // retried by safeSync on a backoff schedule instead of silently
+        // parking the nonce. Legacy 4337 rows have no on-chain cancel —
+        // they reject directly, as before.
+        const rejectedAt = new Date().toISOString();
         if (tx.txType === "safetx") {
-          executeRejection(tx)
+          await updateTransaction(id, {
+            rejectionStatus: "requested",
+            rejectedAt,
+            rejectReason: reason ?? "Rejected by owner",
+            inReview: false,
+          });
+          // Consume the nonce on-chain with the pre-signed cancel tx,
+          // otherwise this rejection blocks every later proposal. Runs
+          // async — the request is already durable.
+          executeRejection({ ...tx, rejectionStatus: "requested", rejectedAt })
             .then((r) =>
               console.log(
                 `Rejection cancel for ${id}: ${r.status}${r.txHash ? ` (${r.txHash})` : ""}${r.reason ? ` — ${r.reason}` : ""}`
               )
             )
             .catch((err) => console.error(`Rejection cancel failed for ${id}:`, err));
+        } else {
+          await updateTransaction(id, {
+            rejected: true,
+            rejectedAt,
+            rejectReason: reason ?? "Rejected by owner",
+            inReview: false,
+          });
         }
 
         // Email notification (TG confirmation is handled by notify-resolve editing the message)
