@@ -4,8 +4,8 @@ import {
   upsertUserSettings,
   getGlobalLimits,
   upsertGlobalLimits,
-  getPatternsForSafe,
-} from "../lib/supabase/index.js";
+  loadPolicySnapshot,
+} from "../agent/index.js";
 import type { GlobalLimitsRow } from "../lib/supabase/types.js";
 import { assertOwnsSafe } from "../lib/authz.js";
 
@@ -21,7 +21,7 @@ export function createStatusRouter(): IRouter {
 
       const [settings, patterns] = await Promise.all([
         getUserSettings(safe),
-        getPatternsForSafe(safe),
+        loadPolicySnapshot(safe),
       ]);
 
       res.json({

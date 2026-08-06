@@ -26,7 +26,7 @@ import {
 } from "./service.js";
 import { readSafeNonce } from "./onchain.js";
 import { getAgentAddress } from "./relayer.js";
-import { getSigningAuthority } from "../agent/signer.js";
+import { getSigningAuthority } from "../../agent/index.js";
 import { KIND_BUILDERS, buildSafeTxFromCalls } from "./builders.js";
 import { getRequestByTxId, updateTransaction } from "../supabase/index.js";
 import type { PendingTransaction } from "../../types.js";

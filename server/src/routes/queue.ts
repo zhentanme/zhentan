@@ -1,16 +1,18 @@
 import { Router, Request, Response, type IRouter } from "express";
 import { decodeFunctionData, isAddressEqual, type Address, type Hex } from "viem";
-import { analyzeRisk } from "../risk.js";
+import {
+  evaluateTransaction,
+  loadPolicySnapshot,
+  recordOutcome,
+  noteReviewOutcome,
+} from "../agent/index.js";
 import { notifyTelegram } from "../notify.js";
 import {
   createTransaction,
   updateTransaction,
-  getPatternsForSafe,
   getTelegramChatId,
   getUserDetails,
   upsertUserDetails,
-  recordTxOutcome,
-  incrementDailyStatsReview,
 } from "../lib/supabase/index.js";
 import { notify } from "../notifications/index.js";
 import { SAFE_ABI, MULTISEND_CALL_ONLY } from "../lib/constants.js";
@@ -489,13 +491,13 @@ export function createQueueRouter(): IRouter {
       // ── Risk analysis ────────────────────────────────────────
       let risk;
       try {
-        const patterns = await getPatternsForSafe(pendingTx.safeAddress ?? "");
+        const patterns = await loadPolicySnapshot(pendingTx.safeAddress ?? "");
         // Classify from the SIGNED calldata so swaps/approvals are scored by
         // their own strategy instead of as a "transfer to the router".
         const decoded = isSafeTx
           ? decodeSafeTxKind(pendingTx.safeTx, pendingTx.safeAddress)
           : undefined;
-        risk = analyzeRisk(pendingTx, patterns, decoded);
+        risk = evaluateTransaction(pendingTx, patterns, decoded);
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("Risk analysis failed:", msg);
@@ -529,7 +531,7 @@ export function createQueueRouter(): IRouter {
 
           if (execResult.status === "executed") {
             // tx_sent notification (TG + email) is fired by execute.ts
-            recordTxOutcome(txWithRisk, "auto_approved", {
+            recordOutcome(txWithRisk, "auto_approved", {
               riskScore: risk.riskScore,
               riskVerdict: risk.verdict,
               riskReasons: risk.reasons,
@@ -591,13 +593,13 @@ export function createQueueRouter(): IRouter {
       // Record behavioral event + update daily stats (fire-and-forget)
       const outcome = risk.verdict === "REVIEW" ? "sent_for_review" : "auto_blocked";
       Promise.all([
-        recordTxOutcome(txWithRisk, outcome, {
+        recordOutcome(txWithRisk, outcome, {
           riskScore: risk.riskScore,
           riskVerdict: risk.verdict,
           riskReasons: risk.reasons,
           triggeredRules: risk.triggeredRules,
         }),
-        incrementDailyStatsReview(pendingTx.safeAddress ?? ""),
+        noteReviewOutcome(pendingTx.safeAddress ?? ""),
       ]).catch((err) => console.error("Pattern record failed:", err));
 
       const reviewButtons = [

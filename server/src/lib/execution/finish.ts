@@ -1,11 +1,10 @@
 import {
   updateTransaction,
-  updatePatternsAfterExecution,
-  recordTxOutcome,
   getUserDetails,
   getUserByAddress,
   syncLinkedRequest,
 } from "../supabase/index.js";
+import { learnFromExecution, recordOutcome } from "../../agent/index.js";
 import { notify } from "../../notifications/index.js";
 import type { PendingTransaction } from "../../types.js";
 
@@ -49,8 +48,8 @@ export async function finishExecution(
       executedAt: executedTx.executedAt,
       txHash: String(txHash),
     }),
-    updatePatternsAfterExecution(executedTx),
-    recordTxOutcome(executedTx, "auto_approved", {
+    learnFromExecution(executedTx),
+    recordOutcome(executedTx, "auto_approved", {
       riskScore: tx.riskScore,
       riskVerdict: tx.riskVerdict,
       riskReasons: tx.riskReasons,
