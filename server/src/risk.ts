@@ -131,7 +131,8 @@ export interface RiskResult {
 export function analyzeRisk(
   tx: PendingTransaction,
   patterns: PatternsFile,
-  decoded?: DecodedKind
+  decoded?: DecodedKind,
+  evaluatedAt: Date = new Date()
 ): RiskResult {
   let riskScore = 0;
   const reasons: string[] = [];
@@ -139,7 +140,7 @@ export function analyzeRisk(
 
   const amount = parseFloat(tx.amountUSD ?? tx.amount);
   const limits = patterns.globalLimits;
-  const now = new Date();
+  const now = evaluatedAt;
   const hourUtc = now.getUTCHours();
   const dayOfWeek = now.getUTCDay(); // 0=Sun
   const today = now.toISOString().split("T")[0];

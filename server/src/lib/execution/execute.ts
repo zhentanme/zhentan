@@ -31,7 +31,7 @@ import {
 } from "../chain/sponsor.js";
 import { encodeExecTransaction } from "./assemble.js";
 import { isRejectionActive } from "../safe/rejectionState.js";
-import { getSigningAuthority } from "../agent/signer.js";
+import { getSigningAuthority } from "../../agent/index.js";
 import { finishExecution } from "./finish.js";
 import type { PendingTransaction } from "../../types.js";
 

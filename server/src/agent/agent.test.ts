@@ -1,7 +1,7 @@
 /**
  * C1 boundary tests: Tier-1 evaluation is deterministic and side-effect
- * free over its inputs (given the clock — time-of-day scoring reads
- * `new Date()`; the timestamp becomes an explicit job input at D0.2).
+ * free over its inputs — the evaluation timestamp is an EXPLICIT input,
+ * so identical payloads replay identically across any hour/day boundary.
  * Determinism is what makes D2 shadow screening trustworthy.
  */
 import { describe, it, expect } from "vitest";
@@ -81,25 +81,35 @@ const SYNTHETIC_SWAP: DecodedKind = {
   approval: null,
 } as DecodedKind;
 
+const AT = new Date("2026-08-06T12:30:00Z");
+
 describe("agent domain — Tier 1 evaluation", () => {
-  it("evaluateTransaction is deterministic for identical inputs", () => {
-    const a = evaluateTransaction(TX, SNAPSHOT, REAL_DECODED);
-    const b = evaluateTransaction(TX, SNAPSHOT, REAL_DECODED);
+  it("evaluateTransaction is deterministic for identical inputs + timestamp", () => {
+    const a = evaluateTransaction(TX, SNAPSHOT, REAL_DECODED, AT);
+    const b = evaluateTransaction(TX, SNAPSHOT, REAL_DECODED, new Date(AT));
     expect(b).toEqual(a);
     expect(a.verdict).toMatch(/^(APPROVE|REVIEW|BLOCK)$/);
   });
 
-  it("evaluateRequest (synthetic shape) is deterministic for identical inputs", () => {
-    const a = evaluateRequest(TX, SNAPSHOT, SYNTHETIC_SWAP);
-    const b = evaluateRequest(TX, SNAPSHOT, SYNTHETIC_SWAP);
+  it("evaluateRequest (synthetic shape) is deterministic for identical inputs + timestamp", () => {
+    const a = evaluateRequest(TX, SNAPSHOT, SYNTHETIC_SWAP, AT);
+    const b = evaluateRequest(TX, SNAPSHOT, SYNTHETIC_SWAP, new Date(AT));
     expect(b).toEqual(a);
+  });
+
+  it("honours the explicit timestamp: out-of-hours evaluation scores differently", () => {
+    const officeHoursOnly: PatternsFile = structuredClone(SNAPSHOT);
+    officeHoursOnly.globalLimits.allowedHoursUTC = [12];
+    const inHours = evaluateTransaction(TX, officeHoursOnly, REAL_DECODED, new Date("2026-08-06T12:30:00Z"));
+    const outOfHours = evaluateTransaction(TX, officeHoursOnly, REAL_DECODED, new Date("2026-08-06T03:30:00Z"));
+    expect(outOfHours.riskScore).toBeGreaterThan(inHours.riskScore);
   });
 
   it("does not mutate the policy snapshot or the transaction", () => {
     const snapshotCopy = structuredClone(SNAPSHOT);
     const txCopy = structuredClone(TX);
-    evaluateTransaction(TX, SNAPSHOT, REAL_DECODED);
-    evaluateRequest(TX, SNAPSHOT, SYNTHETIC_SWAP);
+    evaluateTransaction(TX, SNAPSHOT, REAL_DECODED, AT);
+    evaluateRequest(TX, SNAPSHOT, SYNTHETIC_SWAP, AT);
     expect(SNAPSHOT).toEqual(snapshotCopy);
     expect(TX).toEqual(txCopy);
   });
@@ -108,8 +118,8 @@ describe("agent domain — Tier 1 evaluation", () => {
     // Same tx, same snapshot — a real transfer decode and a synthetic swap
     // decode may legitimately score differently; what matters is each is
     // internally consistent.
-    const live = evaluateTransaction(TX, SNAPSHOT, REAL_DECODED);
-    const req = evaluateRequest(TX, SNAPSHOT, SYNTHETIC_SWAP);
+    const live = evaluateTransaction(TX, SNAPSHOT, REAL_DECODED, AT);
+    const req = evaluateRequest(TX, SNAPSHOT, SYNTHETIC_SWAP, AT);
     expect(live.riskScore).toBeGreaterThanOrEqual(0);
     expect(req.riskScore).toBeGreaterThanOrEqual(0);
   });

@@ -26,7 +26,7 @@ import {
 import { readSafeNonce } from "./onchain.js";
 import { assertSponsorGas, getSponsorWalletClient } from "../chain/sponsor.js";
 import { getRelayerPublicClient } from "./relayer.js";
-import { getSigningAuthority } from "../agent/signer.js";
+import { getSigningAuthority } from "../../agent/index.js";
 import { encodeExecTransaction } from "../execution/assemble.js";
 import { updateTransaction, getUserDetails } from "../supabase/index.js";
 import { notify } from "../../notifications/index.js";

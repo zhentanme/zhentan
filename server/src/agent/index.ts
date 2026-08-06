@@ -31,6 +31,10 @@ export {
   type PatternsFile,
 } from "./evaluate.js";
 
+// ── Deep analysis (Tier 2 — external scanners; I/O by nature) ───────────────
+
+export { deepAnalyze } from "./analysis.js";
+
 // ── Tier 2: explicit persistence — policy reads ─────────────────────────────
 
 export {

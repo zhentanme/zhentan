@@ -4,9 +4,9 @@
  * testable) with zero environment. Purity here is what makes D2 shadow
  * screening and deterministic replay possible.
  *
- * One honest caveat: time-of-day scoring reads the clock, so evaluation is
- * pure given (inputs, clock). The timestamp becomes an explicit job input
- * at D0.2, where result input-hashes need it pinned.
+ * The evaluation timestamp is an EXPLICIT input (time-of-day scoring uses
+ * it), so identical payloads replay to identical decisions across any
+ * boundary — and the D-milestone job payload carries it from day one.
  */
 import { analyzeRisk, type RiskResult, type PatternsFile } from "../risk.js";
 import type { PendingTransaction } from "../types.js";
@@ -20,9 +20,10 @@ import type { DecodedKind } from "../lib/safe/kind.js";
 export function evaluateTransaction(
   tx: PendingTransaction,
   snapshot: PatternsFile,
-  decoded?: DecodedKind
+  decoded?: DecodedKind,
+  evaluatedAt: Date = new Date()
 ): RiskResult {
-  return analyzeRisk(tx, snapshot, decoded);
+  return analyzeRisk(tx, snapshot, decoded, evaluatedAt);
 }
 
 /**
@@ -35,9 +36,10 @@ export function evaluateTransaction(
 export function evaluateRequest(
   tx: PendingTransaction,
   snapshot: PatternsFile,
-  syntheticDecoded?: DecodedKind
+  syntheticDecoded?: DecodedKind,
+  evaluatedAt: Date = new Date()
 ): RiskResult {
-  return analyzeRisk(tx, snapshot, syntheticDecoded);
+  return analyzeRisk(tx, snapshot, syntheticDecoded, evaluatedAt);
 }
 
 export type { RiskResult, PatternsFile };
