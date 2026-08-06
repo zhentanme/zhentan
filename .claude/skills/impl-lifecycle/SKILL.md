@@ -58,6 +58,14 @@ description: Implementation lifecycle for the agent-service separation tasks (Gi
      as a checkbox list the tester can tick on the preview deployment.
    - Base `main`. Keep the diff reviewable; if it grows past ~600 lines of
      non-mechanical change, stop and split.
+   - **ALWAYS also open a second PR from the same branch to `preview`** —
+     this is where the Vercel preview deployment and manual UI tests run.
+     Rules: no `Closes #` keyword on the preview PR (the issue closes on
+     the main merge); copy the Manual UI tests checklist into it (or state
+     "No UI-testable surface"); title prefix `<ID> (preview):`. If `preview`
+     is behind `main`, first open/merge a `main` → `preview` sync PR so the
+     preview PR's diff is only this task. Check with:
+     `git rev-list --left-right --count origin/preview...origin/main`.
 9. **Merge** only after checks pass; the issue auto-closes. Tick the task in
    the plan doc's index. Then return to step 1.
 
