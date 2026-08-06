@@ -17,7 +17,7 @@ import { fetchTransfers, type ZerionHistoryItem } from "../lib/zerion.js";
 import { executeRejection } from "../lib/safe/reject.js";
 import { reconcileSafeTx } from "../lib/safe/reconcile.js";
 import { classifyTxKind } from "../lib/safe/txKind.js";
-import { runExecutionById } from "./execute.js";
+import { runExecutionById } from "../lib/execution/execute.js";
 import type { UserDetailsRow } from "../lib/supabase/types.js";
 import { assertOwnsSafe, assertOwnsTx, requireCallerSafe } from "../lib/authz.js";
 
