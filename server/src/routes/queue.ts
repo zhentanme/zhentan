@@ -26,7 +26,7 @@ import { deploySafe, isSafeDeployed } from "../lib/safe/deploy.js";
 import { DERIVATION_V1_4337, type DerivationVersion } from "../lib/safe/derive.js";
 import { getAgentAddress } from "../lib/safe/relayer.js";
 import { readSafeOwners } from "../lib/safe/onchain.js";
-import { runExecutionById } from "./execute.js";
+import { runExecutionById } from "../lib/execution/execute.js";
 import type { PendingTransaction, SafeTxData } from "../types.js";
 
 /**

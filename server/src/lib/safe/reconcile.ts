@@ -23,7 +23,7 @@
 import { getExecutedTxAtNonce } from "./service.js";
 import { readSafeNonce } from "./onchain.js";
 import { getTransaction, updateTransaction, syncLinkedRequest } from "../supabase/index.js";
-import { finishExecution } from "../../routes/execute.js";
+import { finishExecution } from "../execution/finish.js";
 import type { PendingTransaction } from "../../types.js";
 
 export type ReconcileOutcome =
