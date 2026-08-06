@@ -225,7 +225,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
       setTxHash(liveQueued.txHash ?? null);
       setExecutedAt(liveQueued.executedAt ?? new Date().toISOString());
       setPhase("success");
-    } else if (liveQueued.status === "rejected") {
+    } else if (liveQueued.status === "rejected" || liveQueued.status === "rejecting") {
       setError(liveQueued.rejectReason || "Swap rejected by Zhentan");
       setPhase("error");
     } else if (liveQueued.status === "in_review") {

@@ -31,6 +31,12 @@ export interface TransactionRow {
   rejected: boolean;
   rejected_at: string | null;
   reject_reason: string | null;
+  rejection_status: string | null;
+  cancel_safe_tx_hash: string | null;
+  cancel_tx_hash: string | null;
+  cancel_attempts: number | null;
+  cancel_last_error: string | null;
+  cancel_next_retry_at: string | null;
   amount_usd: string | null;
   executed_at: string | null;
   executed_by: string | null;

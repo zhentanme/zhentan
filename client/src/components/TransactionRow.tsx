@@ -196,10 +196,11 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
           {tx.source !== "zhentan-only" || tx.status === "executed" ? (
             <span className="ml-1 text-xs text-muted-foreground/80 shrink-0">{time}</span>
           ) : null}
-          {/* Status badge for in_review / rejected — inline after time */}
-          {tx.source !== "zerion-only" && (tx.status === "in_review" || tx.status === "rejected") && (
-            <StatusBadge status={tx.status} />
-          )}
+          {/* Status badge for in_review / rejecting / rejected — inline after time */}
+          {tx.source !== "zerion-only" &&
+            (tx.status === "in_review" ||
+              tx.status === "rejecting" ||
+              tx.status === "rejected") && <StatusBadge status={tx.status} />}
         </div>
         {showAddress && (
           <p className="text-xs text-muted-foreground/80 mt-0.5 pl-5">

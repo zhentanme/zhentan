@@ -11,6 +11,7 @@ import { supabase } from "../lib/supabase/client.js";
 import type { TransactionRow } from "../lib/supabase/types.js";
 import { rowToTx } from "../lib/supabase/index.js";
 import { reconcileSafeTx } from "../lib/safe/reconcile.js";
+import { resumeRejection } from "../lib/safe/reject.js";
 
 const SYNC_INTERVAL_MS = 60_000;
 
@@ -24,6 +25,10 @@ const STALE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const nextStaleCheckAt = new Map<string, number>();
 
 async function getUnresolvedSafeTxRows(): Promise<TransactionRow[]> {
+  // Rows with an ACTIVE rejection are excluded — reconciliation would
+  // misread the landed cancel as "superseded by a different tx". The
+  // rejection pass below owns them until they confirm or degrade to
+  // `superseded`, at which point they reappear here for folding.
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
@@ -31,6 +36,21 @@ async function getUnresolvedSafeTxRows(): Promise<TransactionRow[]> {
     .eq("rejected", false)
     .is("executed_at", null)
     .not("safe_tx_hash", "is", null)
+    .or("rejection_status.is.null,rejection_status.eq.superseded")
+    .returns<TransactionRow[]>();
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Rejections a crash or failure left mid-flight (B4 durable job). */
+async function getInFlightRejectionRows(): Promise<TransactionRow[]> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("tx_type", "safetx")
+    .eq("rejected", false)
+    .is("executed_at", null)
+    .in("rejection_status", ["requested", "cancel_signing", "cancel_submitted", "failed_retryable"])
     .returns<TransactionRow[]>();
   if (error) throw error;
   return data ?? [];
@@ -42,6 +62,28 @@ async function syncOne(row: TransactionRow): Promise<void> {
     console.log(`safeSync: ${row.id} executed externally (${outcome.txHash})`);
   } else if (outcome.status === "superseded") {
     console.log(`safeSync: ${row.id} superseded at nonce ${row.safe_nonce}`);
+  }
+}
+
+async function rejectionPass(): Promise<void> {
+  let rows: TransactionRow[];
+  try {
+    rows = await getInFlightRejectionRows();
+  } catch (err) {
+    console.error("safeSync: failed to list in-flight rejections:", err);
+    return;
+  }
+  for (const row of rows) {
+    try {
+      const result = await resumeRejection(rowToTx(row));
+      if (result) {
+        console.log(
+          `safeSync: rejection ${row.id}: ${result.status}${result.txHash ? ` (${result.txHash})` : ""}${result.reason ? ` — ${result.reason}` : ""}`
+        );
+      }
+    } catch (err) {
+      console.error(`safeSync: rejection resume failed for ${row.id}:`, err);
+    }
   }
 }
 
@@ -70,6 +112,7 @@ async function tick(): Promise<void> {
       console.error(`safeSync: failed to sync ${row.id}:`, err);
     }
   }
+  await rejectionPass();
 }
 
 export function startSafeSyncWorker(): void {

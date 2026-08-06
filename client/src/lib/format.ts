@@ -67,9 +67,17 @@ export function dayLabel(iso: string): string {
   return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
+const ACTIVE_REJECTION = new Set([
+  "requested",
+  "cancel_signing",
+  "cancel_submitted",
+  "failed_retryable",
+]);
+
 export function getTransactionStatus(tx: PendingTransaction): TransactionStatus {
   if (tx.rejected) return "rejected";
   if (tx.executedAt) return "executed";
+  if (tx.rejectionStatus && ACTIVE_REJECTION.has(tx.rejectionStatus)) return "rejecting";
   if (tx.inReview) return "in_review";
   return "pending";
 }
@@ -82,6 +90,8 @@ export function statusLabel(status: TransactionStatus): string {
       return "In Review";
     case "confirming":
       return "Confirming";
+    case "rejecting":
+      return "Rejecting";
     case "executed":
       return "Executed";
     case "rejected":

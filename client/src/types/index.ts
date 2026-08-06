@@ -124,10 +124,19 @@ export interface PendingTransaction {
   riskScore?: number;
   riskVerdict?: "APPROVE" | "REVIEW" | "BLOCK";
   riskReasons?: string[];
-  // Rejection
+  // Rejection — `rejected` means the on-chain cancel CONFIRMED; while the
+  // cancel is in flight the server reports `rejectionStatus` and status
+  // "rejecting" (B4 durable rejection lifecycle).
   rejected?: boolean;
   rejectedAt?: string;
   rejectReason?: string;
+  rejectionStatus?:
+    | "requested"
+    | "cancel_signing"
+    | "cancel_submitted"
+    | "rejected_confirmed"
+    | "failed_retryable"
+    | "superseded";
 }
 
 export type TransactionStatus =
@@ -135,6 +144,8 @@ export type TransactionStatus =
   | "in_review"
   /** Executing on-chain; awaiting Transaction Service reconciliation. */
   | "confirming"
+  /** Rejection accepted; on-chain cancel not yet confirmed. */
+  | "rejecting"
   | "executed"
   | "rejected";
 
