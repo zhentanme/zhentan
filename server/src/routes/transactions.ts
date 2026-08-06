@@ -625,33 +625,41 @@ export function createTransactionsRouter(): IRouter {
         // parking the nonce. Legacy 4337 rows have no on-chain cancel —
         // they reject directly, as before.
         const rejectedAt = new Date().toISOString();
+        const rejectReason = reason ?? "Rejected by owner";
         if (tx.txType === "safetx") {
           await updateTransaction(id, {
             rejectionStatus: "requested",
             rejectedAt,
-            rejectReason: reason ?? "Rejected by owner",
+            rejectReason,
             inReview: false,
           });
           // Consume the nonce on-chain with the pre-signed cancel tx,
           // otherwise this rejection blocks every later proposal. Runs
-          // async — the request is already durable.
-          executeRejection({ ...tx, rejectionStatus: "requested", rejectedAt })
+          // async — the request is already durable, and the tx_rejected
+          // notification fires from confirmRejected() when the cancel is
+          // actually on-chain, not here (it may retry for hours).
+          executeRejection({ ...tx, rejectionStatus: "requested", rejectedAt, rejectReason })
             .then((r) =>
               console.log(
                 `Rejection cancel for ${id}: ${r.status}${r.txHash ? ` (${r.txHash})` : ""}${r.reason ? ` — ${r.reason}` : ""}`
               )
             )
             .catch((err) => console.error(`Rejection cancel failed for ${id}:`, err));
-        } else {
-          await updateTransaction(id, {
-            rejected: true,
-            rejectedAt,
-            rejectReason: reason ?? "Rejected by owner",
-            inReview: false,
-          });
+
+          // Honest outward semantics: the rejection is REQUESTED; `rejected`
+          // and the notification arrive at on-chain confirmation.
+          res.json({ status: "rejection_requested", txId: id, to: tx.to, amount: tx.amount });
+          return;
         }
 
-        // Email notification (TG confirmation is handled by notify-resolve editing the message)
+        // Legacy 4337: no on-chain cancel — rejection is final immediately,
+        // so the notification is truthful here.
+        await updateTransaction(id, {
+          rejected: true,
+          rejectedAt,
+          rejectReason,
+          inReview: false,
+        });
         getUserDetails(tx.safeAddress)
           .then((user) => {
             if (!user) return;
@@ -662,7 +670,7 @@ export function createTransactionsRouter(): IRouter {
               tokenLogoUrl: tx.tokenIconUrl ?? undefined,
               amountUsd: tx.amountUSD ? `$${tx.amountUSD}` : undefined,
               toAddress: tx.to,
-              rejectReason: reason ?? "Rejected by owner",
+              rejectReason,
             });
           })
           .catch((err) => console.error("tx_rejected notify failed:", err));

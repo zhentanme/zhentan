@@ -140,7 +140,9 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         tokenIconUrl: liveProposed.tokenIconUrl ?? undefined,
       });
       setSendPhase("success");
-    } else if (liveProposed.status === "rejected") {
+    } else if (liveProposed.status === "rejected" || liveProposed.status === "rejecting") {
+      // "rejecting" = cancel in flight (B4) — the decision is made; resolve
+      // the panel now rather than holding the pending screen for the receipt.
       setProposedTx((prev) => (prev ? { ...prev, ...liveProposed } : liveProposed));
       setSendPhase("rejected");
     } else if (liveProposed.status === "in_review") {
