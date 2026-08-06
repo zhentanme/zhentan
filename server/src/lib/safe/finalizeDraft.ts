@@ -107,9 +107,16 @@ export async function finalizeDraft(
   // execution assembles signatures locally.
   try {
     const agentSig = await getSigningAuthority().sign({
+      purpose: "draft_finalization",
       safeAddress: tx.safeAddress,
       safeTx,
       expectedSafeTxHash: safeTxHash,
+      transactionId: tx.id,
+      threshold: tx.threshold,
+      decisionEvidence: {
+        riskScore: tx.riskScore,
+        riskVerdict: tx.riskVerdict,
+      },
     });
     await proposeToService({
       safeAddress: tx.safeAddress,

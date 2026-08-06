@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Hex } from "viem";
-import { LocalSafeSigningAuthority, type KeySigner } from "./signer.js";
+import { LocalSafeSigningAuthority } from "./signer.js";
 import { computeSafeTxHash } from "../safe/service.js";
 import type { SafeTxData } from "../../types.js";
 
@@ -21,11 +21,22 @@ const SAFE_TX: SafeTxData = {
   nonce: 7,
 };
 
+/** The canonical rejection payload: empty self-call at the contested nonce. */
+const REJECTION_TX: SafeTxData = {
+  ...SAFE_TX,
+  to: SAFE,
+  value: "0",
+  data: "0x",
+};
+
+// KeySigner is deliberately not exported — the fake relies on structural
+// typing against the authority's factory parameter, which is the point:
+// nothing outside signer.ts can name the raw-digest interface.
 function fakeKeySigner() {
   const calls: Hex[] = [];
-  const signer: KeySigner = {
+  const signer = {
     getAddress: () => SIGNER_ADDRESS,
-    signDigest: async (hash) => {
+    signDigest: async (hash: Hex) => {
       calls.push(hash);
       return FAKE_SIG;
     },
@@ -40,6 +51,7 @@ describe("LocalSafeSigningAuthority", () => {
     const hash = computeSafeTxHash(SAFE, SAFE_TX);
 
     const result = await authority.sign({
+      purpose: "execution",
       safeAddress: SAFE,
       safeTx: SAFE_TX,
       expectedSafeTxHash: hash,
@@ -58,6 +70,7 @@ describe("LocalSafeSigningAuthority", () => {
 
     await expect(
       authority.sign({
+        purpose: "execution",
         safeAddress: SAFE,
         safeTx: SAFE_TX,
         expectedSafeTxHash: hash.toUpperCase().replace("0X", "0x"),
@@ -71,6 +84,7 @@ describe("LocalSafeSigningAuthority", () => {
 
     await expect(
       authority.sign({
+        purpose: "execution",
         safeAddress: SAFE,
         safeTx: SAFE_TX,
         expectedSafeTxHash: "0x" + "00".repeat(32),
@@ -87,6 +101,7 @@ describe("LocalSafeSigningAuthority", () => {
 
     await expect(
       authority.sign({
+        purpose: "execution",
         safeAddress: SAFE,
         safeTx: tampered,
         expectedSafeTxHash: hash,
@@ -102,11 +117,62 @@ describe("LocalSafeSigningAuthority", () => {
 
     await expect(
       authority.sign({
+        purpose: "execution",
         safeAddress: SAFE,
         safeTx: { ...SAFE_TX, nonce: 8 },
         expectedSafeTxHash: hash,
       })
     ).rejects.toThrow(/Signing refused/);
+    expect(calls).toEqual([]);
+  });
+
+  it("signs a canonical empty self-call under the rejection purpose", async () => {
+    const { signer, calls } = fakeKeySigner();
+    const authority = new LocalSafeSigningAuthority(() => signer);
+    const hash = computeSafeTxHash(SAFE, REJECTION_TX);
+
+    const result = await authority.sign({
+      purpose: "rejection",
+      safeAddress: SAFE,
+      safeTx: REJECTION_TX,
+      expectedSafeTxHash: hash,
+    });
+
+    expect(calls).toEqual([hash]);
+    expect(result.signature.data).toBe(FAKE_SIG);
+  });
+
+  it("refuses a value-moving transaction under the rejection purpose", async () => {
+    const { signer, calls } = fakeKeySigner();
+    const authority = new LocalSafeSigningAuthority(() => signer);
+    // A perfectly valid transfer — but claimed to be a rejection.
+    const hash = computeSafeTxHash(SAFE, SAFE_TX);
+
+    await expect(
+      authority.sign({
+        purpose: "rejection",
+        safeAddress: SAFE,
+        safeTx: SAFE_TX,
+        expectedSafeTxHash: hash,
+      })
+    ).rejects.toThrow(/rejection purpose requires the empty self-call/);
+    expect(calls).toEqual([]);
+  });
+
+  it("refuses calldata under the rejection purpose even when self-targeted", async () => {
+    const { signer, calls } = fakeKeySigner();
+    const authority = new LocalSafeSigningAuthority(() => signer);
+    const sneaky = { ...REJECTION_TX, data: "0xdeadbeef" };
+    const hash = computeSafeTxHash(SAFE, sneaky);
+
+    await expect(
+      authority.sign({
+        purpose: "rejection",
+        safeAddress: SAFE,
+        safeTx: sneaky,
+        expectedSafeTxHash: hash,
+      })
+    ).rejects.toThrow(/rejection purpose requires the empty self-call/);
     expect(calls).toEqual([]);
   });
 });

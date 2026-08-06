@@ -69,9 +69,12 @@ export async function executeRejection(tx: PendingTransaction): Promise<Rejectio
       origin: "Zhentan (rejection)",
     });
     const agentSig = await getSigningAuthority().sign({
+      purpose: "rejection",
       safeAddress: tx.safeAddress,
       safeTx: rejectionTx,
       expectedSafeTxHash: rejectionHash,
+      transactionId: tx.id,
+      threshold: tx.threshold,
     });
     await getApiKit().confirmTransaction(rejectionHash, agentSig.signature.data);
   } catch (err) {
@@ -87,9 +90,12 @@ export async function executeRejection(tx: PendingTransaction): Promise<Rejectio
   );
   const agentSignature = (
     await getSigningAuthority().sign({
+      purpose: "rejection",
       safeAddress: tx.safeAddress,
       safeTx: rejectionTx,
       expectedSafeTxHash: rejectionHash,
+      transactionId: tx.id,
+      threshold: tx.threshold,
     })
   ).signature;
   safeTransaction.addSignature(agentSignature);

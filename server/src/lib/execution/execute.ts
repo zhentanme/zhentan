@@ -200,9 +200,17 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
     ? null
     : (
         await getSigningAuthority().sign({
+          purpose: "execution",
           safeAddress: tx.safeAddress,
           safeTx: tx.safeTx,
           expectedSafeTxHash: tx.safeTxHash,
+          transactionId: tx.id,
+          owners: tx.ownerAddresses,
+          threshold: tx.threshold,
+          decisionEvidence: {
+            riskScore: tx.riskScore,
+            riskVerdict: tx.riskVerdict,
+          },
         })
       ).signature;
 
