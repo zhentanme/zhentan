@@ -82,7 +82,7 @@ pnpm agent-sign      # agent-sign.js — agent co-signs and executes
 
 ### Environment variables
 - **Client**: `NEXT_PUBLIC_AGENT_ADDRESS`, `NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_BACKEND_URL` (optional, for remote server)
-- **Server**: `QUEUE_PATH`, `AGENT_PRIVATE_KEY`, `SPONSOR_PRIVATE_KEY` (gas-paying EOA, defaults to the agent key — leave unset until sign/send separation ships), `PIMLICO_API_KEY` (legacy 4337 rows + treasury only), `SAFE_API_KEY` (Safe Transaction Service, from developer.safe.global), `SAFE_TX_SERVICE_URL` (optional override), `SAFE_DERIVATION_VERSION` (new-account derivation, default 2), `AGENT_MIN_BNB` (relayer gas alert threshold, default 0.05), `PORT` (default 3001), `CORS_ORIGIN`
+- **Server**: `QUEUE_PATH`, `AGENT_PRIVATE_KEY`, `SPONSOR_PRIVATE_KEY` (gas-paying/sending EOA, optional — defaults to the agent key; may be distinct), `PIMLICO_API_KEY` (legacy 4337 rows + treasury only), `SAFE_API_KEY` (Safe Transaction Service, from developer.safe.global), `SAFE_TX_SERVICE_URL` (optional override), `SAFE_DERIVATION_VERSION` (new-account derivation, default 2), `AGENT_MIN_BNB` (relayer gas alert threshold, default 0.05), `PORT` (default 3001), `CORS_ORIGIN`
 - **Scripts**: `PRIVATE_KEY`, `PIMLICO_API_KEY`, `RECIPIENT_ADDRESS`, `USDC_AMOUNT`, `USDC_CONTRACT_ADDRESS`, `OWNER_ADDRESS1`, `OWNER_ADDRESS2`, `SAFE_THRESHOLD`
 
 See `scripts/.env.example` and `server/.env.example` for templates.

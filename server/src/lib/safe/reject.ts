@@ -4,16 +4,17 @@
  * Safe nonces are sequential: a rejected proposal at nonce n blocks every
  * later proposal until n is consumed. This executes the pre-signed empty
  * self-call at the same nonce (the Safe UI's own "Reject transaction"
- * pattern), co-signed by the agent and relayed by the agent EOA.
+ * pattern), co-signed by the agent and relayed by the sponsor EOA.
  */
 import { EthSafeSignature } from "@safe-global/protocol-kit";
 import type { Hex } from "viem";
 
 import type { PendingTransaction, SafeTxData } from "../../types.js";
-import { computeSafeTxHash, getApiKit, getProtocolKit, proposeToService } from "./service.js";
+import { computeSafeTxHash, getApiKit, proposeToService } from "./service.js";
 import { readSafeNonce } from "./onchain.js";
-import { assertSponsorGas } from "../chain/sponsor.js";
+import { assertSponsorGas, getSponsorWalletClient } from "../chain/sponsor.js";
 import { getSigningAuthority } from "../agent/signer.js";
+import { encodeExecTransaction } from "../execution/assemble.js";
 
 export interface RejectionResult {
   status: "cancelled" | "skipped";
@@ -82,12 +83,9 @@ export async function executeRejection(tx: PendingTransaction): Promise<Rejectio
   }
 
   // Execute the cancel directly from the pre-signed user signature + a fresh
-  // agent signature — no service dependency.
-  const protocolKit = await getProtocolKit(tx.safeAddress);
-  const safeTransaction = await protocolKit.createRejectionTransaction(tx.safeNonce);
-  safeTransaction.addSignature(
-    new EthSafeSignature(tx.proposedBy, tx.rejectionSignature as Hex)
-  );
+  // agent signature — no service dependency. Sign and send are separate
+  // hands: the payload is assembled explicitly (golden-tested encoding) and
+  // the SPONSOR wallet broadcasts it.
   const agentSignature = (
     await getSigningAuthority().sign({
       purpose: "rejection",
@@ -98,8 +96,15 @@ export async function executeRejection(tx: PendingTransaction): Promise<Rejectio
       threshold: tx.threshold,
     })
   ).signature;
-  safeTransaction.addSignature(agentSignature);
+  const calldata = encodeExecTransaction(rejectionTx, [
+    new EthSafeSignature(tx.proposedBy, tx.rejectionSignature as Hex),
+    agentSignature as EthSafeSignature,
+  ]);
 
-  const result = await protocolKit.executeTransaction(safeTransaction);
-  return { status: "cancelled", txHash: result.hash };
+  const txHash = await getSponsorWalletClient().sendTransaction({
+    to: tx.safeAddress as Hex,
+    data: calldata,
+    value: 0n,
+  });
+  return { status: "cancelled", txHash };
 }

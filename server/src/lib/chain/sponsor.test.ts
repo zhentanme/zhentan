@@ -29,10 +29,11 @@ describe("resolveSponsorPrivateKey", () => {
     ).toBe(KEY_A);
   });
 
-  // TEMPORARY guard — removed at B1 when the send path moves to the sponsor.
-  it("refuses distinct sponsor and agent keys until B1 ships", () => {
-    expect(() =>
+  // Distinct keys are supported since B2: every EOA send goes through the
+  // sponsor wallet (execution, rejection, deploy).
+  it("prefers a distinct SPONSOR_PRIVATE_KEY over the agent key", () => {
+    expect(
       resolveSponsorPrivateKey({ SPONSOR_PRIVATE_KEY: KEY_A, AGENT_PRIVATE_KEY: KEY_B })
-    ).toThrow(/different address.*B1|B1.*different address|sign\/send separation/);
+    ).toBe(KEY_A);
   });
 });

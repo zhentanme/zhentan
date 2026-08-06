@@ -4,11 +4,9 @@
  * (B1/B2). Distinct in name from the agent signer (lib/agent/signer.ts),
  * whose key is threshold-bearing; the sponsor's never is.
  *
- * Defaults to the agent key (SPONSOR_PRIVATE_KEY ?? AGENT_PRIVATE_KEY) so
- * nothing changes operationally. Do NOT set SPONSOR_PRIVATE_KEY to a
- * distinct key until the sign/send separation lands: protocol-kit still
- * sends execTransaction with the agent key, so a split sponsor would pay
- * for deploys only and `executedBy` would misreport executions.
+ * Defaults to the agent key (SPONSOR_PRIVATE_KEY ?? AGENT_PRIVATE_KEY);
+ * since B1/B2 every EOA send goes through this wallet, so a distinct
+ * sponsor key is fully supported.
  *
  * Nonce serialization lives here with the sender: viem's in-process
  * nonceManager is correct while exactly ONE process sends (see plan D0.1 —
@@ -37,21 +35,6 @@ export function resolveSponsorPrivateKey(
 ): string {
   const key = env.SPONSOR_PRIVATE_KEY || env.AGENT_PRIVATE_KEY;
   if (!key) throw new Error("Missing SPONSOR_PRIVATE_KEY and AGENT_PRIVATE_KEY");
-  // TEMPORARY — REMOVE AT B1 (sign/send separation). Until then, execution
-  // and rejection still send via protocol-kit with the AGENT key: a distinct
-  // sponsor would gas-check the wrong sender and misreport executedBy. This
-  // enforces the documented "leave unset" constraint instead of trusting it.
-  if (env.SPONSOR_PRIVATE_KEY && env.AGENT_PRIVATE_KEY) {
-    const sponsor = privateKeyToAccount(env.SPONSOR_PRIVATE_KEY as `0x${string}`).address;
-    const agent = privateKeyToAccount(env.AGENT_PRIVATE_KEY as `0x${string}`).address;
-    if (sponsor !== agent) {
-      throw new Error(
-        "SPONSOR_PRIVATE_KEY resolves to a different address than AGENT_PRIVATE_KEY. " +
-          "Until sign/send separation (B1) ships, execution still sends with the agent key — " +
-          "unset SPONSOR_PRIVATE_KEY or set it to the same key."
-      );
-    }
-  }
   return key;
 }
 
