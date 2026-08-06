@@ -21,10 +21,15 @@ import {
   getUserDetails,
   syncLinkedRequest,
 } from "../supabase/index.js";
-import { getApiKit, getProtocolKit } from "../safe/service.js";
+import { getApiKit } from "../safe/service.js";
 import { readSafeNonce } from "../safe/onchain.js";
 import { getAgentAddress, getRelayerPublicClient } from "../safe/relayer.js";
-import { assertSponsorGas, getSponsorAddress } from "../chain/sponsor.js";
+import {
+  assertSponsorGas,
+  getSponsorAddress,
+  getSponsorWalletClient,
+} from "../chain/sponsor.js";
+import { encodeExecTransaction } from "./assemble.js";
 import { getSigningAuthority } from "../agent/signer.js";
 import { finishExecution } from "./finish.js";
 import type { PendingTransaction } from "../../types.js";
@@ -162,8 +167,6 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
     return { status: "superseded", reason: "Safe nonce already consumed on-chain" };
   }
 
-  const protocolKit = await getProtocolKit(tx.safeAddress);
-
   // Relay-only mode: when the user's own signatures already meet the
   // threshold (starter wallets at t=1, or screening-off in protected with a
   // backup co-signature), the agent contributes NO signature — it only
@@ -255,31 +258,18 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
 
   // Assemble signatures locally — deterministic regardless of what the
   // service has indexed (in relay-only mode the service may lag behind the
-  // co-signatures we just posted).
-  const safeTransaction = await protocolKit.createTransaction({
-    transactions: [
-      {
-        to: tx.safeTx.to,
-        value: tx.safeTx.value,
-        data: tx.safeTx.data,
-        operation: tx.safeTx.operation,
-      },
-    ],
-    options: {
-      safeTxGas: tx.safeTx.safeTxGas,
-      baseGas: tx.safeTx.baseGas,
-      gasPrice: tx.safeTx.gasPrice,
-      gasToken: tx.safeTx.gasToken,
-      refundReceiver: tx.safeTx.refundReceiver,
-      nonce: tx.safeNonce,
-    },
+  // co-signatures we just posted). Sign and send are separate hands now:
+  // the payload is encoded explicitly (owner-ascending, golden-tested
+  // against the pre-refactor bytes) and the SPONSOR wallet broadcasts it.
+  const signatures = userSigs.map((sig) => new EthSafeSignature(sig.signer, sig.data));
+  if (agentSignature) signatures.push(agentSignature as EthSafeSignature);
+  const calldata = encodeExecTransaction(tx.safeTx, signatures);
+
+  const txHash = await getSponsorWalletClient().sendTransaction({
+    to: tx.safeAddress as Hex,
+    data: calldata,
+    value: 0n,
   });
-  for (const sig of userSigs) {
-    safeTransaction.addSignature(new EthSafeSignature(sig.signer, sig.data));
-  }
-  if (agentSignature) safeTransaction.addSignature(agentSignature);
-  const result = await protocolKit.executeTransaction(safeTransaction);
-  const txHash = result.hash;
 
   const receipt = await getRelayerPublicClient().waitForTransactionReceipt({
     hash: txHash as Hex,
