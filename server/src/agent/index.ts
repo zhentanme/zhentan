@@ -51,7 +51,7 @@ export {
   upsertGlobalLimits,
   getRecipientProfile,
   getBehavioralEvents,
-} from "../lib/supabase/db.js";
+} from "../lib/supabase/agentData.js";
 
 // ── Tier 2: explicit persistence — learning writes ──────────────────────────
 
@@ -62,7 +62,7 @@ export {
   updatePatternsAfterExecution as learnFromExecution,
   incrementDailyStatsReview as noteReviewOutcome,
   recordBehavioralEvent as recordEvent,
-} from "../lib/supabase/db.js";
+} from "../lib/supabase/agentData.js";
 
 // ── Signing authority (A2) — verified requests only; KeySigner stays private ─
 

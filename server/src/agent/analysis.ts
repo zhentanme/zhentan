@@ -6,7 +6,7 @@
  * in the route; this returns the complete analysis result.
  */
 import { decodeTxKind } from "../lib/safe/kind.js";
-import { getRecipientProfile } from "../lib/supabase/db.js";
+import { getRecipientProfile } from "../lib/supabase/agentData.js";
 import type { PendingTransaction } from "../types.js";
 
 const BSC_CHAIN_ID = "56";
