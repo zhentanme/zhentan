@@ -16,6 +16,7 @@ import { describe, it, expect } from "vitest";
 import { encodeFunctionData, type Hex } from "viem";
 import { EthSafeTransaction, EthSafeSignature } from "@safe-global/protocol-kit";
 import type { SafeTxData } from "../../types.js";
+import { assembleSignatureBytes, encodeExecTransaction } from "./assemble.js";
 
 const SAFE = "0x4444444444444444444444444444444444444444";
 const MULTISEND = "0x38869bf66a61cF6bDB996A6aE40D5853Fd43B526";
@@ -197,5 +198,42 @@ describe("execTransaction calldata goldens (B1 must byte-match; dependency drift
     expect(
       referenceCalldata(FIXTURES.rejection, [{ signer: OWNER_LOW, data: SIG_LOW }])
     ).toMatchSnapshot();
+  });
+});
+
+describe("B1 production assembly — must byte-match the pre-refactor reference", () => {
+  const asSigs = (sigs: { signer: string; data: Hex }[]) =>
+    sigs.map((s) => new EthSafeSignature(s.signer, s.data));
+
+  const TWO_SIGS = [
+    { signer: OWNER_HIGH, data: SIG_HIGH },
+    { signer: OWNER_LOW, data: SIG_LOW },
+  ];
+
+  for (const [kind, tx] of Object.entries(FIXTURES)) {
+    it(`${kind} @ 2 signatures: production calldata === reference calldata`, () => {
+      expect(encodeExecTransaction(tx, asSigs(TWO_SIGS))).toBe(
+        referenceCalldata(tx, TWO_SIGS)
+      );
+    });
+  }
+
+  it("rejection @ 1 signature: production === reference", () => {
+    const one = [{ signer: OWNER_LOW, data: SIG_LOW }];
+    expect(encodeExecTransaction(FIXTURES.rejection, asSigs(one))).toBe(
+      referenceCalldata(FIXTURES.rejection, one)
+    );
+  });
+
+  it("orders unsorted input owner-ascending (GS026)", () => {
+    const bytes = assembleSignatureBytes(FIXTURES.transfer, asSigs(TWO_SIGS));
+    expect(bytes).toBe(SIG_LOW + SIG_HIGH.slice(2));
+  });
+
+  it("is insertion-order independent", () => {
+    const reversed = [...TWO_SIGS].reverse();
+    expect(encodeExecTransaction(FIXTURES.transfer, asSigs(reversed))).toBe(
+      encodeExecTransaction(FIXTURES.transfer, asSigs(TWO_SIGS))
+    );
   });
 });
