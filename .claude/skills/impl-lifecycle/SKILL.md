@@ -52,6 +52,10 @@ description: Implementation lifecycle for the agent-service separation tasks (Gi
    - Body: `Closes #<issue>`, what/why in two sentences, verification
      evidence (command output, tx hashes for on-chain gates), the docs
      checklist copied with boxes ticked.
+   - **Manual UI test section** — mandatory whenever the diff can break a
+     user-visible flow (see "Manual UI tests per change area" below). List
+     concrete click-through steps and the failure signature to watch for,
+     as a checkbox list the tester can tick on the preview deployment.
    - Base `main`. Keep the diff reviewable; if it grows past ~600 lines of
      non-mechanical change, stop and split.
 9. **Merge** only after checks pass; the issue auto-closes. Tick the task in
@@ -67,6 +71,33 @@ description: Implementation lifecycle for the agent-service separation tasks (Gi
 - User commands and canonical transaction state enter through the backend
   only (from D-milestone onward).
 - Signature assembly is owner-ascending (`GS026` reverts otherwise).
+
+## Manual UI tests per change area
+
+Every PR whose diff touches one of these areas MUST carry a "Manual UI
+tests" checkbox section in its body, naming the flows below plus the
+failure signature to watch for. Skip the section only for pure tooling/docs
+diffs — and say so explicitly ("No UI-testable surface"). The tester runs
+these on the preview deployment (PR to `preview` branch / Vercel preview
+URL); automated tests do not replace this for consensus-critical or
+state-machine changes.
+
+| Diff touches | Manual UI flows to list |
+|---|---|
+| Signing (`lib/agent/signer.ts`, call sites) | Propose → auto-approve → execute; reject an in-review tx; agent-drafted request → approve → finalize (visible 1/2 in app.safe.global). Watch for: unexpected "Signing refused" |
+| Execution / send path (`lib/execution/`, sponsor) | Auto-approve execute; REVIEW → approve via dashboard or Telegram; relay-only (screening off + backup co-sign); check `executedBy`/hash on BscScan |
+| Rejection lifecycle (`reject.ts`, transactions state) | Reject from dashboard AND Telegram; verify nonce is consumed by the cancel on-chain; verify a failed cancel resurfaces as retryable, not silently "rejected" |
+| Screening / risk (`agent/` module, queue) | Low-risk transfer auto-executes; high-amount transfer hits REVIEW with TG+email notification; BLOCK path; screening toggle on protected vs guarded |
+| Requests / drafts (`requests.ts`, `finalizeDraft.ts`) | Queue invoice + transfer + swap via Telegram; approve from dashboard; swap quote refresh at finalize; dismiss a draft |
+| Notifications (`notify.ts`, events) | REVIEW notification arrives in TG with buttons; approve/reject from TG updates the original message (`resolve_notification`); email variants |
+| Profiles / transitions (`profiles.ts`, `queue.ts` validation, client `useSafeUpgrade`) | starter→protected and guarded→protected transitions end-to-end; "Detach Zhentan"; profile badge correct after transition |
+| Onboarding / identity (derive, users routes, Privy) | Fresh Google login → Safe created → address matches on refresh; existing user re-login resolves same Safe |
+| MCP / Telegram surface (`mcp/`, SKILL.md) | `/start` pairing; "check pending"; approve/reject/deep-analyze by tx id; rules CRUD via chat |
+| Runtime split (D-milestone PRs) | All of the signing + screening rows above, cross-process, plus: runtime stopped → screening-mandatory queues, relay-only still executes |
+
+When a PR spans several areas, merge the flow lists and dedupe. Put the
+flows in the PR targeting `preview` as well, since that is where they get
+executed.
 
 ## On-chain verification (B3 #87, D5 #99)
 
