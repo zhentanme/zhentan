@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit && npm run lint:layering",
-    "lint:layering": "! grep -rnE \"from ['\\\"][^'\\\"]*routes/\" --include='*.ts' src/lib && ! grep -rnE \"sign(Hash|Digest)\\(\" --include='*.ts' src | grep -v lib/agent/signer",
+    "lint:layering": "sh scripts/lint-layering.sh",
     "test": "vitest run",
     "db:link": "supabase link",
     "db:new": "supabase migration new",
