@@ -1,5 +1,5 @@
 import { Router, Request, Response, type IRouter } from "express";
-import { getBehavioralEvents } from "../lib/supabase/index.js";
+import { getBehavioralEvents } from "../agent/index.js";
 import { assertOwnsSafe } from "../lib/authz.js";
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;

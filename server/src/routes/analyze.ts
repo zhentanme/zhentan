@@ -1,5 +1,6 @@
 import { Router, Request, Response, type IRouter } from "express";
-import { getLastInReviewTransaction, getRecipientProfile } from "../lib/supabase/index.js";
+import { getLastInReviewTransaction } from "../lib/supabase/index.js";
+import { getRecipientProfile } from "../agent/index.js";
 import { assertOwnsTx, requireCallerSafe } from "../lib/authz.js";
 import { decodeTxKind } from "../lib/safe/kind.js";
 import type { PendingTransaction } from "../types.js";

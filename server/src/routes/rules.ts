@@ -5,7 +5,7 @@ import {
   createUserRule,
   updateUserRule,
   deleteUserRule,
-} from "../lib/supabase/index.js";
+} from "../agent/index.js";
 import { assertOwnsSafe, requireCallerSafe, sameAddress } from "../lib/authz.js";
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;

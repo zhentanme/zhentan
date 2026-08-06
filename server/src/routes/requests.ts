@@ -1,8 +1,8 @@
 import { Router, Request, Response, type IRouter } from "express";
 import type { RequestStatus, RequestType, RequestKind, QueuedRequest, PendingTransaction } from "../types.js";
-import { getRequests, getRequest, createRequest, updateRequest, updateTransaction, getTransaction, getPatternsForSafe } from "../lib/supabase/index.js";
+import { getRequests, getRequest, createRequest, updateRequest, updateTransaction, getTransaction } from "../lib/supabase/index.js";
 import { requireCallerSafe, sameAddress } from "../lib/authz.js";
-import { analyzeRisk } from "../risk.js";
+import { evaluateRequest, loadPolicySnapshot } from "../agent/index.js";
 import { agentProposeFromRequest } from "../lib/safe/agentPropose.js";
 import type { DecodedKind } from "../lib/safe/kind.js";
 import { randomUUID } from "crypto";
@@ -94,7 +94,7 @@ export function createRequestsRouter(): IRouter {
       let finalRiskNotes: string | undefined = riskNotes ?? undefined;
 
       try {
-        const patterns = await getPatternsForSafe(safeAddress);
+        const patterns = await loadPolicySnapshot(safeAddress);
         const synthTx = {
           to: to ?? "",
           amount: String(amount),
@@ -115,7 +115,7 @@ export function createRequestsRouter(): IRouter {
                 approval: null,
               }
             : undefined;
-        const engine = analyzeRisk(synthTx, patterns, syntheticDecoded);
+        const engine = evaluateRequest(synthTx, patterns, syntheticDecoded);
         finalRiskScore = Math.max(engine.riskScore, agentScore ?? 0);
         const engineNotes = `${engine.verdict}: ${engine.reasons.join("; ")}`;
         finalRiskNotes =
@@ -140,7 +140,7 @@ export function createRequestsRouter(): IRouter {
       // draft can't be built, the request queues normally.
       let draftTxId: string | undefined;
       try {
-        const patterns = await getPatternsForSafe(safeAddress);
+        const patterns = await loadPolicySnapshot(safeAddress);
         const { riskThresholdApprove, riskThresholdBlock } = patterns.globalLimits;
         const score = finalRiskScore ?? 100;
         const shouldDraft =
