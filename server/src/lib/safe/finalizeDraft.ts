@@ -22,11 +22,11 @@
 import {
   computeSafeTxHash,
   getNextSafeNonce,
-  getProtocolKit,
   proposeToService,
 } from "./service.js";
 import { readSafeNonce } from "./onchain.js";
 import { getAgentAddress } from "./relayer.js";
+import { getSigningAuthority } from "../agent/signer.js";
 import { KIND_BUILDERS, buildSafeTxFromCalls } from "./builders.js";
 import { getRequestByTxId, updateTransaction } from "../supabase/index.js";
 import type { PendingTransaction } from "../../types.js";
@@ -106,14 +106,17 @@ export async function finalizeDraft(
   // app.safe.global. Best-effort: a service outage must not block the flow —
   // execution assembles signatures locally.
   try {
-    const protocolKit = await getProtocolKit(tx.safeAddress);
-    const agentSig = await protocolKit.signHash(safeTxHash);
+    const agentSig = await getSigningAuthority().sign({
+      safeAddress: tx.safeAddress,
+      safeTx,
+      expectedSafeTxHash: safeTxHash,
+    });
     await proposeToService({
       safeAddress: tx.safeAddress,
       safeTx,
       safeTxHash,
       senderAddress: getAgentAddress(),
-      senderSignature: agentSig.data,
+      senderSignature: agentSig.signature.data,
       origin: "Zhentan (agent draft)",
     });
   } catch (err) {

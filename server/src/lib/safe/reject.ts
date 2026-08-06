@@ -13,6 +13,7 @@ import type { PendingTransaction, SafeTxData } from "../../types.js";
 import { computeSafeTxHash, getApiKit, getProtocolKit, proposeToService } from "./service.js";
 import { readSafeNonce } from "./onchain.js";
 import { assertAgentGas } from "./relayer.js";
+import { getSigningAuthority } from "../agent/signer.js";
 
 export interface RejectionResult {
   status: "cancelled" | "skipped";
@@ -67,9 +68,12 @@ export async function executeRejection(tx: PendingTransaction): Promise<Rejectio
       senderSignature: tx.rejectionSignature,
       origin: "Zhentan (rejection)",
     });
-    const protocolKit = await getProtocolKit(tx.safeAddress);
-    const agentSig = await protocolKit.signHash(rejectionHash);
-    await getApiKit().confirmTransaction(rejectionHash, agentSig.data);
+    const agentSig = await getSigningAuthority().sign({
+      safeAddress: tx.safeAddress,
+      safeTx: rejectionTx,
+      expectedSafeTxHash: rejectionHash,
+    });
+    await getApiKit().confirmTransaction(rejectionHash, agentSig.signature.data);
   } catch (err) {
     console.error("Rejection service mirror failed (continuing on-chain):", err);
   }
@@ -81,7 +85,13 @@ export async function executeRejection(tx: PendingTransaction): Promise<Rejectio
   safeTransaction.addSignature(
     new EthSafeSignature(tx.proposedBy, tx.rejectionSignature as Hex)
   );
-  const agentSignature = await protocolKit.signHash(rejectionHash);
+  const agentSignature = (
+    await getSigningAuthority().sign({
+      safeAddress: tx.safeAddress,
+      safeTx: rejectionTx,
+      expectedSafeTxHash: rejectionHash,
+    })
+  ).signature;
   safeTransaction.addSignature(agentSignature);
 
   const result = await protocolKit.executeTransaction(safeTransaction);
