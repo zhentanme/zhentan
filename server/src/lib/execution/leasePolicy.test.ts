@@ -2,8 +2,10 @@ import { describe, it, expect } from "vitest";
 import { leaseGrantable, EXECUTION_LEASE_TTL_MS } from "./leasePolicy.js";
 
 const NOW = new Date("2026-08-07T12:00:00Z");
-const ME = "host:1:aaaa";
-const OTHER = "host:2:bbbb";
+// Claimants are per-attempt tokens: <host>:<pid>:<instance>:<attempt>.
+const ME = "host:1:aaaa:t1";
+const SAME_PROCESS_OTHER_ATTEMPT = "host:1:aaaa:t2";
+const OTHER = "host:2:bbbb:t1";
 
 const live = (owner: string) => ({
   execution_lease_owner: owner,
@@ -21,8 +23,12 @@ describe("execution lease grant policy", () => {
     expect(leaseGrantable(live(OTHER), ME, NOW)).toBe(false);
   });
 
-  it("re-entrant claim by the holder is granted (no-op safety)", () => {
+  it("re-entrant renewal with the SAME attempt token is granted", () => {
     expect(leaseGrantable(live(ME), ME, NOW)).toBe(true);
+  });
+
+  it("denies a second attempt from the SAME process — process identity is not ownership", () => {
+    expect(leaseGrantable(live(ME), SAME_PROCESS_OTHER_ATTEMPT, NOW)).toBe(false);
   });
 
   it("reclaims an expired lease from a crashed holder", () => {

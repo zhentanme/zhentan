@@ -19,40 +19,48 @@ import { EXECUTION_LEASE_TTL_MS } from "./leasePolicy.js";
 export const EXECUTOR_INSTANCE_ID = `${hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`;
 
 /**
- * Atomically claim the execution lease for a transaction. Returns true when
- * this process holds the lease (fresh claim or re-entrant), false when a
- * live lease belongs to someone else.
+ * Unique ownership token for ONE execution attempt. The process identity is
+ * kept as a prefix for observability, but the token — not the process — is
+ * the lease owner: two concurrent attempts in the same process hold distinct
+ * tokens, so the re-entrant clause can never let both through.
+ */
+export function newLeaseToken(): string {
+  return `${EXECUTOR_INSTANCE_ID}:${randomUUID().slice(0, 8)}`;
+}
+
+/**
+ * Atomically claim the execution lease for a transaction. Returns the
+ * ownership token when the claim wins (fresh claim, expired takeover, or
+ * re-entrant renewal of `token`), null when a live lease belongs to another
+ * attempt. Pass an existing token only to renew a lease you already hold.
  */
 export async function claimExecutionLease(
   txId: string,
-  owner: string = EXECUTOR_INSTANCE_ID,
+  token: string = newLeaseToken(),
   ttlMs: number = EXECUTION_LEASE_TTL_MS,
   now: Date = new Date()
-): Promise<boolean> {
+): Promise<string | null> {
   const { data, error } = await supabase
     .from("transactions")
     .update({
-      execution_lease_owner: owner,
+      execution_lease_owner: token,
       execution_lease_expires_at: new Date(now.getTime() + ttlMs).toISOString(),
     })
     .eq("id", txId)
     .or(
-      `execution_lease_owner.is.null,execution_lease_owner.eq.${owner},execution_lease_expires_at.lt.${now.toISOString()}`
+      `execution_lease_owner.is.null,execution_lease_owner.eq.${token},execution_lease_expires_at.lte.${now.toISOString()}`
     )
     .select("id");
   if (error) throw error;
-  return (data?.length ?? 0) > 0;
+  return (data?.length ?? 0) > 0 ? token : null;
 }
 
-/** Release (only if still ours — never clobber a successor's lease). */
-export async function releaseExecutionLease(
-  txId: string,
-  owner: string = EXECUTOR_INSTANCE_ID
-): Promise<void> {
+/** Release (only if still held by `token` — never clobber a successor's lease). */
+export async function releaseExecutionLease(txId: string, token: string): Promise<void> {
   const { error } = await supabase
     .from("transactions")
     .update({ execution_lease_owner: null, execution_lease_expires_at: null })
     .eq("id", txId)
-    .eq("execution_lease_owner", owner);
+    .eq("execution_lease_owner", token);
   if (error) throw error;
 }
