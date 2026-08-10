@@ -40,19 +40,30 @@ export async function claimExecutionLease(
   ttlMs: number = EXECUTION_LEASE_TTL_MS,
   now: Date = new Date()
 ): Promise<string | null> {
-  const { data, error } = await supabase
+  // Count the affected rows instead of selecting a representation: PostgREST
+  // rejects UPDATE + or-filter + select + return=representation (it re-applies
+  // the or-filter over the returned columns → 42703). The count shape keeps
+  // the or-guard on the UPDATE's WHERE — verified: a live foreign lease yields
+  // count 0 and leaves the row untouched.
+  const { count, error } = await supabase
     .from("transactions")
-    .update({
-      execution_lease_owner: token,
-      execution_lease_expires_at: new Date(now.getTime() + ttlMs).toISOString(),
-    })
+    .update(
+      {
+        execution_lease_owner: token,
+        execution_lease_expires_at: new Date(now.getTime() + ttlMs).toISOString(),
+      },
+      { count: "exact" }
+    )
     .eq("id", txId)
     .or(
       `execution_lease_owner.is.null,execution_lease_owner.eq.${token},execution_lease_expires_at.lte.${now.toISOString()}`
-    )
-    .select("id");
-  if (error) throw error;
-  return (data?.length ?? 0) > 0 ? token : null;
+    );
+  if (error) {
+    // PostgrestError is not an Error instance — wrap it so callers'
+    // `err instanceof Error` paths report the real message.
+    throw new Error(`Lease claim failed for ${txId}: ${error.message}`);
+  }
+  return (count ?? 0) > 0 ? token : null;
 }
 
 /** Release (only if still held by `token` — never clobber a successor's lease). */
@@ -62,5 +73,5 @@ export async function releaseExecutionLease(txId: string, token: string): Promis
     .update({ execution_lease_owner: null, execution_lease_expires_at: null })
     .eq("id", txId)
     .eq("execution_lease_owner", token);
-  if (error) throw error;
+  if (error) throw new Error(`Lease release failed for ${txId}: ${error.message}`);
 }
