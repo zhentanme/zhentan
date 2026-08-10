@@ -48,8 +48,15 @@ export type JobContractVerdict =
         | "invalid_credential_version"
         | "invalid_kind"
         | "sign_requires_purpose"
+        | "invalid_purpose"
         | "screen_forbids_purpose";
     };
+
+const SIGN_PURPOSES: ReadonlySet<string> = new Set([
+  "execution",
+  "rejection",
+  "draft_finalization",
+] satisfies SignPurpose[]);
 
 /** Mirrors the DB CHECKs so contract tests run env-free (and reject earlier). */
 export function validateJobContract(job: JobContractFields): JobContractVerdict {
@@ -67,6 +74,9 @@ export function validateJobContract(job: JobContractFields): JobContractVerdict 
   }
   if (job.kind === "sign" && !job.purpose) {
     return { valid: false, reason: "sign_requires_purpose" };
+  }
+  if (job.kind === "sign" && job.purpose && !SIGN_PURPOSES.has(job.purpose)) {
+    return { valid: false, reason: "invalid_purpose" };
   }
   if (job.kind === "screen" && job.purpose) {
     return { valid: false, reason: "screen_forbids_purpose" };

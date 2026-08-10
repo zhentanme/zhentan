@@ -189,6 +189,10 @@ describe("identity-shaped contracts (D0.3)", () => {
       valid: false,
       reason: "invalid_kind",
     });
+    expect(validateJobContract({ ...contractFixture, purpose: "banana" })).toEqual({
+      valid: false,
+      reason: "invalid_purpose",
+    });
   });
 
   it("a result whose agent identity does not match the lease holder is rejected", () => {
