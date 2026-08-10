@@ -14,9 +14,11 @@ import {
   JOB_LEASE_TTL_MS,
   JOB_SCHEMA_VERSION,
   MAX_JOB_ATTEMPTS,
+  assignedAgentForSafe,
   computeInputHash,
   failureTargetStatus,
   jobNextRetryAt,
+  validateJobContract,
   validateJobResult,
   type JobKind,
   type JobResultSubmission,
@@ -81,6 +83,12 @@ export async function enqueueJob(input: EnqueueJobInput): Promise<RuntimeJobRow>
     input_hash: computeInputHash(input.payload),
     credential_version: input.credentialVersion ?? 1,
   };
+  // Identity-shaped contract (D0.3): a job without a valid safe scope,
+  // credential version, or kind/purpose shape never reaches the queue.
+  const contract = validateJobContract(row);
+  if (!contract.valid) {
+    throw new Error(`Job enqueue rejected for tx ${input.txId}: ${contract.reason}`);
+  }
   for (let attempt = 0; attempt < 3; attempt++) {
     const { data, error } = await supabase.from("runtime_jobs").insert(row).select("*").single<RuntimeJobRow>();
     if (!error) return data;
@@ -163,6 +171,13 @@ export async function leaseNextJob(
   if (error) throw new Error(`Job pull failed: ${error.message}`);
 
   for (const candidate of candidates ?? []) {
+    // Assignment scope (D0.3): an agent only leases jobs for Safes assigned
+    // to it. Every Safe maps to the shared agent until P7/F1, so this
+    // post-window filter currently never skips. F1 REQUIREMENT: once the
+    // mapping is per-agent (agent_identities), assignment must move into
+    // the DB query — otherwise 10 older foreign-agent jobs can fill the
+    // window and starve a claimant whose own jobs sit behind them.
+    if (assignedAgentForSafe(candidate.safe_address) !== agentInstanceId) continue;
     const leaseToken = randomUUID();
     // Atomic claim: only wins if the row is still in the state we saw —
     // pending, or still holding the same expired lease.

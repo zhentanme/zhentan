@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  assignedAgentForSafe,
   failureTargetStatus,
+  SHARED_AGENT_INSTANCE_ID,
+  validateJobContract,
   JOB_SCHEMA_VERSION,
   SUPPORTED_JOB_SCHEMA_VERSIONS,
   MAX_JOB_ATTEMPTS,
@@ -27,6 +30,7 @@ const job = (over: Partial<JobResultFields> = {}): JobResultFields => ({
   input_hash: computeInputHash(PAYLOAD),
   credential_version: 1,
   status: "leased",
+  agent_instance_id: "shared-agent",
   lease_token: "lease-a",
   lease_expires_at: LIVE,
   attempt_count: 1,
@@ -135,6 +139,71 @@ describe("input-hash verification", () => {
     expect(computeInputHash({ a: 1, b: [2, 3] })).toBe(computeInputHash({ b: [2, 3], a: 1 }));
     expect(computeInputHash({ a: 1 })).not.toBe(computeInputHash({ a: 2 }));
     expect(computeInputHash({ a: 1, skip: undefined })).toBe(computeInputHash({ a: 1 }));
+  });
+});
+
+describe("identity-shaped contracts (D0.3)", () => {
+  const contractFixture = {
+    schema_version: JOB_SCHEMA_VERSION,
+    kind: "sign",
+    purpose: "execution",
+    safe_address: "0x1111111111111111111111111111111111111111",
+    credential_version: 1,
+  };
+
+  it("a fully identity-shaped job is enqueueable", () => {
+    expect(validateJobContract(contractFixture)).toEqual({ valid: true });
+    expect(validateJobContract({ ...contractFixture, kind: "screen", purpose: null })).toEqual({
+      valid: true,
+    });
+  });
+
+  it("a job without a safe assignment scope is rejected", () => {
+    expect(validateJobContract({ ...contractFixture, safe_address: "" })).toEqual({
+      valid: false,
+      reason: "missing_safe_scope",
+    });
+    expect(validateJobContract({ ...contractFixture, safe_address: "not-an-address" })).toEqual({
+      valid: false,
+      reason: "missing_safe_scope",
+    });
+  });
+
+  it("a job without a valid credential version is rejected", () => {
+    expect(validateJobContract({ ...contractFixture, credential_version: 0 })).toEqual({
+      valid: false,
+      reason: "invalid_credential_version",
+    });
+  });
+
+  it("kind/purpose shape is part of the contract", () => {
+    expect(validateJobContract({ ...contractFixture, purpose: null })).toEqual({
+      valid: false,
+      reason: "sign_requires_purpose",
+    });
+    expect(validateJobContract({ ...contractFixture, kind: "screen" })).toEqual({
+      valid: false,
+      reason: "screen_forbids_purpose",
+    });
+    expect(validateJobContract({ ...contractFixture, kind: "notify" })).toEqual({
+      valid: false,
+      reason: "invalid_kind",
+    });
+    expect(validateJobContract({ ...contractFixture, purpose: "banana" })).toEqual({
+      valid: false,
+      reason: "invalid_purpose",
+    });
+  });
+
+  it("a result whose agent identity does not match the lease holder is rejected", () => {
+    const verdict = validateJobResult(job(), submission({ agentInstanceId: "rogue-agent" }), 3, 1, NOW);
+    expect(verdict).toEqual({ decision: "reject", reason: "agent_mismatch" });
+  });
+
+  it("every Safe maps to the shared agent until P7/F1", () => {
+    expect(assignedAgentForSafe("0x1111111111111111111111111111111111111111")).toBe(
+      SHARED_AGENT_INSTANCE_ID
+    );
   });
 });
 

@@ -15,6 +15,75 @@ import { createHash } from "crypto";
 export const JOB_SCHEMA_VERSION = 1;
 export const SUPPORTED_JOB_SCHEMA_VERSIONS: ReadonlySet<number> = new Set([1]);
 
+/**
+ * Identity-shaped contracts from day one (D0.3): every job carries an
+ * assignment scope (safe address) and credential_version; every result
+ * carries the agent_instance_id bound at lease time. Today every Safe maps
+ * to the shared agent; P7/F1 swap this mapping for agent_identities and
+ * per-agent credentials WITHOUT changing any contract.
+ */
+export const SHARED_AGENT_INSTANCE_ID = "shared-agent";
+
+/** Assignment lookup — the P7/F1 seam. One agent for every Safe until then. */
+export function assignedAgentForSafe(_safeAddress: string): string {
+  return SHARED_AGENT_INSTANCE_ID;
+}
+
+/** The identity slice a job must carry to be enqueueable at all. */
+export interface JobContractFields {
+  schema_version: number;
+  kind: string;
+  purpose: string | null;
+  safe_address: string;
+  credential_version: number;
+}
+
+export type JobContractVerdict =
+  | { valid: true }
+  | {
+      valid: false;
+      reason:
+        | "unsupported_schema_version"
+        | "missing_safe_scope"
+        | "invalid_credential_version"
+        | "invalid_kind"
+        | "sign_requires_purpose"
+        | "invalid_purpose"
+        | "screen_forbids_purpose";
+    };
+
+const SIGN_PURPOSES: ReadonlySet<string> = new Set([
+  "execution",
+  "rejection",
+  "draft_finalization",
+] satisfies SignPurpose[]);
+
+/** Mirrors the DB CHECKs so contract tests run env-free (and reject earlier). */
+export function validateJobContract(job: JobContractFields): JobContractVerdict {
+  if (!SUPPORTED_JOB_SCHEMA_VERSIONS.has(job.schema_version)) {
+    return { valid: false, reason: "unsupported_schema_version" };
+  }
+  if (!/^0x[0-9a-fA-F]{40}$/.test(job.safe_address)) {
+    return { valid: false, reason: "missing_safe_scope" };
+  }
+  if (!Number.isInteger(job.credential_version) || job.credential_version < 1) {
+    return { valid: false, reason: "invalid_credential_version" };
+  }
+  if (job.kind !== "screen" && job.kind !== "sign") {
+    return { valid: false, reason: "invalid_kind" };
+  }
+  if (job.kind === "sign" && !job.purpose) {
+    return { valid: false, reason: "sign_requires_purpose" };
+  }
+  if (job.kind === "sign" && job.purpose && !SIGN_PURPOSES.has(job.purpose)) {
+    return { valid: false, reason: "invalid_purpose" };
+  }
+  if (job.kind === "screen" && job.purpose) {
+    return { valid: false, reason: "screen_forbids_purpose" };
+  }
+  return { valid: true };
+}
+
 /** Lease TTL for one evaluate/sign attempt (heartbeat extends it). */
 export const JOB_LEASE_TTL_MS = 2 * 60 * 1000;
 /** Attempts (lease grants) before a job dead-letters. */
@@ -105,6 +174,8 @@ export interface JobResultFields extends JobLeaseFields {
   tx_version: number;
   input_hash: string;
   credential_version: number;
+  /** Bound at lease time; results must come back under the same identity. */
+  agent_instance_id: string | null;
   result_lease_token: string | null;
 }
 
@@ -133,6 +204,7 @@ export type ResultDecision =
         | "wrong_job"
         | "job_not_leased"
         | "lease_mismatch"
+        | "agent_mismatch"
         | "lease_expired"
         | "job_tx_version_mismatch"
         | "input_hash_mismatch"
@@ -170,6 +242,11 @@ export function validateJobResult(
   }
   if (job.lease_token !== submission.leaseToken) {
     return { decision: "reject", reason: "lease_mismatch" };
+  }
+  // Identity binding (D0.3): the result must come back under the same
+  // agent identity the lease was granted to.
+  if (job.agent_instance_id !== submission.agentInstanceId) {
+    return { decision: "reject", reason: "agent_mismatch" };
   }
   if (!job.lease_expires_at || Date.parse(job.lease_expires_at) <= now.getTime()) {
     return { decision: "reject", reason: "lease_expired" };
