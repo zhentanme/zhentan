@@ -38,3 +38,6 @@ client/.ds-dist/
 docs
 *.swp
 *.swo
+screening/dist/
+runtime/dist/
+runtime/logs/

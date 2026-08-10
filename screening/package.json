@@ -1,0 +1,27 @@
+{
+  "name": "zhentan-screening",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pure screening core shared by the backend and the agent runtime: risk engine, evaluation entrypoints, app transaction types, and the runtime-job wire protocol. Dependency-free and environment-free by construction — this is what makes D2 shadow screening bit-comparable across processes.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./types": "./dist/types.js",
+    "./decoded": "./dist/decoded.js",
+    "./risk": "./dist/risk.js",
+    "./evaluate": "./dist/evaluate.js",
+    "./protocol": "./dist/protocol.js"
+  },
+  "scripts": {
+    "build": "tsc -p .",
+    "prepare": "tsc -p .",
+    "lint": "tsc --noEmit && sh scripts/lint-pure.sh",
+    "test": "echo \"tested via server and runtime suites\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "typescript": "^5.3.3"
+  }
+}

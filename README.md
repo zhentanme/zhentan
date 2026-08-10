@@ -50,9 +50,11 @@ pnpm dev:docs        # http://localhost:3002
 ## Structure
 
 ```
-client/    Next.js 14 app
-server/    Express API
-agent/     NanoBot/Hermes skill pack
+client/     Next.js 14 app
+server/     Express API
+runtime/    Agent runtime — pull-only worker (leases jobs via the backend Runtime API; no DB access)
+screening/  Pure screening core + job wire protocol, shared by server and runtime
+agent/      NanoBot/Hermes skill pack
 scripts/   CLI tools
 docs/      Mintlify docs
 ```

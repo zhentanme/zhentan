@@ -6,6 +6,7 @@
   "scripts": {
     "dev:client": "pnpm --filter zhentan-client dev",
     "dev:server": "pnpm --filter zhentan-server dev",
+    "dev:runtime": "pnpm --filter zhentan-runtime dev",
     "dev:docs": "cd docs && mintlify dev --port 3002",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",

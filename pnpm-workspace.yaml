@@ -3,3 +3,5 @@ packages:
   - server
   - agent
   - mcp
+  - screening
+  - runtime

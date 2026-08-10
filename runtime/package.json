@@ -1,0 +1,25 @@
+{
+  "name": "zhentan-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Zhentan agent runtime — a pull-only worker. Leases screening/signing jobs from the backend Runtime API, evaluates with the shared zhentan-screening core, and submits verifiable results. Speaks ONLY the Runtime API: no database credential exists in this process, managed or self-hosted, ever.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p .",
+    "start": "node dist/index.js",
+    "lint": "tsc --noEmit && sh scripts/lint-boundary.sh",
+    "test": "vitest run",
+    "pm2:start": "pm2 start ecosystem.config.cjs"
+  },
+  "dependencies": {
+    "zhentan-screening": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.0"
+  }
+}

@@ -37,10 +37,12 @@ if grep -rnE "from ['\"][^'\"]*agentData" --include='*.ts' "$SRC" | grep -v "^$S
   echo "RULE 4 VIOLATION: agentData imported outside $SRC/agent"; fail=1
 fi
 
-# 5 (C2): the risk engine is reachable only via the agent domain
-# (agentData may import its types)
-if grep -rnE "from ['\"][^'\"]*risk.js" --include='*.ts' "$SRC" | grep -v "^$SRC/agent/\|^$SRC/lib/supabase/agentData.ts"; then
-  echo "RULE 5 VIOLATION: risk engine imported outside $SRC/agent"; fail=1
+# 5 (C2/D1): the risk engine + evaluation live in zhentan-screening; direct
+# imports of those subpaths stay confined to the agent domain (agentData may
+# import types). Shared shapes (/types, /decoded, /protocol) are importable
+# by their designated re-export sites only, so the choke points hold.
+if grep -rnE "from ['\"]zhentan-screening/(risk|evaluate)" --include='*.ts' "$SRC" | grep -v "^$SRC/agent/\|^$SRC/lib/supabase/agentData.ts"; then
+  echo "RULE 5 VIOLATION: screening risk/evaluate imported outside $SRC/agent"; fail=1
 fi
 
 [ "$fail" = 0 ] && echo "layering ok"

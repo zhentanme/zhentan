@@ -1,5 +1,5 @@
 import type { PendingTransaction } from "./types.js";
-import type { DecodedKind } from "./lib/safe/kind.js";
+import type { DecodedKind } from "./decoded.js";
 
 // ─────────────────────────────────────────────────────────────
 // PatternsFile — assembled by getPatternsForSafe() in db.ts
