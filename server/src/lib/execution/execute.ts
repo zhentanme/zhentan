@@ -31,6 +31,7 @@ import {
 } from "../chain/sponsor.js";
 import { encodeExecTransaction } from "./assemble.js";
 import { isRejectionActive } from "../safe/rejectionState.js";
+import { claimExecutionLease, releaseExecutionLease } from "./lease.js";
 import { getSigningAuthority } from "../../agent/index.js";
 import { finishExecution } from "./finish.js";
 import type { PendingTransaction } from "../../types.js";
@@ -287,9 +288,6 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
   };
 }
 
-// Per-tx in-flight guard against concurrent execute calls in this process.
-const inFlight = new Set<string>();
-
 /** What `runExecution` reports back, mirroring the HTTP response shape. */
 export type ExecutionResult =
   | { status: "already_rejected" }
@@ -328,48 +326,60 @@ export async function runExecution(tx: PendingTransaction): Promise<ExecutionRes
     return { status: "already_rejected" };
   }
   if (tx.executedAt) return { status: "already_executed", txId: tx.id, txHash: tx.txHash };
-  if (inFlight.has(tx.id)) return { status: "in_progress", txId: tx.id };
 
-  inFlight.add(tx.id);
-  let outcome: ExecutionOutcome;
+  // Cross-process in-flight guard (D0): one atomic conditional UPDATE claims
+  // the row; a second claimant — same process or another — gets in_progress.
+  // Replaces the in-memory Set whose correctness rested on PM2 instances: 1.
+  const leaseToken = await claimExecutionLease(tx.id);
+  if (!leaseToken) {
+    return { status: "in_progress", txId: tx.id };
+  }
+  // The lease covers execution AND terminal persistence: releasing before
+  // finishExecution would let a second caller claim the row while it still
+  // reads as unexecuted and broadcast the same transaction again.
   try {
-    outcome = tx.txType === "safetx" ? await executeSafeTx(tx) : await executeLegacy4337(tx);
-  } finally {
-    inFlight.delete(tx.id);
-  }
+    const outcome: ExecutionOutcome =
+      tx.txType === "safetx" ? await executeSafeTx(tx) : await executeLegacy4337(tx);
 
-  if (outcome.status === "superseded") {
-    return { status: "superseded", txId: tx.id, reason: outcome.reason };
-  }
-
-  if (outcome.status === "already_executed") {
-    if (outcome.txHash && !tx.executedAt) {
-      await finishExecution(
-        tx,
-        outcome.txHash,
-        outcome.success ?? true,
-        outcome.executedBy ?? getSponsorAddress()
-      );
+    if (outcome.status === "superseded") {
+      return { status: "superseded", txId: tx.id, reason: outcome.reason };
     }
-    return { status: "already_executed", txId: tx.id, txHash: outcome.txHash };
+
+    if (outcome.status === "already_executed") {
+      if (outcome.txHash && !tx.executedAt) {
+        await finishExecution(
+          tx,
+          outcome.txHash,
+          outcome.success ?? true,
+          outcome.executedBy ?? getSponsorAddress()
+        );
+      }
+      return { status: "already_executed", txId: tx.id, txHash: outcome.txHash };
+    }
+
+    await finishExecution(
+      tx,
+      outcome.txHash!,
+      outcome.success ?? true,
+      outcome.executedBy ?? getSponsorAddress()
+    );
+
+    return {
+      status: "executed",
+      txId: tx.id,
+      to: tx.to,
+      amount: tx.amount,
+      token: tx.token,
+      txHash: outcome.txHash,
+      success: outcome.success,
+    };
+  } finally {
+    // Release must never mask the execution outcome/error; a failed release
+    // is self-healing anyway (the lease expires).
+    await releaseExecutionLease(tx.id, leaseToken).catch((err) =>
+      console.error(`Execution lease release failed for ${tx.id}:`, err)
+    );
   }
-
-  await finishExecution(
-    tx,
-    outcome.txHash!,
-    outcome.success ?? true,
-    outcome.executedBy ?? getSponsorAddress()
-  );
-
-  return {
-    status: "executed",
-    txId: tx.id,
-    to: tx.to,
-    amount: tx.amount,
-    token: tx.token,
-    txHash: outcome.txHash,
-    success: outcome.success,
-  };
 }
 
 /** Loads a transaction by id and executes it. Performs no authorization. */
