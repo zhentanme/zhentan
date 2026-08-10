@@ -2,7 +2,7 @@
   "name": "zhentan-runtime",
   "version": "1.0.0",
   "private": true,
-  "description": "Zhentan agent runtime — a pull-only worker. Leases screening/signing jobs from the backend Runtime API, evaluates with the shared zhentan-screening core, and submits verifiable results. Speaks ONLY the Runtime API: no database credential exists in this process, managed or self-hosted, ever.",
+  "description": "Zhentan agent runtime \u2014 a pull-only worker. Leases screening/signing jobs from the backend Runtime API, evaluates with the shared zhentan-screening core, and submits verifiable results. Speaks ONLY the Runtime API: no database credential exists in this process, managed or self-hosted, ever.",
   "type": "module",
   "main": "./dist/index.js",
   "scripts": {
@@ -14,6 +14,7 @@
     "pm2:start": "pm2 start ecosystem.config.cjs"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "zhentan-screening": "workspace:*"
   },
   "devDependencies": {
