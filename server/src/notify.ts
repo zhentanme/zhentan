@@ -7,12 +7,49 @@ interface ReplyButton {
   text: string;
 }
 
-// In-memory map of txId → Telegram messageId for editing notifications later
-const notificationMessages = new Map<string, number>();
+// txId → Telegram messageId lives in the notification_messages table
+// (D0.2): resolve_notification must survive restarts and process splits.
+// Lazy import: the supabase client throws without env at module load, and
+// notify.ts is reachable from env-free unit tests via sponsor.ts.
+async function db() {
+  return (await import("./lib/supabase/client.js")).supabase;
+}
 
-export function getNotificationMessageId(txId: string): string | undefined {
-  const id = notificationMessages.get(txId);
-  return id != null ? String(id) : undefined;
+async function saveNotificationMessage(txId: string, chatId: string, messageId: number): Promise<void> {
+  const { error } = await (await db()).from("notification_messages").upsert({
+    tx_id: txId,
+    channel: "telegram",
+    chat_id: chatId,
+    message_id: String(messageId),
+  });
+  if (error) console.error(`Failed to persist notification message for ${txId}:`, error.message);
+}
+
+async function takeNotificationMessage(txId: string): Promise<{ chatId: string; messageId: string } | null> {
+  const { data, error } = await (await db())
+    .from("notification_messages")
+    .select("chat_id, message_id")
+    .eq("tx_id", txId)
+    .eq("channel", "telegram")
+    .maybeSingle<{ chat_id: string; message_id: string }>();
+  if (error) {
+    console.error(`Notification message lookup failed for ${txId}:`, error.message);
+    return null;
+  }
+  return data ? { chatId: data.chat_id, messageId: data.message_id } : null;
+}
+
+async function deleteNotificationMessage(txId: string): Promise<void> {
+  const { error } = await (await db())
+    .from("notification_messages")
+    .delete()
+    .eq("tx_id", txId)
+    .eq("channel", "telegram");
+  if (error) console.error(`Notification message cleanup failed for ${txId}:`, error.message);
+}
+
+export async function getNotificationMessageId(txId: string): Promise<string | undefined> {
+  return (await takeNotificationMessage(txId))?.messageId;
 }
 
 export function notifyTelegram(
@@ -21,8 +58,9 @@ export function notifyTelegram(
   txId?: string,
   chatId?: string
 ): void {
+  const targetChatId = chatId || TELEGRAM_CHAT_ID;
   const body: Record<string, unknown> = {
-    chat_id: chatId || TELEGRAM_CHAT_ID,
+    chat_id: targetChatId,
     text: message,
     parse_mode: "Markdown",
   };
@@ -50,7 +88,7 @@ export function notifyTelegram(
         const data = await res.json();
         const messageId = data?.result?.message_id;
         if (messageId) {
-          notificationMessages.set(txId, messageId);
+          await saveNotificationMessage(txId, targetChatId, messageId);
         }
       }
     })
@@ -60,31 +98,30 @@ export function notifyTelegram(
 }
 
 export function editNotification(txId: string, newMessage: string, chatId?: string): void {
-  const messageId = notificationMessages.get(txId);
-  if (messageId == null) {
-    console.warn(`No notification message found for ${txId}`);
-    return;
-  }
+  void (async () => {
+    const stored = await takeNotificationMessage(txId);
+    if (!stored) {
+      console.warn(`No notification message found for ${txId}`);
+      return;
+    }
 
-  fetch(`${TG_API}/editMessageText`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId || TELEGRAM_CHAT_ID,
-      message_id: messageId,
-      text: newMessage,
-      parse_mode: "Markdown",
-    }),
-  })
-    .then(async (res) => {
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("Telegram editMessageText failed:", res.status, text);
-        return;
-      }
-      notificationMessages.delete(txId);
-    })
-    .catch((err) => {
-      console.error("Telegram edit error:", err);
+    const res = await fetch(`${TG_API}/editMessageText`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: chatId || stored.chatId,
+        message_id: Number(stored.messageId),
+        text: newMessage,
+        parse_mode: "Markdown",
+      }),
     });
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("Telegram editMessageText failed:", res.status, text);
+      return;
+    }
+    await deleteNotificationMessage(txId);
+  })().catch((err) => {
+    console.error("Telegram edit error:", err);
+  });
 }
