@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  failureTargetStatus,
   JOB_SCHEMA_VERSION,
   SUPPORTED_JOB_SCHEMA_VERSIONS,
   MAX_JOB_ATTEMPTS,
@@ -169,6 +170,23 @@ describe("lifecycle guards", () => {
       decision: "reject",
       reason: "wrong_job",
     });
+  });
+});
+
+describe("failure classification", () => {
+  it("retryable failures return to the pool while budget remains", () => {
+    expect(failureTargetStatus(1, true)).toBe("pending");
+    expect(failureTargetStatus(MAX_JOB_ATTEMPTS - 1, true)).toBe("pending");
+  });
+
+  it("a retryable failure at the attempt cap dead-letters (dashboard-visible), never terminal failed", () => {
+    expect(failureTargetStatus(MAX_JOB_ATTEMPTS, true)).toBe("dead_letter");
+    expect(failureTargetStatus(MAX_JOB_ATTEMPTS + 1, true)).toBe("dead_letter");
+  });
+
+  it("explicitly non-retryable failures terminate as failed regardless of budget", () => {
+    expect(failureTargetStatus(1, false)).toBe("failed");
+    expect(failureTargetStatus(MAX_JOB_ATTEMPTS, false)).toBe("failed");
   });
 });
 

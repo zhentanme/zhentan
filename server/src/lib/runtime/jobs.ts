@@ -15,6 +15,7 @@ import {
   JOB_SCHEMA_VERSION,
   MAX_JOB_ATTEMPTS,
   computeInputHash,
+  failureTargetStatus,
   jobNextRetryAt,
   validateJobResult,
   type JobKind,
@@ -63,8 +64,10 @@ export interface EnqueueJobInput {
 }
 
 /**
- * Idempotent enqueue: one ACTIVE job per (tx, kind, purpose) — a second
- * enqueue while one is pending/leased returns the existing job.
+ * Idempotent enqueue: one ACTIVE job per (tx, kind, purpose). A second
+ * enqueue for the SAME tx version and inputs returns the existing job; an
+ * active job left over from an older tx version or different inputs is
+ * atomically voided and replaced — a stale row must never block current work.
  */
 export async function enqueueJob(input: EnqueueJobInput): Promise<RuntimeJobRow> {
   const row = {
@@ -78,13 +81,26 @@ export async function enqueueJob(input: EnqueueJobInput): Promise<RuntimeJobRow>
     input_hash: computeInputHash(input.payload),
     credential_version: input.credentialVersion ?? 1,
   };
-  const { data, error } = await supabase.from("runtime_jobs").insert(row).select("*").single<RuntimeJobRow>();
-  if (!error) return data;
-  if (error.code === "23505") {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabase.from("runtime_jobs").insert(row).select("*").single<RuntimeJobRow>();
+    if (!error) return data;
+    if (error.code !== "23505") throw new Error(`Job enqueue failed for tx ${input.txId}: ${error.message}`);
+
     const existing = await getActiveJob(input.txId, input.kind, input.purpose ?? null);
-    if (existing) return existing;
+    if (!existing) continue; // settled between conflict and lookup — retry insert
+    if (existing.tx_version === row.tx_version && existing.input_hash === row.input_hash) {
+      return existing;
+    }
+    // Obsolete active job: void it (conditional on the state we saw) and retry.
+    const { error: voidError } = await supabase
+      .from("runtime_jobs")
+      .update({ status: "void", last_error: "superseded by re-enqueue at a newer version", updated_at: new Date().toISOString() })
+      .eq("id", existing.id)
+      .in("status", ["pending", "leased"])
+      .eq("tx_version", existing.tx_version);
+    if (voidError) throw new Error(`Stale job void failed for tx ${input.txId}: ${voidError.message}`);
   }
-  throw new Error(`Job enqueue failed for tx ${input.txId}: ${error.message}`);
+  throw new Error(`Job enqueue failed for tx ${input.txId}: could not settle active-job conflict`);
 }
 
 export async function getJob(jobId: string): Promise<RuntimeJobRow | null> {
@@ -130,10 +146,16 @@ export async function leaseNextJob(
   const ttlMs = opts.ttlMs ?? JOB_LEASE_TTL_MS;
   const nowIso = now.toISOString();
 
+  // Eligibility is filtered in the DB (mirrors jobsPolicy.jobLeasable), so
+  // ineligible rows — live leases, backed-off retries — can never crowd
+  // eligible ones out of the candidate window.
   let query = supabase
     .from("runtime_jobs")
     .select("*")
-    .in("status", ["pending", "leased"])
+    .or(
+      `and(status.eq.pending,or(next_retry_at.is.null,next_retry_at.lte.${nowIso})),` +
+        `and(status.eq.leased,lease_expires_at.lte.${nowIso},attempt_count.lt.${MAX_JOB_ATTEMPTS})`
+    )
     .order("created_at", { ascending: true })
     .limit(10);
   if (opts.safeAddress) query = query.eq("safe_address", opts.safeAddress.toLowerCase());
@@ -141,14 +163,6 @@ export async function leaseNextJob(
   if (error) throw new Error(`Job pull failed: ${error.message}`);
 
   for (const candidate of candidates ?? []) {
-    const claimable =
-      candidate.status === "pending"
-        ? !candidate.next_retry_at || Date.parse(candidate.next_retry_at) <= now.getTime()
-        : candidate.lease_expires_at !== null &&
-          Date.parse(candidate.lease_expires_at) <= now.getTime() &&
-          candidate.attempt_count < MAX_JOB_ATTEMPTS;
-    if (!claimable) continue;
-
     const leaseToken = randomUUID();
     // Atomic claim: only wins if the row is still in the state we saw —
     // pending, or still holding the same expired lease.
@@ -211,74 +225,69 @@ export interface SubmitOutcome {
 }
 
 /**
- * Idempotent, verifiable result submission. Validation is the pure rule in
- * jobsPolicy.validateJobResult; the accept/void write is conditional on the
- * lease still being held, so a validated-then-raced submission loses cleanly.
+ * Idempotent, verifiable result submission. Static rules (schema version,
+ * identity, input hash, credential) are the pure jobsPolicy.validateJobResult
+ * pre-check; the RACY rules — lease still held, transaction version still
+ * current — are decided by the submit_runtime_job_result RPC, which locks
+ * the job row AND the transaction row so a concurrent domain-event bump can
+ * never land a stale result as accepted.
  */
 export async function submitJobResult(
   submission: JobResultSubmission,
-  opts: { success?: boolean; error?: string; now?: Date } = {}
+  opts: { success?: boolean; retryable?: boolean; error?: string; now?: Date } = {}
 ): Promise<SubmitOutcome> {
   const now = opts.now ?? new Date();
   const job = await getJob(submission.jobId);
   if (!job) return { decision: "reject", reason: "wrong_job" };
 
-  const { data: txRow, error: txError } = await supabase
-    .from("transactions")
-    .select("version")
-    .eq("id", job.tx_id)
-    .maybeSingle<{ version: number }>();
-  if (txError) throw new Error(`Tx version fetch failed for ${job.tx_id}: ${txError.message}`);
-  const currentTxVersion = txRow?.version ?? job.tx_version;
-
   // Credential rotation is per-agent (D0.3/F1); until agent_identities
   // exists the job's own pinned value is the current one.
   const currentCredentialVersion = job.credential_version;
 
-  const decision = validateJobResult(job, submission, currentTxVersion, currentCredentialVersion, now);
-  if (decision.decision !== "accept" && decision.decision !== "void") {
+  // Pre-check with the tx version pinned on the job: static rejections
+  // (schema/hash/credential/identity) and duplicates settle here without
+  // touching the RPC. The current-version check is the RPC's, atomically.
+  const decision = validateJobResult(job, submission, job.tx_version, currentCredentialVersion, now);
+  if (decision.decision !== "accept") {
     return { decision: decision.decision, reason: "reason" in decision ? decision.reason : undefined };
   }
 
-  const terminal =
-    decision.decision === "void" ? "void" : opts.success === false ? "failed" : "succeeded";
-  const patch: Record<string, unknown> = {
-    status: terminal,
-    result: submission.result ?? null,
-    result_input_hash: submission.inputHash,
-    result_policy_version: submission.policyVersion,
-    result_agent_instance_id: submission.agentInstanceId,
-    result_lease_token: submission.leaseToken,
-    result_submitted_at: now.toISOString(),
-    last_error: opts.error ?? null,
-    updated_at: now.toISOString(),
-  };
-  if (terminal === "failed" && job.attempt_count < MAX_JOB_ATTEMPTS) {
-    // Retryable failure: back to the pool with backoff instead of terminal.
-    patch.status = "pending";
-    patch.lease_token = null;
-    patch.lease_expires_at = null;
-    patch.next_retry_at = jobNextRetryAt(job.attempt_count, now).toISOString();
+  const target =
+    opts.success === false
+      ? failureTargetStatus(job.attempt_count, opts.retryable ?? true)
+      : "succeeded";
+  const { data, error } = await supabase.rpc("submit_runtime_job_result", {
+    p_job_id: submission.jobId,
+    p_lease_token: submission.leaseToken,
+    p_target_status: target,
+    p_result: submission.result ?? null,
+    p_input_hash: submission.inputHash,
+    p_policy_version: submission.policyVersion,
+    p_agent_instance_id: submission.agentInstanceId,
+    p_error: opts.error ?? null,
+    p_next_retry_at: target === "pending" ? jobNextRetryAt(job.attempt_count, now).toISOString() : null,
+  });
+  if (error) throw new Error(`Result submit failed for ${submission.jobId}: ${error.message}`);
+
+  switch (data as string) {
+    case "accept":
+      return { decision: "accept" };
+    case "void":
+      return { decision: "void", reason: "stale_tx_version" };
+    case "duplicate_noop":
+      return { decision: "duplicate_noop" };
+    default:
+      return { decision: "reject", reason: (data as string) ?? "unknown" };
   }
-  const { count, error } = await supabase
-    .from("runtime_jobs")
-    .update(patch, { count: "exact" })
-    .eq("id", submission.jobId)
-    .eq("status", "leased")
-    .eq("lease_token", submission.leaseToken);
-  if (error) throw new Error(`Result write failed for ${submission.jobId}: ${error.message}`);
-  if ((count ?? 0) === 0) return { decision: "reject", reason: "lease_mismatch" };
-  return decision.decision === "void"
-    ? { decision: "void", reason: "stale_tx_version" }
-    : { decision: "accept" };
 }
 
 /**
  * Maintenance sweep: expired leases with exhausted attempts dead-letter
- * (dashboard-visible); jobs whose transaction version moved on are voided.
- * Expired leases with budget left are reclaimed lazily by leaseNextJob.
+ * (dashboard-visible); active jobs whose transaction version moved on are
+ * voided (one SQL statement joining transactions — the RPC). Expired
+ * leases with budget left are reclaimed lazily by leaseNextJob.
  */
-export async function sweepJobs(now: Date = new Date()): Promise<{ deadLettered: number }> {
+export async function sweepJobs(now: Date = new Date()): Promise<{ deadLettered: number; voided: number }> {
   const { count, error } = await supabase
     .from("runtime_jobs")
     .update(
@@ -289,7 +298,10 @@ export async function sweepJobs(now: Date = new Date()): Promise<{ deadLettered:
     .lte("lease_expires_at", now.toISOString())
     .gte("attempt_count", MAX_JOB_ATTEMPTS);
   if (error) throw new Error(`Job sweep failed: ${error.message}`);
-  return { deadLettered: count ?? 0 };
+
+  const { data: voided, error: voidError } = await supabase.rpc("void_stale_runtime_jobs");
+  if (voidError) throw new Error(`Stale-job void sweep failed: ${voidError.message}`);
+  return { deadLettered: count ?? 0, voided: (voided as number) ?? 0 };
 }
 
 /** Dead-lettered jobs for dashboard surfacing. */

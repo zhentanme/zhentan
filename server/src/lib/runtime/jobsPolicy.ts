@@ -25,6 +25,19 @@ export function jobNextRetryAt(attemptCount: number, now: Date): Date {
   return new Date(now.getTime() + backoffMs);
 }
 
+/**
+ * Where a submitted FAILURE lands: retryable failures return to the pool
+ * with backoff while budget remains, then dead-letter (dashboard-visible);
+ * explicitly non-retryable failures terminate as `failed`.
+ */
+export function failureTargetStatus(
+  attemptCount: number,
+  retryable: boolean
+): "pending" | "dead_letter" | "failed" {
+  if (!retryable) return "failed";
+  return attemptCount < MAX_JOB_ATTEMPTS ? "pending" : "dead_letter";
+}
+
 export type JobKind = "screen" | "sign";
 export type SignPurpose = "execution" | "rejection" | "draft_finalization";
 export type JobStatus = "pending" | "leased" | "succeeded" | "failed" | "dead_letter" | "void";
