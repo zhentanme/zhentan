@@ -511,11 +511,20 @@ export function createQueueRouter(): IRouter {
         return;
       }
 
-      // Persist risk result onto the transaction
+      // Persist the FULL screening outcome in one write: risk fields plus,
+      // for REVIEW/BLOCK, the review flag. One write = one version bump,
+      // which the shadow job enqueued below then pins. Splitting this into
+      // a second in_review write after the enqueue would bump the version
+      // again and systematically void every REVIEW/BLOCK shadow job.
       await updateTransaction(pendingTx.id, {
         riskScore: risk.riskScore,
         riskVerdict: risk.verdict,
         riskReasons: risk.reasons,
+        ...(risk.verdict !== "APPROVE" && {
+          inReview: true,
+          reviewedAt: new Date().toISOString(),
+          reviewReason: risk.reasons.join("; "),
+        }),
       });
 
       // Shadow screening (D2): same inputs through the job protocol; the
@@ -598,11 +607,8 @@ export function createQueueRouter(): IRouter {
       }
 
       // ── REVIEW or BLOCK ──────────────────────────────────────
-      await updateTransaction(pendingTx.id, {
-        inReview: true,
-        reviewedAt: new Date().toISOString(),
-        reviewReason: risk.reasons.join("; "),
-      });
+      // (in_review already persisted with the risk fields above — one write,
+      // one version bump, shadow job stays valid.)
 
       // Record behavioral event + update daily stats (fire-and-forget)
       const outcome = risk.verdict === "REVIEW" ? "sent_for_review" : "auto_blocked";
