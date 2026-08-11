@@ -9,11 +9,28 @@
  * assignment, user signatures, approval/rejection lifecycle, screening
  * change, owner/threshold change, supersession — bump it.
  */
-import { createHash } from "crypto";
-
-/** Frozen wire-schema version; results must carry a supported version. */
-export const JOB_SCHEMA_VERSION = 1;
-export const SUPPORTED_JOB_SCHEMA_VERSIONS: ReadonlySet<number> = new Set([1]);
+// The wire protocol (schema version, canonical hash, job/result shapes) is
+// shared VERBATIM with the runtime worker via zhentan-screening/protocol —
+// one source, no drift. Re-exported here so backend consumers keep one
+// import site.
+import {
+  JOB_SCHEMA_VERSION,
+  SUPPORTED_JOB_SCHEMA_VERSIONS,
+  computeInputHash,
+  type JobKind,
+  type JobResultSubmission,
+  type JobStatus,
+  type SignPurpose,
+} from "zhentan-screening/protocol";
+export {
+  JOB_SCHEMA_VERSION,
+  SUPPORTED_JOB_SCHEMA_VERSIONS,
+  computeInputHash,
+  type JobKind,
+  type JobResultSubmission,
+  type JobStatus,
+  type SignPurpose,
+};
 
 /**
  * Identity-shaped contracts from day one (D0.3): every job carries an
@@ -107,10 +124,6 @@ export function failureTargetStatus(
   return attemptCount < MAX_JOB_ATTEMPTS ? "pending" : "dead_letter";
 }
 
-export type JobKind = "screen" | "sign";
-export type SignPurpose = "execution" | "rejection" | "draft_finalization";
-export type JobStatus = "pending" | "leased" | "succeeded" | "failed" | "dead_letter" | "void";
-
 const TRANSITIONS: Record<JobStatus, JobStatus[]> = {
   pending: ["leased", "void"],
   leased: ["succeeded", "failed", "pending", "dead_letter", "void"],
@@ -148,25 +161,6 @@ export function jobLeasable(job: JobLeaseFields, claimantToken: string, now: Dat
   return job.attempt_count < MAX_JOB_ATTEMPTS;
 }
 
-/**
- * Canonical input hash: stable-stringified payload, sha256. Computed by the
- * backend at enqueue and by the runtime over the payload it actually
- * evaluated — a mismatch means they did not talk about the same inputs.
- */
-export function computeInputHash(payload: unknown): string {
-  return createHash("sha256").update(stableStringify(payload)).digest("hex");
-}
-
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => (a < b ? -1 : 1))
-    .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`);
-  return `{${entries.join(",")}}`;
-}
-
 /** The validation-relevant slice of a runtime_jobs row. */
 export interface JobResultFields extends JobLeaseFields {
   id: string;
@@ -177,20 +171,6 @@ export interface JobResultFields extends JobLeaseFields {
   /** Bound at lease time; results must come back under the same identity. */
   agent_instance_id: string | null;
   result_lease_token: string | null;
-}
-
-/** What a runtime submits for a completed job. */
-export interface JobResultSubmission {
-  jobId: string;
-  schemaVersion: number;
-  leaseToken: string;
-  agentInstanceId: string;
-  txId: string;
-  txVersion: number;
-  inputHash: string;
-  policyVersion: string;
-  credentialVersion: number;
-  result: unknown;
 }
 
 export type ResultDecision =

@@ -21,6 +21,7 @@ import { createCampaignsRouter } from "./routes/campaigns.js";
 import { createTokensRouter } from "./routes/tokens.js";
 import { createPayoutRouter } from "./routes/payout.js";
 import { createSwapRouter } from "./routes/swap.js";
+import { createRuntimeRouter } from "./routes/runtime.js";
 import { createNotificationsRouter } from "./routes/notifications.js";
 import { createSafeRouter } from "./routes/safe.js";
 import { startSafeSyncWorker } from "./workers/safeSync.js";
@@ -199,6 +200,7 @@ app.use("/users", auth, createUsersRouter());
 app.use("/campaigns", auth, createCampaignsRouter());
 app.use("/payout", createPayoutRouter()); // admin-key protected internally
 app.use("/swap", auth, createSwapRouter());
+app.use("/runtime", createRuntimeRouter()); // runtime worker — own bearer auth, fail-closed
 app.use("/notifications", createNotificationsRouter());
 app.use("/safe", auth, createSafeRouter());
 

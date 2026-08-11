@@ -24,45 +24,11 @@ import {
 } from "../constants.js";
 import type { PendingTransaction, SafeTxData } from "../../types.js";
 
-export interface DecodedCall {
-  to: string;
-  value: bigint;
-  data: Hex;
-}
-
-export type DecodedKind =
-  | {
-      kind: "transfer";
-      recipient: string;
-      /** null = native BNB */
-      tokenAddress: string | null;
-      amountWei: bigint;
-    }
-  | {
-      kind: "swap";
-      router: string;
-      /** Router label from the allowlist, null when the router is unknown. */
-      routerName: string | null;
-      /** null = selling native BNB (value-bearing router call). */
-      sellTokenAddress: string | null;
-      sellAmountWei: bigint;
-      approval: {
-        tokenAddress: string;
-        spender: string;
-        amountWei: bigint;
-        infinite: boolean;
-      } | null;
-    }
-  | {
-      kind: "approval";
-      tokenAddress: string;
-      spender: string;
-      amountWei: bigint;
-      infinite: boolean;
-    }
-  | { kind: "config" }
-  | { kind: "dapp-call"; target: string; selector: string | null }
-  | { kind: "unknown" };
+// The decoded SHAPES live in zhentan-screening (the runtime consumes them
+// from job payloads); the decoder below stays backend-side. Re-exported so
+// every existing `safe/kind.js` importer keeps working unchanged.
+import type { DecodedCall, DecodedKind } from "zhentan-screening/decoded";
+export type { DecodedCall, DecodedKind };
 
 /** Treat approvals at or above half of uint256 max as effectively infinite. */
 const INFINITE_THRESHOLD = maxUint256 / 2n;

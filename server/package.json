@@ -30,6 +30,7 @@
     "@supabase/supabase-js": "^2.100.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
+    "zhentan-screening": "workspace:*",
     "express": "^4.21.0",
     "jose": "^6.2.2",
     "or": "^0.2.0",

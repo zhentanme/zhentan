@@ -21,7 +21,7 @@ import type {
   BehavioralEventRow,
 } from "./types.js";
 import type { PendingTransaction } from "../../types.js";
-import type { PatternsFile } from "../../risk.js";
+import type { PatternsFile } from "zhentan-screening/risk";
 
 const DEFAULT_USER_SETTINGS: Omit<UserSettingsRow, "safe_address" | "updated_at"> = {
   screening_mode: false,

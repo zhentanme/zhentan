@@ -38,10 +38,12 @@ function runGuard(files: Record<string, string>): { ok: boolean; out: string } {
 
 const CLEAN = {
   "agent/index.ts": 'import { getSigningAuthority } from "../lib/agent/signer.js";\n',
-  "agent/evaluate.ts": 'import { analyzeRisk } from "../risk.js";\n',
-  "lib/supabase/agentData.ts": 'import type { PatternsFile } from "../../risk.js";\n',
+  "agent/evaluate.ts": 'export { evaluateTransaction } from "zhentan-screening/evaluate";\n',
+  "lib/supabase/agentData.ts":
+    'import type { PatternsFile } from "zhentan-screening/risk";\n',
   "lib/agent/signer.ts": "const x = 1;\n",
   "lib/execution/execute.ts": 'import { getSigningAuthority } from "../../agent/index.js";\n',
+  "lib/runtime/jobsPolicy.ts": 'import { computeInputHash } from "zhentan-screening/protocol";\n',
 };
 
 describe("lint-layering guards", () => {
@@ -108,7 +110,16 @@ describe("lint-layering guards", () => {
   it("rule 5: catches a route importing the risk engine directly", () => {
     const r = runGuard({
       ...CLEAN,
-      "routes/bad.ts": 'import { analyzeRisk } from "../risk.js";\n',
+      "routes/bad.ts": 'import { analyzeRisk } from "zhentan-screening/risk";\n',
+    });
+    expect(r.ok).toBe(false);
+    expect(r.out).toContain("RULE 5 VIOLATION");
+  });
+
+  it("rule 5: catches evaluate imported around the agent surface", () => {
+    const r = runGuard({
+      ...CLEAN,
+      "lib/bad.ts": 'import { evaluateTransaction } from "zhentan-screening/evaluate";\n',
     });
     expect(r.ok).toBe(false);
     expect(r.out).toContain("RULE 5 VIOLATION");
