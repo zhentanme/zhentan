@@ -149,7 +149,7 @@ export function createRuntimeRouter(): IRouter {
       // crash here is healed by the screening reconciler, which re-applies
       // succeeded screen jobs whose transaction carries no verdict.)
       if (outcome.decision === "accept" && job?.kind === "screen" && isValidScreenDecision(decisionCandidate)) {
-        void applyScreeningDecision(job.tx_id, decisionCandidate).catch((err) =>
+        void applyScreeningDecision(job.tx_id, decisionCandidate, job.tx_version).catch((err) =>
           console.error(`Screening apply failed for ${job.tx_id}:`, err)
         );
       }

@@ -139,7 +139,7 @@ describe("result submission", () => {
   });
 
   it("D3: an ACCEPTED screen result triggers decision application for its transaction", async () => {
-    vi.mocked(getJob).mockResolvedValueOnce({ id: "j1", kind: "screen", tx_id: "tx-9" } as never);
+    vi.mocked(getJob).mockResolvedValueOnce({ id: "j1", kind: "screen", tx_id: "tx-9", tx_version: 3 } as never);
     vi.mocked(submitJobResult).mockResolvedValueOnce({ decision: "accept" });
     const decision = { riskScore: 5, verdict: "APPROVE", reasons: [] };
     const res = await call("/runtime/jobs/j1/result", {
@@ -148,7 +148,7 @@ describe("result submission", () => {
     });
     expect(res.status).toBe(200);
     await new Promise((r) => setTimeout(r, 10)); // fire-and-forget settles
-    expect(applyScreeningDecision).toHaveBeenCalledWith("tx-9", decision);
+    expect(applyScreeningDecision).toHaveBeenCalledWith("tx-9", decision, 3);
   });
 
   it("D3: a SUCCESSFUL screen result with a missing/malformed decision is rejected BEFORE acceptance", async () => {
@@ -182,9 +182,11 @@ describe("result submission", () => {
   });
 
   it("D3: rejected/void submissions and sign jobs never trigger application", async () => {
-    vi.mocked(getJob).mockResolvedValueOnce({ id: "j1", kind: "screen", tx_id: "tx-9" } as never);
+    const goodDecision = { decision: { riskScore: 5, verdict: "APPROVE", reasons: [] } };
+    vi.mocked(getJob).mockResolvedValueOnce({ id: "j1", kind: "screen", tx_id: "tx-9", tx_version: 3 } as never);
     vi.mocked(submitJobResult).mockResolvedValueOnce({ decision: "void", reason: "stale_tx_version" });
-    await call("/runtime/jobs/j1/result", { token: TOKEN, body: VALID });
+    await call("/runtime/jobs/j1/result", { token: TOKEN, body: { ...VALID, result: goodDecision } });
+    expect(submitJobResult).toHaveBeenCalledTimes(1); // passed the schema gate, voided at acceptance
 
     vi.mocked(getJob).mockResolvedValueOnce({ id: "j2", kind: "sign", tx_id: "tx-9" } as never);
     vi.mocked(submitJobResult).mockResolvedValueOnce({ decision: "accept" });

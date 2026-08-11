@@ -17,7 +17,7 @@ import { encodeWireValue } from "./jobsPolicy.js";
 import { getTransaction } from "../supabase/index.js";
 import { loadPolicySnapshot } from "../../agent/index.js";
 import { decodeSafeTxKind } from "../safe/kind.js";
-import { applyScreeningDecision } from "../screening/apply.js";
+import { applyScreeningDecision, sendReviewNotifications } from "../screening/apply.js";
 import type { PendingTransaction } from "../../types.js";
 
 export const SCREENING_TIMEOUT_MS = Number(process.env.SCREENING_TIMEOUT_MS || 20_000);
@@ -62,94 +62,214 @@ export async function enqueueScreenJob(tx: PendingTransaction): Promise<boolean>
 }
 
 /**
- * Screening reconciler (D3 review) — the durability net around the fast
- * path. Two independent healing passes, both idempotent:
+ * Screening reconciler (D3 review, hardened) — the durability net around
+ * the fast path. Three healing passes, all idempotent, none starvable:
  *
- *  (a) MISSING JOB: an eligible screened transaction (no verdict, not
- *      executed/rejected/off, recent) with no screen job at all — the
- *      enqueue failed after the proposal row was created. Re-enqueue.
- *  (b) UNAPPLIED DECISION: a succeeded screen job whose transaction still
- *      carries no verdict — the fire-and-forget application crashed after
- *      the RPC committed. Re-apply (atomically claimed, so racing a live
- *      apply is harmless).
- *
- * Residual window, accepted and documented: a crash INSIDE apply after the
- * claim write but before notifications/execution finish loses only those
- * side effects — the verdict is durable, the transaction is visible
- * in-review/approved in the dashboard, and the existing TG `approve <id>`
- * retry path covers execution. Full outbox machinery is deliberately not
- * built for that millisecond window.
+ *  (a) MISSING/STALE JOB: an eligible screened transaction whose screen
+ *      jobs cannot deliver an applicable decision anymore — no job at all,
+ *      or only void jobs / jobs pinned to an older tx version — gets fresh
+ *      screening work. Paginated with a persistent cursor so occupied
+ *      pages can never starve later candidates. dead_letter/failed at the
+ *      current version stay human-attention (dashboard-visible), not
+ *      auto-churned.
+ *  (b) UNAPPLIED DECISION: succeeded screen jobs are stamped with a
+ *      durable application outcome (result.applyOutcome) once processed —
+ *      the query selects ONLY unstamped rows, so already-handled jobs can
+ *      never occupy the window.
+ *  (c) STAGED RESUME after a post-claim crash, using existing durable
+ *      completion markers: an APPROVE-verdict transaction that never
+ *      executed resumes execution (attempt-capped); an in-review
+ *      transaction with no notification_messages row gets its TG review
+ *      notification re-sent (row presence = delivered, so retry converges).
  */
 const RECONCILE_WINDOW_MS = 24 * 60 * 60 * 1000;
+const RESUME_EXEC_MAX_ATTEMPTS = 5;
+const PAGE = 20;
+let passACursor = 0;
 
-export async function screeningReconcilerPass(): Promise<{ enqueued: number; applied: number }> {
+async function stampJob(jobId: string, patch: Record<string, unknown>): Promise<void> {
+  const { data } = await supabase
+    .from("runtime_jobs")
+    .select("result")
+    .eq("id", jobId)
+    .maybeSingle<{ result: Record<string, unknown> | null }>();
+  await supabase
+    .from("runtime_jobs")
+    .update({ result: { ...(data?.result ?? {}), ...patch }, updated_at: new Date().toISOString() })
+    .eq("id", jobId);
+}
+
+export async function screeningReconcilerPass(): Promise<{
+  enqueued: number;
+  applied: number;
+  resumedExec: number;
+  renotified: number;
+}> {
   const since = new Date(Date.now() - RECONCILE_WINDOW_MS).toISOString();
   let enqueued = 0;
   let applied = 0;
+  let resumedExec = 0;
+  let renotified = 0;
 
-  // (a) eligible transactions with no screen job
+  // ── (a) eligible transactions whose screening work is missing or stale ──
   const { data: candidates, error: txError } = await supabase
     .from("transactions")
-    .select("id")
+    .select("id, version")
     .is("risk_verdict", null)
     .is("executed_at", null)
     .eq("rejected", false)
     .eq("screening_disabled", false)
     .or("rejection_status.is.null,rejection_status.eq.superseded")
     .gte("proposed_at", since)
-    .limit(20)
-    .returns<{ id: string }[]>();
+    .order("proposed_at", { ascending: true })
+    .range(passACursor, passACursor + PAGE - 1)
+    .returns<{ id: string; version: number }[]>();
   if (txError) throw new Error(`Reconciler tx query failed: ${txError.message}`);
-  for (const { id } of candidates ?? []) {
+  // Cursor pagination: advance through the full candidate set across
+  // passes; wrap when a page comes back short. Occupied rows (active jobs
+  // mid-flight) can then never permanently shadow later candidates.
+  passACursor = (candidates?.length ?? 0) < PAGE ? 0 : passACursor + PAGE;
+
+  for (const { id, version } of candidates ?? []) {
     const { data: jobs, error: jobError } = await supabase
       .from("runtime_jobs")
-      .select("id")
+      .select("status, tx_version")
       .eq("tx_id", id)
       .eq("kind", "screen")
-      .limit(1);
+      .returns<{ status: string; tx_version: number }[]>();
     if (jobError) {
       console.error(`Reconciler job lookup failed for ${id}:`, jobError.message);
       continue;
     }
-    if (jobs?.length) continue; // job exists (any state) — protocol owns it
+    const current = (jobs ?? []).filter((j) => j.tx_version === version);
+    // A live or deliverable job at the CURRENT version owns this tx.
+    if (current.some((j) => ["pending", "leased", "succeeded"].includes(j.status))) continue;
+    // dead_letter/failed at the current version = deliberate terminal —
+    // surfaced via the dead-letter endpoint, never auto-churned.
+    if (current.some((j) => ["dead_letter", "failed"].includes(j.status))) continue;
+    // Remaining: no job, only void jobs, or only stale-version jobs.
     const tx = await getTransaction(id);
     if (tx && (await enqueueScreenJob(tx))) {
       enqueued++;
-      console.warn(`Screening reconciler re-enqueued missing screen job for ${id}`);
+      console.warn(`Screening reconciler enqueued replacement screen job for ${id}`);
     }
   }
 
-  // (b) succeeded screen jobs whose transaction has no verdict
+  // ── (b) succeeded screen jobs not yet processed (durable stamp) ──
   const { data: unapplied, error: jobsError } = await supabase
     .from("runtime_jobs")
-    .select("id, tx_id, result")
+    .select("id, tx_id, tx_version, result")
     .eq("kind", "screen")
     .eq("status", "succeeded")
+    .is("result->applyOutcome", null)
     .gte("updated_at", since)
     .order("updated_at", { ascending: true })
     .limit(50)
-    .returns<{ id: string; tx_id: string; result: { decision?: unknown } | null }[]>();
+    .returns<{ id: string; tx_id: string; tx_version: number; result: { decision?: unknown } | null }[]>();
   if (jobsError) throw new Error(`Reconciler jobs query failed: ${jobsError.message}`);
   for (const job of unapplied ?? []) {
-    const { data: tx, error } = await supabase
-      .from("transactions")
-      .select("risk_verdict")
-      .eq("id", job.tx_id)
-      .maybeSingle<{ risk_verdict: string | null }>();
-    if (error || !tx || tx.risk_verdict) continue;
     const decision = job.result?.decision as Parameters<typeof applyScreeningDecision>[1] | undefined;
-    if (!decision) continue;
-    const outcome = await applyScreeningDecision(job.tx_id, decision).catch((err) => {
+    if (!decision) {
+      await stampJob(job.id, { applyOutcome: "no_decision", appliedAt: new Date().toISOString() });
+      continue;
+    }
+    const outcome = await applyScreeningDecision(job.tx_id, decision, job.tx_version).catch((err) => {
       console.error(`Reconciler apply failed for ${job.tx_id}:`, err);
       return null;
     });
-    if (outcome && outcome.status.startsWith("applied")) {
+    if (!outcome) continue; // transient failure — retry next pass, unstamped
+    await stampJob(job.id, { applyOutcome: outcome.status, appliedAt: new Date().toISOString() });
+    if (outcome.status.startsWith("applied")) {
       applied++;
       console.warn(`Screening reconciler applied stranded decision for ${job.tx_id} (${outcome.status})`);
     }
   }
 
-  return { enqueued, applied };
+  // ── (c) staged resume after a post-claim crash ──
+  // APPROVE claimed but never executed: resume execution, attempt-capped
+  // via a durable counter on the job row.
+  const { data: unexecuted, error: unexecutedError } = await supabase
+    .from("transactions")
+    .select("id")
+    .eq("risk_verdict", "APPROVE")
+    .is("executed_at", null)
+    .eq("rejected", false)
+    .eq("in_review", false)
+    .eq("screening_disabled", false)
+    .or("rejection_status.is.null,rejection_status.eq.superseded")
+    .gte("proposed_at", since)
+    .limit(10)
+    .returns<{ id: string }[]>();
+  if (unexecutedError) throw new Error(`Reconciler resume query failed: ${unexecutedError.message}`);
+  for (const { id } of unexecuted ?? []) {
+    const { data: job } = await supabase
+      .from("runtime_jobs")
+      .select("id, result")
+      .eq("tx_id", id)
+      .eq("kind", "screen")
+      .eq("status", "succeeded")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle<{ id: string; result: Record<string, unknown> | null }>();
+    const attempts = Number(job?.result?.resumeExecAttempts ?? 0);
+    if (!job || attempts >= RESUME_EXEC_MAX_ATTEMPTS) continue;
+    await stampJob(job.id, { resumeExecAttempts: attempts + 1 });
+    const { runExecutionById } = await import("../execution/execute.js");
+    const result = await runExecutionById(id).catch((err) => {
+      console.error(`Reconciler execution resume failed for ${id}:`, err instanceof Error ? err.message : err);
+      return null;
+    });
+    if (result?.status === "executed") {
+      resumedExec++;
+      console.warn(`Screening reconciler resumed execution for approved ${id}`);
+    }
+  }
+
+  // REVIEW/BLOCK claimed but the TG notification never landed (no
+  // notification_messages row): re-send. Row presence marks delivery, so
+  // this converges instead of spamming.
+  const { data: unnotified, error: unnotifiedError } = await supabase
+    .from("transactions")
+    .select("id, to_address, amount, token, token_icon_url, amount_usd, safe_address, tx_type, risk_score, risk_verdict, risk_reasons")
+    .eq("in_review", true)
+    .is("executed_at", null)
+    .eq("rejected", false)
+    .gte("proposed_at", since)
+    .limit(10)
+    .returns<
+      {
+        id: string; to_address: string; amount: string; token: string | null;
+        token_icon_url: string | null; amount_usd: string | null; safe_address: string;
+        tx_type: string | null; risk_score: number | null; risk_verdict: string | null;
+        risk_reasons: string[] | null;
+      }[]
+    >();
+  if (unnotifiedError) throw new Error(`Reconciler notify query failed: ${unnotifiedError.message}`);
+  for (const row of unnotified ?? []) {
+    const { data: msg } = await supabase
+      .from("notification_messages")
+      .select("tx_id")
+      .eq("tx_id", row.id)
+      .maybeSingle();
+    if (msg) continue; // delivered (or resolved) — nothing to do
+    await sendReviewNotifications(
+      {
+        id: row.id, to: row.to_address, amount: row.amount, token: row.token ?? undefined,
+        tokenIconUrl: row.token_icon_url, amountUSD: row.amount_usd ?? undefined,
+        safeAddress: row.safe_address, txType: row.tx_type ?? undefined,
+      },
+      {
+        riskScore: row.risk_score ?? 0,
+        verdict: (row.risk_verdict ?? "REVIEW") as "REVIEW" | "BLOCK",
+        reasons: row.risk_reasons ?? [],
+      },
+      { includeEmail: false }
+    ).catch((err) => console.error(`Reconciler re-notify failed for ${row.id}:`, err));
+    renotified++;
+    console.warn(`Screening reconciler re-sent review notification for ${row.id}`);
+  }
+
+  return { enqueued, applied, resumedExec, renotified };
 }
 
 const RECONCILE_INTERVAL_MS = 60 * 1000;

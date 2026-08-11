@@ -36,7 +36,9 @@ export type ApplyOutcome =
 
 export async function applyScreeningDecision(
   txId: string,
-  risk: RiskResult
+  risk: RiskResult,
+  /** The tx version the decision was accepted against (job.tx_version). */
+  expectedTxVersion: number
 ): Promise<ApplyOutcome> {
   const tx = await getTransaction(txId);
   if (!tx) return { status: "not_applicable", reason: "transaction not found" };
@@ -50,10 +52,11 @@ export async function applyScreeningDecision(
   }
 
   // Atomic claim: the FULL screening outcome in one CONDITIONAL write (risk
-  // fields + review flag; one version bump). The conditions re-assert
-  // eligibility inside the UPDATE itself, so a rejection/execution/toggle
-  // committed after the read above loses nothing — we lose, correctly.
-  const claimed = await claimScreeningApplication(txId, risk);
+  // fields + review flag; one version bump), pinned to the tx version the
+  // decision was accepted against. A rejection/execution/toggle OR any
+  // version-bumping domain/policy event committed after acceptance makes
+  // the claim lose — exactly as the submit RPC would have voided it.
+  const claimed = await claimScreeningApplication(txId, risk, expectedTxVersion);
   if (!claimed) {
     const now = await getTransaction(txId);
     return now?.riskVerdict
@@ -113,6 +116,35 @@ export async function applyScreeningDecision(
     noteReviewOutcome(tx.safeAddress ?? ""),
   ]).catch((err) => console.error("Pattern record failed:", err));
 
+  await sendReviewNotifications(tx, risk, { includeEmail: true });
+
+  return risk.verdict === "REVIEW" ? { status: "applied_review" } : { status: "applied_blocked" };
+}
+
+/**
+ * The REVIEW/BLOCK notification set. Exported for the screening
+ * reconciler's staged resume: TG delivery is durably observable through
+ * the notification_messages row that notifyTelegram(txId) stores, so an
+ * in-review transaction with no row can be re-notified idempotently.
+ * Email rides only the first attempt (no durable delivery marker).
+ */
+export async function sendReviewNotifications(
+  tx: {
+    id: string;
+    to: string;
+    amount: string;
+    token?: string;
+    tokenIconUrl?: string | null;
+    amountUSD?: string;
+    safeAddress: string;
+    txType?: string;
+  },
+  risk: Pick<RiskResult, "riskScore" | "verdict" | "reasons">,
+  opts: { includeEmail: boolean }
+): Promise<void> {
+  const txId = tx.id;
+  const shortTo = `${tx.to.slice(0, 6)}...${tx.to.slice(-4)}`;
+  const chatId = await getTelegramChatId(tx.safeAddress ?? "");
   const reviewButtons = [
     [{ text: `✅ approve ${txId}` }, { text: `❌ reject ${txId}` }],
     [{ text: `🔎 deep-analyze ${txId}` }],
@@ -145,6 +177,7 @@ export async function applyScreeningDecision(
     chatId
   );
 
+  if (!opts.includeEmail) return;
   getUserDetails(tx.safeAddress ?? "")
     .then((user) => {
       if (!user) return;
@@ -161,8 +194,6 @@ export async function applyScreeningDecision(
       return notify(risk.verdict === "REVIEW" ? "tx_review_needed" : "tx_blocked", user, txPayload);
     })
     .catch((err) => console.error("Email notify failed:", err));
-
-  return risk.verdict === "REVIEW" ? { status: "applied_review" } : { status: "applied_blocked" };
 }
 
 function notifyExecuteFailure(

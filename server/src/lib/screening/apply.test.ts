@@ -47,25 +47,25 @@ describe("applyScreeningDecision", () => {
   it("APPROVE: one consolidated write (no review flag), then auto-execute", async () => {
     vi.mocked(getTransaction).mockResolvedValueOnce(TX as never);
     vi.mocked(runExecutionById).mockResolvedValueOnce({ status: "executed", txId: "tx-1", txHash: "0xhash" } as never);
-    const outcome = await applyScreeningDecision("tx-1", APPROVE);
+    const outcome = await applyScreeningDecision("tx-1", APPROVE, 3);
     expect(outcome).toEqual({ status: "applied_executed", txHash: "0xhash" });
     expect(claimScreeningApplication).toHaveBeenCalledTimes(1);
-    expect(claimScreeningApplication).toHaveBeenCalledWith("tx-1", APPROVE);
+    expect(claimScreeningApplication).toHaveBeenCalledWith("tx-1", APPROVE, 3);
   });
 
   it("REVIEW: review flag rides the SAME write; no execution; TG review keyboard fires", async () => {
     vi.mocked(getTransaction).mockResolvedValueOnce(TX as never);
-    const outcome = await applyScreeningDecision("tx-1", REVIEW);
+    const outcome = await applyScreeningDecision("tx-1", REVIEW, 3);
     expect(outcome).toEqual({ status: "applied_review" });
     expect(runExecutionById).not.toHaveBeenCalled();
-    expect(claimScreeningApplication).toHaveBeenCalledWith("tx-1", REVIEW);
+    expect(claimScreeningApplication).toHaveBeenCalledWith("tx-1", REVIEW, 3);
     expect(notifyTelegram).toHaveBeenCalledOnce();
     expect(vi.mocked(notifyTelegram).mock.calls[0][0]).toContain("REVIEW NEEDED");
   });
 
   it("BLOCK: no execution, blocked notification path", async () => {
     vi.mocked(getTransaction).mockResolvedValueOnce(TX as never);
-    const outcome = await applyScreeningDecision("tx-1", { ...REVIEW, verdict: "BLOCK" });
+    const outcome = await applyScreeningDecision("tx-1", { ...REVIEW, verdict: "BLOCK" }, 3);
     expect(outcome).toEqual({ status: "applied_blocked" });
     expect(runExecutionById).not.toHaveBeenCalled();
     expect(vi.mocked(notifyTelegram).mock.calls[0][0]).toContain("BLOCKED");
@@ -73,7 +73,7 @@ describe("applyScreeningDecision", () => {
 
   it("exactly-once: a transaction that already carries a verdict is never re-applied", async () => {
     vi.mocked(getTransaction).mockResolvedValueOnce({ ...TX, riskVerdict: "APPROVE" } as never);
-    const outcome = await applyScreeningDecision("tx-1", APPROVE);
+    const outcome = await applyScreeningDecision("tx-1", APPROVE, 3);
     expect(outcome).toEqual({ status: "already_applied" });
     expect(claimScreeningApplication).not.toHaveBeenCalled();
     expect(runExecutionById).not.toHaveBeenCalled();
@@ -81,14 +81,14 @@ describe("applyScreeningDecision", () => {
 
   it("a rejection in progress wins over a late decision", async () => {
     vi.mocked(getTransaction).mockResolvedValueOnce({ ...TX, rejectionStatus: "cancel_submitted" } as never);
-    const outcome = await applyScreeningDecision("tx-1", APPROVE);
+    const outcome = await applyScreeningDecision("tx-1", APPROVE, 3);
     expect(outcome).toEqual({ status: "not_applicable", reason: "rejection in progress" });
     expect(claimScreeningApplication).not.toHaveBeenCalled();
   });
 
   it("screening-disabled transactions are never screened", async () => {
     vi.mocked(getTransaction).mockResolvedValueOnce({ ...TX, screeningDisabled: true } as never);
-    const outcome = await applyScreeningDecision("tx-1", APPROVE);
+    const outcome = await applyScreeningDecision("tx-1", APPROVE, 3);
     expect(outcome).toEqual({ status: "not_applicable", reason: "screening disabled" });
     expect(claimScreeningApplication).not.toHaveBeenCalled();
   });
@@ -96,7 +96,7 @@ describe("applyScreeningDecision", () => {
   it("execution failure degrades to applied_execute_failed with a retry notification", async () => {
     vi.mocked(getTransaction).mockResolvedValueOnce(TX as never);
     vi.mocked(runExecutionById).mockRejectedValueOnce(new Error("nonce gap"));
-    const outcome = await applyScreeningDecision("tx-1", APPROVE);
+    const outcome = await applyScreeningDecision("tx-1", APPROVE, 3);
     expect(outcome).toEqual({ status: "applied_execute_failed" });
     expect(vi.mocked(notifyTelegram).mock.calls[0][0]).toContain("execution failed");
   });
@@ -106,7 +106,7 @@ describe("applyScreeningDecision", () => {
       .mockResolvedValueOnce(TX as never) // eligibility read: looks fine
       .mockResolvedValueOnce({ ...TX, rejected: true } as never); // re-read after lost claim
     vi.mocked(claimScreeningApplication).mockResolvedValueOnce(false);
-    const outcome = await applyScreeningDecision("tx-1", APPROVE);
+    const outcome = await applyScreeningDecision("tx-1", APPROVE, 3);
     expect(outcome).toEqual({ status: "not_applicable", reason: "transaction moved on during application" });
     expect(runExecutionById).not.toHaveBeenCalled();
     expect(notifyTelegram).not.toHaveBeenCalled();
@@ -117,7 +117,7 @@ describe("applyScreeningDecision", () => {
       .mockResolvedValueOnce(TX as never)
       .mockResolvedValueOnce({ ...TX, riskVerdict: "REVIEW" } as never);
     vi.mocked(claimScreeningApplication).mockResolvedValueOnce(false);
-    const outcome = await applyScreeningDecision("tx-1", REVIEW);
+    const outcome = await applyScreeningDecision("tx-1", REVIEW, 3);
     expect(outcome).toEqual({ status: "already_applied" });
     expect(notifyTelegram).not.toHaveBeenCalled();
   });

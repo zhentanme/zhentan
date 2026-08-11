@@ -11,7 +11,14 @@ import type { RiskResult } from "../../agent/index.js";
 
 export async function claimScreeningApplication(
   txId: string,
-  risk: RiskResult
+  risk: RiskResult,
+  /**
+   * The tx version the decision was ACCEPTED against (job.tx_version).
+   * Required: a policy edit or domain event that bumps the version between
+   * result acceptance and this asynchronous write makes the decision stale
+   * — the claim must lose, exactly as the submit RPC would have voided it.
+   */
+  expectedTxVersion: number
 ): Promise<boolean> {
   const patch: Record<string, unknown> = {
     risk_score: risk.riskScore,
@@ -27,6 +34,7 @@ export async function claimScreeningApplication(
     .from("transactions")
     .update(patch, { count: "exact" })
     .eq("id", txId)
+    .eq("version", expectedTxVersion)
     .is("risk_verdict", null)
     .is("executed_at", null)
     .eq("rejected", false)
