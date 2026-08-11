@@ -64,12 +64,6 @@ export {
   recordBehavioralEvent as recordEvent,
 } from "../lib/supabase/agentData.js";
 
-// ── Signing authority (A2) — verified requests only; KeySigner stays private ─
-
-export {
-  getSigningAuthority,
-  type SafeSigningRequest,
-  type SigningResult,
-  type SigningPurpose,
-  type DecisionEvidence,
-} from "../lib/agent/signer.js";
+// ── Signing (D4) — moved to the RUNTIME. The backend holds no
+// threshold-bearing key; signatures are obtained through verified sign
+// jobs (lib/runtime/signing.ts) and checked against AGENT_ADDRESS. ──

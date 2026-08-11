@@ -310,8 +310,14 @@ app.listen(port, () => {
   console.log(`Zhentan server listening on http://localhost:${port}`);
   startScreeningReconciler();
 startSafeSyncWorker();
-  // Surface a low agent gas balance at boot rather than on the first execute.
-  if (process.env.AGENT_PRIVATE_KEY) {
+  // Surface a low sponsor gas balance at boot rather than on the first execute.
+  if (process.env.SPONSOR_PRIVATE_KEY || process.env.AGENT_PRIVATE_KEY) {
     assertSponsorGas().catch((err) => console.error("Startup gas check failed:", err));
+  }
+  if (process.env.AGENT_PRIVATE_KEY && process.env.NODE_ENV === "production") {
+    console.error(
+      "SECURITY: AGENT_PRIVATE_KEY is set in the BACKEND environment. Since D4 the " +
+        "agent key belongs to the runtime only — remove it from server/.env."
+    );
   }
 });

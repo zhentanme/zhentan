@@ -1,20 +1,5 @@
-import { createPublicClient, http, type Hex } from "viem";
-import { bsc } from "viem/chains";
-import { privateKeyToAccount, toAccount } from "viem/accounts";
-import { entryPoint07Address } from "viem/account-abstraction";
-import { createSmartAccountClient } from "permissionless";
-import { createPimlicoClient } from "permissionless/clients/pimlico";
-import { toSafeSmartAccount } from "permissionless/accounts";
-import { SafeSmartAccount } from "permissionless/accounts/safe";
+import { type Hex } from "viem";
 import { EthSafeSignature } from "@safe-global/protocol-kit";
-import {
-  SAFE_SINGLETON,
-  SAFE_PROXY_FACTORY,
-  SAFE_VERSION,
-  BSC_RPC,
-  getPimlicoRpcUrl,
-} from "../constants.js";
-import { deserializeUserOp } from "../serialize.js";
 import {
   getTransaction,
   updateTransaction,
@@ -32,7 +17,7 @@ import {
 import { encodeExecTransaction } from "./assemble.js";
 import { isRejectionActive } from "../safe/rejectionState.js";
 import { claimExecutionLease, releaseExecutionLease } from "./lease.js";
-import { getSigningAuthority } from "../../agent/index.js";
+import { requestAgentSignature } from "../runtime/signing.js";
 import { finishExecution } from "./finish.js";
 import type { PendingTransaction } from "../../types.js";
 
@@ -44,85 +29,17 @@ interface ExecutionOutcome {
   reason?: string;
 }
 
-/** Legacy gasless flow: agent co-signs the userOp and submits via Pimlico. */
+/**
+ * Legacy 4337 flow — RETIRED at D4. The backend holds no agent key, so the
+ * userOp co-sign that this path required cannot happen here anymore. All
+ * pending pre-refactor 4337 rows were audited and superseded; new user
+ * transactions have been SafeTx-only since the refactor. A protected/
+ * detached owner can always act via app.safe.global with their own keys.
+ */
 async function executeLegacy4337(tx: PendingTransaction): Promise<ExecutionOutcome> {
-  const agentPrivateKey = process.env.AGENT_PRIVATE_KEY;
-  const pimlicoApiKey = process.env.PIMLICO_API_KEY;
-  if (!agentPrivateKey) throw new Error("Missing AGENT_PRIVATE_KEY");
-  if (!pimlicoApiKey) throw new Error("Missing PIMLICO_API_KEY");
-  if (!tx.userOp || !tx.partialSignatures) {
-    throw new Error("Missing userOp or partialSignatures");
-  }
-
-  const agentAccount = privateKeyToAccount(agentPrivateKey as `0x${string}`);
-  const owners = tx.ownerAddresses.map((addr) => toAccount(addr as `0x${string}`));
-  const userOp = deserializeUserOp(tx.userOp);
-
-  const publicClient = createPublicClient({
-    chain: bsc,
-    transport: http(BSC_RPC),
-  });
-
-  const paymasterClient = createPimlicoClient({
-    transport: http(getPimlicoRpcUrl(pimlicoApiKey)),
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-  });
-
-  const safeAccount = await toSafeSmartAccount({
-    client: publicClient,
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-    owners,
-    saltNonce: 0n,
-    safeSingletonAddress: SAFE_SINGLETON,
-    safeProxyFactoryAddress: SAFE_PROXY_FACTORY,
-    version: SAFE_VERSION,
-    threshold: BigInt(tx.threshold),
-    // Pin the stored address: an upgraded Safe's on-chain owner set no longer
-    // matches the initializer its address was derived from.
-    address: tx.safeAddress as `0x${string}`,
-  });
-
-  const smartAccountClient = createSmartAccountClient({
-    account: safeAccount,
-    chain: bsc,
-    paymaster: paymasterClient,
-    bundlerTransport: http(getPimlicoRpcUrl(pimlicoApiKey)),
-    userOperation: {
-      estimateFeesPerGas: async () =>
-        (await paymasterClient.getUserOperationGasPrice()).fast,
-    },
-  });
-
-  const signParams: Record<string, unknown> = {
-    version: SAFE_VERSION,
-    entryPoint: { address: entryPoint07Address, version: "0.7" },
-    chainId: bsc.id,
-    owners,
-    account: agentAccount,
-    ...userOp,
-  };
-  signParams.signatures = tx.partialSignatures;
-
-  const combinedSignatures = await SafeSmartAccount.signUserOperation(
-    signParams as Parameters<typeof SafeSmartAccount.signUserOperation>[0]
+  throw new Error(
+    `Legacy 4337 execution retired (D4) — row ${tx.id} predates the SafeTx refactor and can no longer be executed by the agent.`
   );
-
-  const userOpHash = await smartAccountClient.sendUserOperation({
-    ...userOp,
-    signature: combinedSignatures,
-  } as Parameters<typeof smartAccountClient.sendUserOperation>[0]);
-
-  const receipt = await smartAccountClient.waitForUserOperationReceipt({
-    hash: userOpHash,
-  });
-
-  const txHash = receipt.receipt?.transactionHash ?? userOpHash;
-  return {
-    status: "executed",
-    txHash,
-    success: receipt.success,
-    executedBy: agentAccount.address,
-  };
 }
 
 /**
@@ -202,23 +119,21 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
     }
   }
 
+  // D4: the agent signature comes from the RUNTIME through a verified sign
+  // job — the backend holds no threshold-bearing key. One signature, used
+  // twice below: the service confirmation and the on-chain assembly are
+  // the same bytes over the same safeTxHash. userApproved: a REVIEW/BLOCK
+  // verdict reaching execution means the user approved it (the review gate
+  // is the only path here); the runtime demands that evidence.
   const agentSignature = relayOnly
     ? null
-    : (
-        await getSigningAuthority().sign({
-          purpose: "execution",
-          safeAddress: tx.safeAddress,
-          safeTx: tx.safeTx,
-          expectedSafeTxHash: tx.safeTxHash,
-          transactionId: tx.id,
-          owners: tx.ownerAddresses,
-          threshold: tx.threshold,
-          decisionEvidence: {
-            riskScore: tx.riskScore,
-            riskVerdict: tx.riskVerdict,
-          },
-        })
-      ).signature;
+    : await requestAgentSignature("execution", {
+        txId: tx.id,
+        safeAddress: tx.safeAddress,
+        safeTx: tx.safeTx,
+        safeTxHash: tx.safeTxHash,
+        userApproved: tx.riskVerdict === "REVIEW" || tx.riskVerdict === "BLOCK",
+      });
 
   // Mirror confirmations to the service so the Safe UI shows n/n —
   // idempotent, and a service outage must not block execution (signatures
@@ -228,7 +143,7 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
     const apiKit = getApiKit();
     const confirmations = relayOnly
       ? userSigs.slice(1).map((s) => s.data) // proposer's sig was posted at propose time
-      : [agentSignature!.data];
+      : [agentSignature!.signature];
     for (const confirmation of confirmations) {
       try {
         await apiKit.confirmTransaction(tx.safeTxHash, confirmation);
@@ -264,7 +179,9 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
   // the payload is encoded explicitly (owner-ascending, golden-tested
   // against the pre-refactor bytes) and the SPONSOR wallet broadcasts it.
   const signatures = userSigs.map((sig) => new EthSafeSignature(sig.signer, sig.data));
-  if (agentSignature) signatures.push(agentSignature as EthSafeSignature);
+  if (agentSignature) {
+    signatures.push(new EthSafeSignature(agentSignature.signedBy, agentSignature.signature));
+  }
   const calldata = encodeExecTransaction(tx.safeTx, signatures);
 
   const txHash = await getSponsorWalletClient().sendTransaction({

@@ -93,9 +93,33 @@ export async function processJob(
     credentialVersion: job.credential_version,
   };
 
+  if (job.kind === "sign") {
+    // D4: the signing authority verifies EVERYTHING before the key sees a
+    // hash — recomputed hash, chain-sourced owners/nonce, own decision
+    // record, per-purpose rules. A refusal is a deliberate, non-retryable
+    // outcome with a named reason (re-screening or human action fixes it,
+    // not a retry of the same request).
+    const { verifyAndSign } = await import("./signingAuthority.js");
+    const signPayload = decodeWireValue(job.payload) as never;
+    const result = await verifyAndSign(job.purpose ?? "execution", signPayload);
+    if (!result.ok) {
+      console.warn(`Sign refused for tx ${job.tx_id} (${job.purpose}): ${result.reason}`);
+      const refusal = await client.submitResult(
+        { ...base, policyVersion: "none", result: { refused: result.reason } },
+        { success: false, retryable: false, error: result.reason }
+      );
+      return refusal.decision === "accept" || refusal.decision === "duplicate_noop"
+        ? "failed"
+        : outcomeFromDecision(refusal.decision);
+    }
+    const outcome = await client.submitResult({
+      ...base,
+      policyVersion: "none",
+      result: { signature: result.signature, signedBy: result.signedBy },
+    });
+    return outcomeFromDecision(outcome.decision);
+  }
   if (job.kind !== "screen") {
-    // Sign jobs arrive at D4 — refuse non-retryably rather than letting the
-    // lease expire into pointless retries.
     const refusal = await client.submitResult(
       { ...base, policyVersion: "none", result: null },
       { success: false, retryable: false, error: `job kind '${job.kind}' not supported by this runtime version` }

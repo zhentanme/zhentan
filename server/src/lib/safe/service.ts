@@ -46,27 +46,6 @@ export function getApiKit(): SafeApiKit {
   return apiKit;
 }
 
-// protocol-kit instances are per-Safe; cache them (RPC + signer are static).
-const protocolKits = new Map<string, Promise<Safe>>();
-
-export function getProtocolKit(safeAddress: string): Promise<Safe> {
-  const key = safeAddress.toLowerCase();
-  let kit = protocolKits.get(key);
-  if (!kit) {
-    const agentPrivateKey = process.env.AGENT_PRIVATE_KEY;
-    if (!agentPrivateKey) throw new Error("Missing AGENT_PRIVATE_KEY");
-    kit = Safe.init({
-      provider: BSC_RPC,
-      signer: agentPrivateKey,
-      safeAddress,
-    });
-    protocolKits.set(key, kit);
-    // Don't cache failures (e.g. transient RPC errors during init).
-    kit.catch(() => protocolKits.delete(key));
-  }
-  return kit;
-}
-
 /** Recomputes the EIP-712 SafeTx hash — never trust the client's copy. */
 export function computeSafeTxHash(safeAddress: string, safeTx: SafeTxData): Hex {
   return hashTypedData({
@@ -213,7 +192,13 @@ export async function getNextSafeNonce(safeAddress: string): Promise<number> {
       address: safeAddress as Address,
     });
     if (!code || code === "0x") return 0;
-    const kit = await getProtocolKit(safeAddress);
-    return kit.getNonce();
+    // Read the nonce straight from the contract — the keyed protocol-kit
+    // instance this used to lean on is gone (D4: no key in the backend).
+    const nonce = await getRelayerPublicClient().readContract({
+      address: safeAddress as Address,
+      abi: [{ name: "nonce", type: "function", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] }] as const,
+      functionName: "nonce",
+    });
+    return Number(nonce);
   }
 }

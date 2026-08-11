@@ -29,6 +29,72 @@ export interface WireJob {
   attempt_count: number;
 }
 
+/**
+ * Sign-job payload (D4). The runtime's signing authority trusts NOTHING in
+ * here beyond what it can independently verify: the SafeTx fields are
+ * re-hashed and compared against `claimedSafeTxHash`; owners/threshold/
+ * nonce come from chain; the screening decision must exist in the
+ * runtime's OWN local record; `derivationVersion` is registry data used to
+ * re-derive the legacy capability (never a claim of exemption itself).
+ */
+export interface SignJobPayload {
+  safeAddress: string;
+  chainId: number;
+  txId: string;
+  txVersion: number;
+  safeTx: SafeTxDataWire;
+  claimedSafeTxHash: string;
+  /** Registry data: 1 = legacy 4337 initializer, 2 = vanilla Safe. */
+  derivationVersion: number;
+  /**
+   * REVIEW/BLOCK verdicts require approval evidence. Through P6–P8 this is
+   * an authenticated backend assertion pinned to the tx version; P9
+   * upgrades to a backend-signed capability; long-term a user-signed
+   * approval statement.
+   */
+  userApproval?: { txVersion: number; approvedAt: string; source: "backend" } | null;
+  /** Refuse stale requests outright. */
+  expiresAt: string;
+}
+
+/** SafeTx fields as they travel in job payloads (decimal strings). */
+export interface SafeTxDataWire {
+  to: string;
+  value: string;
+  data: string;
+  operation: 0 | 1;
+  safeTxGas: string;
+  baseGas: string;
+  gasPrice: string;
+  gasToken: string;
+  refundReceiver: string;
+  nonce: number;
+}
+
+/** What a sign job returns. signedBy is verified by the backend against
+ *  the configured AGENT_ADDRESS and the recovered signature. */
+export interface SignJobResult {
+  signature: string;
+  signedBy: string;
+}
+
+/** EIP-712 SafeTx type definition — a spec constant, shared so backend and
+ *  runtime can never drift on the hash construction. */
+export const SAFE_TX_TYPES = {
+  SafeTx: [
+    { name: "to", type: "address" },
+    { name: "value", type: "uint256" },
+    { name: "data", type: "bytes" },
+    { name: "operation", type: "uint8" },
+    { name: "safeTxGas", type: "uint256" },
+    { name: "baseGas", type: "uint256" },
+    { name: "gasPrice", type: "uint256" },
+    { name: "gasToken", type: "address" },
+    { name: "refundReceiver", type: "address" },
+    { name: "nonce", type: "uint256" },
+  ],
+} as const;
+
 /** What a runtime submits for a completed job. */
 export interface JobResultSubmission {
   jobId: string;

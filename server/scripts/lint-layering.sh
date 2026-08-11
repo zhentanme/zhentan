@@ -17,17 +17,16 @@ if grep -rnE "from ['\"][^'\"]*routes/" --include='*.ts' "$SRC/lib" 2>/dev/null;
   echo "RULE 1 VIOLATION: lib/ imports from routes/"; fail=1
 fi
 
-# 2 (A2): raw digest signing confined to the signer module
-if grep -rnE "sign(Hash|Digest)\(" --include='*.ts' "$SRC" | grep -v "agent/signer"; then
-  echo "RULE 2 VIOLATION: raw signHash/signDigest outside the signer module"; fail=1
+# 2 (A2/D4): NO raw digest signing anywhere in the backend — the signer
+# module moved to the runtime and the backend holds no threshold-bearing
+# key. Signatures come from verified sign jobs (lib/runtime/signing.ts).
+if grep -rnE "sign(Hash|Digest)\(" --include='*.ts' "$SRC"; then
+  echo "RULE 2 VIOLATION: raw signHash/signDigest in the backend (signing lives in the runtime since D4)"; fail=1
 fi
 
-# 3 (C2): the signer module is reachable only via the agent domain.
-# Suffix match: catches lib/agent/signer.js, ../agent/signer.js, etc.
-# (The colocated signer.test.ts imports "./signer.js", which does not
-# carry the agent/ prefix and stays inside the module directory.)
-if grep -rnE "from ['\"][^'\"]*agent/signer" --include='*.ts' "$SRC" | grep -v "^$SRC/agent/index.ts"; then
-  echo "RULE 3 VIOLATION: signer module imported outside $SRC/agent"; fail=1
+# 3 (C2/D4): the retired signer module must not come back.
+if grep -rnE "from ['\"][^'\"]*agent/signer" --include='*.ts' "$SRC"; then
+  echo "RULE 3 VIOLATION: agent signer module resurrected (retired at D4)"; fail=1
 fi
 
 # 4 (C2): agent-domain data access only via the agent domain.

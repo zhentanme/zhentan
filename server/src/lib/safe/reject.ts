@@ -26,7 +26,7 @@ import {
 import { readSafeNonce } from "./onchain.js";
 import { assertSponsorGas, getSponsorWalletClient } from "../chain/sponsor.js";
 import { getRelayerPublicClient } from "./relayer.js";
-import { getSigningAuthority } from "../../agent/index.js";
+import { requestAgentSignature } from "../runtime/signing.js";
 import { encodeExecTransaction } from "../execution/assemble.js";
 import { updateTransaction, getUserDetails } from "../supabase/index.js";
 import { notify } from "../../notifications/index.js";
@@ -145,6 +145,18 @@ export async function executeRejection(tx: PendingTransaction): Promise<Rejectio
       cancelAttempts: attempts,
     });
 
+    // D4: ONE runtime-signed signature serves both the service mirror and
+    // the on-chain cancel — they are the same bytes over the same hash.
+    // (Pre-D4 this path signed the same cancellation twice.) The rejection
+    // purpose needs no screening decision: the authority verifies the
+    // empty-self-call shape and the chain nonce instead.
+    const agentSignature = await requestAgentSignature("rejection", {
+      txId: tx.id,
+      safeAddress: tx.safeAddress,
+      safeTx: rejectionTx,
+      safeTxHash: rejectionHash,
+    });
+
     // Mirror the rejection to the Transaction Service so the Safe UI renders
     // it natively. Best-effort — the on-chain cancel is the load-bearing part.
     try {
@@ -156,36 +168,18 @@ export async function executeRejection(tx: PendingTransaction): Promise<Rejectio
         senderSignature: tx.rejectionSignature,
         origin: "Zhentan (rejection)",
       });
-      const agentSig = await getSigningAuthority().sign({
-        purpose: "rejection",
-        safeAddress: tx.safeAddress,
-        safeTx: rejectionTx,
-        expectedSafeTxHash: rejectionHash,
-        transactionId: tx.id,
-        threshold: tx.threshold,
-      });
-      await getApiKit().confirmTransaction(rejectionHash, agentSig.signature.data);
+      await getApiKit().confirmTransaction(rejectionHash, agentSignature.signature);
     } catch (err) {
       console.error("Rejection service mirror failed (continuing on-chain):", err);
     }
 
-    // Execute the cancel directly from the pre-signed user signature + a
-    // fresh agent signature — no service dependency. Sign and send are
-    // separate hands: the payload is assembled explicitly (golden-tested
-    // encoding) and the SPONSOR wallet broadcasts it.
-    const agentSignature = (
-      await getSigningAuthority().sign({
-        purpose: "rejection",
-        safeAddress: tx.safeAddress,
-        safeTx: rejectionTx,
-        expectedSafeTxHash: rejectionHash,
-        transactionId: tx.id,
-        threshold: tx.threshold,
-      })
-    ).signature;
+    // Execute the cancel from the pre-signed user signature + the runtime's
+    // agent signature — no service dependency. Sign and send are separate
+    // hands: the payload is assembled explicitly (golden-tested encoding)
+    // and the SPONSOR wallet broadcasts it.
     const calldata = encodeExecTransaction(rejectionTx, [
       new EthSafeSignature(tx.proposedBy, tx.rejectionSignature as Hex),
-      agentSignature as EthSafeSignature,
+      new EthSafeSignature(agentSignature.signedBy, agentSignature.signature),
     ]);
 
     const txHash = await getSponsorWalletClient().sendTransaction({

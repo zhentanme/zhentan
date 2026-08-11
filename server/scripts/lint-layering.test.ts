@@ -37,12 +37,10 @@ function runGuard(files: Record<string, string>): { ok: boolean; out: string } {
 }
 
 const CLEAN = {
-  "agent/index.ts": 'import { getSigningAuthority } from "../lib/agent/signer.js";\n',
   "agent/evaluate.ts": 'export { evaluateTransaction } from "zhentan-screening/evaluate";\n',
   "lib/supabase/agentData.ts":
     'import type { PatternsFile } from "zhentan-screening/risk";\n',
-  "lib/agent/signer.ts": "const x = 1;\n",
-  "lib/execution/execute.ts": 'import { getSigningAuthority } from "../../agent/index.js";\n',
+  "lib/execution/execute.ts": 'import { requestAgentSignature } from "../runtime/signing.js";\n',
   "lib/runtime/jobsPolicy.ts": 'import { computeInputHash } from "zhentan-screening/protocol";\n',
 };
 
@@ -62,7 +60,7 @@ describe("lint-layering guards", () => {
     expect(r.out).toContain("RULE 1 VIOLATION");
   });
 
-  it("rule 2: catches raw signHash( outside the signer module", () => {
+  it("rule 2: catches raw signHash( anywhere in the backend (D4)", () => {
     const r = runGuard({
       ...CLEAN,
       "routes/bad.ts": "const y = await kit.signHash(h);\n",
@@ -71,19 +69,10 @@ describe("lint-layering guards", () => {
     expect(r.out).toContain("RULE 2 VIOLATION");
   });
 
-  it("rule 3: catches the pre-C1 relative form ../agent/signer.js from inside lib/", () => {
+  it("rule 3: catches any resurrection of the retired signer module", () => {
     const r = runGuard({
       ...CLEAN,
-      "lib/execution/bad.ts": 'import { getSigningAuthority } from "../agent/signer.js";\n',
-    });
-    expect(r.ok).toBe(false);
-    expect(r.out).toContain("RULE 3 VIOLATION");
-  });
-
-  it("rule 3: catches the lib-anchored form from routes/", () => {
-    const r = runGuard({
-      ...CLEAN,
-      "routes/bad.ts": 'import { getSigningAuthority } from "../lib/agent/signer.js";\n',
+      "agent/index.ts": 'import { getSigningAuthority } from "../lib/agent/signer.js";\n',
     });
     expect(r.ok).toBe(false);
     expect(r.out).toContain("RULE 3 VIOLATION");
