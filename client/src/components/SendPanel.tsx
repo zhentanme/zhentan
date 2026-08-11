@@ -13,7 +13,7 @@ import { CoSignButton } from "@/components/CoSignButton";
 import { UsdcIcon } from "./icons/UsdcIcon";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
 import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
-import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, MessageCircle, X, UserRound, Zap } from "lucide-react";
+import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, Loader2, MessageCircle, X, UserRound, Zap } from "lucide-react";
 import { useForceExecuteSetting } from "@/lib/useForceExecute";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
@@ -975,8 +975,13 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               placeholder="Address, .eth, .bnb or Zhentan username"
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
-              className="w-full rounded-2xl bg-foreground/6 px-4 py-3.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-claw/40 focus:bg-foreground/8 transition-all min-h-11 touch-manipulation"
+              className="w-full rounded-2xl bg-foreground/6 pl-4 pr-10 py-3.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-claw/40 focus:bg-foreground/8 transition-all min-h-11 touch-manipulation"
             />
+            {resolving && (
+              <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/80">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </span>
+            )}
             {candidate && !resolving && (
               <div className="absolute left-0 right-0 top-full mt-2 z-30 rounded-2xl bg-ink-900 border border-foreground/10 shadow-xl overflow-hidden">
                 <button
@@ -1020,9 +1025,6 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               </div>
             )}
           </div>
-        )}
-        {resolving && (
-          <p className="text-xs text-muted-foreground/80 mt-1">Resolving…</p>
         )}
         {resolveError && !resolving && recipient.trim() && !recipient.startsWith("0x") && (
           <p className="text-xs text-watch mt-1">{resolveError}</p>
