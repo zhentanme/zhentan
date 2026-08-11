@@ -17,6 +17,7 @@ import { encodeWireValue } from "./jobsPolicy.js";
 import { getTransaction } from "../supabase/index.js";
 import { loadPolicySnapshot } from "../../agent/index.js";
 import { decodeSafeTxKind } from "../safe/kind.js";
+import { applyScreeningDecision } from "../screening/apply.js";
 import type { PendingTransaction } from "../../types.js";
 
 export const SCREENING_TIMEOUT_MS = Number(process.env.SCREENING_TIMEOUT_MS || 20_000);
@@ -58,6 +59,108 @@ export async function enqueueScreenJob(tx: PendingTransaction): Promise<boolean>
     console.error(`Screen job enqueue failed for ${tx.id}:`, err instanceof Error ? err.message : err);
     return false;
   }
+}
+
+/**
+ * Screening reconciler (D3 review) — the durability net around the fast
+ * path. Two independent healing passes, both idempotent:
+ *
+ *  (a) MISSING JOB: an eligible screened transaction (no verdict, not
+ *      executed/rejected/off, recent) with no screen job at all — the
+ *      enqueue failed after the proposal row was created. Re-enqueue.
+ *  (b) UNAPPLIED DECISION: a succeeded screen job whose transaction still
+ *      carries no verdict — the fire-and-forget application crashed after
+ *      the RPC committed. Re-apply (atomically claimed, so racing a live
+ *      apply is harmless).
+ *
+ * Residual window, accepted and documented: a crash INSIDE apply after the
+ * claim write but before notifications/execution finish loses only those
+ * side effects — the verdict is durable, the transaction is visible
+ * in-review/approved in the dashboard, and the existing TG `approve <id>`
+ * retry path covers execution. Full outbox machinery is deliberately not
+ * built for that millisecond window.
+ */
+const RECONCILE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export async function screeningReconcilerPass(): Promise<{ enqueued: number; applied: number }> {
+  const since = new Date(Date.now() - RECONCILE_WINDOW_MS).toISOString();
+  let enqueued = 0;
+  let applied = 0;
+
+  // (a) eligible transactions with no screen job
+  const { data: candidates, error: txError } = await supabase
+    .from("transactions")
+    .select("id")
+    .is("risk_verdict", null)
+    .is("executed_at", null)
+    .eq("rejected", false)
+    .eq("screening_disabled", false)
+    .or("rejection_status.is.null,rejection_status.eq.superseded")
+    .gte("proposed_at", since)
+    .limit(20)
+    .returns<{ id: string }[]>();
+  if (txError) throw new Error(`Reconciler tx query failed: ${txError.message}`);
+  for (const { id } of candidates ?? []) {
+    const { data: jobs, error: jobError } = await supabase
+      .from("runtime_jobs")
+      .select("id")
+      .eq("tx_id", id)
+      .eq("kind", "screen")
+      .limit(1);
+    if (jobError) {
+      console.error(`Reconciler job lookup failed for ${id}:`, jobError.message);
+      continue;
+    }
+    if (jobs?.length) continue; // job exists (any state) — protocol owns it
+    const tx = await getTransaction(id);
+    if (tx && (await enqueueScreenJob(tx))) {
+      enqueued++;
+      console.warn(`Screening reconciler re-enqueued missing screen job for ${id}`);
+    }
+  }
+
+  // (b) succeeded screen jobs whose transaction has no verdict
+  const { data: unapplied, error: jobsError } = await supabase
+    .from("runtime_jobs")
+    .select("id, tx_id, result")
+    .eq("kind", "screen")
+    .eq("status", "succeeded")
+    .gte("updated_at", since)
+    .order("updated_at", { ascending: true })
+    .limit(50)
+    .returns<{ id: string; tx_id: string; result: { decision?: unknown } | null }[]>();
+  if (jobsError) throw new Error(`Reconciler jobs query failed: ${jobsError.message}`);
+  for (const job of unapplied ?? []) {
+    const { data: tx, error } = await supabase
+      .from("transactions")
+      .select("risk_verdict")
+      .eq("id", job.tx_id)
+      .maybeSingle<{ risk_verdict: string | null }>();
+    if (error || !tx || tx.risk_verdict) continue;
+    const decision = job.result?.decision as Parameters<typeof applyScreeningDecision>[1] | undefined;
+    if (!decision) continue;
+    const outcome = await applyScreeningDecision(job.tx_id, decision).catch((err) => {
+      console.error(`Reconciler apply failed for ${job.tx_id}:`, err);
+      return null;
+    });
+    if (outcome && outcome.status.startsWith("applied")) {
+      applied++;
+      console.warn(`Screening reconciler applied stranded decision for ${job.tx_id} (${outcome.status})`);
+    }
+  }
+
+  return { enqueued, applied };
+}
+
+const RECONCILE_INTERVAL_MS = 60 * 1000;
+
+export function startScreeningReconciler(): void {
+  setInterval(() => {
+    screeningReconcilerPass().catch((err) =>
+      console.error("Screening reconciler pass failed:", err instanceof Error ? err.message : err)
+    );
+  }, RECONCILE_INTERVAL_MS).unref();
+  console.log(`Screening reconciler up (every ${RECONCILE_INTERVAL_MS / 1000}s)`);
 }
 
 export type ScreeningOutcome =

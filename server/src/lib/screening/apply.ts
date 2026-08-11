@@ -14,10 +14,10 @@
  */
 import {
   getTransaction,
-  updateTransaction,
   getTelegramChatId,
   getUserDetails,
 } from "../supabase/index.js";
+import { claimScreeningApplication } from "./applyClaim.js";
 import { recordOutcome, noteReviewOutcome, type RiskResult } from "../../agent/index.js";
 import { runExecutionById } from "../execution/execute.js";
 import { notifyTelegram } from "../../notify.js";
@@ -49,18 +49,17 @@ export async function applyScreeningDecision(
     return { status: "not_applicable", reason: "screening disabled" };
   }
 
-  // The FULL screening outcome in one write: risk fields plus, for
-  // REVIEW/BLOCK, the review flag — one version bump (see D2 history).
-  await updateTransaction(txId, {
-    riskScore: risk.riskScore,
-    riskVerdict: risk.verdict,
-    riskReasons: risk.reasons,
-    ...(risk.verdict !== "APPROVE" && {
-      inReview: true,
-      reviewedAt: new Date().toISOString(),
-      reviewReason: risk.reasons.join("; "),
-    }),
-  });
+  // Atomic claim: the FULL screening outcome in one CONDITIONAL write (risk
+  // fields + review flag; one version bump). The conditions re-assert
+  // eligibility inside the UPDATE itself, so a rejection/execution/toggle
+  // committed after the read above loses nothing — we lose, correctly.
+  const claimed = await claimScreeningApplication(txId, risk);
+  if (!claimed) {
+    const now = await getTransaction(txId);
+    return now?.riskVerdict
+      ? { status: "already_applied" }
+      : { status: "not_applicable", reason: "transaction moved on during application" };
+  }
 
   const shortTo = `${tx.to.slice(0, 6)}...${tx.to.slice(-4)}`;
   const chatId = await getTelegramChatId(tx.safeAddress ?? "");

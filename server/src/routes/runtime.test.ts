@@ -151,6 +151,36 @@ describe("result submission", () => {
     expect(applyScreeningDecision).toHaveBeenCalledWith("tx-9", decision);
   });
 
+  it("D3: a SUCCESSFUL screen result with a missing/malformed decision is rejected BEFORE acceptance", async () => {
+    for (const badResult of [
+      undefined,
+      {},
+      { decision: null },
+      { decision: { verdict: "MAYBE", riskScore: 5, reasons: [] } },
+      { decision: { verdict: "APPROVE", riskScore: Infinity, reasons: [] } },
+      { decision: { verdict: "APPROVE", riskScore: 5, reasons: "not-an-array" } },
+    ]) {
+      vi.mocked(getJob).mockResolvedValueOnce({ id: "j1", kind: "screen", tx_id: "tx-9" } as never);
+      const res = await call("/runtime/jobs/j1/result", {
+        token: TOKEN,
+        body: { ...VALID, result: badResult },
+      });
+      expect(res.status).toBe(400);
+    }
+    // The job was never settled — it stays leased and retries/dead-letters.
+    expect(submitJobResult).not.toHaveBeenCalled();
+  });
+
+  it("D3: a FAILURE submission (e.g. sign refusal) needs no decision", async () => {
+    vi.mocked(getJob).mockResolvedValueOnce({ id: "j1", kind: "screen", tx_id: "tx-9" } as never);
+    vi.mocked(submitJobResult).mockResolvedValueOnce({ decision: "accept" });
+    const res = await call("/runtime/jobs/j1/result", {
+      token: TOKEN,
+      body: { ...VALID, result: null, success: false, error: "evaluation crashed" },
+    });
+    expect(res.status).toBe(200);
+  });
+
   it("D3: rejected/void submissions and sign jobs never trigger application", async () => {
     vi.mocked(getJob).mockResolvedValueOnce({ id: "j1", kind: "screen", tx_id: "tx-9" } as never);
     vi.mocked(submitJobResult).mockResolvedValueOnce({ decision: "void", reason: "stale_tx_version" });
