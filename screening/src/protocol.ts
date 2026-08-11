@@ -52,6 +52,35 @@ export function computeInputHash(payload: unknown): string {
   return createHash("sha256").update(stableStringify(payload)).digest("hex");
 }
 
+/**
+ * Wire codec for payload values that JSON cannot carry natively. BigInts
+ * (decoded calldata amounts) become `{"$bigint":"…"}` at enqueue and are
+ * revived before evaluation — both sides hash the WIRE form, so the input
+ * hash stays consistent while semantics (numeric comparisons) survive.
+ */
+export function encodeWireValue(value: unknown): unknown {
+  if (typeof value === "bigint") return { $bigint: value.toString() };
+  if (Array.isArray(value)) return value.map(encodeWireValue);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, encodeWireValue(v)])
+    );
+  }
+  return value;
+}
+
+export function decodeWireValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(decodeWireValue);
+  if (value !== null && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.$bigint === "string" && Object.keys(obj).length === 1) {
+      return BigInt(obj.$bigint);
+    }
+    return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, decodeWireValue(v)]));
+  }
+  return value;
+}
+
 export function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;

@@ -18,6 +18,3 @@ POLL_INTERVAL_MS=3000
 
 # Localhost-only health listener port.
 HEALTH_PORT=3002
-
-# Local decision store (append-only JSONL). Default: ./data/decisions.jsonl
-# DECISION_STORE_PATH=

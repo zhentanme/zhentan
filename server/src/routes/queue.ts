@@ -19,6 +19,7 @@ import { SAFE_ABI, MULTISEND_CALL_ONLY } from "../lib/constants.js";
 import { decodeMultiSendData } from "@safe-global/protocol-kit";
 import { classifyProfile, type WalletState } from "../lib/safe/profiles.js";
 import { decodeSafeTxKind } from "../lib/safe/kind.js";
+import { enqueueShadowScreen } from "../lib/runtime/shadow.js";
 import {
   computeSafeTxHash,
   recoverSafeTxSigner,
@@ -490,6 +491,10 @@ export function createQueueRouter(): IRouter {
 
       // ── Risk analysis ────────────────────────────────────────
       let risk;
+      // Pinned explicitly so the shadow job (D2) evaluates the SAME instant —
+      // time-of-day scoring makes the timestamp part of the decision inputs.
+      const evaluatedAt = new Date();
+      let shadowInputs: Parameters<typeof enqueueShadowScreen> | null = null;
       try {
         const patterns = await loadPolicySnapshot(pendingTx.safeAddress ?? "");
         // Classify from the SIGNED calldata so swaps/approvals are scored by
@@ -497,7 +502,8 @@ export function createQueueRouter(): IRouter {
         const decoded = isSafeTx
           ? decodeSafeTxKind(pendingTx.safeTx, pendingTx.safeAddress)
           : undefined;
-        risk = evaluateTransaction(pendingTx, patterns, decoded);
+        risk = evaluateTransaction(pendingTx, patterns, decoded, evaluatedAt);
+        shadowInputs = [pendingTx, patterns, decoded, evaluatedAt];
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("Risk analysis failed:", msg);
@@ -511,6 +517,14 @@ export function createQueueRouter(): IRouter {
         riskVerdict: risk.verdict,
         riskReasons: risk.reasons,
       });
+
+      // Shadow screening (D2): same inputs through the job protocol; the
+      // runtime's verdict is compared, never applied. Enqueued AFTER the
+      // risk persist so the version the job pins already reflects it;
+      // fire-and-forget — must not touch the live flow.
+      if (shadowInputs) {
+        void enqueueShadowScreen(...shadowInputs);
+      }
 
       const shortTo = `${pendingTx.to.slice(0, 6)}...${pendingTx.to.slice(-4)}`;
       const chatId = await getTelegramChatId(pendingTx.safeAddress ?? "");

@@ -9,6 +9,7 @@
 import {
   evaluateTransaction,
   computeInputHash,
+  decodeWireValue,
   JOB_SCHEMA_VERSION,
   type DecodedKind,
   type PatternsFile,
@@ -16,6 +17,7 @@ import {
   type WireJob,
 } from "zhentan-screening";
 import { RuntimeApiClient } from "./apiClient.js";
+import { recordDecision } from "./decisionStore.js";
 
 export interface WorkerConfig {
   apiBaseUrl: string;
@@ -103,13 +105,27 @@ export async function processJob(
       : outcomeFromDecision(refusal.decision);
   }
 
-  const payload = job.payload as unknown as ScreenPayload;
+  // Revive wire-encoded values (bigints in decoded calldata) — the hash
+  // above was computed over the wire form, matching the backend's enqueue.
+  const payload = decodeWireValue(job.payload) as unknown as ScreenPayload;
   const decision = evaluateTransaction(
     payload.tx,
     payload.snapshot,
     payload.decoded,
     new Date(payload.evaluatedAt)
   );
+  // Local decision record (D2): accumulates from day one — D4's signing
+  // authority verifies against these, E3 builds projections on them.
+  recordDecision({
+    jobId: job.id,
+    txId: job.tx_id,
+    txVersion: job.tx_version,
+    safeAddress: job.safe_address,
+    inputHash: base.inputHash,
+    decision,
+    evaluatedAt: payload.evaluatedAt,
+    recordedAt: new Date().toISOString(),
+  });
   const outcome = await client.submitResult({
     ...base,
     policyVersion: `snapshot:${computeInputHash(payload.snapshot).slice(0, 16)}`,
