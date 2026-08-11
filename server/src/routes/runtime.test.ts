@@ -12,14 +12,19 @@ vi.mock("../lib/runtime/jobs.js", () => ({
   leaseNextJob: vi.fn(),
   heartbeatJob: vi.fn(),
   submitJobResult: vi.fn(),
+  getJob: vi.fn(),
   getDeadLetterJobs: vi.fn(async () => []),
 }));
 vi.mock("../agent/index.js", () => ({
   loadPolicySnapshot: vi.fn(async () => ({ recipients: {} })),
 }));
+vi.mock("../lib/screening/apply.js", () => ({
+  applyScreeningDecision: vi.fn(async () => ({ status: "applied_review" })),
+}));
 
 import { createRuntimeRouter } from "./runtime.js";
-import { leaseNextJob, submitJobResult } from "../lib/runtime/jobs.js";
+import { leaseNextJob, submitJobResult, getJob } from "../lib/runtime/jobs.js";
+import { applyScreeningDecision } from "../lib/screening/apply.js";
 
 const TOKEN = "route-test-token";
 let server: Server;
@@ -131,5 +136,31 @@ describe("result submission", () => {
       expect.objectContaining({ jobId: "j1", leaseToken: "lt1", txVersion: 3 }),
       expect.objectContaining({ success: true, retryable: true })
     );
+  });
+
+  it("D3: an ACCEPTED screen result triggers decision application for its transaction", async () => {
+    vi.mocked(getJob).mockResolvedValueOnce({ id: "j1", kind: "screen", tx_id: "tx-9" } as never);
+    vi.mocked(submitJobResult).mockResolvedValueOnce({ decision: "accept" });
+    const decision = { riskScore: 5, verdict: "APPROVE", reasons: [] };
+    const res = await call("/runtime/jobs/j1/result", {
+      token: TOKEN,
+      body: { ...VALID, result: { decision } },
+    });
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 10)); // fire-and-forget settles
+    expect(applyScreeningDecision).toHaveBeenCalledWith("tx-9", decision);
+  });
+
+  it("D3: rejected/void submissions and sign jobs never trigger application", async () => {
+    vi.mocked(getJob).mockResolvedValueOnce({ id: "j1", kind: "screen", tx_id: "tx-9" } as never);
+    vi.mocked(submitJobResult).mockResolvedValueOnce({ decision: "void", reason: "stale_tx_version" });
+    await call("/runtime/jobs/j1/result", { token: TOKEN, body: VALID });
+
+    vi.mocked(getJob).mockResolvedValueOnce({ id: "j2", kind: "sign", tx_id: "tx-9" } as never);
+    vi.mocked(submitJobResult).mockResolvedValueOnce({ decision: "accept" });
+    await call("/runtime/jobs/j2/result", { token: TOKEN, body: VALID });
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(applyScreeningDecision).not.toHaveBeenCalled();
   });
 });

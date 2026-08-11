@@ -1,25 +1,14 @@
 import { Router, Request, Response, type IRouter } from "express";
 import { decodeFunctionData, isAddressEqual, type Address, type Hex } from "viem";
 import {
-  evaluateTransaction,
-  loadPolicySnapshot,
-  recordOutcome,
-  noteReviewOutcome,
-} from "../agent/index.js";
-import { notifyTelegram } from "../notify.js";
-import {
   createTransaction,
-  updateTransaction,
-  getTelegramChatId,
   getUserDetails,
   upsertUserDetails,
 } from "../lib/supabase/index.js";
-import { notify } from "../notifications/index.js";
 import { SAFE_ABI, MULTISEND_CALL_ONLY } from "../lib/constants.js";
 import { decodeMultiSendData } from "@safe-global/protocol-kit";
 import { classifyProfile, type WalletState } from "../lib/safe/profiles.js";
-import { decodeSafeTxKind } from "../lib/safe/kind.js";
-import { enqueueShadowScreen } from "../lib/runtime/shadow.js";
+import { enqueueScreenJob, awaitScreeningOutcome } from "../lib/runtime/screening.js";
 import {
   computeSafeTxHash,
   recoverSafeTxSigner,
@@ -489,203 +478,51 @@ export function createQueueRouter(): IRouter {
         return;
       }
 
-      // ── Risk analysis ────────────────────────────────────────
-      let risk;
-      // Pinned explicitly so the shadow job (D2) evaluates the SAME instant —
-      // time-of-day scoring makes the timestamp part of the decision inputs.
-      const evaluatedAt = new Date();
-      let shadowInputs: Parameters<typeof enqueueShadowScreen> | null = null;
-      try {
-        const patterns = await loadPolicySnapshot(pendingTx.safeAddress ?? "");
-        // Classify from the SIGNED calldata so swaps/approvals are scored by
-        // their own strategy instead of as a "transfer to the router".
-        const decoded = isSafeTx
-          ? decodeSafeTxKind(pendingTx.safeTx, pendingTx.safeAddress)
-          : undefined;
-        risk = evaluateTransaction(pendingTx, patterns, decoded, evaluatedAt);
-        shadowInputs = [pendingTx, patterns, decoded, evaluatedAt, risk];
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        console.error("Risk analysis failed:", msg);
-        res.json({ success: true, id: pendingTx.id, riskError: msg });
+      // ── Screening (authoritative via the runtime, D3) ─────────
+      // The backend no longer evaluates inline: the screen job carries the
+      // assembled inputs to the runtime; the decision returns through the
+      // Runtime API result endpoint, which applies it exactly once
+      // (lib/screening/apply.ts — writes, notifications, auto-execute).
+      // Here we only OBSERVE the transaction row with a bounded timeout so
+      // a co-located runtime preserves the synchronous autoExecuted UX.
+      // Fail-closed: no runtime → no decision → the proposal stays queued
+      // and nothing executes. Relay-only/backup co-sign never reach here.
+      const enqueued = await enqueueScreenJob(pendingTx);
+      const outcome = enqueued ? await awaitScreeningOutcome(pendingTx.id) : null;
+
+      if (!outcome || outcome.kind === "rejected") {
+        // Timeout (or user rejection mid-screening): the decision will be
+        // applied — with notifications — whenever the result lands.
+        res.json({
+          success: true,
+          id: pendingTx.id,
+          screening: "pending",
+          ...(serviceWarning && { serviceWarning }),
+        });
         return;
       }
 
-      // Persist the FULL screening outcome in one write: risk fields plus,
-      // for REVIEW/BLOCK, the review flag. One write = one version bump,
-      // which the shadow job enqueued below then pins. Splitting this into
-      // a second in_review write after the enqueue would bump the version
-      // again and systematically void every REVIEW/BLOCK shadow job.
-      await updateTransaction(pendingTx.id, {
-        riskScore: risk.riskScore,
-        riskVerdict: risk.verdict,
-        riskReasons: risk.reasons,
-        ...(risk.verdict !== "APPROVE" && {
-          inReview: true,
-          reviewedAt: new Date().toISOString(),
-          reviewReason: risk.reasons.join("; "),
-        }),
+      if (outcome.kind === "executed") {
+        res.json({
+          success: true,
+          id: pendingTx.id,
+          risk: outcome.risk,
+          autoExecuted: true,
+          txHash: outcome.txHash,
+          ...(serviceWarning && { serviceWarning }),
+        });
+        return;
+      }
+      if (outcome.kind === "approve_pending") {
+        res.json({ success: true, id: pendingTx.id, risk: outcome.risk, autoExecuted: false });
+        return;
+      }
+      res.json({
+        success: true,
+        id: pendingTx.id,
+        risk: outcome.risk,
+        ...(serviceWarning && { serviceWarning }),
       });
-
-      // Shadow screening (D2): same inputs through the job protocol; the
-      // runtime's verdict is compared, never applied. Enqueued AFTER the
-      // risk persist so the version the job pins already reflects it;
-      // fire-and-forget — must not touch the live flow.
-      if (shadowInputs) {
-        void enqueueShadowScreen(...shadowInputs);
-      }
-
-      const shortTo = `${pendingTx.to.slice(0, 6)}...${pendingTx.to.slice(-4)}`;
-      const chatId = await getTelegramChatId(pendingTx.safeAddress ?? "");
-      const txWithRisk = {
-        ...pendingTx,
-        riskScore: risk.riskScore,
-        riskVerdict: risk.verdict,
-        riskReasons: risk.reasons,
-      };
-
-      // ── APPROVE: auto-execute ────────────────────────────────
-      if (risk.verdict === "APPROVE") {
-        try {
-          // In-process, deliberately: this is system-initiated work with no user
-          // principal behind it, so it must not travel back through the
-          // authenticated HTTP surface (see lib/authz.ts).
-          const execResult = await runExecutionById(pendingTx.id);
-
-          if (execResult.status === "executed") {
-            // tx_sent notification (TG + email) is fired by execute.ts
-            recordOutcome(txWithRisk, "auto_approved", {
-              riskScore: risk.riskScore,
-              riskVerdict: risk.verdict,
-              riskReasons: risk.reasons,
-              triggeredRules: risk.triggeredRules,
-            }).catch((err) => console.error("Pattern record failed (auto_approved):", err));
-            res.json({
-              success: true,
-              id: pendingTx.id,
-              risk,
-              autoExecuted: true,
-              txHash: execResult.txHash,
-              ...(serviceWarning && { serviceWarning }),
-            });
-            return;
-          }
-
-          // Execute didn't succeed — fall through, respond without auto-execute
-          console.error("Auto-execute returned:", execResult);
-          const detail =
-            execResult.status === "superseded" && execResult.reason
-              ? `${execResult.status} (${execResult.reason})`
-              : execResult.status;
-          notifyTelegram(
-            `⚠️ Auto-approve attempted but execution failed for ${pendingTx.id}:\n` +
-              `${pendingTx.amount} ${pendingTx.token || "USDC"} → ${shortTo}\n` +
-              `Risk: ${risk.riskScore}/100 — ${risk.reasons.join(", ")}\n` +
-              `Error: ${detail}\n` +
-              `Reply \`approve ${pendingTx.id}\` to retry.`,
-            undefined,
-            undefined,
-            chatId
-          );
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "Unknown error";
-          console.error("Auto-execute failed:", msg);
-          notifyTelegram(
-            `⚠️ Auto-approve attempted but execution failed for ${pendingTx.id}:\n` +
-              `${pendingTx.amount} ${pendingTx.token || "USDC"} → ${shortTo}\n` +
-              `Risk: ${risk.riskScore}/100 — ${risk.reasons.join(", ")}\n` +
-              `Error: ${msg}\n` +
-              `Reply \`approve ${pendingTx.id}\` to retry.`,
-            undefined,
-            undefined,
-            chatId
-          );
-        }
-
-        res.json({ success: true, id: pendingTx.id, risk, autoExecuted: false });
-        return;
-      }
-
-      // ── REVIEW or BLOCK ──────────────────────────────────────
-      // (in_review already persisted with the risk fields above — one write,
-      // one version bump, shadow job stays valid.)
-
-      // Record behavioral event + update daily stats (fire-and-forget)
-      const outcome = risk.verdict === "REVIEW" ? "sent_for_review" : "auto_blocked";
-      Promise.all([
-        recordOutcome(txWithRisk, outcome, {
-          riskScore: risk.riskScore,
-          riskVerdict: risk.verdict,
-          riskReasons: risk.reasons,
-          triggeredRules: risk.triggeredRules,
-        }),
-        noteReviewOutcome(pendingTx.safeAddress ?? ""),
-      ]).catch((err) => console.error("Pattern record failed:", err));
-
-      const reviewButtons = [
-        [
-          { text: `✅ approve ${pendingTx.id}` },
-          { text: `❌ reject ${pendingTx.id}` },
-        ],
-        [
-          { text: `🔎 deep-analyze ${pendingTx.id}` },
-        ],
-      ];
-
-      // SafeTx proposals already sit in the Safe app queue at 1 of 2 — a
-      // PROTECTED wallet's user can go around the agent with their backup
-      // key there (guarded wallets have no second user key to sign with).
-      let overrideLine = "";
-      if (isSafeTx) {
-        const ownerRecord = await getUserDetails(pendingTx.safeAddress).catch(() => null);
-        const liveOwners =
-          ownerRecord?.safe_owners?.length
-            ? ownerRecord.safe_owners
-            : [ownerRecord?.signer_address ?? "", getAgentAddress()];
-        const profile = classifyProfile(
-          liveOwners,
-          ownerRecord?.safe_threshold ?? 2,
-          getAgentAddress()
-        );
-        if (profile === "protected") {
-          overrideLine = `\nOr sign with your backup key: https://app.safe.global/transactions/queue?safe=bnb:${pendingTx.safeAddress}`;
-        }
-      }
-
-      const header = risk.verdict === "REVIEW" ? "🔍 REVIEW NEEDED" : "🚫 BLOCKED";
-      notifyTelegram(
-        `${header} — ${pendingTx.id}:\n` +
-          `${pendingTx.amount} ${pendingTx.token || "USDC"} → ${shortTo}\n` +
-          `Risk: ${risk.riskScore}/100\n` +
-          `Reasons: ${risk.reasons.join(", ")}` +
-          overrideLine,
-        reviewButtons,
-        pendingTx.id,
-        chatId
-      );
-
-      // Email notification for REVIEW/BLOCK (TG is handled above with keyboard buttons)
-      getUserDetails(pendingTx.safeAddress ?? "")
-        .then((user) => {
-          if (!user) return;
-          const txPayload = {
-            txId: pendingTx.id,
-            amount: pendingTx.amount,
-            token: pendingTx.token || "USDC",
-            tokenLogoUrl: pendingTx.tokenIconUrl ?? undefined,
-            amountUsd: pendingTx.amountUSD ? `$${pendingTx.amountUSD}` : undefined,
-            toAddress: pendingTx.to,
-            riskScore: risk.riskScore,
-            reasons: risk.reasons,
-          };
-          if (risk.verdict === "REVIEW") {
-            return notify("tx_review_needed", user, txPayload);
-          }
-          return notify("tx_blocked", user, txPayload);
-        })
-        .catch((err) => console.error("Email notify failed:", err));
-
-      res.json({ success: true, id: pendingTx.id, risk, ...(serviceWarning && { serviceWarning }) });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       res.status(500).json({ error: message });

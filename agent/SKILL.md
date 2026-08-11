@@ -22,10 +22,13 @@ your role is **conversational** — you act on owner commands through the
 ## How the pipeline works
 
 1. **Owner** proposes a transaction in the app — signs 1 of the 2 required signatures.
-2. **Server** runs inline risk analysis:
+2. **Server** enqueues a screening job; the **agent runtime** (a separate
+   worker process) evaluates it and returns the verdict; the server applies it:
    - **APPROVE** (risk < 40): auto-executes on-chain, notifies via Telegram
    - **REVIEW** (risk 40–70): marks in-review, asks the owner to approve/reject
    - **BLOCK** (risk > 70): marks in-review with an urgent alert
+   If the runtime is unavailable, the transaction simply stays pending —
+   nothing executes without a screening decision (fail-closed).
 3. **You** handle the owner's decision and any follow-up commands.
 
 Transaction lifecycle: `pending` → `in_review` → `executed` | `rejected`.

@@ -11,9 +11,10 @@
  */
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { timingSafeEqual } from "crypto";
-import { leaseNextJob, heartbeatJob, submitJobResult, getDeadLetterJobs } from "../lib/runtime/jobs.js";
+import { leaseNextJob, heartbeatJob, submitJobResult, getJob, getDeadLetterJobs } from "../lib/runtime/jobs.js";
 import type { JobResultSubmission } from "../lib/runtime/jobsPolicy.js";
-import { loadPolicySnapshot } from "../agent/index.js";
+import { loadPolicySnapshot, type RiskResult } from "../agent/index.js";
+import { applyScreeningDecision } from "../lib/screening/apply.js";
 
 function tokenMatches(header: string | undefined, expected: string): boolean {
   if (!header?.startsWith("Bearer ")) return false;
@@ -103,11 +104,23 @@ export function createRuntimeRouter(): IRouter {
         credentialVersion: Number(b.credentialVersion),
         result: b.result,
       };
+      const job = await getJob(req.params.id);
       const outcome = await submitJobResult(submission, {
         success: b.success !== false,
         retryable: b.retryable !== false,
         error: typeof b.error === "string" ? b.error : undefined,
       });
+      // Authoritative screening (D3): an ACCEPTED screen result becomes
+      // canonical state — decision write, notifications, auto-execute.
+      // Fire-and-forget: the runtime's submit must never wait on chain
+      // execution; the propose handler observes the transaction row.
+      // (apply is idempotent by tx state, so duplicates are harmless.)
+      const decision = (b.result as { decision?: RiskResult } | undefined)?.decision;
+      if (outcome.decision === "accept" && job?.kind === "screen" && decision) {
+        void applyScreeningDecision(job.tx_id, decision).catch((err) =>
+          console.error(`Screening apply failed for ${job.tx_id}:`, err)
+        );
+      }
       res.json(outcome);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";

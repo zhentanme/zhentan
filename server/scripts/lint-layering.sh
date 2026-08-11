@@ -45,5 +45,12 @@ if grep -rnE "from ['\"]zhentan-screening/(risk|evaluate)" --include='*.ts' "$SR
   echo "RULE 5 VIOLATION: screening risk/evaluate imported outside $SRC/agent"; fail=1
 fi
 
+# 6 (D3): screening decisions come from the runtime via the job protocol —
+# inline evaluation must never return to the HTTP surface. evaluateRequest
+# stays permitted in requests.ts until the Intent Proposer schema lands.
+if grep -rnE "\b(evaluateTransaction|analyzeRisk)\b" --include='*.ts' "$SRC/routes" 2>/dev/null; then
+  echo "RULE 6 VIOLATION: inline screening evaluation in routes/"; fail=1
+fi
+
 [ "$fail" = 0 ] && echo "layering ok"
 exit $fail
