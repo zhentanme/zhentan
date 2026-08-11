@@ -80,6 +80,17 @@ export function createRuntimeRouter(): IRouter {
   router.post("/jobs/:id/result", async (req, res) => {
     try {
       const b = req.body ?? {};
+      if (
+        !b.leaseToken ||
+        !b.txId ||
+        !b.agentInstanceId ||
+        !Number.isFinite(Number(b.schemaVersion)) ||
+        !Number.isFinite(Number(b.txVersion)) ||
+        !Number.isFinite(Number(b.credentialVersion))
+      ) {
+        res.status(400).json({ error: "Malformed result submission" });
+        return;
+      }
       const submission: JobResultSubmission = {
         jobId: req.params.id,
         schemaVersion: Number(b.schemaVersion),

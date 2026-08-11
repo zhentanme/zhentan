@@ -74,6 +74,8 @@ let server: Server;
 let baseUrl: string;
 const submitted: Record<string, unknown>[] = [];
 let leaseCount = 0;
+// The stub's next /result response — lets each test script the backend.
+let nextDecision: Record<string, unknown> = { decision: "accept" };
 
 beforeAll(async () => {
   server = createServer((req, res) => {
@@ -95,7 +97,7 @@ beforeAll(async () => {
       if (req.url === `/runtime/jobs/${JOB.id}/result`) {
         submitted.push(body);
         res.writeHead(200, { "content-type": "application/json" });
-        res.end(JSON.stringify({ decision: "accept" }));
+        res.end(JSON.stringify(nextDecision));
         return;
       }
       res.writeHead(404);
@@ -133,5 +135,24 @@ describe("full lease→evaluate→submit cycle (stub Runtime API)", () => {
   it("a second lease finds no work (204 path)", async () => {
     const client = new RuntimeApiClient({ baseUrl, token: "stub" });
     expect(await client.lease("shared-agent")).toBeNull();
+  });
+
+  it("a protocol REJECTION is not success — the job was not settled by us", async () => {
+    const client = new RuntimeApiClient({ baseUrl, token: "stub" });
+    nextDecision = { decision: "reject", reason: "lease_mismatch" };
+    const outcome = await processJob(client, "shared-agent", JOB as never, "stale-lease");
+    expect(outcome).toBe("rejected");
+  });
+
+  it("a VOID (transaction moved on) is tracked apart from success and failure", async () => {
+    const client = new RuntimeApiClient({ baseUrl, token: "stub" });
+    nextDecision = { decision: "void", reason: "stale_tx_version" };
+    expect(await processJob(client, "shared-agent", JOB as never, "stub-lease")).toBe("voided");
+  });
+
+  it("an idempotent duplicate counts as completed", async () => {
+    const client = new RuntimeApiClient({ baseUrl, token: "stub" });
+    nextDecision = { decision: "duplicate_noop" };
+    expect(await processJob(client, "shared-agent", JOB as never, "stub-lease")).toBe("succeeded");
   });
 });

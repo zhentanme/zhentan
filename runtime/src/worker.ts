@@ -29,6 +29,10 @@ export interface WorkerStats {
   lastPollAt: string | null;
   jobsSucceeded: number;
   jobsFailed: number;
+  /** Transaction moved on mid-flight — not a worker fault, tracked apart. */
+  jobsVoided: number;
+  /** Backend refused the submission (lease/hash/identity) — investigate. */
+  jobsRejected: number;
   lastError: string | null;
 }
 
@@ -53,6 +57,18 @@ export function loadConfigFromEnv(): WorkerConfig {
   };
 }
 
+export type JobOutcome = "succeeded" | "voided" | "rejected" | "failed";
+
+/** Map the backend's submission decision to what this attempt amounted to.
+ * `accept` and the idempotent `duplicate_noop` are completion; `void` means
+ * the transaction moved on (not our fault); anything else is a protocol
+ * rejection — the DB job was NOT settled by us and must not count as done. */
+function outcomeFromDecision(decision: string): JobOutcome {
+  if (decision === "accept" || decision === "duplicate_noop") return "succeeded";
+  if (decision === "void") return "voided";
+  return "rejected";
+}
+
 /**
  * Process one leased job. Exported separately from the loop so the
  * integration test can drive a full lease→evaluate→submit cycle against a
@@ -63,7 +79,7 @@ export async function processJob(
   agentInstanceId: string,
   job: WireJob,
   leaseToken: string
-): Promise<"succeeded" | "failed"> {
+): Promise<JobOutcome> {
   const base = {
     jobId: job.id,
     schemaVersion: JOB_SCHEMA_VERSION,
@@ -78,11 +94,13 @@ export async function processJob(
   if (job.kind !== "screen") {
     // Sign jobs arrive at D4 — refuse non-retryably rather than letting the
     // lease expire into pointless retries.
-    await client.submitResult(
+    const refusal = await client.submitResult(
       { ...base, policyVersion: "none", result: null },
       { success: false, retryable: false, error: `job kind '${job.kind}' not supported by this runtime version` }
     );
-    return "failed";
+    return refusal.decision === "accept" || refusal.decision === "duplicate_noop"
+      ? "failed"
+      : outcomeFromDecision(refusal.decision);
   }
 
   const payload = job.payload as unknown as ScreenPayload;
@@ -92,12 +110,12 @@ export async function processJob(
     payload.decoded,
     new Date(payload.evaluatedAt)
   );
-  await client.submitResult({
+  const outcome = await client.submitResult({
     ...base,
     policyVersion: `snapshot:${computeInputHash(payload.snapshot).slice(0, 16)}`,
     result: { decision, evaluatedAt: payload.evaluatedAt },
   });
-  return "succeeded";
+  return outcomeFromDecision(outcome.decision);
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -110,6 +128,8 @@ export function startWorker(config: WorkerConfig): { stats: WorkerStats; stop: (
     lastPollAt: null,
     jobsSucceeded: 0,
     jobsFailed: 0,
+    jobsVoided: 0,
+    jobsRejected: 0,
     lastError: null,
   };
   let running = true;
@@ -129,7 +149,12 @@ export function startWorker(config: WorkerConfig): { stats: WorkerStats; stop: (
         try {
           const outcome = await processJob(client, config.agentInstanceId, leased.job, leased.leaseToken);
           if (outcome === "succeeded") stats.jobsSucceeded++;
-          else stats.jobsFailed++;
+          else if (outcome === "voided") stats.jobsVoided++;
+          else if (outcome === "rejected") {
+            stats.jobsRejected++;
+            stats.lastError = `submission rejected for job ${leased.job.id}`;
+            console.error(`Result submission rejected for job ${leased.job.id} — job NOT settled by this worker`);
+          } else stats.jobsFailed++;
         } finally {
           clearInterval(heartbeat);
         }
