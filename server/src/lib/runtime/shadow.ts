@@ -29,7 +29,8 @@ export async function enqueueShadowScreen(
   tx: PendingTransaction,
   snapshot: PatternsFile,
   decoded: DecodedKind | undefined,
-  evaluatedAt: Date
+  evaluatedAt: Date,
+  inlineDecision: ShadowDecision
 ): Promise<void> {
   if (!shadowScreeningEnabled()) return;
   try {
@@ -50,6 +51,9 @@ export async function enqueueShadowScreen(
         decoded: decoded === undefined ? undefined : (encodeWireValue(decoded) as Record<string, unknown>),
         evaluatedAt: evaluatedAt.toISOString(),
       },
+      // Captured at enqueue — complete (incl. triggeredRules, which the
+      // transactions table doesn't store) and immune to later mutations.
+      inlineDecision,
     });
   } catch (err) {
     console.error(`Shadow screen enqueue failed for ${tx.id}:`, err instanceof Error ? err.message : err);
@@ -85,21 +89,35 @@ export async function shadowComparePass(): Promise<{ compared: number; diverged:
   for (const job of jobs ?? []) {
     const result = job.result as ShadowResult | null;
     if (!result?.decision) continue;
-    const { data: tx, error: txError } = await supabase
-      .from("transactions")
-      .select("risk_score, risk_verdict, risk_reasons")
-      .eq("id", job.tx_id)
-      .maybeSingle<{ risk_score: number | null; risk_verdict: string | null; risk_reasons: string[] | null }>();
-    if (txError) {
-      console.error(`Shadow compare tx fetch failed for ${job.tx_id}:`, txError.message);
-      continue;
+
+    // Prefer the complete decision captured at enqueue (incl. triggered
+    // rules). Fallback to the transaction row only for pre-capture jobs.
+    let inline: import("./shadowCompare.js").InlineDecision | null = null;
+    const captured = job.inline_decision as ShadowDecision | null;
+    if (captured) {
+      inline = {
+        riskScore: captured.riskScore,
+        riskVerdict: captured.verdict,
+        riskReasons: captured.reasons,
+        triggeredRules: captured.triggeredRules ?? [],
+      };
+    } else {
+      const { data: tx, error: txError } = await supabase
+        .from("transactions")
+        .select("risk_score, risk_verdict, risk_reasons")
+        .eq("id", job.tx_id)
+        .maybeSingle<{ risk_score: number | null; risk_verdict: string | null; risk_reasons: string[] | null }>();
+      if (txError) {
+        console.error(`Shadow compare tx fetch failed for ${job.tx_id}:`, txError.message);
+        continue;
+      }
+      inline = tx
+        ? { riskScore: tx.risk_score, riskVerdict: tx.risk_verdict, riskReasons: tx.risk_reasons, triggeredRules: null }
+        : null;
     }
-    const comparison = tx
-      ? compareScreenDecisions(
-          { riskScore: tx.risk_score, riskVerdict: tx.risk_verdict, riskReasons: tx.risk_reasons },
-          result.decision
-        )
-      : { agree: false, causes: ["transaction row no longer exists"] };
+    const comparison = inline
+      ? compareScreenDecisions(inline, result.decision)
+      : { agree: false, causes: ["no inline decision available for comparison"] };
 
     const { error: writeError } = await supabase
       .from("runtime_jobs")

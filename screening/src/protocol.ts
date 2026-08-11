@@ -57,14 +57,25 @@ export function computeInputHash(payload: unknown): string {
  * (decoded calldata amounts) become `{"$bigint":"…"}` at enqueue and are
  * revived before evaluation — both sides hash the WIRE form, so the input
  * hash stays consistent while semantics (numeric comparisons) survive.
+ *
+ * Collision-safe for ARBITRARY JSON: a user-supplied object that itself
+ * carries a `$bigint`/`$escaped` key (possible in extensible fields like
+ * recipient customAttributes) is wrapped as `{"$escaped": {…}}` at encode
+ * and unwrapped verbatim at decode, so every JSON value round-trips
+ * exactly and only encoder-produced markers are ever revived.
  */
 export function encodeWireValue(value: unknown): unknown {
   if (typeof value === "bigint") return { $bigint: value.toString() };
   if (Array.isArray(value)) return value.map(encodeWireValue);
   if (value !== null && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([k, v]) => [k, encodeWireValue(v)])
+    const obj = value as Record<string, unknown>;
+    const encoded = Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [k, encodeWireValue(v)])
     );
+    if ("$bigint" in obj || "$escaped" in obj) {
+      return { $escaped: encoded };
+    }
+    return encoded;
   }
   return value;
 }
@@ -73,8 +84,16 @@ export function decodeWireValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(decodeWireValue);
   if (value !== null && typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    if (typeof obj.$bigint === "string" && Object.keys(obj).length === 1) {
+    const keys = Object.keys(obj);
+    if (keys.length === 1 && keys[0] === "$bigint" && typeof obj.$bigint === "string") {
       return BigInt(obj.$bigint);
+    }
+    if (keys.length === 1 && keys[0] === "$escaped" && obj.$escaped !== null && typeof obj.$escaped === "object") {
+      // Marker-carrying user object: restore its top level verbatim (no
+      // marker interpretation), decode its values recursively.
+      return Object.fromEntries(
+        Object.entries(obj.$escaped as Record<string, unknown>).map(([k, v]) => [k, decodeWireValue(v)])
+      );
     }
     return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, decodeWireValue(v)]));
   }

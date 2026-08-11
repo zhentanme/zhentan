@@ -503,7 +503,7 @@ export function createQueueRouter(): IRouter {
           ? decodeSafeTxKind(pendingTx.safeTx, pendingTx.safeAddress)
           : undefined;
         risk = evaluateTransaction(pendingTx, patterns, decoded, evaluatedAt);
-        shadowInputs = [pendingTx, patterns, decoded, evaluatedAt];
+        shadowInputs = [pendingTx, patterns, decoded, evaluatedAt, risk];
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("Risk analysis failed:", msg);

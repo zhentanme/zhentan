@@ -10,6 +10,8 @@ export interface InlineDecision {
   riskScore: number | null;
   riskVerdict: string | null;
   riskReasons: string[] | null;
+  /** IDs of user_rules that fired inline. Null only for pre-capture rows. */
+  triggeredRules?: string[] | null;
 }
 
 export interface ShadowDecision {
@@ -45,6 +47,17 @@ export function compareScreenDecisions(
       if (inlineReasons[i] !== shadow.reasons[i]) {
         causes.push(`reasons[${i}]: inline="${inlineReasons[i]}" shadow="${shadow.reasons[i]}"`);
       }
+    }
+  }
+
+  // Same code + same inputs ⇒ same rule order — exact comparison, so a
+  // rule-set difference can never hide behind a matching score/verdict.
+  // Skipped only when the inline capture predates the field (null).
+  if (inline.triggeredRules != null) {
+    const inlineRules = inline.triggeredRules.join(",");
+    const shadowRules = (shadow.triggeredRules ?? []).join(",");
+    if (inlineRules !== shadowRules) {
+      causes.push(`triggeredRules: inline=[${inlineRules}] shadow=[${shadowRules}]`);
     }
   }
 
