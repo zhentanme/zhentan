@@ -15,6 +15,10 @@ export interface DecisionRecord {
   txVersion: number;
   safeAddress: string;
   inputHash: string;
+  /** SafeTx hash computed BY THIS RUNTIME from the screened fields — the
+   *  content binding the signing authority verifies (D4). Null for
+   *  non-SafeTx screening inputs. */
+  safeTxHash?: string | null;
   decision: RiskResult;
   evaluatedAt: string;
   recordedAt: string;

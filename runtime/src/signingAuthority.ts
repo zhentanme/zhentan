@@ -21,9 +21,10 @@
  *
  * Every refusal is a named reason — refusals are the product here.
  */
-import { hashTypedData, type Address, type Hex } from "viem";
+import { type Hex } from "viem";
 import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
-import { SAFE_TX_TYPES, type SignJobPayload, type SignPurpose } from "zhentan-screening";
+import { type SignJobPayload, type SignPurpose } from "zhentan-screening";
+import { computeSafeTxHash } from "./safeTxHash.js";
 import { readSafeState } from "./chain.js";
 import { findDecision } from "./decisionStore.js";
 
@@ -48,24 +49,7 @@ export function agentAddress(): string {
 }
 
 export function computeSafeTxHashLocal(payload: SignJobPayload): Hex {
-  const t = payload.safeTx;
-  return hashTypedData({
-    domain: { chainId: payload.chainId, verifyingContract: payload.safeAddress as Address },
-    types: SAFE_TX_TYPES,
-    primaryType: "SafeTx",
-    message: {
-      to: t.to as Address,
-      value: BigInt(t.value),
-      data: t.data as Hex,
-      operation: t.operation,
-      safeTxGas: BigInt(t.safeTxGas),
-      baseGas: BigInt(t.baseGas),
-      gasPrice: BigInt(t.gasPrice),
-      gasToken: t.gasToken as Address,
-      refundReceiver: t.refundReceiver as Address,
-      nonce: BigInt(t.nonce),
-    },
-  });
+  return computeSafeTxHash(payload.safeAddress, payload.chainId, payload.safeTx);
 }
 
 const ZERO = "0x0000000000000000000000000000000000000000";
@@ -153,6 +137,22 @@ export async function verifySignRequest(
     if (record.inputHash === undefined || record.decision === undefined) {
       return { sign: false, reason: "local screening record is incomplete" };
     }
+    // CONTENT BINDING (review P1): the record must carry the safeTxHash
+    // this runtime computed ITSELF at screen time, and it must equal the
+    // hash recomputed for this request. Version numbers move with lifecycle
+    // events (a user approval bumps the version by design), but the HASH
+    // moves only when the transaction content changes — so this is the
+    // property that actually guarantees "never signs what it didn't
+    // screen". Records without the binding (pre-D4) refuse → re-screen.
+    if (!record.safeTxHash) {
+      return { sign: false, reason: "screening record lacks content binding — re-screen required" };
+    }
+    if (record.safeTxHash.toLowerCase() !== recomputed.toLowerCase()) {
+      return {
+        sign: false,
+        reason: "screening record is for different transaction content — re-screen required",
+      };
+    }
     const verdict = record.decision.verdict;
     if (verdict === "APPROVE") {
       if (record.txVersion !== payload.txVersion) {
@@ -162,7 +162,11 @@ export async function verifySignRequest(
         };
       }
     } else {
-      // REVIEW/BLOCK: user approval evidence pinned to THIS version.
+      // REVIEW/BLOCK: the approval itself bumps the version, so exact
+      // version equality with the record is structurally impossible — the
+      // content binding above carries the screening guarantee; the checks
+      // here pin the APPROVAL: evidence must name THIS version, and the
+      // record must predate it (screened, then approved, never reordered).
       const approval = payload.userApproval;
       if (!approval) {
         return { sign: false, reason: `verdict ${verdict} requires user-approval evidence` };
@@ -173,8 +177,8 @@ export async function verifySignRequest(
           reason: `approval evidence pinned to version ${approval.txVersion}, request is version ${payload.txVersion}`,
         };
       }
-      if (record.txVersion > payload.txVersion) {
-        return { sign: false, reason: "screening record is newer than the sign request — inconsistent state" };
+      if (record.txVersion >= payload.txVersion) {
+        return { sign: false, reason: "screening record does not predate the approval — inconsistent state" };
       }
     }
   }

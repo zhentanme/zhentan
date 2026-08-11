@@ -52,13 +52,17 @@ const CHAIN = {
   nonce: 7,
 };
 
+// Records carry the CONTENT BINDING: the safeTxHash the runtime computed
+// at screen time. Default: bound to the standard payload() content.
+const boundHash = () => computeSafeTxHashLocal(payload());
 const APPROVE_RECORD = {
   jobId: "j1", txId: "tx-1", txVersion: 3, safeAddress: SAFE, inputHash: "h",
+  get safeTxHash() { return boundHash(); },
   decision: { riskScore: 5, verdict: "APPROVE" as const, reasons: [], triggeredRules: [] },
   evaluatedAt: "t", recordedAt: "t",
 };
 
-const deps = (over: Partial<{ chain: typeof CHAIN; record: typeof APPROVE_RECORD | null }> = {}) => ({
+const deps = (over: Partial<{ chain: typeof CHAIN; record: unknown | null }> = {}) => ({
   readSafeState: async () => over.chain ?? CHAIN,
   findDecision: () => ("record" in over ? over.record : APPROVE_RECORD) as never,
   now: () => NOW,
@@ -74,6 +78,20 @@ describe("signing authority refusals (issue #98 matrix)", () => {
     const v = await verifySignRequest("execution", payload(), deps({ record: null }));
     expect(v).toMatchObject({ sign: false });
     expect((v as { reason: string }).reason).toContain("no local screening record");
+  });
+
+  it("REFUSES a record WITHOUT content binding (pre-D4) — re-screen required", async () => {
+    const v = await verifySignRequest("execution", payload(), deps({ record: { ...APPROVE_RECORD, safeTxHash: null } }));
+    expect((v as { reason: string }).reason).toContain("lacks content binding");
+  });
+
+  it("REFUSES a record bound to DIFFERENT transaction content", async () => {
+    const v = await verifySignRequest(
+      "execution",
+      payload(),
+      deps({ record: { ...APPROVE_RECORD, safeTxHash: "0x" + "cd".repeat(32) } })
+    );
+    expect((v as { reason: string }).reason).toContain("different transaction content");
   });
 
   it("REFUSES a version mismatch between the record and the request", async () => {
@@ -142,9 +160,13 @@ describe("signing authority refusals (issue #98 matrix)", () => {
 describe("REVIEW/BLOCK approval evidence", () => {
   const REVIEW_RECORD = {
     ...APPROVE_RECORD,
+    safeTxHash: undefined as string | undefined, // set per test via binding below
+    get ["safeTxHash_"]() { return ""; },
     txVersion: 3,
     decision: { riskScore: 45, verdict: "REVIEW" as const, reasons: ["r"], triggeredRules: [] },
   };
+  // Rebind content hash (spread loses the getter)
+  REVIEW_RECORD.safeTxHash = computeSafeTxHashLocal(payload({ txVersion: 4 }));
 
   it("REFUSES REVIEW without approval evidence", async () => {
     const v = await verifySignRequest("execution", payload({ txVersion: 4 }), deps({ record: REVIEW_RECORD }));
@@ -158,6 +180,24 @@ describe("REVIEW/BLOCK approval evidence", () => {
       deps({ record: REVIEW_RECORD })
     );
     expect(v).toMatchObject({ sign: true });
+  });
+
+  it("REFUSES a REVIEW record that does not predate the approval (same version)", async () => {
+    const v = await verifySignRequest(
+      "execution",
+      payload({ txVersion: 3, userApproval: { txVersion: 3, approvedAt: "t", source: "backend" } }),
+      deps({ record: { ...REVIEW_RECORD, txVersion: 3, safeTxHash: computeSafeTxHashLocal(payload({ txVersion: 3 })) } })
+    );
+    expect((v as { reason: string }).reason).toContain("does not predate the approval");
+  });
+
+  it("REFUSES a REVIEW approval for DIFFERENT content than was screened", async () => {
+    const v = await verifySignRequest(
+      "execution",
+      payload({ txVersion: 4, safeTx: safeTx({ value: "999999" }), userApproval: { txVersion: 4, approvedAt: "t", source: "backend" } }),
+      deps({ record: REVIEW_RECORD })
+    );
+    expect((v as { reason: string }).reason).toContain("different transaction content");
   });
 
   it("REFUSES evidence pinned to a different version", async () => {

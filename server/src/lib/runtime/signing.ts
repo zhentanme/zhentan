@@ -54,7 +54,19 @@ export async function requestAgentSignature(
   if (error) throw new Error(`Sign request version read failed: ${error.message}`);
   const txVersion = row?.version ?? 1;
 
-  const record = await getUserDetails(ctx.safeAddress).catch(() => null);
+  // Registry read FAILS CLOSED (review P1): a transient failure or a
+  // missing record must never default into legacy privileges — for a
+  // 2-of-2 Safe the owner math alone would then authorize a blind co-sign.
+  // Failure propagates (request retried later); unknown Safe refuses; a
+  // null derivation_version grants NO legacy privileges (explicit v1 from
+  // a synced registry row is the only way in).
+  const record = await getUserDetails(ctx.safeAddress);
+  if (!record) {
+    throw new SignRequestError(
+      "Unknown Safe — no registry record; refusing to request a signature",
+      "refused"
+    );
+  }
   const payload: SignJobPayload = {
     safeAddress: ctx.safeAddress,
     chainId: 56,
@@ -73,7 +85,7 @@ export async function requestAgentSignature(
       nonce: ctx.safeTx.nonce,
     },
     claimedSafeTxHash: ctx.safeTxHash,
-    derivationVersion: record?.derivation_version ?? 1,
+    derivationVersion: record.derivation_version ?? 2,
     userApproval: ctx.userApproved
       ? { txVersion, approvedAt: new Date().toISOString(), source: "backend" }
       : null,

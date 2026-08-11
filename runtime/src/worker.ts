@@ -140,12 +140,29 @@ export async function processJob(
   );
   // Local decision record (D2): accumulates from day one — D4's signing
   // authority verifies against these, E3 builds projections on them.
+  // Content binding (D4): hash the SCREENED SafeTx fields ourselves — at
+  // sign time the authority requires this exact hash to match the request.
+  let screenedSafeTxHash: string | null = null;
+  const screenedTx = payload.tx as { safeTx?: unknown; safeAddress?: string };
+  if (screenedTx.safeTx && screenedTx.safeAddress) {
+    try {
+      const { computeSafeTxHash } = await import("./safeTxHash.js");
+      screenedSafeTxHash = computeSafeTxHash(
+        screenedTx.safeAddress,
+        56,
+        screenedTx.safeTx as Parameters<typeof computeSafeTxHash>[2]
+      );
+    } catch (err) {
+      console.error("Screen-time safeTxHash computation failed:", err instanceof Error ? err.message : err);
+    }
+  }
   recordDecision({
     jobId: job.id,
     txId: job.tx_id,
     txVersion: job.tx_version,
     safeAddress: job.safe_address,
     inputHash: base.inputHash,
+    safeTxHash: screenedSafeTxHash,
     decision,
     evaluatedAt: payload.evaluatedAt,
     recordedAt: new Date().toISOString(),

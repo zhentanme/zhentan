@@ -26,6 +26,7 @@ vi.mock("../safe/service.js", () => ({ recoverSafeTxSigner: vi.fn() }));
 
 import { requestAgentSignature, SignRequestError } from "./signing.js";
 import { enqueueJob, getJob } from "./jobs.js";
+import { getUserDetails } from "../supabase/index.js";
 import { recoverSafeTxSigner } from "../safe/service.js";
 
 const AGENT = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -105,5 +106,26 @@ describe("requestAgentSignature verification", () => {
     await requestAgentSignature("execution", CTX);
     const payload = vi.mocked(enqueueJob).mock.calls[0][0].payload as { userApproval: unknown };
     expect(payload.userApproval).toBeNull();
+  });
+
+  it("FAILS CLOSED: a registry read failure propagates — never defaults to legacy privileges", async () => {
+    vi.mocked(getUserDetails).mockRejectedValueOnce(new Error("registry down"));
+    await expect(requestAgentSignature("execution", CTX)).rejects.toThrow("registry down");
+    expect(enqueueJob).not.toHaveBeenCalled();
+  });
+
+  it("FAILS CLOSED: an unknown Safe (no registry record) is refused", async () => {
+    vi.mocked(getUserDetails).mockResolvedValueOnce(null as never);
+    await expect(requestAgentSignature("execution", CTX)).rejects.toMatchObject({ reason: "refused" });
+    expect(enqueueJob).not.toHaveBeenCalled();
+  });
+
+  it("FAILS CLOSED: a null derivation_version grants NO legacy privileges (sends v2)", async () => {
+    vi.mocked(getUserDetails).mockResolvedValueOnce({ derivation_version: null } as never);
+    jobResult({ signature: "0xsig", signedBy: AGENT });
+    vi.mocked(recoverSafeTxSigner).mockResolvedValue(AGENT as never);
+    await requestAgentSignature("execution", CTX);
+    const payload = vi.mocked(enqueueJob).mock.calls[0][0].payload as { derivationVersion: number };
+    expect(payload.derivationVersion).toBe(2);
   });
 });
