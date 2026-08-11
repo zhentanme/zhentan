@@ -26,7 +26,7 @@ import {
 } from "./service.js";
 import { readSafeNonce } from "./onchain.js";
 import { getAgentAddress } from "./relayer.js";
-import { getSigningAuthority } from "../../agent/index.js";
+import { requestAgentSignature } from "../runtime/signing.js";
 import { KIND_BUILDERS, buildSafeTxFromCalls } from "./builders.js";
 import { getRequestByTxId, updateTransaction } from "../supabase/index.js";
 import type { PendingTransaction } from "../../types.js";
@@ -106,24 +106,22 @@ export async function finalizeDraft(
   // app.safe.global. Best-effort: a service outage must not block the flow —
   // execution assembles signatures locally.
   try {
-    const agentSig = await getSigningAuthority().sign({
-      purpose: "draft_finalization",
+    // D4: the mirror signature comes from the runtime; the authority signs
+    // this purpose only against user-approval evidence — finalizeDraft runs
+    // exactly when the user signs the draft, which is that approval.
+    const agentSig = await requestAgentSignature("draft_finalization", {
+      txId: tx.id,
       safeAddress: tx.safeAddress,
       safeTx,
-      expectedSafeTxHash: safeTxHash,
-      transactionId: tx.id,
-      threshold: tx.threshold,
-      decisionEvidence: {
-        riskScore: tx.riskScore,
-        riskVerdict: tx.riskVerdict,
-      },
+      safeTxHash,
+      userApproved: true,
     });
     await proposeToService({
       safeAddress: tx.safeAddress,
       safeTx,
       safeTxHash,
       senderAddress: getAgentAddress(),
-      senderSignature: agentSig.signature.data,
+      senderSignature: agentSig.signature,
       origin: "Zhentan (agent draft)",
     });
   } catch (err) {

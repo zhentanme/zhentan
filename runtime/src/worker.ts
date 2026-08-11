@@ -93,9 +93,33 @@ export async function processJob(
     credentialVersion: job.credential_version,
   };
 
+  if (job.kind === "sign") {
+    // D4: the signing authority verifies EVERYTHING before the key sees a
+    // hash — recomputed hash, chain-sourced owners/nonce, own decision
+    // record, per-purpose rules. A refusal is a deliberate, non-retryable
+    // outcome with a named reason (re-screening or human action fixes it,
+    // not a retry of the same request).
+    const { verifyAndSign } = await import("./signingAuthority.js");
+    const signPayload = decodeWireValue(job.payload) as never;
+    const result = await verifyAndSign(job.purpose ?? "execution", signPayload);
+    if (!result.ok) {
+      console.warn(`Sign refused for tx ${job.tx_id} (${job.purpose}): ${result.reason}`);
+      const refusal = await client.submitResult(
+        { ...base, policyVersion: "none", result: { refused: result.reason } },
+        { success: false, retryable: false, error: result.reason }
+      );
+      return refusal.decision === "accept" || refusal.decision === "duplicate_noop"
+        ? "failed"
+        : outcomeFromDecision(refusal.decision);
+    }
+    const outcome = await client.submitResult({
+      ...base,
+      policyVersion: "none",
+      result: { signature: result.signature, signedBy: result.signedBy },
+    });
+    return outcomeFromDecision(outcome.decision);
+  }
   if (job.kind !== "screen") {
-    // Sign jobs arrive at D4 — refuse non-retryably rather than letting the
-    // lease expire into pointless retries.
     const refusal = await client.submitResult(
       { ...base, policyVersion: "none", result: null },
       { success: false, retryable: false, error: `job kind '${job.kind}' not supported by this runtime version` }
@@ -116,12 +140,29 @@ export async function processJob(
   );
   // Local decision record (D2): accumulates from day one — D4's signing
   // authority verifies against these, E3 builds projections on them.
+  // Content binding (D4): hash the SCREENED SafeTx fields ourselves — at
+  // sign time the authority requires this exact hash to match the request.
+  let screenedSafeTxHash: string | null = null;
+  const screenedTx = payload.tx as { safeTx?: unknown; safeAddress?: string };
+  if (screenedTx.safeTx && screenedTx.safeAddress) {
+    try {
+      const { computeSafeTxHash } = await import("./safeTxHash.js");
+      screenedSafeTxHash = computeSafeTxHash(
+        screenedTx.safeAddress,
+        56,
+        screenedTx.safeTx as Parameters<typeof computeSafeTxHash>[2]
+      );
+    } catch (err) {
+      console.error("Screen-time safeTxHash computation failed:", err instanceof Error ? err.message : err);
+    }
+  }
   recordDecision({
     jobId: job.id,
     txId: job.tx_id,
     txVersion: job.tx_version,
     safeAddress: job.safe_address,
     inputHash: base.inputHash,
+    safeTxHash: screenedSafeTxHash,
     decision,
     evaluatedAt: payload.evaluatedAt,
     recordedAt: new Date().toISOString(),
