@@ -11,9 +11,33 @@
  */
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { timingSafeEqual } from "crypto";
-import { leaseNextJob, heartbeatJob, submitJobResult, getDeadLetterJobs } from "../lib/runtime/jobs.js";
+import { leaseNextJob, heartbeatJob, submitJobResult, getJob, getDeadLetterJobs } from "../lib/runtime/jobs.js";
 import type { JobResultSubmission } from "../lib/runtime/jobsPolicy.js";
-import { loadPolicySnapshot } from "../agent/index.js";
+import { loadPolicySnapshot, type RiskResult } from "../agent/index.js";
+import { applyScreeningDecision } from "../lib/screening/apply.js";
+
+/**
+ * A screen result must carry a complete, well-formed decision BEFORE it can
+ * be accepted — otherwise a malformed submission would settle the job as
+ * terminal `succeeded` while application silently skips, leaving the
+ * transaction unscreened with no retry (the runtime never resubmits a
+ * terminal job).
+ */
+export function isValidScreenDecision(d: unknown): d is RiskResult {
+  if (d === null || typeof d !== "object") return false;
+  const o = d as Record<string, unknown>;
+  return (
+    (o.verdict === "APPROVE" || o.verdict === "REVIEW" || o.verdict === "BLOCK") &&
+    typeof o.riskScore === "number" &&
+    Number.isFinite(o.riskScore) &&
+    o.riskScore >= 0 &&
+    o.riskScore <= 100 &&
+    Array.isArray(o.reasons) &&
+    o.reasons.every((r) => typeof r === "string") &&
+    (o.triggeredRules === undefined ||
+      (Array.isArray(o.triggeredRules) && o.triggeredRules.every((r) => typeof r === "string")))
+  );
+}
 
 function tokenMatches(header: string | undefined, expected: string): boolean {
   if (!header?.startsWith("Bearer ")) return false;
@@ -103,11 +127,32 @@ export function createRuntimeRouter(): IRouter {
         credentialVersion: Number(b.credentialVersion),
         result: b.result,
       };
+      const job = await getJob(req.params.id);
+      // A SUCCESSFUL screen result without a valid decision is rejected
+      // BEFORE acceptance — the job stays leased and retries/dead-letters
+      // visibly instead of settling terminal with nothing to apply.
+      const decisionCandidate = (b.result as { decision?: unknown } | undefined)?.decision;
+      if (job?.kind === "screen" && b.success !== false && !isValidScreenDecision(decisionCandidate)) {
+        res.status(400).json({ error: "Malformed screen decision in result" });
+        return;
+      }
       const outcome = await submitJobResult(submission, {
         success: b.success !== false,
         retryable: b.retryable !== false,
         error: typeof b.error === "string" ? b.error : undefined,
       });
+      // Authoritative screening (D3): an ACCEPTED screen result becomes
+      // canonical state — decision write, notifications, auto-execute.
+      // Fire-and-forget: the runtime's submit must never wait on chain
+      // execution; the propose handler observes the transaction row.
+      // (Application is atomically claimed and idempotent by tx state; a
+      // crash here is healed by the screening reconciler, which re-applies
+      // succeeded screen jobs whose transaction carries no verdict.)
+      if (outcome.decision === "accept" && job?.kind === "screen" && isValidScreenDecision(decisionCandidate)) {
+        void applyScreeningDecision(job.tx_id, decisionCandidate, job.tx_version).catch((err) =>
+          console.error(`Screening apply failed for ${job.tx_id}:`, err)
+        );
+      }
       res.json(outcome);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";

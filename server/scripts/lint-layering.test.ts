@@ -116,6 +116,24 @@ describe("lint-layering guards", () => {
     expect(r.out).toContain("RULE 5 VIOLATION");
   });
 
+  it("rule 6: catches inline evaluation returning to a route", () => {
+    const r = runGuard({
+      ...CLEAN,
+      "routes/bad.ts": 'const risk = evaluateTransaction(tx, patterns, decoded);\n',
+    });
+    expect(r.ok).toBe(false);
+    expect(r.out).toContain("RULE 6 VIOLATION");
+  });
+
+  it("rule 6: evaluateRequest in requests.ts stays permitted (pre-IP)", () => {
+    const r = runGuard({
+      ...CLEAN,
+      "routes/requests.ts": 'const risk = evaluateRequest(tx, patterns);\n',
+    });
+    expect(r.out).toContain("layering ok");
+    expect(r.ok).toBe(true);
+  });
+
   it("rule 5: catches evaluate imported around the agent surface", () => {
     const r = runGuard({
       ...CLEAN,

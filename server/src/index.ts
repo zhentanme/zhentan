@@ -25,7 +25,7 @@ import { createRuntimeRouter } from "./routes/runtime.js";
 import { createNotificationsRouter } from "./routes/notifications.js";
 import { createSafeRouter } from "./routes/safe.js";
 import { startSafeSyncWorker } from "./workers/safeSync.js";
-import { startShadowCompareWorker } from "./lib/runtime/shadow.js";
+import { startScreeningReconciler } from "./lib/runtime/screening.js";
 import { assertSponsorGas } from "./lib/chain/sponsor.js";
 import { editNotification } from "./notify.js";
 import { markBotConnectedByChatId, getUserByTelegramId } from "./lib/supabase/index.js";
@@ -308,7 +308,7 @@ app.get("/health", (_req, res) => {
 const port = Number(process.env.PORT) || 3001;
 app.listen(port, () => {
   console.log(`Zhentan server listening on http://localhost:${port}`);
-  startShadowCompareWorker();
+  startScreeningReconciler();
 startSafeSyncWorker();
   // Surface a low agent gas balance at boot rather than on the first execute.
   if (process.env.AGENT_PRIVATE_KEY) {
