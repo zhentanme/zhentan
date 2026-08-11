@@ -44,6 +44,7 @@ export interface RuntimeJobRow {
   lease_expires_at: string | null;
   attempt_count: number;
   next_retry_at: string | null;
+  inline_decision: unknown;
   result: unknown;
   result_input_hash: string | null;
   result_policy_version: string | null;
@@ -63,6 +64,8 @@ export interface EnqueueJobInput {
   txVersion: number;
   payload: Record<string, unknown>;
   credentialVersion?: number;
+  /** Producer's own decision over the same inputs (shadow comparison). */
+  inlineDecision?: unknown;
 }
 
 /**
@@ -82,6 +85,7 @@ export async function enqueueJob(input: EnqueueJobInput): Promise<RuntimeJobRow>
     payload: input.payload,
     input_hash: computeInputHash(input.payload),
     credential_version: input.credentialVersion ?? 1,
+    inline_decision: input.inlineDecision ?? null,
   };
   // Identity-shaped contract (D0.3): a job without a valid safe scope,
   // credential version, or kind/purpose shape never reaches the queue.

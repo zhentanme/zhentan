@@ -19,6 +19,7 @@ import { SAFE_ABI, MULTISEND_CALL_ONLY } from "../lib/constants.js";
 import { decodeMultiSendData } from "@safe-global/protocol-kit";
 import { classifyProfile, type WalletState } from "../lib/safe/profiles.js";
 import { decodeSafeTxKind } from "../lib/safe/kind.js";
+import { enqueueShadowScreen } from "../lib/runtime/shadow.js";
 import {
   computeSafeTxHash,
   recoverSafeTxSigner,
@@ -490,6 +491,10 @@ export function createQueueRouter(): IRouter {
 
       // ── Risk analysis ────────────────────────────────────────
       let risk;
+      // Pinned explicitly so the shadow job (D2) evaluates the SAME instant —
+      // time-of-day scoring makes the timestamp part of the decision inputs.
+      const evaluatedAt = new Date();
+      let shadowInputs: Parameters<typeof enqueueShadowScreen> | null = null;
       try {
         const patterns = await loadPolicySnapshot(pendingTx.safeAddress ?? "");
         // Classify from the SIGNED calldata so swaps/approvals are scored by
@@ -497,7 +502,8 @@ export function createQueueRouter(): IRouter {
         const decoded = isSafeTx
           ? decodeSafeTxKind(pendingTx.safeTx, pendingTx.safeAddress)
           : undefined;
-        risk = evaluateTransaction(pendingTx, patterns, decoded);
+        risk = evaluateTransaction(pendingTx, patterns, decoded, evaluatedAt);
+        shadowInputs = [pendingTx, patterns, decoded, evaluatedAt, risk];
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error("Risk analysis failed:", msg);
@@ -505,12 +511,29 @@ export function createQueueRouter(): IRouter {
         return;
       }
 
-      // Persist risk result onto the transaction
+      // Persist the FULL screening outcome in one write: risk fields plus,
+      // for REVIEW/BLOCK, the review flag. One write = one version bump,
+      // which the shadow job enqueued below then pins. Splitting this into
+      // a second in_review write after the enqueue would bump the version
+      // again and systematically void every REVIEW/BLOCK shadow job.
       await updateTransaction(pendingTx.id, {
         riskScore: risk.riskScore,
         riskVerdict: risk.verdict,
         riskReasons: risk.reasons,
+        ...(risk.verdict !== "APPROVE" && {
+          inReview: true,
+          reviewedAt: new Date().toISOString(),
+          reviewReason: risk.reasons.join("; "),
+        }),
       });
+
+      // Shadow screening (D2): same inputs through the job protocol; the
+      // runtime's verdict is compared, never applied. Enqueued AFTER the
+      // risk persist so the version the job pins already reflects it;
+      // fire-and-forget — must not touch the live flow.
+      if (shadowInputs) {
+        void enqueueShadowScreen(...shadowInputs);
+      }
 
       const shortTo = `${pendingTx.to.slice(0, 6)}...${pendingTx.to.slice(-4)}`;
       const chatId = await getTelegramChatId(pendingTx.safeAddress ?? "");
@@ -584,11 +607,8 @@ export function createQueueRouter(): IRouter {
       }
 
       // ── REVIEW or BLOCK ──────────────────────────────────────
-      await updateTransaction(pendingTx.id, {
-        inReview: true,
-        reviewedAt: new Date().toISOString(),
-        reviewReason: risk.reasons.join("; "),
-      });
+      // (in_review already persisted with the risk fields above — one write,
+      // one version bump, shadow job stays valid.)
 
       // Record behavioral event + update daily stats (fire-and-forget)
       const outcome = risk.verdict === "REVIEW" ? "sent_for_review" : "auto_blocked";
