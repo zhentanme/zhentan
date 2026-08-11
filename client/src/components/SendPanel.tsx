@@ -78,6 +78,14 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
   const [resolveSource, setResolveSource] = useState<"address" | "ens" | "bnb" | "zhentan" | null>(null);
   const [resolvedName, setResolvedName] = useState<string | null>(null);
   const [resolvedAvatar, setResolvedAvatar] = useState<string | null>(null);
+  /** Resolved-but-not-chosen name match — shown in the dropdown; committed
+   *  to the field only when the user clicks it. Plain 0x input skips this. */
+  const [candidate, setCandidate] = useState<{
+    address: string;
+    name: string;
+    source: "ens" | "bnb" | "zhentan";
+    avatar: string | null;
+  } | null>(null);
   const [resolving, setResolving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -158,6 +166,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       setResolvedName(null);
       setResolvedAvatar(null);
       setResolveError(null);
+      setCandidate(null);
       return;
     }
     if (trimmed.startsWith("0x") && trimmed.length === 42) {
@@ -166,25 +175,26 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       setResolvedName(null);
       setResolvedAvatar(null);
       setResolveError(null);
+      setCandidate(null);
       return;
     }
     setResolving(true);
     setResolveError(null);
     try {
       const data = await api.resolve.resolve(trimmed);
-      setResolvedAddress(data.address);
-      setResolveSource(data.source);
-      setResolvedName(data.name ?? trimmed);
-      setResolvedAvatar(
-        data.source === "ens"
-          ? `https://metadata.ens.domains/mainnet/avatar/${encodeURIComponent(trimmed)}`
-          : null
-      );
+      // A name match becomes a dropdown CANDIDATE — the field populates
+      // only when the user picks it.
+      setCandidate({
+        address: data.address,
+        name: data.name ?? trimmed,
+        source: data.source as "ens" | "bnb" | "zhentan",
+        avatar:
+          data.source === "ens"
+            ? `https://metadata.ens.domains/mainnet/avatar/${encodeURIComponent(trimmed)}`
+            : null,
+      });
     } catch (err) {
-      setResolvedAddress(null);
-      setResolveSource(null);
-      setResolvedName(null);
-      setResolvedAvatar(null);
+      setCandidate(null);
       const message =
         err instanceof Error && err.message
           ? err.message
@@ -195,6 +205,17 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     }
   }, [api]);
 
+  /** Commit the dropdown candidate into the field (the pre-dropdown flow). */
+  const selectCandidate = () => {
+    if (!candidate) return;
+    setResolvedAddress(candidate.address);
+    setResolveSource(candidate.source);
+    setResolvedName(candidate.name);
+    setResolvedAvatar(candidate.avatar);
+    setResolveError(null);
+    setCandidate(null);
+  };
+
   useEffect(() => {
     if (!recipient.trim()) {
       setResolvedAddress(null);
@@ -202,6 +223,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       setResolvedName(null);
       setResolvedAvatar(null);
       setResolveError(null);
+      setCandidate(null);
       return;
     }
     const t = setTimeout(() => resolveRecipient(recipient), 400);
@@ -214,6 +236,11 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
 
     const address = resolvedAddress || (recipient.startsWith("0x") && recipient.length === 42 ? recipient : null);
     if (!address) {
+      // Enter with the dropdown open selects the match instead of submitting.
+      if (candidate) {
+        selectCandidate();
+        return;
+      }
       setError(resolveError || "Enter a valid wallet address or ENS name");
       return;
     }
@@ -352,6 +379,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     setResolvedName(null);
     setResolvedAvatar(null);
     setResolveError(null);
+    setCandidate(null);
   };
 
   // Screening ON: proposing phase (loader + tx details)
@@ -941,13 +969,57 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             </button>
           </div>
         ) : (
-          <input
-            type="text"
-            placeholder="Address, .eth, .bnb or Zhentan username"
-            value={recipient}
-            onChange={(e) => setRecipient(e.target.value)}
-            className="w-full rounded-2xl bg-foreground/6 px-4 py-3.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-claw/40 focus:bg-foreground/8 transition-all min-h-11 touch-manipulation"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Address, .eth, .bnb or Zhentan username"
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              className="w-full rounded-2xl bg-foreground/6 px-4 py-3.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-claw/40 focus:bg-foreground/8 transition-all min-h-11 touch-manipulation"
+            />
+            {candidate && !resolving && (
+              <div className="absolute left-0 right-0 top-full mt-2 z-30 rounded-2xl bg-ink-900 border border-foreground/10 shadow-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={selectCandidate}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 text-left hover:bg-foreground/8 transition-colors cursor-pointer"
+                >
+                  <span className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden bg-foreground/10 flex items-center justify-center text-foreground/80">
+                    {candidate.avatar ? (
+                      <Image
+                        src={candidate.avatar}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="40px"
+                        unoptimized
+                      />
+                    ) : (
+                      <UserRound className="h-5 w-5" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span className="text-foreground text-base sm:text-sm font-semibold truncate">
+                        {candidate.name}
+                      </span>
+                      {candidate.source === "zhentan" && (
+                        <span className="inline-flex text-claw" title="Zhentan User">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className="block text-muted-foreground text-sm truncate font-mono"
+                      title={candidate.address}
+                    >
+                      {recipientAddressLabel(candidate.address)}
+                    </span>
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
         )}
         {resolving && (
           <p className="text-xs text-muted-foreground/80 mt-1">Resolving…</p>
