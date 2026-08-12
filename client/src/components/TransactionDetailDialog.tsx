@@ -10,6 +10,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { Dialog } from "./ui/Dialog";
 import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
+import { MaoAvatar } from "./MaoAvatar";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -416,11 +417,21 @@ function CoSignSection({ tx }: { tx: TransactionWithStatus }) {
 
 // ── Status animation ──────────────────────────────────────────────────────────
 
-function StatusAnimation({ status }: { status: TransactionWithStatus["status"] }) {
+function StatusAnimation({
+  status,
+  screening,
+}: {
+  status: TransactionWithStatus["status"];
+  /** Whether the agent is screening this tx — Mao only appears for agent work. */
+  screening: boolean;
+}) {
   switch (status) {
     case "pending":
+      // Screening on: Mao is reading it. Off: a plain wait for the backup key.
+      return screening ? <MaoAvatar state="scanning" size={80} /> : <ReviewAnimation size={80} />;
     case "in_review":
-      return <ReviewAnimation size={80} />;
+      // The agent paused ON PURPOSE — the decision is yours now.
+      return <MaoAvatar state="asking" size={80} />;
     case "executed":
       return <ExecutedAnimation size={80} />;
     case "rejected":
@@ -485,7 +496,7 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
             exit={{ opacity: 0, scale: 0.92 }}
             transition={{ duration: 0.28, ease: "easeOut" }}
           >
-            <StatusAnimation status={tx.status} />
+            <StatusAnimation status={tx.status} screening={tx.screeningDisabled !== true} />
             <span
               className={`text-sm font-semibold ${
                 tx.status === "executed"

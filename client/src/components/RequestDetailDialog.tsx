@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 import { clsx } from "clsx";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
-import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
+import { ExecutedAnimation, RejectedAnimation } from "./animations/StatusAnimation";
+import { MaoAvatar } from "./MaoAvatar";
 
 interface RequestDetailDialogProps {
   request: QueuedRequest | null;
@@ -47,8 +48,10 @@ type ScreeningPhase =
 function StatusAnimation({ status }: { status: QueuedRequest["status"] }) {
   switch (status) {
     case "queued":
+      // The agent prepared this and is waiting on YOUR call.
+      return <MaoAvatar state="asking" size={80} />;
     case "approved":
-      return <ReviewAnimation size={80} />;
+      return <MaoAvatar state="scanning" size={80} />;
     case "executed":
       return <ExecutedAnimation size={80} />;
     case "rejected":
@@ -570,10 +573,12 @@ function ScreeningView({
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-center gap-3 text-center">
-        {isLoading ? (
+        {phase === "proposing" ? (
           <ThemeLoaderSpinner motion="scan" />
+        ) : phase === "screening" ? (
+          <MaoAvatar state="scanning" size={80} />
         ) : phase === "review" ? (
-          <ReviewAnimation size={80} />
+          <MaoAvatar state="asking" size={80} />
         ) : phase === "executed" ? (
           <ExecutedAnimation size={80} />
         ) : (

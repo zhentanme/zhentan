@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useState } from "react";
 import { TwinTick } from "@/components/BrandMark";
+import { MaoAvatar } from "@/components/MaoAvatar";
 import s from "./GuardianCard.module.css";
 
 function SwapIcon() {
@@ -153,7 +154,7 @@ export function GuardianCard() {
             <span key={i} className={s.sonarRing} style={{ animationDelay: `${i * 0.8}s` }} />
           ))}
           <div className={s.sonarCenter}>
-            <TwinTick size={22} halo="none" style={{ opacity: 0.85 }} />
+            <MaoAvatar state="scanning" size={50} earTwitch={false} />
           </div>
         </div>
         <p className={s.sonarLabel}>Zhentan is monitoring</p>

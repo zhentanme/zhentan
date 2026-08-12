@@ -5,9 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { clsx } from "clsx";
 import {
-  Bot,
   User,
-  Activity,
   CheckCircle2,
   AlertTriangle,
   ArrowUpRight,
@@ -16,7 +14,7 @@ import {
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
 import { truncateAddress, timeAgo, formatTokenAmount } from "@/lib/format";
-import { TwinTick } from "@/components/BrandMark";
+import { MaoAvatar } from "@/components/MaoAvatar";
 import { TransactionDetailDialog } from "@/components/TransactionDetailDialog";
 import { RequestDetailDialog } from "@/components/RequestDetailDialog";
 import { useRequestActions } from "@/hooks/useRequestActions";
@@ -104,7 +102,7 @@ function LiveReadout({ isActive }: { isActive: boolean }) {
         />
 
         <div className="h-full flex flex-col items-center justify-center py-9 px-5">
-          {/* Zhentan scanner — sonar sweep */}
+          {/* Mao on watch — sonar sweep around the agent */}
           <div className="relative mb-7 flex items-center justify-center w-[72px] h-[72px]">
             {isActive && (
               <>
@@ -113,16 +111,11 @@ function LiveReadout({ isActive }: { isActive: boolean }) {
                 <span className="absolute inset-0 rounded-full border-[1.5px] border-gold/70 [animation:sonar_2.4s_ease-out_1.6s_infinite]" />
               </>
             )}
-            <div
-              className={clsx(
-                "relative w-10 h-10 rounded-full flex items-center justify-center",
-                isActive
-                  ? "bg-gold/10 [animation:signal-pulse_2.4s_ease-in-out_infinite]"
-                  : "bg-foreground/6 grayscale opacity-60"
-              )}
-            >
-              <TwinTick size={22} halo="none" />
-            </div>
+            <MaoAvatar
+              state={isActive ? "scanning" : "resting"}
+              size={56}
+              className="relative"
+            />
           </div>
 
           {/* Rolling agent text */}
@@ -195,7 +188,11 @@ function PendingCard({
               isQueued ? "text-watch" : "text-gold"
             )}
           >
-            {isQueued ? <Bot className="h-3 w-3" /> : <User className="h-3 w-3" />}
+            {isQueued ? (
+              <MaoAvatar state="idle" size={13} variant="solid" color="currentColor" />
+            ) : (
+              <User className="h-3 w-3" />
+            )}
             {isQueued ? "Agent proposed" : "You proposed"}
           </span>
           <span className="font-mono text-[10px] text-muted-foreground/55">
@@ -310,19 +307,21 @@ export function RightRail() {
           <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
             {isScreeningActive && (
               <>
-                <span className="absolute inset-0 rounded-md border border-safe/50 [animation:sonar_2.6s_ease-out_infinite]" />
-                <span className="absolute inset-0 rounded-md border border-safe/50 [animation:sonar_2.6s_ease-out_1.3s_infinite]" />
+                <span className="absolute inset-0 rounded-md border border-gold/50 [animation:sonar_2.6s_ease-out_infinite]" />
+                <span className="absolute inset-0 rounded-md border border-gold/50 [animation:sonar_2.6s_ease-out_1.3s_infinite]" />
               </>
             )}
             <div
               className={clsx(
                 "relative w-10 h-10 rounded-md flex items-center justify-center",
-                isScreeningActive
-                  ? "bg-safe/12 text-safe"
-                  : "bg-foreground/6 text-muted-foreground"
+                isScreeningActive ? "bg-gold/10" : "bg-foreground/6"
               )}
             >
-              <Bot className="h-5 w-5" />
+              <MaoAvatar
+                state={isScreeningActive ? "scanning" : "resting"}
+                size={24}
+                variant="solid"
+              />
             </div>
           </div>
           <div className="flex-1 min-w-0">

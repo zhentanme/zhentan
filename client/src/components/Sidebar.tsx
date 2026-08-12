@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Shield, ShieldOff, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { motion } from "framer-motion";
 import { BrandMark } from "@/components/BrandMark";
+import { MaoAvatar } from "@/components/MaoAvatar";
 import { AccountDialog } from "@/components/AccountDialog";
 import { navItems } from "@/components/TopBar";
 import { useAuth } from "@/app/context/AuthContext";
@@ -74,11 +75,12 @@ export function Sidebar() {
             isScreeningActive ? "bg-safe/10 text-safe" : "bg-foreground/5 text-muted-foreground"
           )}
         >
-          {isScreeningActive ? (
-            <Shield className="h-3.5 w-3.5" />
-          ) : (
-            <ShieldOff className="h-3.5 w-3.5" />
-          )}
+          <MaoAvatar
+            state={isScreeningActive ? "scanning" : "resting"}
+            size={14}
+            variant="solid"
+            color="currentColor"
+          />
           <span className="flex-1">Screening</span>
           <span className="font-semibold">{isScreeningActive ? "On" : "Off"}</span>
         </div>

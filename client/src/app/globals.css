@@ -380,6 +380,123 @@
   animation: signal-pulse 2.2s ease-in-out infinite;
 }
 
+/* ── Mao — the agent character (see MaoAvatar.tsx) ────────────
+   The lens is the only surface that animates. One sweep pass per
+   1.6s, no bounce; a returning sweep reads as scrubbing, not
+   scanning. Under reduced motion every animation stops and the
+   sweep bar rests at centre-glass, so the state still reads. */
+@keyframes mao-sweep {
+  0% {
+    transform: translateX(-78px);
+  }
+  100% {
+    transform: translateX(78px);
+  }
+}
+
+@keyframes mao-sweep-soft {
+  0% {
+    transform: translateX(-78px);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(78px);
+    opacity: 0;
+  }
+}
+
+@keyframes mao-dot {
+  0%,
+  100% {
+    opacity: 0.22;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes mao-alert {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes mao-tick {
+  0% {
+    stroke-dashoffset: 26;
+  }
+  60%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes mao-zzz {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.7);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(9px, -14px) scale(1.1);
+  }
+}
+
+@keyframes mao-twitch-l {
+  0% {
+    transform: rotate(0deg);
+  }
+  22% {
+    transform: rotate(-10deg);
+  }
+  48% {
+    transform: rotate(3.5deg);
+  }
+  72% {
+    transform: rotate(-2deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes mao-twitch-r {
+  0% {
+    transform: rotate(0deg);
+  }
+  22% {
+    transform: rotate(10deg);
+  }
+  48% {
+    transform: rotate(-3.5deg);
+  }
+  72% {
+    transform: rotate(2deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mao-anim {
+    animation: none !important;
+  }
+}
+
 .skeleton-shimmer {
   background: linear-gradient(
     90deg,

@@ -13,6 +13,7 @@ import { CoSignButton } from "@/components/CoSignButton";
 import { UsdcIcon } from "./icons/UsdcIcon";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
 import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
+import { MaoAvatar } from "./MaoAvatar";
 import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, Loader2, MessageCircle, X, UserRound, Zap } from "lucide-react";
 import { useForceExecuteSetting } from "@/lib/useForceExecute";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
@@ -430,7 +431,11 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
-          <ReviewAnimation size={80} />
+          {tx.status === "in_review" ? (
+            <MaoAvatar state="asking" size={80} />
+          ) : (
+            <MaoAvatar state="scanning" size={80} />
+          )}
           <span className="text-sm font-semibold text-watch">{statusLabel(tx.status)}</span>
         </div>
         <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
