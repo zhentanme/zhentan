@@ -35,7 +35,15 @@ export function rowToTx(row: TransactionRow): PendingTransaction {
     tokenAddress: row.token_address ?? "",
     tokenIconUrl: row.token_icon_url ?? null,
     proposedBy: row.proposed_by ?? "",
-    signatures: [],
+    // Real signature state: the proposer's signature + any co-signatures.
+    // The agent's signature is requested transiently at execution (D4) and
+    // never stored, so this is exactly what the UI should count — e.g.
+    // "1 of 2" while a SafeTx sits in review. (Was hardcoded [] — a
+    // vestige of the pre-DB queue format — making every dialog show 0/2.)
+    signatures: [
+      ...(row.user_signature ? [row.user_signature] : []),
+      ...(row.user_signatures ?? []).map((s) => s.data),
+    ],
     ownerAddresses: row.owner_addresses ?? [],
     threshold: row.threshold ?? 2,
     safeAddress: row.safe_address,
