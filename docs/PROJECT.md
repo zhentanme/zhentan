@@ -1,5 +1,12 @@
 # Project: Zhentan
 
+> **Historical document** — written during the original build; the
+> architecture has since evolved (the agent now runs as a separate
+> runtime service that screens and signs). For current docs see
+> [docs/technology/architecture](technology/architecture.mdx) and the
+> root CLAUDE.md.
+
+
 > Live onchain activity (smart accounts + transactions on BNB Chain): [docs/ONCHAIN.md](./ONCHAIN.md)
 
 ## 1. Problem

@@ -13,15 +13,15 @@ A fully set up Zhentan wallet has three owners and a threshold of 2:
 |-------|---------|------|
 | **Embedded key** | You (Privy embedded wallet, or your connected wallet for wallet login) | Proposes and signs every transaction |
 | **Backup key** | You (any external wallet — pasted address, ENS/.bnb name, or connected) | Your override and recovery key |
-| **Agent key** | Zhentan agent | Screens, co-signs approved transactions, relays and pays gas |
+| **Agent key** | Zhentan agent runtime | Screens and co-signs approved transactions — held by the [agent runtime](/technology/architecture#agent-runtime), a separate service whose only job is to verify before signing |
 
 Your two keys meet the threshold — so the agent is an **advisory speed bump, not a gatekeeper**. If it ever blocks something you want (or disappears entirely), you can execute from [app.safe.global](https://app.safe.global) with your embedded + backup keys and go around it.
 
 <Note>
-**Two hard invariants**, enforced server-side on every proposal:
+**Two hard invariants:**
 
-1. The agent **never reaches the threshold alone** — it cannot move funds without you.
-2. The agent **never signs a transaction it didn't screen** — when screening is off, your own keys must meet the threshold and the agent only relays.
+1. The agent **never reaches the threshold alone** — it cannot move funds without you. Enforced server-side on every proposal and transition.
+2. The agent **never signs a transaction it didn't screen** — enforced **cryptographically, next to the key itself**: the signing key lives in a separate runtime service that refuses to sign unless it independently re-verifies the transaction hash, reads the Safe's owners and nonce from chain, and finds **its own record** of having screened this exact transaction. When screening is off, your own keys must meet the threshold and the system only relays.
 </Note>
 
 ## Wallet Profiles
@@ -56,28 +56,33 @@ Every user transaction is a standard Safe transaction (EIP-712 SafeTx) — visib
 sequenceDiagram
     participant U as User (embedded key)
     participant S as Zhentan Server
+    participant RT as Agent Runtime
     participant TS as Safe Transaction Service
-    participant A as Agent
     participant BC as BNB Chain
 
     U->>S: POST /queue — SafeTx + EIP-712 signature (1 of 2)
     S->>TS: propose — appears in app.safe.global at 1/2
-    S->>S: analyzeRisk() → APPROVE / REVIEW / BLOCK
+    S->>RT: screen → APPROVE / REVIEW / BLOCK
     alt APPROVE (screened)
-        A->>TS: confirm (2 of 2)
-        A->>BC: execTransaction — agent EOA pays BNB gas
+        S->>RT: request signature
+        RT->>RT: verify hash + chain state + own screening record → sign
+        S->>TS: confirm (2 of 2) with the runtime's signature
+        S->>BC: execTransaction — sponsor EOA pays BNB gas
         BC-->>U: executed
     else REVIEW
-        A->>U: Telegram report + [Approve] [Reject]
+        S->>U: Telegram report + [Approve] [Reject]
+        Note over S,RT: on approval, the signature request carries your approval as evidence
     else BLOCK
-        A->>U: blocked alert (override still available in the Safe app)
+        S->>U: blocked alert (override still available in the Safe app)
     end
 ```
 
 Key properties:
 
-- **The agent relays and pays gas.** Users never need BNB — the agent EOA submits `execTransaction` on-chain.
-- **Rejections never leave nonce holes.** Every proposal pre-signs a same-nonce empty cancel transaction, so a rejection consumes the nonce cleanly and later proposals aren't blocked.
+- **Zhentan relays and pays gas.** Users never need BNB — a dedicated sponsor EOA submits `execTransaction` on-chain. Signing and sending are different hands: the runtime signs, the sponsor sends.
+- **One signature, verified twice.** The runtime's signature is checked by the server (it must recover to the registered agent address) before being used — once for the Safe-app confirmation and once on-chain. They are the same bytes over the same transaction hash.
+- **Rejections never leave nonce holes.** Every proposal pre-signs a same-nonce empty cancel transaction, so a rejection consumes the nonce cleanly and later proposals aren't blocked. The cancel's co-signature comes from the runtime under a dedicated rule: under the rejection purpose it will sign **nothing but** the empty self-call at the current nonce.
+- **If the screening service is ever unavailable, nothing executes.** Screened proposals simply wait (you'll see them pending) and complete automatically when it returns — while relay-only and backup-key flows continue unaffected. Unavailable means paused, never unsafe.
 - **The Safe app is a first-class surface.** A sync worker reconciles transactions confirmed or executed directly from app.safe.global — the override path is fully supported, not an afterthought.
 
 ## Relay-Only Execution

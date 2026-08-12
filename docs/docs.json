@@ -46,7 +46,10 @@
         "groups": [
           {
             "group": "Get Started",
-            "pages": ["introduction", "quickstart"]
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
           },
           {
             "group": "Zhentan App",
@@ -66,7 +69,8 @@
               "technology/risk-scoring",
               "technology/agent",
               "technology/legacy",
-              "technology/contracts"
+              "technology/contracts",
+              "technology/self-hosting"
             ]
           }
         ]

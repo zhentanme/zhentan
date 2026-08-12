@@ -1,0 +1,45 @@
+---
+title: Self-Hosting the Agent
+description: Where the self-hostable agent stands today, and what's coming.
+---
+
+Zhentan's long-term goal is that **you run your own agent** — the service that screens your transactions and holds the co-signing key answers to you, on your machine, while the Zhentan backend keeps doing what a backend should: canonical state, the Safe Transaction Service mirror, and gas relay.
+
+The architecture for this already exists. This page is honest about which parts are real today and which are on the roadmap.
+
+## What Exists Today
+
+The agent runtime is a **fully separable process** with a hard boundary:
+
+- It talks to the backend exclusively over an authenticated HTTPS API — configure `RUNTIME_API_URL` and it can run anywhere
+- It has **no database credential** (enforced by lint, dependency guards, and a boot test) and accepts no inbound connections
+- It holds the signing key (`AGENT_PRIVATE_KEY`) behind a verifying authority: it recomputes every transaction hash, reads the Safe's owners and nonce from chain (`RUNTIME_RPC_URL`), and signs only what **its own decision log** proves it screened
+- It ships with deployment tooling: `./runtime/run.sh build && ./runtime/run.sh start` (PM2), a localhost health endpoint, and an env template at `runtime/.env.example`
+
+```
+runtime/.env
+├── RUNTIME_API_URL      # the backend — anywhere reachable
+├── RUNTIME_API_TOKEN    # authenticates the runtime to the backend
+├── AGENT_PRIVATE_KEY    # the ONLY signing key in the system
+└── RUNTIME_RPC_URL      # chain reads for pre-sign verification
+```
+
+If the runtime is offline, screened transactions **wait** — nothing executes without a verdict, and your relay-only and backup-key flows continue untouched.
+
+## What's Coming
+
+Today there is one shared agent identity, so running the runtime yourself is an operational split, not yet *your* agent. The remaining milestones:
+
+| Milestone | What it adds |
+|-----------|--------------|
+| **Agent identities & pairing** | Each Safe maps to a named agent identity; you pair your runtime to your wallet |
+| **Per-agent credentials** | Your runtime's credential is scoped to your Safe alone — it cannot lease anyone else's work |
+| **Policy snapshots & evidence** | Your behavioral profile flows down to your runtime; screening evidence flows back up |
+| **Your own signer key** | A per-user agent key, swapped in as your Safe's owner via a reviewed owner-management transaction |
+| **Your agent talks to you** | Review prompts come from your own runtime through your own channel, and your approvals return as first-party evidence |
+
+The signing rules, wire protocol, and verification model shipping today were built for that end state — self-hosting swaps credentials and configuration, not architecture.
+
+<Note>
+Until per-agent credentials ship, the runtime deployment is operated by Zhentan. The security properties above — user-held key majority, screened-only signing, the Safe-app override — hold either way.
+</Note>

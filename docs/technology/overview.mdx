@@ -3,7 +3,7 @@ title: Overview
 description: Technical overview of how Zhentan is built.
 ---
 
-Zhentan is built on three independently runnable components that work together: an instant deterministic scoring layer, an interactive AI agent layer, and a Safe multisig execution layer where **the user always holds the majority of keys**.
+Zhentan is built on independently runnable components with one security spine: a deterministic risk engine, an **agent runtime** that both screens and signs (the only component holding a signing key — and it refuses to sign anything it didn't screen itself), an interactive AI agent layer for dialogue and investigation, and a Safe multisig execution layer where **the user always holds the majority of keys**.
 
 <CardGroup cols="2">
   <Card title="Signing & Wallet Profiles" icon="signature" iconType="duotone" href="/technology/signing">

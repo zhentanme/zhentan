@@ -5,9 +5,9 @@ description: Relay a queued SafeTx on-chain — the agent pays gas, and signs on
 
 ## POST /execute
 
-Executes a queued SafeTx. The agent EOA relays `execTransaction` and pays BNB gas. Its signing behavior depends on whose signatures are already on the row:
+Executes a queued SafeTx. A dedicated sponsor EOA relays `execTransaction` and pays BNB gas; the agent's signature — when one is needed — is produced by the [agent runtime](/technology/architecture#agent-runtime) only after it independently verifies the transaction against its own screening record and on-chain state. Behavior depends on whose signatures are already on the row:
 
-- **User signatures below threshold, screening on:** the agent adds its confirmation (2 of 2) via the Safe Transaction Service, then executes. Called after an APPROVE verdict or a Telegram approval.
+- **User signatures below threshold, screening on:** the server requests the runtime's signature, uses it to confirm 2 of 2 via the Safe Transaction Service, and executes. Called after an APPROVE verdict or a Telegram approval.
 - **User signatures meet the threshold** (starter wallets, or screening-off with a backup co-signature): **relay-only** — the agent submits and pays gas but contributes **no signature**.
 - **Screening off, below threshold:** refused with *"Awaiting backup co-signature"* — no caller (client, Telegram, MCP, or the agent itself) can make the agent sign an unscreened transaction. Complete the row via [`/cosign`](/api/cosign-transaction) or the Safe app. [Legacy v1 accounts](/technology/legacy) without a backup key are exempt.
 
@@ -37,5 +37,7 @@ Idempotency and nonce races are handled server-side: if the Safe's on-chain nonc
 
 | Field | Description |
 |-------|-------------|
-| `status` | `executed`, `already_executed`, or `superseded` |
+| `status` | `executed`, `already_executed`, `in_progress` (another execution of this row is mid-flight), or `superseded` |
 | `txHash` | On-chain transaction hash |
+
+If the agent runtime is unavailable or refuses to sign (for example, no screening record exists for this exact transaction), the execution attempt fails with the named reason and the transaction **stays safely queued** — retry once the runtime is reachable; a re-screen happens automatically where needed.

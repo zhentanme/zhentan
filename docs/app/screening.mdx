@@ -3,7 +3,7 @@ title: Screening
 description: How AI transaction screening works from the user's perspective.
 ---
 
-Every transaction you initiate is scored 0–100 against your behavioral profile before anything executes. The result is one of three verdicts.
+Every transaction you initiate is scored 0–100 against your behavioral profile before anything executes. Screening runs in a dedicated agent service — the same one that holds the signing key, which is why an unscreened transaction can never be signed. The result is one of three verdicts.
 
 ## The Three Verdicts
 
@@ -79,3 +79,9 @@ After every confirmed transaction, Zhentan records the pattern. Recipients you t
 | `reject <tx-id>` | Manually reject a pending transaction |
 | `get-status` | See current screening mode and recent decisions |
 | `screening on` / `screening off` | Toggle screening |
+
+## If Screening Is Momentarily Unavailable
+
+Screening is **fail-closed**: if the screening service is ever briefly unreachable, your proposal is accepted and simply waits — you'll see it as *pending* with its real signature count (e.g. 1 of 2). Nothing executes without a verdict, and the moment the service returns, screening completes automatically and the normal flow (auto-execute, or the Telegram review) picks up where it left off. Transactions that never involve the agent's signature — starter wallets and screening-off co-signed transfers — are unaffected and execute as usual.
+
+Paused, never unsafe.

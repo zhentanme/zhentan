@@ -8,8 +8,10 @@ description: System overview, component breakdown, and data flow.
 | Component | Role |
 |-----------|------|
 | `client/` | Next.js 14 frontend — onboarding, wallet profiles, dashboard, send/swap, WalletConnect, invoices |
-| `server/` | Express API — inline risk analysis, queue management, Safe Transaction Service integration, address derivation, relay execution, Zerion portfolio |
-| `agent/` | NanoBot/Hermes skill pack — Telegram commands, deep analysis, screening decisions, pattern recording |
+| `server/` | Express API — canonical state, proposal validation, Safe Transaction Service integration, address derivation, notifications, sponsor relay, Zerion portfolio. **Holds no signing key.** |
+| `runtime/` | The agent runtime — a separate worker process that **screens every transaction and holds the only signing key**. Pulls work from the server over an authenticated API; has no database access and accepts no inbound connections |
+| `screening/` | Pure risk engine shared by server and runtime — same code, same decision, wherever it runs |
+| `agent/` | NanoBot/Hermes skill pack — the conversational layer: Telegram commands, deep analysis, review dialogue. **Holds no keys** |
 
 ```mermaid
 flowchart TD
@@ -18,19 +20,20 @@ flowchart TD
     C -->|POST /queue — SafeTx, EIP-712 signed 1-of-2| S[Server :3001]
     S -->|propose 1/2| TS[Safe Transaction Service]
     TS -->|visible + confirmable| SA[app.safe.global]
-    S -->|analyzeRisk inline| R{Risk Score}
-    R -->|< 40 APPROVE| OC[NanoBot/Hermes Agent]
-    R -->|40-70 REVIEW| OC
-    R -->|> 70 BLOCK| OC
+    S -->|screen job| RT[Agent Runtime]
+    RT -->|verdict| R{Risk Score}
+    R -->|< 40 APPROVE| S
+    R -->|40-70 REVIEW| TG[Telegram / User]
+    R -->|> 70 BLOCK| TG
+    TG -->|approve / reject| OC[NanoBot/Hermes Agent]
+    OC -->|commands via MCP| S
     OC -->|REVIEW: deep-analyze| EXT[GoPlus / Honeypot.is]
-    EXT -->|address + token report| OC
-    OC <-->|REVIEW: report + buttons\nBLOCK: alert| TG[Telegram / User]
-    OC -->|confirm 2/2 via service| TS
-    OC -->|execTransaction — agent pays gas| BC[BNB Chain]
+    S -->|sign job| RT
+    RT -->|verified signature| S
+    S -->|confirm 2/2 via service| TS
+    S -->|execTransaction — sponsor pays gas| BC[BNB Chain]
     SA -->|override: backup key confirms + executes| BC
     BC -->|txHash| C
-    BC -->|confirmed| OC
-    OC -->|record-pattern| P[(patterns)]
 ```
 
 ## Client
@@ -45,19 +48,25 @@ flowchart TD
 ## Server
 
 - **Express** with TypeScript (`tsx` for dev, PM2 for production)
-- Runs `analyzeRisk()` inline on every `/queue` request — no async roundtrip
+- Owns **canonical state**: user records, the transaction queue, notifications (Telegram + email), and the Supabase (Postgres) database — the runtime never touches any of these directly
 - **Hard-validates every proposal**: signature recovery against the recorded owner set, threshold arithmetic for screening-off, and owner-management transitions
+- Sends every screening and signing request to the runtime as a **job** over the Runtime API (bearer-authenticated, fail-closed) and applies the verdicts that come back — exactly once, atomically
 - Mirrors every proposal to the **Safe Transaction Service** so it appears in app.safe.global at 1/2; a `safeSync` worker reconciles transactions confirmed or executed there directly
-- **Relays execution**: the agent EOA submits `execTransaction` and pays BNB gas — relay-only (no agent signature) whenever user signatures meet the threshold
-- Derives addresses server-side through a [versioned registry](/technology/signing#address-derivation); user records and transactions persist in Supabase (Postgres)
+- **Relays execution**: a dedicated sponsor EOA submits `execTransaction` and pays BNB gas — relay-only (no agent signature) whenever user signatures meet the threshold
+- Derives addresses server-side through a [versioned registry](/technology/signing#address-derivation)
 
-## Agent
+## Agent Runtime
 
-- **NanoBot/Hermes skill pack** — holds the agent owner key
-- Responds to Telegram commands from the owner
-- Runs deep analysis (GoPlus + Honeypot.is) on REVIEW-tier transactions
-- Records patterns after every confirmed transaction
-- **Never signs unscreened transactions** — with screening off it either relays only (v2) or, for [legacy v1 accounts](/technology/legacy), co-signs by explicit exemption
+- A **separate worker process** — the security core of the system
+- **Screens** every proposal with the shared risk engine, from inputs the server assembles into the job itself
+- **Holds the only signing key**, behind a verifying authority: before signing anything it independently recomputes the transaction hash, reads the Safe's owners and nonce **from chain**, and requires **its own record of having screened this exact transaction** — a claim in the request is not evidence
+- Keeps its own append-only decision log; has **no database credential** and opens no inbound port (a localhost health endpoint is its only listener)
+- **Fail-closed**: if the runtime is down, screened transactions simply wait — nothing executes without a verdict, and flows that never need the agent's signature (relay-only, backup co-sign) continue unaffected
+
+## Conversational Agent
+
+- **NanoBot/Hermes skill pack** — Telegram commands, review dialogue, deep analysis (GoPlus + Honeypot.is) on REVIEW-tier transactions
+- Sends every command through the server's authenticated API (via MCP) — it holds no keys and touches no state directly
 
 ## Data Flow
 
@@ -65,44 +74,43 @@ flowchart TD
 sequenceDiagram
     participant C as Client
     participant S as Server
+    participant RT as Agent Runtime
     participant TS as Safe Tx Service
-    participant OC as NanoBot/Hermes Agent
-    participant EXT as GoPlus / Honeypot.is
     participant TG as Telegram
     participant BC as BNB Chain
 
     C->>S: POST /queue {SafeTx, EIP-712 signature 1-of-2}
     S->>TS: propose (1/2 in app.safe.global)
-    S->>S: analyzeRisk() → score
-    S->>OC: notify (verdict + score)
+    S->>RT: screen job (tx + behavioral snapshot)
+    RT->>RT: risk engine → verdict, recorded locally
+    RT-->>S: verdict
     alt APPROVE
-        OC->>TS: confirm (2/2)
-        OC->>BC: execTransaction (agent pays gas)
+        S->>RT: sign job
+        RT->>BC: verify owners + nonce on chain
+        RT->>RT: check own screening record → sign
+        RT-->>S: verified signature
+        S->>TS: confirm (2/2)
+        S->>BC: execTransaction (sponsor pays gas)
         BC-->>C: txHash
-        OC->>S: record-pattern
-    else REVIEW
-        OC->>EXT: deep-analyze (recipient + token)
-        EXT-->>OC: address reputation, token security
-        OC->>TG: analysis report + [Approve] [Reject]
-        TG-->>OC: user responds
-        OC->>BC: execTransaction (if approved)
-        OC->>S: record-pattern
-    else BLOCK
-        OC->>TG: blocked alert
-        Note over C,BC: Override: user confirms with backup key in the Safe app — safeSync reconciles
+    else REVIEW / BLOCK
+        S->>TG: report + [Approve] [Reject]
+        TG-->>S: user decision (via agent command)
+        S->>RT: sign job (with approval evidence)
+        RT-->>S: verified signature
+        S->>BC: execTransaction (if approved)
     end
+    Note over C,BC: Override at any time: user confirms with backup key in the Safe app — safeSync reconciles
 ```
 
-Rejections execute a **pre-signed empty transaction at the same nonce**, so a rejected proposal never leaves a nonce hole blocking later transactions.
+Rejections execute a **pre-signed empty transaction at the same nonce**, so a rejected proposal never leaves a nonce hole blocking later transactions — the cancel's agent signature comes from the runtime like any other.
 
 ## State
 
 | Store | Purpose |
 |-------|---------|
-| Supabase (Postgres) | User records (owner sets, thresholds, immutable creation snapshots), transaction queue and outcomes |
+| Supabase (Postgres) | User records (owner sets, thresholds, immutable creation snapshots), transaction queue and outcomes, screening/signing job queue — **server-only access** |
 | Safe Transaction Service | Proposal mirror — the source the Safe app reads and writes |
-| `state.json` | Screening mode and agent decisions (agent runtime) |
-| `patterns.json` | Learned behavioral patterns (agent runtime) |
+| Runtime decision log | Append-only record of every screening decision, kept by the runtime itself — what the signing authority verifies against |
 
 ## Tech Stack
 
@@ -110,9 +118,10 @@ Rejections execute a **pre-signed empty transaction at the same nonce**, so a re
 |-------|-----------|
 | Chain | BNB Chain (BSC), Chain ID 56 |
 | Smart Account | Safe 1.4.1 multisig — standard SafeTx flow via the Safe Transaction Service |
-| Gas | Agent EOA relays `execTransaction` and pays BNB (ERC-4337/Pimlico survives only for legacy queued rows) |
+| Gas | Sponsor EOA relays `execTransaction` and pays BNB |
 | Frontend | Next.js 14, React 18, TypeScript, Tailwind CSS, Framer Motion |
 | Auth | Privy (Google OAuth + embedded wallets, wallet login, backup-key linking) |
 | Blockchain libs | viem, @safe-global/protocol-kit + api-kit |
 | Backend | Express, Supabase (Postgres), tsx (dev), PM2 (production) |
+| Agent runtime | Node worker (PM2), shared `zhentan-screening` risk core, viem for chain verification |
 | AI Agent | NanoBot/Hermes with Qwen3-235B / Claude Sonnet 4.5 via OpenRouter |

@@ -13,7 +13,7 @@ They keep working without any action — but they run under a few carefully-scop
 |--------|-------------|
 | **Profile** | Classifies as **Guarded** — one user key, agent co-signer, threshold 2 |
 | **Address derivation** | Pinned to the v1 recipe (4337-module initializer) **forever** — the derivation version is part of the account's immutable creation snapshot, so its address stays re-derivable |
-| **Execution** | New transactions use the standard SafeTx flow like everyone else; ERC-4337 survives **only** for pre-refactor queued rows (`tx_type='4337'`) |
+| **Execution** | The standard SafeTx flow like everyone else. The legacy ERC-4337 execution path is fully **retired** — all remaining pre-refactor queued rows were audited and closed out; nothing executes as a UserOperation anymore |
 | **Screening off** | Allowed, with the agent as blind co-signer (see below) |
 
 ## The Screening-Off Exception
@@ -26,7 +26,7 @@ So v1 accounts get a capability-scoped exemption:
 A v1 account **without a backup key** may pause screening; the agent still co-signs (it just skips risk analysis). The exemption is keyed on **capability, not version** — it applies only while the account's own keys cannot meet the threshold. The moment a backup key is added, the strict v2 rules apply automatically.
 </Note>
 
-This is enforced in three places: at proposal validation, again at execution (defense in depth — no surface can make the agent sign an unscreened transaction for an upgraded account), and in the client flow.
+This is enforced at proposal validation, at execution, and — since the signing key moved into the [agent runtime](/technology/architecture#agent-runtime) — **at the key itself**: before blind co-signing, the runtime independently re-derives the capability from the account's registered derivation version and the owner set it reads from chain. A request merely *claiming* the exemption is refused; an upgraded account (own keys meet the threshold on-chain) loses the capability automatically, no matter what any request says.
 
 ## Upgrading to the Full Model
 

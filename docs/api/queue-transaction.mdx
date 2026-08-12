@@ -68,16 +68,32 @@ Proposals with `screeningDisabled` below the threshold are **rejected outright**
 
 ## Response
 
+Screening runs in the agent runtime; with it co-located the verdict (and any auto-execution) completes within the request:
+
 ```json
 {
   "success": true,
   "id": "tx-1a2b3c4d",
-  "risk": { "riskScore": 15, "verdict": "APPROVE", "reasons": [] }
+  "risk": { "riskScore": 15, "verdict": "APPROVE", "reasons": [] },
+  "autoExecuted": true,
+  "txHash": "0x..."
+}
+```
+
+If the screening service doesn't answer within the bounded window, the response **degrades instead of failing** — the proposal is queued, screening completes when the service returns, and notifications fire then:
+
+```json
+{
+  "success": true,
+  "id": "tx-1a2b3c4d",
+  "screening": "pending"
 }
 ```
 
 | Field | Description |
 |-------|-------------|
 | `id` | Transaction ID in the queue |
-| `risk` | Present when screening is on — score, verdict, reasons |
+| `risk` | Present when the verdict arrived in-window — score, verdict, reasons |
+| `autoExecuted` / `txHash` | Present on an APPROVE verdict that executed within the window |
+| `screening` | `"pending"` — verdict not yet available; the transaction is safely queued (fail-closed) and resolves automatically |
 | `serviceWarning` | Present if the Safe Transaction Service mirror failed (queuing still succeeds) |
