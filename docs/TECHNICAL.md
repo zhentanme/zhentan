@@ -1,5 +1,12 @@
 # Technical Documentation
 
+> **Historical document** — written during the original build; the
+> architecture has since evolved (the agent now runs as a separate
+> runtime service that screens and signs). For current docs see
+> [docs/technology/architecture](technology/architecture.mdx) and the
+> root CLAUDE.md.
+
+
 > One place for **how** the system works and how to run and use it.
 > Live onchain activity: [docs/ONCHAIN.md](./ONCHAIN.md)
 

@@ -11,7 +11,10 @@
     "start": "node dist/index.js",
     "lint": "tsc --noEmit && sh scripts/lint-boundary.sh",
     "test": "vitest run",
-    "pm2:start": "pm2 start ecosystem.config.cjs"
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop zhentan-runtime",
+    "pm2:restart": "pm2 restart zhentan-runtime",
+    "pm2:logs": "pm2 logs zhentan-runtime"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
@@ -22,6 +25,7 @@
     "@types/node": "^20.11.5",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
-    "vitest": "^4.0.0"
+    "vitest": "^4.0.0",
+    "pm2": "^5.3.0"
   }
 }

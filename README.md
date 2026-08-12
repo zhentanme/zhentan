@@ -44,7 +44,8 @@ See `scripts/.env.example` and `server/.env.example` for full templates.
 ```bash
 pnpm dev:client      # http://localhost:3000
 pnpm dev:server      # http://localhost:3001
-pnpm dev:docs        # http://localhost:3002
+pnpm dev:runtime     # agent runtime worker — health on 127.0.0.1:3002
+pnpm dev:docs        # docs preview (pass a port if the runtime holds 3002)
 ```
 
 ## Structure

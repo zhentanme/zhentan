@@ -5,7 +5,16 @@ description: The NanoBot/Hermes skill pack — skills, transaction lifecycle, an
 
 ## Overview
 
-The Zhentan agent is an NanoBot/Hermes skill pack. It holds the 2nd signing key on the Safe 2-of-2 and is the only component that communicates with the user via Telegram. The server handles deterministic screening — the agent handles everything interactive.
+"The agent" is two components with sharply different powers — a separation worth being precise about:
+
+| | Conversational agent (this page) | [Agent runtime](/technology/architecture#agent-runtime) |
+|---|---|---|
+| What it is | NanoBot/Hermes skill pack | A separate worker service |
+| What it does | Telegram dialogue, deep analysis, review decisions, invoices | Screens every transaction, **signs** approved ones |
+| Keys held | **None** | The agent owner key — the only signing key in the system |
+| How it acts | Authenticated commands to the server (via MCP) | Pulls screening/signing jobs from the server; verifies everything before its key touches a hash |
+
+The conversational agent is the interactive layer: it talks to you, investigates flagged transactions, and forwards your decisions. It can *ask* for things to happen — it cannot make them happen. Every command it sends is authorized by the server, and every signature is produced by the runtime only after independent verification.
 
 **AI models:** Qwen3-235B / Claude Sonnet 4.5 via OpenRouter
 
@@ -37,7 +46,7 @@ The Zhentan agent is an NanoBot/Hermes skill pack. It holds the 2nd signing key 
 | `check-pending.js` | Monitors the pending queue for new transactions |
 | `analyze-risk.js` | Pattern-based risk scoring |
 | `deep-analyze.js` | GoPlus + Honeypot.is external security analysis |
-| `sign-and-execute.js` | Co-signs 2-of-2 and submits the UserOperation to Pimlico |
+| `sign-and-execute.js` | Requests execution via the server — the runtime signs, the sponsor submits |
 | `mark-review.js` | Marks a transaction as pending review |
 | `reject-tx.js` | Rejects a transaction |
 | `record-pattern.js` | Records confirmed transaction into the behavioral profile |
@@ -57,7 +66,7 @@ pnpm --filter zhentan-agent sign-and-execute
 
 | Command | Action |
 |---------|--------|
-| `approve <tx-id>` | Sign 2-of-2, execute, record pattern, update TG message with txHash |
+| `approve <tx-id>` | Approve a reviewed transaction — the server obtains the runtime's verified signature, executes, and updates the TG message with the txHash |
 | `reject <tx-id>` | Reject, update TG message |
 | `analyze <tx-id>` | Run deep analysis (GoPlus + Honeypot.is) on demand |
 | `get-status [safeAddress]` | Current screening mode and recent decisions |
@@ -72,17 +81,14 @@ pending → in_review → executed
 
 | Status | Description |
 |--------|-------------|
-| `pending` | Queued by the client, risk score assigned |
+| `pending` | Queued by the client; screening runs in the agent runtime |
 | `in_review` | Sent to Telegram, awaiting user response |
-| `executed` | Agent signed 2-of-2, UserOperation confirmed on-chain |
-| `rejected` | Blocked (score > 70) or rejected by the user |
+| `executed` | Runtime-signed SafeTx executed on-chain (sponsor relays and pays gas) |
+| `rejected` | Blocked (score > 70) or rejected by the user — an on-chain cancel consumes the nonce |
 
 ## Environment Variables
 
-```env
-AGENT_PRIVATE_KEY=0xYourAgentPrivateKey
-PIMLICO_API_KEY=your_pimlico_api_key
-```
+The skill pack needs **no keys** — commands are authorized by the server per Telegram caller. The agent owner key belongs exclusively to the runtime's environment (`runtime/.env`), never to the skill pack or the server. See the [architecture page](/technology/architecture#agent-runtime).
 
 <Note>
   Queue file paths default to `~/.nanobot/workspace/skills/zhentan/pending-queue.json`. Override with `QUEUE_PATH`.

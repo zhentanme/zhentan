@@ -60,3 +60,75 @@ Stop and do not merge if any row shows: `GS026` (signature order),
 fresh finalize before concluding), a mismatch between `executedBy` and the
 BscScan `from`, or a nonce consumed by anything other than the intended
 transaction.
+
+---
+
+## D5 addendum — two-process verification (issue #99)
+
+Run AFTER the D4 env migration, with BOTH processes up:
+
+```
+server/.env:   AGENT_ADDRESS set, SPONSOR_PRIVATE_KEY set, NO AGENT_PRIVATE_KEY
+runtime/.env:  AGENT_PRIVATE_KEY set, RUNTIME_API_TOKEN matching the server
+pnpm dev:server   +   pnpm dev:runtime     (or pm2 start both ecosystem files)
+```
+
+Sanity before starting: `curl 127.0.0.1:3002/health` → polling, no lastError.
+
+### D5.A — B3 matrix re-run
+
+Re-execute rows 1–8 above unchanged. Everything must behave identically —
+with two additions to each row's Verify column:
+
+- The screen job AND (where the agent signs) the sign job for the tx show
+  `status='succeeded'` in `runtime_jobs`.
+- The propose response still carries `autoExecuted`/`txHash` synchronously
+  (the co-located runtime answers within the 20s window).
+
+### D5.B — runtime-role rows
+
+| # | Flow | Trigger | Verify |
+|---|------|---------|--------|
+| B1 | Runtime down: screened proposal | Stop the runtime; propose low-risk transfer | Response `screening: "pending"`; tx stays pending; NOTHING executes; job `pending` |
+| B2 | Runtime recovery | Start the runtime | Backlog drains: decision applies, notifications fire, APPROVE auto-executes; total wait ≈ downtime |
+| B3 | Runtime down: relay-only | Stop the runtime; starter-profile transfer (screening off) | Executes normally — no runtime involvement |
+| B4 | Runtime down: rejection | Stop the runtime; reject a pending tx | Rejection stays `requested`/retryable; on runtime start the cancel signs + lands (B4 machinery + sign job) |
+| B5 | Sign refusal visibility | Delete `runtime/data/decisions.jsonl`, then approve a REVIEW tx screened BEFORE the deletion | Runtime refuses (`no local screening record`); reconciler re-screens; second approve succeeds |
+| B6 | signedBy verification | (Code-level, already unit-tested) | — |
+
+### D5.C — draft-flow matrix (agent-created drafts)
+
+| # | Flow | Trigger | Verify |
+|---|------|---------|--------|
+| C1 | Agent-created transfer draft | Queue a transfer request via TG/agent below the review band | Draft appears in dashboard; NO nonce consumed; no safeTxHash yet |
+| C2 | User signs the draft | Sign it from the dashboard | finalizeDraft: nonce assigned, hash computed, sign job (`draft_finalization`) succeeds, service shows 1/2 with agent as sender |
+| C3 | Review-band swap draft | Queue a swap request scoring 40–70 | Draft held for review; finalization only after approval |
+| C4 | Swap-quote refresh at finalization | Let a swap draft sit past quote validity, then sign | Fresh route/min-out signed (never the stale quote); or SwapRefreshError surfaces cleanly |
+| C5 | Runtime down during finalization | Stop runtime; sign a draft | Finalization fails cleanly (mirror is best-effort — flow continues OR surfaces retryably; record actual behaviour) |
+| C6 | Duplicate finalization | Sign the same draft twice (double-click / two tabs) | Idempotent — one nonce, one mirror |
+| C7 | User dismissal before nonce | Dismiss a draft | No nonce parked; row closed |
+| C8 | Service down during mirror | (If feasible: invalid SAFE_API_KEY temporarily) finalize a draft | Flow continues locally; mirror error logged only |
+
+### D5.D — no-agent-signature flows produce NO runtime jobs
+
+After running: relay-only execute (B3 row 3), backup co-sign (row 4),
+a Safe deploy (fresh onboarding), and a safeSync reconciliation (execute
+from app.safe.global directly), assert:
+
+```sql
+select kind, purpose, count(*) from runtime_jobs
+where tx_id in ('<relay-tx>', '<cosign-tx>')
+group by 1, 2;                       -- expect: screen rows only, NO sign rows
+
+select count(*) from runtime_jobs
+where safe_address = '<deployed-safe>';   -- expect 0 (deploy makes no jobs)
+```
+
+(safeSync-reconciled txs must likewise show no sign jobs.)
+
+### Recording
+
+As with B3: record every row here with tx hashes / job ids and paste the
+table into issue #99. Abort criteria unchanged (GS026, GS013, executedBy
+mismatch) plus: any sign job that succeeds WITHOUT a matching decision
+record (check `runtime/data/decisions.jsonl`) is an immediate stop.

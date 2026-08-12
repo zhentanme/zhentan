@@ -5,7 +5,7 @@ description: How every transaction is scored 0–100 against learned behavioral 
 
 ## Overview
 
-When a transaction hits `/queue`, the server runs `analyzeRisk()` instantly against your behavioral profile. This is deterministic and synchronous — no LLM, no async roundtrip. The agent only acts after the verdict is determined.
+Every transaction is scored against your behavioral profile by a deterministic risk engine — no LLM in the verdict path. The engine lives in a shared package (`zhentan-screening`) and **runs inside the [agent runtime](/technology/architecture#agent-runtime)**: the server assembles your behavioral snapshot and sends it with the transaction as a screening job; the runtime computes the verdict, records it in its own decision log (the record its signing authority later verifies against), and returns it. With the runtime co-located this completes in milliseconds — the propose response is still synchronous.
 
 ## Scoring Factors
 
