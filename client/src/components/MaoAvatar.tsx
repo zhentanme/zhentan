@@ -41,6 +41,13 @@ interface MaoAvatarProps {
   variant?: "detail" | "solid";
   /** Solid-weight tint override (e.g. "currentColor" inside a colored chip). */
   color?: string;
+  /**
+   * Mouth override (detail weight). "auto" follows the state (working states
+   * are mouthless — all attention on the glass); "smile" forces the hero's
+   * ink smile, for ambient placements where Mao is the friendly face of the
+   * agent rather than a status readout.
+   */
+  mouth?: "auto" | "smile";
   /** Random ear flicks (detail weight, awake states, ≥48px). Defaults on. */
   earTwitch?: boolean;
   className?: string;
@@ -207,7 +214,17 @@ function LensContent({ state }: { state: MaoState }) {
   }
 }
 
-function MaoDetail({ state, size, earTwitch }: { state: MaoState; size: number; earTwitch: boolean }) {
+function MaoDetail({
+  state,
+  size,
+  earTwitch,
+  mouth = "auto",
+}: {
+  state: MaoState;
+  size: number;
+  earTwitch: boolean;
+  mouth?: "auto" | "smile";
+}) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const clipId = `maoShades-${uid}`;
   const meta = STATE_META[state];
@@ -275,13 +292,18 @@ function MaoDetail({ state, size, earTwitch }: { state: MaoState; size: number; 
       )}
 
       <path d={NOSE} fill={INK} />
-      {face && meta.mouth && (
-        <g fill="none" stroke={meta.mouth.color} strokeWidth="2.2" strokeLinecap="round">
-          {MOUTHS[meta.mouth.shape].map((d) => (
-            <path key={d} d={d} />
-          ))}
-        </g>
-      )}
+      {face &&
+        (() => {
+          const m = mouth === "smile" ? { shape: "smile" as const, color: INK } : meta.mouth;
+          if (!m) return null;
+          return (
+            <g fill="none" stroke={m.color} strokeWidth="2.2" strokeLinecap="round">
+              {MOUTHS[m.shape].map((d) => (
+                <path key={d} d={d} />
+              ))}
+            </g>
+          );
+        })()}
 
       <path
         d={SHADES}
@@ -357,6 +379,7 @@ export function MaoAvatar({
   size = 40,
   variant,
   color,
+  mouth,
   earTwitch = true,
   className,
   "aria-label": ariaLabel,
@@ -372,7 +395,7 @@ export function MaoAvatar({
       {weight === "solid" ? (
         <MaoSolid state={state} size={size} color={color} />
       ) : (
-        <MaoDetail state={state} size={size} earTwitch={earTwitch} />
+        <MaoDetail state={state} size={size} earTwitch={earTwitch} mouth={mouth} />
       )}
     </span>
   );

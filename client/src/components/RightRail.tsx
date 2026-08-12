@@ -111,9 +111,12 @@ function LiveReadout({ isActive }: { isActive: boolean }) {
                 <span className="absolute inset-0 rounded-full border-[1.5px] border-gold/70 [animation:sonar_2.4s_ease-out_1.6s_infinite]" />
               </>
             )}
+            {/* The rail is Mao's home — the hero face (smile) while on watch,
+                not the mouthless status readout the dialogs use. */}
             <MaoAvatar
               state={isActive ? "scanning" : "resting"}
               size={56}
+              mouth={isActive ? "smile" : undefined}
               className="relative"
             />
           </div>
