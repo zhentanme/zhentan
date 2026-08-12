@@ -17,8 +17,10 @@ case "$1" in
     echo "PM2 installed!"
     ;;
   "build")
-    echo "Building Zhentan server..."
-    cd server && npm install --force --legacy-peer-deps && npm run build && cd ..
+    echo "Building Zhentan server (screening core first)..."
+    pnpm install
+    pnpm --filter zhentan-screening build
+    pnpm --filter zhentan-server build
     echo "Building server complete!"
     ;;
   "start")
@@ -61,7 +63,9 @@ case "$1" in
   "update")
     echo "Updating server..."
     git pull
-    cd server && npm install --force --legacy-peer-deps && npm run build && cd ..
+    pnpm install
+    pnpm --filter zhentan-screening build
+    pnpm --filter zhentan-server build
     pm2 reload zhentan-server
     echo "Update complete!"
     ;;

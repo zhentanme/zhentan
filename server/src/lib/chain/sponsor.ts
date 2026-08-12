@@ -29,9 +29,11 @@ import { BSC_RPC } from "../constants.js";
 import { notifyTelegram } from "../../notify.js";
 import { getRelayerPublicClient } from "../safe/relayer.js";
 
-/** Pure resolution — exported for tests. */
+/** Pure resolution — exported for tests. Typed as a plain string record so
+ *  process.env stays assignable across @types/node versions (newer ones
+ *  fail the weak-type overlap check against a two-optional-key object). */
 export function resolveSponsorPrivateKey(
-  env: { SPONSOR_PRIVATE_KEY?: string; AGENT_PRIVATE_KEY?: string } = process.env
+  env: Record<string, string | undefined> = process.env
 ): string {
   const key = env.SPONSOR_PRIVATE_KEY || env.AGENT_PRIVATE_KEY;
   if (!key) throw new Error("Missing SPONSOR_PRIVATE_KEY and AGENT_PRIVATE_KEY");
