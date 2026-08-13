@@ -10,6 +10,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
 import { TickButtonSpinner } from "./TwinTickLoader";
 import { ExecutedAnimation, ReviewAnimation } from "./animations/StatusAnimation";
+import { MaoAvatar } from "./MaoAvatar";
 import { CoSignButton } from "@/components/CoSignButton";
 import { useLiveTransaction } from "@/hooks/useLiveTransaction";
 import {
@@ -531,7 +532,13 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
-          <ReviewAnimation size={80} />
+          {screeningOff ? (
+            <ReviewAnimation size={80} />
+          ) : inReview ? (
+            <MaoAvatar state="asking" size={80} />
+          ) : (
+            <MaoAvatar state="scanning" size={80} />
+          )}
           <span className="text-sm font-semibold text-watch">{heading}</span>
           <p className="text-xs text-muted-foreground/80 text-center leading-relaxed max-w-xs">
             {caption}

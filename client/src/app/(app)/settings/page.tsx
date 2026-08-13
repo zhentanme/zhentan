@@ -8,8 +8,6 @@ import { ActivationDialog } from "@/components/ActivationDialog";
 import { useAuth } from "@/app/context/AuthContext";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import {
-  ShieldCheck,
-  ShieldOff,
   Loader2,
   Rocket,
   Server,
@@ -32,6 +30,7 @@ import { useSafeTransitions } from "@/lib/useSafeUpgrade";
 import { useForceExecuteSetting } from "@/lib/useForceExecute";
 import { useTour } from "@/components/tour/TourProvider";
 import { mainTour, upgradeTour } from "@/lib/tours";
+import { MaoAvatar } from "@/components/MaoAvatar";
 
 /** Section label + hairline rule, per the grouped settings design. */
 function SectionHeader({ label, danger }: { label: string; danger?: boolean }) {
@@ -447,11 +446,12 @@ function SettingsPageContent() {
                 <div data-tour="guard-card" className="rounded-2xl bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
                   <SettingsRow
                     icon={
-                      isScreeningActive ? (
-                        <ShieldCheck className="h-[18px] w-[18px]" />
-                      ) : (
-                        <ShieldOff className="h-[18px] w-[18px]" />
-                      )
+                      <MaoAvatar
+                        state={isScreeningActive ? "scanning" : "resting"}
+                        size={20}
+                        variant="solid"
+                        color="currentColor"
+                      />
                     }
                     iconTint={clsx(
                       "transition-colors",

@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Settings, User, Bell, Shield, ShieldOff, type LucideIcon } from "lucide-react";
+import { Home, Settings, User, Bell, type LucideIcon } from "lucide-react";
 import { clsx } from "clsx";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
 import { BrandMark } from "@/components/BrandMark";
+import { MaoAvatar } from "@/components/MaoAvatar";
 
 export const navItems: {
   href: string;
@@ -42,11 +43,12 @@ export function TopBar() {
                 : "bg-foreground/6 text-muted-foreground"
             )}
           >
-            {isScreeningActive ? (
-              <Shield className="h-3.5 w-3.5" />
-            ) : (
-              <ShieldOff className="h-3.5 w-3.5" />
-            )}
+            <MaoAvatar
+              state={isScreeningActive ? "scanning" : "resting"}
+              size={14}
+              variant="solid"
+              color="currentColor"
+            />
             {isScreeningActive ? "Watching" : "Paused"}
           </div>
         </div>
