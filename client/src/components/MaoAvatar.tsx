@@ -33,6 +33,43 @@ export type MaoState =
   | "resting" //  dimmed rim + z — screening paused
   | "asking"; //  ?? in the lenses — paused on YOUR decision
 
+/**
+ * Gesture vocabulary (design: "the lens carries status; the body carries
+ * intent"). Each gesture is under ~a second, fires once, and returns Mao to
+ * rest. Some carry event semantics — shake is refusal (flagged results
+ * only), nod confirms, double-take means something looks off — so ambient
+ * pools should stick to the neutral ones.
+ */
+export type MaoGesture =
+  | "perk" //        ears snap up, head lifts — work just arrived
+  | "tilt" //        head cocks and holds — pairs with a question
+  | "nod" //         two dips — confirms the action you chose
+  | "shake" //       refusal — only ever with a flagged result
+  | "double-take" // recoil then lean in — something looks off
+  | "shades-down" // glass drops for a beat — off the record
+  | "stretch" //     squash then rebound — waking from rest
+  | "pounce" //      crouch, hop, land — found the thing
+  | "ear-flick" //   ambient — the baseline idle motion
+  | "glint"; //      light crosses the glass — acknowledges you
+
+/** Animation target → [keyframe spec] per gesture (timings from the design). */
+const GESTURE_PARTS: Record<MaoGesture, [target: "root" | "earL" | "earR" | "ear" | "shades" | "glint", anim: string][]> = {
+  perk: [
+    ["root", "mao-perk-root 0.7s cubic-bezier(.2,1.4,.4,1) 1"],
+    ["earL", "mao-perk-l 0.7s cubic-bezier(.2,1.4,.4,1) 1"],
+    ["earR", "mao-perk-r 0.7s cubic-bezier(.2,1.4,.4,1) 1"],
+  ],
+  tilt: [["root", "mao-tilt 1.3s cubic-bezier(.3,0,.3,1) 1"]],
+  nod: [["root", "mao-nod 0.8s cubic-bezier(.3,0,.3,1) 1"]],
+  shake: [["root", "mao-shake 0.62s cubic-bezier(.36,0,.3,1) 1"]],
+  "double-take": [["root", "mao-take 0.8s cubic-bezier(.3,0,.3,1) 1"]],
+  "shades-down": [["shades", "mao-shades-down 1.5s cubic-bezier(.3,0,.3,1) 1"]],
+  stretch: [["root", "mao-stretch 0.9s cubic-bezier(.3,0,.3,1) 1"]],
+  pounce: [["root", "mao-pounce 0.85s cubic-bezier(.3,0,.35,1) 1"]],
+  "ear-flick": [["ear", ""]], // resolved at fire time — random ear, twitch keyframe
+  glint: [["glint", "mao-glint 0.7s cubic-bezier(.4,0,.4,1) 1"]],
+};
+
 interface MaoAvatarProps {
   state?: MaoState;
   /** Rendered width/height in px (the mark is square). */
@@ -50,6 +87,12 @@ interface MaoAvatarProps {
   mouth?: "auto" | "smile";
   /** Random ear flicks (detail weight, awake states, ≥48px). Defaults on. */
   earTwitch?: boolean;
+  /**
+   * Ambient gesture pool (detail weight, awake states, ≥48px). While Mao
+   * waits, a random gesture from this pool fires every 4–11s — richer
+   * company than the default lone ear flick. Overrides `earTwitch`.
+   */
+  ambient?: MaoGesture[];
   className?: string;
   "aria-label"?: string;
 }
@@ -219,37 +262,65 @@ function MaoDetail({
   size,
   earTwitch,
   mouth = "auto",
+  ambient,
 }: {
   state: MaoState;
   size: number;
   earTwitch: boolean;
   mouth?: "auto" | "smile";
+  ambient?: MaoGesture[];
 }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const clipId = `maoShades-${uid}`;
   const meta = STATE_META[state];
   const [earL, earR] = EARS[meta.ears];
+  const rootRef = useRef<SVGGElement>(null);
   const earLRef = useRef<SVGGElement>(null);
   const earRRef = useRef<SVGGElement>(null);
+  const shadesRef = useRef<SVGGElement>(null);
+  const glintRef = useRef<SVGGElement>(null);
 
-  // Occasional ear flick — the timer only decides WHEN; the flick itself is a
-  // CSS keyframe so it plays independently of React renders. Awake states only.
+  // Ambient motion — the timer only decides WHEN; each gesture is a CSS
+  // keyframe that fires once and returns Mao to rest, so it plays
+  // independently of React renders. Awake states only; the pool defaults to
+  // the lone ear flick unless the caller hands over a richer vocabulary.
   const awake = state === "idle" || state === "scanning" || state === "thinking" || state === "asking";
-  const flicking = earTwitch && awake && size >= 48;
+  const pool = ambient ?? (earTwitch ? ["ear-flick" as const] : []);
+  const active = awake && size >= 48 && pool.length > 0;
+  const poolKey = pool.join(",");
   useEffect(() => {
-    if (!flicking) return;
+    if (!active) return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const gestures = poolKey.split(",") as MaoGesture[];
+    const targets = {
+      root: rootRef,
+      earL: earLRef,
+      earR: earRRef,
+      shades: shadesRef,
+      glint: glintRef,
+    };
+    const fire = (el: SVGGElement | null, anim: string) => {
+      if (!el) return;
+      el.style.animation = "none";
+      void el.getBoundingClientRect().width;
+      el.style.animation = anim;
+    };
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     const schedule = (delay: number) => {
       timer = setTimeout(() => {
         if (!alive) return;
-        const left = Math.random() < 0.5;
-        const el = (left ? earLRef : earRRef).current;
-        if (el) {
-          el.style.animation = "none";
-          void el.getBoundingClientRect().width;
-          el.style.animation = `${left ? "mao-twitch-l" : "mao-twitch-r"} 0.44s cubic-bezier(.3,0,.4,1) 1`;
+        const gesture = gestures[Math.floor(Math.random() * gestures.length)];
+        for (const [target, anim] of GESTURE_PARTS[gesture]) {
+          if (target === "ear") {
+            const left = Math.random() < 0.5;
+            fire(
+              (left ? earLRef : earRRef).current,
+              `${left ? "mao-twitch-l" : "mao-twitch-r"} 0.44s cubic-bezier(.3,0,.4,1) 1`
+            );
+          } else {
+            fire(targets[target].current, anim);
+          }
         }
         schedule(4000 + Math.random() * 7000);
       }, delay);
@@ -259,70 +330,84 @@ function MaoDetail({
       alive = false;
       clearTimeout(timer);
     };
-  }, [flicking]);
+  }, [active, poolKey]);
 
   const face = size >= 48; //  whiskers + mouth survive to 48px
   const innerEars = size >= 96 && meta.ears === "default";
 
   return (
-    <svg viewBox="0 0 100 100" width={size} height={size} style={{ display: "block" }} aria-hidden="true">
+    <svg
+      viewBox="0 0 100 100"
+      width={size}
+      height={size}
+      style={{ display: "block", overflow: "visible" }} //  pounce overshoots the box
+      aria-hidden="true"
+    >
       <defs>
         <clipPath id={clipId}>
           <path d={SHADES} />
         </clipPath>
       </defs>
 
-      <g ref={earLRef} style={{ transformOrigin: "30px 42px" }}>
-        <path d={earL} fill={GOLD} />
-        {innerEars && <path d={INNER_EARS[0]} fill={INK_FAINT} />}
-      </g>
-      <g ref={earRRef} style={{ transformOrigin: "70px 42px" }}>
-        <path d={earR} fill={GOLD} />
-        {innerEars && <path d={INNER_EARS[1]} fill={INK_FAINT} />}
-      </g>
-
-      <path d={HEAD} fill={GOLD} />
-
-      {face && (
-        <g fill="none" stroke={INK_SOFT} strokeWidth="1.8" strokeLinecap="round">
-          {WHISKERS.map((d) => (
-            <path key={d} d={d} />
-          ))}
+      <g ref={rootRef} style={{ transformOrigin: "50px 76px" }}>
+        <g ref={earLRef} style={{ transformOrigin: "30px 42px" }}>
+          <path d={earL} fill={GOLD} />
+          {innerEars && <path d={INNER_EARS[0]} fill={INK_FAINT} />}
         </g>
-      )}
+        <g ref={earRRef} style={{ transformOrigin: "70px 42px" }}>
+          <path d={earR} fill={GOLD} />
+          {innerEars && <path d={INNER_EARS[1]} fill={INK_FAINT} />}
+        </g>
 
-      <path d={NOSE} fill={INK} />
-      {face &&
-        (() => {
-          const m = mouth === "smile" ? { shape: "smile" as const, color: INK } : meta.mouth;
-          if (!m) return null;
-          return (
-            <g fill="none" stroke={m.color} strokeWidth="2.2" strokeLinecap="round">
-              {MOUTHS[m.shape].map((d) => (
-                <path key={d} d={d} />
-              ))}
+        <path d={HEAD} fill={GOLD} />
+
+        {face && (
+          <g fill="none" stroke={INK_SOFT} strokeWidth="1.8" strokeLinecap="round">
+            {WHISKERS.map((d) => (
+              <path key={d} d={d} />
+            ))}
+          </g>
+        )}
+
+        <path d={NOSE} fill={INK} />
+        {face &&
+          (() => {
+            const m = mouth === "smile" ? { shape: "smile" as const, color: INK } : meta.mouth;
+            if (!m) return null;
+            return (
+              <g fill="none" stroke={m.color} strokeWidth="2.2" strokeLinecap="round">
+                {MOUTHS[m.shape].map((d) => (
+                  <path key={d} d={d} />
+                ))}
+              </g>
+            );
+          })()}
+
+        {/* The glass block moves as one during shades-down: rim, light, glint. */}
+        <g ref={shadesRef}>
+          <path
+            d={SHADES}
+            fill={meta.glass}
+            stroke={meta.rim}
+            strokeWidth={meta.rim ? 2.8 : undefined}
+            strokeLinejoin={meta.rim ? "round" : undefined}
+          />
+          <g clipPath={`url(#${clipId})`}>
+            <LensContent state={state} />
+            <g ref={glintRef} style={{ opacity: 0 }}>
+              <rect x="46" y="30" width="11" height="46" fill={GOLD_LIGHT} opacity="0.85" transform="rotate(24 50 50)" />
             </g>
-          );
-        })()}
-
-      <path
-        d={SHADES}
-        fill={meta.glass}
-        stroke={meta.rim}
-        strokeWidth={meta.rim ? 2.8 : undefined}
-        strokeLinejoin={meta.rim ? "round" : undefined}
-      />
-      <g clipPath={`url(#${clipId})`}>
-        <LensContent state={state} />
-      </g>
-
-      {state === "resting" && (
-        <g className="mao-anim" style={{ animation: "mao-zzz 2.6s ease-out infinite" }}>
-          <text x="76" y="22" fontFamily="var(--font-mono, monospace)" fontSize="15" fontWeight="700" fill={GOLD}>
-            z
-          </text>
+          </g>
         </g>
-      )}
+
+        {state === "resting" && (
+          <g className="mao-anim" style={{ animation: "mao-zzz 2.6s ease-out infinite" }}>
+            <text x="76" y="22" fontFamily="var(--font-mono, monospace)" fontSize="15" fontWeight="700" fill={GOLD}>
+              z
+            </text>
+          </g>
+        )}
+      </g>
     </svg>
   );
 }
@@ -381,6 +466,7 @@ export function MaoAvatar({
   color,
   mouth,
   earTwitch = true,
+  ambient,
   className,
   "aria-label": ariaLabel,
 }: MaoAvatarProps) {
@@ -395,7 +481,7 @@ export function MaoAvatar({
       {weight === "solid" ? (
         <MaoSolid state={state} size={size} color={color} />
       ) : (
-        <MaoDetail state={state} size={size} earTwitch={earTwitch} mouth={mouth} />
+        <MaoDetail state={state} size={size} earTwitch={earTwitch} mouth={mouth} ambient={ambient} />
       )}
     </span>
   );

@@ -491,6 +491,163 @@
   }
 }
 
+/* Gesture vocabulary — the lens carries status, the body carries intent.
+   Each gesture is under ~a second, fires once, returns Mao to rest. */
+@keyframes mao-perk-root {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes mao-perk-l {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(-13deg);
+  }
+}
+
+@keyframes mao-perk-r {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  30% {
+    transform: rotate(13deg);
+  }
+}
+
+@keyframes mao-tilt {
+  0% {
+    transform: rotate(0deg);
+  }
+  22%,
+  68% {
+    transform: rotate(8deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes mao-nod {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  25%,
+  75% {
+    transform: translateY(5px) scaleY(0.95);
+  }
+  50% {
+    transform: translateY(0) scaleY(1);
+  }
+}
+
+@keyframes mao-shake {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  20% {
+    transform: translateX(-5px) rotate(-3deg);
+  }
+  45% {
+    transform: translateX(5px) rotate(3deg);
+  }
+  72% {
+    transform: translateX(-3px) rotate(-2deg);
+  }
+}
+
+@keyframes mao-take {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  18% {
+    transform: scale(0.93) rotate(4deg);
+  }
+  46% {
+    transform: scale(1.07) rotate(-7deg);
+  }
+  76% {
+    transform: scale(1) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes mao-shades-down {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  22%,
+  74% {
+    transform: translateY(9px);
+  }
+}
+
+@keyframes mao-stretch {
+  0% {
+    transform: scale(1, 1);
+  }
+  25% {
+    transform: scale(1.09, 0.88);
+  }
+  55% {
+    transform: scale(0.95, 1.09);
+  }
+  80% {
+    transform: scale(1.02, 0.98);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes mao-pounce {
+  0% {
+    transform: translateY(0) scale(1, 1);
+  }
+  20% {
+    transform: translateY(7px) scale(1.06, 0.9);
+  }
+  46% {
+    transform: translateY(-17px) scale(0.94, 1.1);
+  }
+  76% {
+    transform: translateY(2px) scale(1.04, 0.96);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+@keyframes mao-glint {
+  0% {
+    transform: translateX(-70px);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(70px);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mao-anim {
     animation: none !important;
