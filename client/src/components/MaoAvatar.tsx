@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useId, useRef } from "react";
+import { useCallback, useEffect, useId, useRef } from "react";
 
 /**
  * Mao — the Zhentan agent character. One geometric cat, solid gold, opaque
@@ -70,6 +70,9 @@ const GESTURE_PARTS: Record<MaoGesture, [target: "root" | "earL" | "earR" | "ear
   glint: [["glint", "mao-glint 0.7s cubic-bezier(.4,0,.4,1) 1"]],
 };
 
+/** Neutral gestures — safe to play without an event behind them. */
+const NEUTRAL_GESTURES: MaoGesture[] = ["ear-flick", "perk", "tilt", "stretch", "pounce", "shades-down"];
+
 interface MaoAvatarProps {
   state?: MaoState;
   /** Rendered width/height in px (the mark is square). */
@@ -93,6 +96,12 @@ interface MaoAvatarProps {
    * company than the default lone ear flick. Overrides `earTwitch`.
    */
   ambient?: MaoGesture[];
+  /**
+   * Poke mode (detail weight): clicking Mao fires a random gesture from the
+   * ambient pool (or the neutral set), and he grows slightly on hover.
+   * Clicks don't bubble — safe inside a Link.
+   */
+  interactive?: boolean;
   className?: string;
   "aria-label"?: string;
 }
@@ -263,12 +272,14 @@ function MaoDetail({
   earTwitch,
   mouth = "auto",
   ambient,
+  interactive = false,
 }: {
   state: MaoState;
   size: number;
   earTwitch: boolean;
   mouth?: "auto" | "smile";
   ambient?: MaoGesture[];
+  interactive?: boolean;
 }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const clipId = `maoShades-${uid}`;
@@ -280,18 +291,11 @@ function MaoDetail({
   const shadesRef = useRef<SVGGElement>(null);
   const glintRef = useRef<SVGGElement>(null);
 
-  // Ambient motion — the timer only decides WHEN; each gesture is a CSS
-  // keyframe that fires once and returns Mao to rest, so it plays
-  // independently of React renders. Awake states only; the pool defaults to
-  // the lone ear flick unless the caller hands over a richer vocabulary.
-  const awake = state === "idle" || state === "scanning" || state === "thinking" || state === "asking";
-  const pool = ambient ?? (earTwitch ? ["ear-flick" as const] : []);
-  const active = awake && size >= 48 && pool.length > 0;
-  const poolKey = pool.join(",");
-  useEffect(() => {
-    if (!active) return;
+  // Each gesture is a CSS keyframe that fires once and returns Mao to rest,
+  // so it plays independently of React renders. Shared by the ambient timer
+  // and pokes.
+  const fireGesture = useCallback((gesture: MaoGesture) => {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const gestures = poolKey.split(",") as MaoGesture[];
     const targets = {
       root: rootRef,
       earL: earLRef,
@@ -305,23 +309,35 @@ function MaoDetail({
       void el.getBoundingClientRect().width;
       el.style.animation = anim;
     };
+    for (const [target, anim] of GESTURE_PARTS[gesture]) {
+      if (target === "ear") {
+        const left = Math.random() < 0.5;
+        fire(
+          (left ? earLRef : earRRef).current,
+          `${left ? "mao-twitch-l" : "mao-twitch-r"} 0.44s cubic-bezier(.3,0,.4,1) 1`
+        );
+      } else {
+        fire(targets[target].current, anim);
+      }
+    }
+  }, []);
+
+  // Ambient motion — the timer only decides WHEN. Awake states only; the
+  // pool defaults to the lone ear flick unless the caller hands over a
+  // richer vocabulary.
+  const awake = state === "idle" || state === "scanning" || state === "thinking" || state === "asking";
+  const pool = ambient ?? (earTwitch ? ["ear-flick" as const] : []);
+  const active = awake && size >= 48 && pool.length > 0;
+  const poolKey = pool.join(",");
+  useEffect(() => {
+    if (!active) return;
+    const gestures = poolKey.split(",") as MaoGesture[];
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     const schedule = (delay: number) => {
       timer = setTimeout(() => {
         if (!alive) return;
-        const gesture = gestures[Math.floor(Math.random() * gestures.length)];
-        for (const [target, anim] of GESTURE_PARTS[gesture]) {
-          if (target === "ear") {
-            const left = Math.random() < 0.5;
-            fire(
-              (left ? earLRef : earRRef).current,
-              `${left ? "mao-twitch-l" : "mao-twitch-r"} 0.44s cubic-bezier(.3,0,.4,1) 1`
-            );
-          } else {
-            fire(targets[target].current, anim);
-          }
-        }
+        fireGesture(gestures[Math.floor(Math.random() * gestures.length)]);
         schedule(4000 + Math.random() * 7000);
       }, delay);
     };
@@ -330,7 +346,19 @@ function MaoDetail({
       alive = false;
       clearTimeout(timer);
     };
-  }, [active, poolKey]);
+  }, [active, poolKey, fireGesture]);
+
+  // Poke — a click plays a random gesture from the same pool the ambient
+  // loop draws from. Never bubbles: Mao often sits inside a Link, and
+  // petting the cat shouldn't navigate.
+  const pokePool = pool.length > 0 ? pool : NEUTRAL_GESTURES;
+  const poke = interactive
+    ? (e: React.MouseEvent<SVGSVGElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fireGesture(pokePool[Math.floor(Math.random() * pokePool.length)]);
+      }
+    : undefined;
 
   const face = size >= 48; //  whiskers + mouth survive to 48px
   const innerEars = size >= 96 && meta.ears === "default";
@@ -341,6 +369,8 @@ function MaoDetail({
       width={size}
       height={size}
       style={{ display: "block", overflow: "visible" }} //  pounce overshoots the box
+      className={interactive ? "mao-poke" : undefined}
+      onClick={poke}
       aria-hidden="true"
     >
       <defs>
@@ -467,6 +497,7 @@ export function MaoAvatar({
   mouth,
   earTwitch = true,
   ambient,
+  interactive = false,
   className,
   "aria-label": ariaLabel,
 }: MaoAvatarProps) {
@@ -481,7 +512,14 @@ export function MaoAvatar({
       {weight === "solid" ? (
         <MaoSolid state={state} size={size} color={color} />
       ) : (
-        <MaoDetail state={state} size={size} earTwitch={earTwitch} mouth={mouth} ambient={ambient} />
+        <MaoDetail
+          state={state}
+          size={size}
+          earTwitch={earTwitch}
+          mouth={mouth}
+          ambient={ambient}
+          interactive={interactive}
+        />
       )}
     </span>
   );

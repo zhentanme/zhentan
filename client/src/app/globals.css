@@ -648,9 +648,22 @@
   }
 }
 
+/* Poke mode — Mao grows a touch under the cursor and invites a click. */
+.mao-poke {
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.3, 0, 0.3, 1);
+}
+
+.mao-poke:hover {
+  transform: scale(1.08);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mao-anim {
     animation: none !important;
+  }
+  .mao-poke:hover {
+    transform: none;
   }
 }
 

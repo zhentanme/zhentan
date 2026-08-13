@@ -115,7 +115,9 @@ function LiveReadout({ isActive }: { isActive: boolean }) {
                 not the mouthless status readout the dialogs use. While
                 waiting he stays alive on the neutral gesture pool; shake,
                 nod and double-take are event gestures and stay out of it,
-                and glint stays out while the sweep owns the lens. */}
+                and glint stays out while the sweep owns the lens. Poking
+                him plays one on demand (the click never reaches the card's
+                settings Link). */}
             <MaoAvatar
               state={isActive ? "scanning" : "resting"}
               size={56}
@@ -125,6 +127,7 @@ function LiveReadout({ isActive }: { isActive: boolean }) {
                   ? ["ear-flick", "perk", "tilt", "stretch", "pounce", "shades-down"]
                   : undefined
               }
+              interactive={isActive}
               className="relative"
             />
           </div>
