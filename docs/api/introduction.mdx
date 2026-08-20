@@ -14,24 +14,42 @@ The Zhentan server exposes a REST API used by the client and agent to manage the
 
 ## Authentication
 
-The API is currently unauthenticated. It is designed to run locally alongside the client and agent. In production, `CORS_ORIGIN` restricts access to the configured origin.
+Every route except the public reads (`/portfolio`, `/tokens`, `/notifications`, `/health`) requires a bearer token:
+
+- **Agent calls** authenticate with the shared `AGENT_SECRET`. The server refuses to boot without it.
+- **Client calls** authenticate with a Privy identity token (JWT), verified against `PRIVY_JWT_VERIFICATION_KEY`; the caller is scoped to their own Safe.
+- **`/payout`** additionally requires the `x-admin-key` header (`ADMIN_API_KEY`).
+- **`/runtime`** uses its own dedicated bearer token (`RUNTIME_API_TOKEN`) and fails closed — every runtime endpoint answers 503 when the token is unset.
+
+For local development without an agent, `DEV_OPEN=1` disables authentication; it is refused at boot when `NODE_ENV=production`.
 
 ## Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/queue` | Propose a signed SafeTx — validated, mirrored to the Safe Transaction Service, risk-scored |
-| `POST` | `/execute` | Relay a queued SafeTx on-chain (agent pays gas; relay-only when user signatures meet the threshold) |
+| `POST` | `/queue` | Propose a signed SafeTx — validated, mirrored to the Safe Transaction Service, screened via the runtime |
+| `POST` | `/execute` | Relay a queued SafeTx on-chain (sponsor EOA pays gas; relay-only when user signatures meet the threshold) |
 | `POST` | `/transactions/:id/cosign` | Backup key completes a screening-off SafeTx queued below threshold |
 | `POST` | `/transactions/:id/sign` | User completes an agent-proposed (pre-signed) transaction |
 | `GET` | `/transactions` | List transactions with status |
 | `POST` | `/safe/derive` | Server-side counterfactual address derivation for a new account |
-| `GET` | `/users/by-signer/:address` | Resolve an existing account by its signer key |
 | `GET` | `/safe/nonce` | Next unused Safe nonce (Transaction Service queue-aware) |
-| `GET` | `/invoices` | List pending invoices |
+| `GET` | `/users/by-signer/:address` | Resolve an existing account by its signer key |
+| `GET`/`POST` | `/requests` | Payment requests — invoices and transfer instructions (`/invoices` is a legacy alias) |
+| `GET`/`POST` | `/rules` | User screening rules |
+| `GET` | `/status` | Screening mode and agent status |
+| `GET` | `/events` | Behavioral event log (own Safe only) |
+| `POST` | `/analyze` | Ad-hoc risk analysis |
+| `GET` | `/resolve` | Name resolution (.eth / .bnb) |
+| `GET`/`POST` | `/swap` | Swap quotes and proposals (LI.FI) |
+| `GET` | `/campaigns` | Campaign data |
+| `POST` | `/payout` | Treasury payouts (admin-key protected) |
+| `*` | `/runtime/*` | Runtime worker job protocol — lease, heartbeat, result (dedicated bearer token) |
 | `POST` | `/notify-resolve` | Update Telegram message with final outcome |
-| `GET` | `/portfolio` | Live portfolio data via Zerion |
-| `GET` | `/health` | Health check |
+| `GET` | `/portfolio` | Live portfolio data via Zerion (public) |
+| `GET` | `/tokens` | Token market data (public) |
+| `GET` | `/notifications` | Notification feed (public) |
+| `GET` | `/health` | Health check (public) |
 
 <Note>
   Live API playground coming soon. You'll be able to test endpoints directly from this page.

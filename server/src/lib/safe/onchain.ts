@@ -16,15 +16,6 @@ export async function readSafeOwners(safeAddress: string): Promise<string[]> {
   return [...owners];
 }
 
-export async function readSafeThreshold(safeAddress: string): Promise<number> {
-  const threshold = await getRelayerPublicClient().readContract({
-    address: safeAddress as Address,
-    abi: SAFE_ABI,
-    functionName: "getThreshold",
-  });
-  return Number(threshold);
-}
-
 export async function readSafeNonce(safeAddress: string): Promise<number> {
   const nonce = await getRelayerPublicClient().readContract({
     address: safeAddress as Address,

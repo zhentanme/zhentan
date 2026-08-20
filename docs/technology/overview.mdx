@@ -30,6 +30,6 @@ Zhentan is built on independently runnable components with one security spine: a
 
 - **The user holds the majority** — in the full 2-of-3 model your two keys meet the threshold. The agent is an advisory speed bump you can always go around via the Safe app, never a gatekeeper.
 - **The agent never signs what it didn't screen** — when your signatures alone meet the threshold, the agent relays and pays gas without contributing a signature. Enforced server-side at proposal and again at execution.
-- **No LLM on the hot path** — inline risk scoring is deterministic and instant. The agent only steps in after a verdict is reached.
+- **No LLM on the hot path** — risk scoring in the runtime is deterministic and instant. The agent only steps in after a verdict is reached.
 - **Safe multisig is the foundation** — every transaction is a standard SafeTx, visible and actionable in the official Safe app at every stage. Zhentan adds intelligence on top without replacing key management.
 - **Continuous learning** — patterns are recorded after every confirmed transaction. The profile improves automatically.

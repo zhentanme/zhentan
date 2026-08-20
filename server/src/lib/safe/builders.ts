@@ -27,7 +27,7 @@ import {
 } from "../constants.js";
 import { fetchTokenPositions } from "../zerion.js";
 import { findFallbackAddressBySymbol } from "../token-fallbacks.js";
-import type { RequestKind, SafeTxData } from "../../types.js";
+import type { SafeTxData } from "../../types.js";
 
 export interface SafeCall {
   to: Address;
@@ -216,10 +216,6 @@ export const KIND_BUILDERS: {
   transfer: buildTransferCalls,
   swap: buildSwapCalls,
 };
-
-export function isAgentInitiableKind(kind: string): kind is RequestKind {
-  return kind in KIND_BUILDERS;
-}
 
 /**
  * Server port of the client's buildSafeTx: single call → operation 0,

@@ -153,16 +153,6 @@ export interface TransactionWithStatus extends PendingTransaction {
   status: TransactionStatus;
 }
 
-export interface QueueFile {
-  pending: PendingTransaction[];
-}
-
-export interface StateFile {
-  screeningMode: boolean;
-  lastCheck: string | null;
-  decisions: unknown[];
-}
-
 export interface RecipientPattern {
   label: string | null;
   totalTxCount: number;
@@ -191,12 +181,6 @@ export interface StatusResponse {
   telegramChatId?: string | null;
   botConnected?: boolean;
   patterns: PatternsFile;
-}
-
-export interface BalanceResponse {
-  balance: string;
-  formatted: string;
-  safeAddress: string;
 }
 
 export interface TokenPosition {

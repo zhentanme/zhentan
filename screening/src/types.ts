@@ -140,10 +140,6 @@ export interface TransactionWithStatus extends PendingTransaction {
   status: TransactionStatus;
 }
 
-export interface QueueFile {
-  pending: PendingTransaction[];
-}
-
 export type RequestStatus = "queued" | "approved" | "executed" | "rejected";
 
 /** 'invoice' = parsed invoice document; 'transfer' = general transaction instruction */

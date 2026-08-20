@@ -15,22 +15,26 @@ pnpm install                                   # installs the supabase CLI dev d
 pnpm db:link --project-ref <your-project-ref>  # ref is in the dashboard URL / Settings → General
 ```
 
-## Onboarding the EXISTING database (important — do this once)
-
-The production database already has every table from `20260325000000_init.sql`.
-Mark that baseline as already applied so `db push` doesn't try to recreate it,
-then push the remaining (real) migrations:
-
-```bash
-pnpm exec supabase migration repair --status applied 20260325000000
-pnpm db:push     # applies 20260605120000_invoices_safe_address.sql (adds invoices.safe_address)
-```
-
-A brand-new database instead just runs everything:
+A brand-new database just runs everything:
 
 ```bash
 pnpm db:push     # applies the full history from scratch
 ```
+
+<details>
+<summary>Historical: onboarding the original (pre-CLI) database — done March 2026</summary>
+
+The original production database predated the migration history and already had
+every table from `20260325000000_init.sql`. That baseline was marked as applied
+so `db push` wouldn't recreate it:
+
+```bash
+pnpm exec supabase migration repair --status applied 20260325000000
+pnpm db:push
+```
+
+This was a one-time procedure and does not apply to any database created since.
+</details>
 
 ## Day-to-day
 

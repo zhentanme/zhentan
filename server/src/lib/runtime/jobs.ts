@@ -44,7 +44,6 @@ export interface RuntimeJobRow {
   lease_expires_at: string | null;
   attempt_count: number;
   next_retry_at: string | null;
-  inline_decision: unknown;
   result: unknown;
   result_input_hash: string | null;
   result_policy_version: string | null;
@@ -64,8 +63,6 @@ export interface EnqueueJobInput {
   txVersion: number;
   payload: Record<string, unknown>;
   credentialVersion?: number;
-  /** Producer's own decision over the same inputs (shadow comparison). */
-  inlineDecision?: unknown;
 }
 
 /**
@@ -85,7 +82,6 @@ export async function enqueueJob(input: EnqueueJobInput): Promise<RuntimeJobRow>
     payload: input.payload,
     input_hash: computeInputHash(input.payload),
     credential_version: input.credentialVersion ?? 1,
-    inline_decision: input.inlineDecision ?? null,
   };
   // Identity-shaped contract (D0.3): a job without a valid safe scope,
   // credential version, or kind/purpose shape never reaches the queue.
@@ -321,6 +317,23 @@ export async function sweepJobs(now: Date = new Date()): Promise<{ deadLettered:
   const { data: voided, error: voidError } = await supabase.rpc("void_stale_runtime_jobs");
   if (voidError) throw new Error(`Stale-job void sweep failed: ${voidError.message}`);
   return { deadLettered: count ?? 0, voided: (voided as number) ?? 0 };
+}
+
+const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+
+export function startJobSweeper(): void {
+  setInterval(() => {
+    sweepJobs()
+      .then(({ deadLettered, voided }) => {
+        if (deadLettered || voided) {
+          console.warn(`Job sweep: ${deadLettered} dead-lettered, ${voided} voided`);
+        }
+      })
+      .catch((err) =>
+        console.error("Job sweep failed:", err instanceof Error ? err.message : err)
+      );
+  }, SWEEP_INTERVAL_MS).unref();
+  console.log(`Runtime job sweeper up (every ${SWEEP_INTERVAL_MS / 1000}s)`);
 }
 
 /** Dead-lettered jobs for dashboard surfacing. */

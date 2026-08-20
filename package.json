@@ -9,19 +9,10 @@
     "dev:runtime": "pnpm --filter zhentan-runtime dev",
     "dev:docs": "cd docs && mintlify dev --port 3002",
     "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
-    "propose": "node scripts/propose-tx.js",
-    "agent-sign": "node scripts/agent-sign.js",
-    "transfer-usdc": "node scripts/transfer-usdc.js",
-    "transfer-usdc:multisig": "node scripts/transfer-usdc-multisig.js"
+    "lint": "pnpm -r lint"
   },
   "devDependencies": {
     "mintlify": "latest"
-  },
-  "dependencies": {
-    "dotenv": "^16.4.5",
-    "permissionless": "^0.2.14",
-    "viem": "^2.21.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

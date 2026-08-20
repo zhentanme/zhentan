@@ -174,24 +174,3 @@ export async function deriveSafe(
   }
   return getDerivationRecipe(version).derive(owners, threshold, saltNonce);
 }
-
-/**
- * Cross-check helper: asserts the given recipe reproduces the expected
- * address. Valid forever when fed an account's CREATION snapshot (owner
- * changes never touch it); only valid pre-deploy when fed live owners.
- */
-export async function assertDerivation(
-  expectedAddress: string,
-  owners: string[],
-  threshold: number,
-  version: DerivationVersion,
-  saltNonce: string = DEFAULT_SALT_NONCE
-): Promise<DerivedSafe> {
-  const derived = await deriveSafe(owners, threshold, version, saltNonce);
-  if (derived.address.toLowerCase() !== expectedAddress.toLowerCase()) {
-    throw new Error(
-      `Derivation mismatch: v${version} owners derive ${derived.address}, expected ${expectedAddress}`
-    );
-  }
-  return derived;
-}

@@ -39,28 +39,18 @@ The conversational agent is the interactive layer: it talks to you, investigates
   </Step>
 </Steps>
 
-## Skills
+## Capabilities
 
-| Script | What it does |
-|--------|-------------|
-| `check-pending.js` | Monitors the pending queue for new transactions |
-| `analyze-risk.js` | Pattern-based risk scoring |
-| `deep-analyze.js` | GoPlus + Honeypot.is external security analysis |
-| `sign-and-execute.js` | Requests execution via the server — the runtime signs, the sponsor submits |
-| `mark-review.js` | Marks a transaction as pending review |
-| `reject-tx.js` | Rejects a transaction |
-| `record-pattern.js` | Records confirmed transaction into the behavioral profile |
-| `toggle-screening.js` | Toggles screening on/off |
-| `queue-invoice.js` | Queues an invoice for dashboard review |
-| `get-status.js` | Returns current screening mode and recent decisions |
+The pack is a pure markdown playbook (`agent/SKILL.md`) — no scripts, no code. Every server operation goes through the **zhentan MCP tools** (see `mcp/README.md`); the skill never makes raw HTTP calls. What it can do on owner commands:
 
-## Running Skills Directly
-
-```bash
-pnpm --filter zhentan-agent check-pending
-pnpm --filter zhentan-agent analyze-risk
-pnpm --filter zhentan-agent sign-and-execute
-```
+| Capability | What it does |
+|-----------|-------------|
+| Review pending | List queued transactions with risk scores and verdicts |
+| Approve / reject | Forward the owner's decision — the server obtains the runtime's verified signature (or executes the on-chain cancel) |
+| Deep analysis | GoPlus + Honeypot.is external security analysis on demand |
+| Screening rules | Create, update, and delete user screening rules |
+| Payment requests | Queue invoices and transfer instructions for dashboard review |
+| Status | Current screening mode and recent decisions |
 
 ## Telegram Commands
 
@@ -90,6 +80,4 @@ pending → in_review → executed
 
 The skill pack needs **no keys** — commands are authorized by the server per Telegram caller. The agent owner key belongs exclusively to the runtime's environment (`runtime/.env`), never to the skill pack or the server. See the [architecture page](/technology/architecture#agent-runtime).
 
-<Note>
-  Queue file paths default to `~/.nanobot/workspace/skills/zhentan/pending-queue.json`. Override with `QUEUE_PATH`.
-</Note>
+The MCP server's environment needs `ZHENTAN_API_URL` (required — no production fallback) and `AGENT_SECRET` (must match `server/.env`). See `mcp/.env.example`.
