@@ -1,4 +1,4 @@
-import type { TransactionStatus, PendingTransaction } from "@/types";
+import type { TransactionStatus } from "@/types";
 
 /**
  * Format a token balance for display with appropriate decimals (readable, compact).
@@ -65,21 +65,6 @@ export function dayLabel(iso: string): string {
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
   return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-}
-
-const ACTIVE_REJECTION = new Set([
-  "requested",
-  "cancel_signing",
-  "cancel_submitted",
-  "failed_retryable",
-]);
-
-export function getTransactionStatus(tx: PendingTransaction): TransactionStatus {
-  if (tx.rejected) return "rejected";
-  if (tx.executedAt) return "executed";
-  if (tx.rejectionStatus && ACTIVE_REJECTION.has(tx.rejectionStatus)) return "rejecting";
-  if (tx.inReview) return "in_review";
-  return "pending";
 }
 
 export function statusLabel(status: TransactionStatus): string {

@@ -46,13 +46,6 @@ export function usersApi(req: ApiFetchFn) {
       return data.user ?? null;
     },
 
-    async getBySigner(signerAddress: string): Promise<UserDetails | null> {
-      const res = await req(`/users/by-signer/${signerAddress}`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.user ?? null;
-    },
-
     async upsert(body: UpsertUserBody): Promise<void> {
       const res = await req("/users", {
         method: "POST",

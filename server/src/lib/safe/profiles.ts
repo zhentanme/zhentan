@@ -105,14 +105,3 @@ export function classifyProfile(
   if (userKeys === 2 && threshold === 2) return "protected";
   return "unknown";
 }
-
-/** True when the user's own keys meet the threshold (agent not needed). */
-export function userMeetsThreshold(
-  owners: string[],
-  threshold: number,
-  agentAddress: string
-): boolean {
-  const agent = agentAddress.toLowerCase();
-  const userKeys = owners.filter((o) => o.toLowerCase() !== agent).length;
-  return userKeys >= threshold;
-}

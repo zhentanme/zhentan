@@ -10,9 +10,6 @@ export const SAFE_VERSION = "1.4.1" as const;
 export const MULTISEND_CALL_ONLY: Hex =
   "0x9641d764fc13c8B624c04430C7356C1C7C8102e2";
 
-/** 4-byte selector of Safe's addOwnerWithThreshold(address,uint256). */
-export const ADD_OWNER_WITH_THRESHOLD_SELECTOR = "0x0d582f13" as const;
-
 /** Safe owner-management + introspection fragments used by the 2-of-3 flows. */
 export const SAFE_ABI = [
   {

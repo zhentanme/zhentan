@@ -48,10 +48,6 @@ async function deleteNotificationMessage(txId: string): Promise<void> {
   if (error) console.error(`Notification message cleanup failed for ${txId}:`, error.message);
 }
 
-export async function getNotificationMessageId(txId: string): Promise<string | undefined> {
-  return (await takeNotificationMessage(txId))?.messageId;
-}
-
 export function notifyTelegram(
   message: string,
   buttons?: ReplyButton[][],

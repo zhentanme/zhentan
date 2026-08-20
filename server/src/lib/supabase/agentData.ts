@@ -793,22 +793,3 @@ export async function incrementDailyStatsReview(
   });
 }
 
-// ─────────────────────────────────────────────────────────────
-// Campaigns
-// ─────────────────────────────────────────────────────────────
-
-export async function incrementDailyStatsReject(
-  safeAddress: string
-): Promise<void> {
-  const safe = safeAddress.toLowerCase();
-  const date = new Date().toISOString().split("T")[0];
-  const existing = await getDailyStats(safe, date);
-  await upsertDailyStats(safe, date, {
-    tx_count: (existing?.tx_count ?? 0) + 1,
-    approved_count: existing?.approved_count ?? 0,
-    reviewed_count: existing?.reviewed_count ?? 0,
-    rejected_count: (existing?.rejected_count ?? 0) + 1,
-    total_volume: existing?.total_volume ?? "0",
-    approved_volume: existing?.approved_volume ?? "0",
-  });
-}

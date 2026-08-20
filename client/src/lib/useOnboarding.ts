@@ -93,12 +93,6 @@ export function markOnboardingTelegramDone(walletAddress: string) {
   setOnboardingCompleteCookie();
 }
 
-/** Skip setup → Done step, cache completed locally */
-export function markAllOnboardingSkipped(walletAddress: string) {
-  patchStored(walletAddress, { step: 3, completed: true });
-  setOnboardingCompleteCookie();
-}
-
 /** Restore the persisted step for this device (0 when nothing stored). */
 export function readOnboardingStep(walletAddress: string): number {
   const s = readStored(walletAddress).step;

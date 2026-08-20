@@ -7,7 +7,6 @@ import { transactionsApi } from "./transactions";
 import { statusApi } from "./status";
 import { requestsApi } from "./requests";
 import { executeApi } from "./execute";
-import { queueApi } from "./queue";
 import { resolveApi } from "./resolve";
 import { portfolioApi } from "./portfolio";
 import { usersApi } from "./users";
@@ -70,7 +69,6 @@ export function useApiClient() {
       status: statusApi(req),
       requests: requestsApi(req),
       execute: executeApi(req),
-      queue: queueApi(req),
       resolve: resolveApi(req),
       portfolio: portfolioApi(req),
       users: usersApi(req),

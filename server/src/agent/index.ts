@@ -61,7 +61,6 @@ export {
   /** Learn recipient/velocity/token/time patterns from an executed tx. */
   updatePatternsAfterExecution as learnFromExecution,
   incrementDailyStatsReview as noteReviewOutcome,
-  recordBehavioralEvent as recordEvent,
 } from "../lib/supabase/agentData.js";
 
 // ── Signing (D4) — moved to the RUNTIME. The backend holds no
