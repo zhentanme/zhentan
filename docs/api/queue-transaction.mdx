@@ -5,7 +5,7 @@ description: Propose a signed SafeTx for risk scoring, service mirroring, and qu
 
 ## POST /queue
 
-Receives a **signed SafeTx proposal** from the client. The server hard-validates it (signature recovery against the recorded owner set, threshold arithmetic, nonce/hash consistency), mirrors it to the **Safe Transaction Service** — so it appears in app.safe.global at 1 of 2 — then runs `analyzeRisk()` inline.
+Receives a **signed SafeTx proposal** from the client. The server hard-validates it (signature recovery against the recorded owner set, threshold arithmetic, nonce/hash consistency), mirrors it to the **Safe Transaction Service** — so it appears in app.safe.global at 1 of 2 — then enqueues a screening job for the agent runtime.
 
 - **Screening on:**
   - **APPROVE (< 40):** the agent confirms via the service and relays `execTransaction`

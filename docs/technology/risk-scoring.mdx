@@ -21,7 +21,7 @@ Every transaction is scored against your behavioral profile by a deterministic r
 
 | Score | Verdict | What happens |
 |-------|---------|--------------|
-| **< 40** | APPROVE | Server auto-signs 2-of-2 and executes the UserOperation immediately. Patterns recorded asynchronously. |
+| **< 40** | APPROVE | The runtime signs, the sponsor EOA relays the SafeTx on-chain immediately. Patterns recorded asynchronously. |
 | **40–70** | REVIEW | Agent runs deep analysis (GoPlus + Honeypot.is), sends Telegram notification with [Approve] [Reject] buttons. |
 | **> 70** | BLOCK | Transaction rejected. User receives a Telegram alert. |
 
@@ -36,7 +36,7 @@ The full report is delivered to Telegram before the user decides.
 
 ## Learned Patterns
 
-Patterns are stored in `patterns.json` and updated after every confirmed transaction:
+Patterns are stored in the database and updated after every confirmed transaction:
 
 - Known recipient addresses and their typical amounts
 - Time-of-day activity windows
