@@ -1,5 +1,5 @@
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "593960240";
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 const TG_API = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
 
@@ -59,6 +59,10 @@ export function notifyTelegram(
   chatId?: string
 ): void {
   const targetChatId = chatId || TELEGRAM_CHAT_ID;
+  if (!targetChatId) {
+    console.warn("TELEGRAM_CHAT_ID is unset and no chatId was provided — dropping notification:", message.slice(0, 120));
+    return;
+  }
   const body: Record<string, unknown> = {
     chat_id: targetChatId,
     text: message,

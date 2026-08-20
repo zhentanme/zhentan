@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev-https": "next dev --experimental-https",
-    "build": "next build",
+    "build": "node scripts/sync-skill.mjs && next build",
     "start": "next start",
     "lint": "next lint"
   },
