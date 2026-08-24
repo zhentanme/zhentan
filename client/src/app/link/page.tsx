@@ -21,11 +21,12 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
-import type { LinkPreview } from "@/lib/api/telegram";
+import type { LinkCredential, LinkPreview } from "@/lib/api/telegram";
 
 type Phase =
   | { kind: "loading" }
-  | { kind: "no_code" }
+  /** Cross-device path (RFC 8628): type the short code the bot showed. */
+  | { kind: "enter"; error?: string }
   | { kind: "invalid" }
   | { kind: "confirm"; preview: Extract<LinkPreview, { status: "valid" }> }
   | { kind: "done"; already: boolean }
@@ -39,32 +40,47 @@ function tgDisplay(tg: { username: string | null; name: string | null; userId: s
 function LinkPageInner() {
   const params = useSearchParams();
   const router = useRouter();
-  const code = params.get("code") ?? "";
+  const urlCode = params.get("code") ?? "";
   const { user, loading: authLoading, safeAddress, safeLoading } = useAuth();
   const { login } = usePrivy();
   const api = useApiClient();
   const { refresh } = useScreeningStatus();
 
-  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  // The deep link carries the long code; without one, the page IS the
+  // stable verification_uri and the user types the short code from the bot.
+  const [credential, setCredential] = useState<LinkCredential | null>(
+    urlCode ? { code: urlCode } : null
+  );
+  const [entryValue, setEntryValue] = useState("");
+  const [phase, setPhase] = useState<Phase>(urlCode ? { kind: "loading" } : { kind: "enter" });
   const [relinkConfirmed, setRelinkConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const photoUrl = useTelegramPhoto({ code, enabled: phase.kind === "confirm" });
+  const photoUrl = useTelegramPhoto({ credential, enabled: phase.kind === "confirm" });
 
   const authed = !authLoading && !!user && !safeLoading && !!safeAddress;
 
   useEffect(() => {
-    if (!code) {
-      setPhase({ kind: "no_code" });
-      return;
-    }
-    if (!authed) return;
+    if (!credential || !authed) return;
     let cancelled = false;
+    setPhase({ kind: "loading" });
     api.telegram
-      .previewLink(code)
+      .previewLink(credential)
       .then((preview) => {
         if (cancelled) return;
-        if (preview.status === "invalid_code") setPhase({ kind: "invalid" });
-        else setPhase({ kind: "confirm", preview });
+        if (preview.status === "invalid_code") {
+          // A typed code returns to the form; a dead deep link is terminal.
+          if ("userCode" in credential) {
+            setCredential(null);
+            setPhase({ kind: "enter", error: "That code isn't valid any more — check it, or message the bot for a fresh one." });
+          } else {
+            setPhase({ kind: "invalid" });
+          }
+        } else if (preview.status === "rate_limited") {
+          setCredential(null);
+          setPhase({ kind: "enter", error: "Too many attempts — wait a few minutes, then try again." });
+        } else {
+          setPhase({ kind: "confirm", preview });
+        }
       })
       .catch(() => {
         if (!cancelled) setPhase({ kind: "error", message: "Could not check this link. Try again." });
@@ -72,12 +88,22 @@ function LinkPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [code, authed, api]);
+  }, [credential, authed, api]);
+
+  const submitEntry = useCallback(() => {
+    const cleaned = entryValue.toUpperCase().replace(/[^A-Z]/g, "");
+    if (cleaned.length !== 8) {
+      setPhase({ kind: "enter", error: "The code is 8 letters, like BDWK-QPXT." });
+      return;
+    }
+    setCredential({ userCode: cleaned });
+  }, [entryValue]);
 
   const complete = useCallback(async () => {
+    if (!credential) return;
     setSubmitting(true);
     try {
-      const result = await api.telegram.completeLink(code, relinkConfirmed);
+      const result = await api.telegram.completeLink(credential, relinkConfirmed);
       switch (result.status) {
         case "linked":
         case "relinked":
@@ -88,7 +114,12 @@ function LinkPageInner() {
           setPhase({ kind: "done", already: true });
           break;
         case "invalid_code":
-          setPhase({ kind: "invalid" });
+          if ("userCode" in credential) {
+            setCredential(null);
+            setPhase({ kind: "enter", error: "That code expired — message the bot for a fresh one." });
+          } else {
+            setPhase({ kind: "invalid" });
+          }
           break;
         case "needs_relink_confirmation":
           // Preview raced a fresh binding — re-render with the consent gate.
@@ -107,7 +138,7 @@ function LinkPageInner() {
     } finally {
       setSubmitting(false);
     }
-  }, [api, code, relinkConfirmed, refresh]);
+  }, [api, credential, relinkConfirmed, refresh]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-5">
@@ -137,17 +168,54 @@ function LinkPageInner() {
             <div className="flex justify-center py-10">
               <Loader2 className="h-6 w-6 animate-spin text-gold" />
             </div>
-          ) : phase.kind === "no_code" || phase.kind === "invalid" ? (
+          ) : phase.kind === "enter" ? (
             <>
-              <h1 className="text-[19px] font-bold tracking-tight mb-2">
-                {phase.kind === "no_code" ? "Missing link code" : "Link expired"}
-              </h1>
-              <p className="text-[13.5px] leading-relaxed text-muted-foreground">
-                {phase.kind === "no_code"
-                  ? "This page needs the personal link the Zhentan bot sends you."
-                  : "This link was already used or has expired."}{" "}
-                Message the bot on Telegram and it will send you a fresh one.
+              <h1 className="text-[19px] font-bold tracking-tight mb-2">Connect Telegram</h1>
+              <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5">
+                Enter the code the Zhentan bot showed you — say hi to the bot on
+                Telegram if you don&apos;t have one yet.
               </p>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submitEntry();
+                }}
+              >
+                <input
+                  value={entryValue}
+                  onChange={(e) => setEntryValue(e.target.value.toUpperCase())}
+                  placeholder="BDWK-QPXT"
+                  autoFocus
+                  autoComplete="one-time-code"
+                  spellCheck={false}
+                  maxLength={9}
+                  className="w-full text-center font-mono text-[22px] tracking-[0.25em] uppercase rounded-2xl border border-foreground/10 bg-foreground/[0.035] px-4 py-3.5 mb-3 outline-none focus:border-gold/50 placeholder:text-muted-foreground/30"
+                />
+                {phase.error && (
+                  <p className="text-[12px] leading-relaxed text-danger mb-3">{phase.error}</p>
+                )}
+                <Button type="submit" className="w-full" disabled={!entryValue.trim()}>
+                  Continue
+                </Button>
+              </form>
+            </>
+          ) : phase.kind === "invalid" ? (
+            <>
+              <h1 className="text-[19px] font-bold tracking-tight mb-2">Link expired</h1>
+              <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-4">
+                This link was already used or has expired. Message the bot on
+                Telegram and it will send you a fresh one.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setCredential(null);
+                  setPhase({ kind: "enter" });
+                }}
+                className="text-[12.5px] text-gold hover:text-gold-light transition-colors cursor-pointer"
+              >
+                Have a code from the bot? Enter it instead →
+              </button>
             </>
           ) : phase.kind === "error" ? (
             <>

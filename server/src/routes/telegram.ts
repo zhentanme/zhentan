@@ -20,10 +20,12 @@ import {
   completeLink,
   ensureLinkMeta,
   getLinkBySafe,
+  lookupCodeByUserCode,
   previewLinkCode,
   telegramUserIdForCode,
   unlinkTelegram,
 } from "../lib/telegram/binding.js";
+import { checkUserCodeGuess } from "../lib/telegram/linking.js";
 import { fetchTelegramPhoto } from "../lib/telegram/profile.js";
 import { getUserDetails } from "../lib/supabase/index.js";
 import { notify } from "../notifications/index.js";
@@ -36,6 +38,36 @@ function requireAppSession(req: Request, res: Response): string | null {
     return null;
   }
   return requireCallerSafe(req, res);
+}
+
+type Credential =
+  | { kind: "code"; code: string }
+  | { kind: "miss" } // well-formed request, but no live code matched
+  | { kind: "handled" }; // a 4xx was already written
+
+/**
+ * Both entry paths converge here (RFC 8628): the long code from the deep
+ * link, or a typed user code resolved to the SAME long code — so preview,
+ * photo, and completion run one identical pipeline. Typed entry is
+ * attempt-limited per authenticated account: a wrong guess matches no row,
+ * so the limiter must sit on the guesser, not the code.
+ */
+async function resolveCredential(req: Request, res: Response, safe: string): Promise<Credential> {
+  const code = typeof req.body?.code === "string" ? req.body.code : "";
+  if (code) return { kind: "code", code };
+
+  const userCode = typeof req.body?.userCode === "string" ? req.body.userCode : "";
+  if (!userCode) {
+    res.status(400).json({ error: "Missing code" });
+    return { kind: "handled" };
+  }
+  const guess = checkUserCodeGuess(safe);
+  if (!guess.allowed) {
+    res.status(429).json({ error: "too_many_attempts", retry_after: guess.retryAfterSeconds });
+    return { kind: "handled" };
+  }
+  const resolved = await lookupCodeByUserCode(userCode);
+  return resolved ? { kind: "code", code: resolved } : { kind: "miss" };
 }
 
 /**
@@ -106,17 +138,14 @@ export function createTelegramRouter(): IRouter {
   });
 
   // Photo of the Telegram a still-valid link code would bind — shown on the
-  // consent page next to the handle. POST so the code stays out of URLs.
+  // consent page next to the handle. POST so codes stay out of URLs.
   router.post("/link/photo", async (req: Request, res: Response) => {
     const safe = requireAppSession(req, res);
     if (!safe) return;
-    const code = typeof req.body?.code === "string" ? req.body.code : "";
-    if (!code) {
-      res.status(400).json({ error: "Missing code" });
-      return;
-    }
     try {
-      const userId = await telegramUserIdForCode(code);
+      const cred = await resolveCredential(req, res, safe);
+      if (cred.kind === "handled") return;
+      const userId = cred.kind === "code" ? await telegramUserIdForCode(cred.code) : null;
       const photo = userId ? await fetchTelegramPhoto(userId) : null;
       if (!photo) {
         res.status(404).json({ error: "No photo" });
@@ -133,13 +162,14 @@ export function createTelegramRouter(): IRouter {
   router.post("/link/preview", async (req: Request, res: Response) => {
     const safe = requireAppSession(req, res);
     if (!safe) return;
-    const code = typeof req.body?.code === "string" ? req.body.code : "";
-    if (!code) {
-      res.status(400).json({ error: "Missing code" });
-      return;
-    }
     try {
-      res.json(await previewLinkCode(code, safe));
+      const cred = await resolveCredential(req, res, safe);
+      if (cred.kind === "handled") return;
+      if (cred.kind === "miss") {
+        res.json({ status: "invalid_code" });
+        return;
+      }
+      res.json(await previewLinkCode(cred.code, safe));
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
@@ -148,13 +178,14 @@ export function createTelegramRouter(): IRouter {
   router.post("/link", async (req: Request, res: Response) => {
     const safe = requireAppSession(req, res);
     if (!safe) return;
-    const code = typeof req.body?.code === "string" ? req.body.code : "";
-    if (!code) {
-      res.status(400).json({ error: "Missing code" });
-      return;
-    }
     try {
-      const result = await completeLink(code, safe, req.body?.confirmRelink === true);
+      const cred = await resolveCredential(req, res, safe);
+      if (cred.kind === "handled") return;
+      if (cred.kind === "miss") {
+        res.status(400).json({ status: "invalid_code" });
+        return;
+      }
+      const result = await completeLink(cred.code, safe, req.body?.confirmRelink === true);
 
       if (result.status === "relinked") {
         // The losing account: exactly what the consented confirmation warned about.

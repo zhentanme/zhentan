@@ -50,8 +50,13 @@ on EVERY route with a device-grant-style envelope:
 
 ```json
 { "error": "auth_required", "verification_uri": "https://app.zhentan.me/link?code=…",
-  "expires_in": 900, "relay": "<exact user-facing text>" }
+  "user_code": "BDWK-QPXT", "expires_in": 900, "relay": "<exact user-facing text>" }
 ```
+
+Two entry paths per RFC 8628: the deep link (same device), and the short
+`user_code` typed at the stable `/link` page from any signed-in device —
+entry is authenticated and attempt-limited, which is what makes the short
+code safe.
 
 `api.ts` preserves it as a typed `AuthRequiredError` (never collapsed into
 `ApiError`), and `result.ts` maps it — for every tool identically, through the

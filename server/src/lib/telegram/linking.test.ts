@@ -3,9 +3,14 @@ import {
   AUTH_REQUIRED_ERROR,
   LINK_CODE_RATE_LIMIT,
   LINK_CODE_TTL_MS,
+  USER_CODE_ALPHABET,
+  USER_CODE_GUESS_LIMIT,
   buildAuthRequiredEnvelope,
+  checkUserCodeGuess,
+  formatUserCode,
   hashLinkCode,
   issueLinkCode,
+  normalizeUserCode,
   verificationUri,
   type LinkCodeRow,
   type LinkCodeStore,
@@ -150,18 +155,22 @@ describe("issueLinkCode", () => {
 describe("auth_required envelope", () => {
   it("is credential-agnostic and carries the pinned relay verbatim", () => {
     const expiresAt = new Date(T0.getTime() + LINK_CODE_TTL_MS);
-    const envelope = buildAuthRequiredEnvelope("some-code", expiresAt, T0);
+    const envelope = buildAuthRequiredEnvelope("some-code", expiresAt, "BDWKQPXT", T0);
     expect(envelope.error).toBe(AUTH_REQUIRED_ERROR);
     expect(envelope.verification_uri).toBe(verificationUri("some-code"));
     expect(envelope.expires_in).toBe(LINK_CODE_TTL_MS / 1000);
-    // The relay text embeds the exact URI and the human-readable expiry.
+    expect(envelope.user_code).toBe("BDWK-QPXT");
+    // The relay text embeds the exact URI, the typed-entry path, and the expiry.
     expect(envelope.relay).toContain(envelope.verification_uri);
+    expect(envelope.relay).toContain("BDWK-QPXT");
+    expect(envelope.relay).toContain("/link");
     expect(envelope.relay).toContain("15 minutes");
     // Nothing Telegram-protocol-specific leaks into the field names.
     expect(Object.keys(envelope).sort()).toEqual([
       "error",
       "expires_in",
       "relay",
+      "user_code",
       "verification_uri",
     ]);
   });
@@ -169,7 +178,54 @@ describe("auth_required envelope", () => {
   it("reports REMAINING lifetime for a re-issued code", () => {
     const expiresAt = new Date(T0.getTime() + LINK_CODE_TTL_MS);
     const fiveLater = new Date(T0.getTime() + 5 * 60_000);
-    const envelope = buildAuthRequiredEnvelope("some-code", expiresAt, fiveLater);
+    const envelope = buildAuthRequiredEnvelope("some-code", expiresAt, "BDWKQPXT", fiveLater);
     expect(envelope.expires_in).toBe(10 * 60);
+  });
+});
+
+describe("user codes (RFC 8628 cross-device entry)", () => {
+  it("mints an ambiguity-free 8-char code on fresh issuance, kept on re-issue", async () => {
+    const store = memoryStore();
+    const first = await issueLinkCode({ telegramUserId: "42" }, T0, store);
+    if ("rateLimited" in first) throw new Error("rate limited");
+    expect(first.userCode).toMatch(new RegExp(`^[${USER_CODE_ALPHABET}]{8}$`));
+    const again = await issueLinkCode({ telegramUserId: "42" }, minutes(5), store);
+    if ("rateLimited" in again) throw new Error("rate limited");
+    expect(again.userCode).toBe(first.userCode);
+  });
+
+  it("backfills a user code onto an active pre-user-code row", async () => {
+    const store = memoryStore();
+    const first = await issueLinkCode({ telegramUserId: "42" }, T0, store);
+    if ("rateLimited" in first) throw new Error("rate limited");
+    store.rows.get("42")!.user_code = null;
+    store.rows.get("42")!.user_code_hash = null;
+    const again = await issueLinkCode({ telegramUserId: "42" }, minutes(1), store);
+    if ("rateLimited" in again) throw new Error("rate limited");
+    expect(again.code).toBe(first.code); // long code untouched
+    expect(again.userCode).toMatch(new RegExp(`^[${USER_CODE_ALPHABET}]{8}$`));
+    expect(store.rows.get("42")!.user_code).toBe(again.userCode);
+  });
+
+  it("normalizes typed entry and formats for display", () => {
+    expect(normalizeUserCode("bdwk-qpxt")).toBe("BDWKQPXT");
+    expect(normalizeUserCode(" BDWK QPXT ")).toBe("BDWKQPXT");
+    expect(normalizeUserCode("BDWKQPX")).toBeNull(); // too short
+    expect(normalizeUserCode("AEIOU123")).toBeNull(); // outside the alphabet
+    expect(formatUserCode("BDWKQPXT")).toBe("BDWK-QPXT");
+  });
+
+  it("limits verification attempts per account, then resets after the window", () => {
+    for (let i = 0; i < USER_CODE_GUESS_LIMIT.max; i++) {
+      expect(checkUserCodeGuess("0xsafe", minutes(i * 0.1)).allowed).toBe(true);
+    }
+    const refused = checkUserCodeGuess("0xsafe", minutes(2));
+    expect(refused.allowed).toBe(false);
+    if (!refused.allowed) expect(refused.retryAfterSeconds).toBeGreaterThan(0);
+    // Another account is unaffected; the window eventually resets.
+    expect(checkUserCodeGuess("0xother", minutes(2)).allowed).toBe(true);
+    expect(
+      checkUserCodeGuess("0xsafe", new Date(T0.getTime() + USER_CODE_GUESS_LIMIT.windowMs + 1)).allowed
+    ).toBe(true);
   });
 });

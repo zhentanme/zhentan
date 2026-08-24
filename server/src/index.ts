@@ -152,7 +152,7 @@ app.post("/bot-start", auth, async (req, res) => {
         res.status(429).json({ error: "rate_limited", retry_after: issued.retryAfterSeconds });
         return;
       }
-      const envelope = buildAuthRequiredEnvelope(issued.code, issued.expiresAt);
+      const envelope = buildAuthRequiredEnvelope(issued.code, issued.expiresAt, issued.userCode);
       res.json({
         ok: true,
         linked: true,

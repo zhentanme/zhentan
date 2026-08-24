@@ -83,7 +83,7 @@ export async function enforceTelegramGate(req: Request, res: Response): Promise<
       });
       return true;
     }
-    res.status(403).json(buildAuthRequiredEnvelope(issued.code, issued.expiresAt));
+    res.status(403).json(buildAuthRequiredEnvelope(issued.code, issued.expiresAt, issued.userCode));
   } catch (err) {
     // Fail closed: enrollment being down must not open any other path.
     console.error("Telegram enrollment issuance failed:", err);

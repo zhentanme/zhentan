@@ -238,6 +238,15 @@ export function ActivationDialog({
                     </div>
                   </div>
                 </div>
+
+                <p className="text-[11px] text-muted-foreground/80 leading-relaxed text-center pt-1">
+                  Telegram on another device? The bot&apos;s message also shows a
+                  short code — enter it at{" "}
+                  <a href="/link" className="text-gold/90 hover:text-gold transition-colors">
+                    app.zhentan.me/link
+                  </a>
+                  .
+                </p>
               </>
             )}
           </motion.div>

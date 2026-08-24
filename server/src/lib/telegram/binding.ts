@@ -10,7 +10,7 @@
  */
 import { supabase } from "../supabase/client.js";
 import type { TelegramLinkRow } from "../supabase/types.js";
-import { hashLinkCode, type LinkCodeRow } from "./linking.js";
+import { hashLinkCode, normalizeUserCode, type LinkCodeRow } from "./linking.js";
 import { fetchTelegramProfile } from "./profile.js";
 
 export type { TelegramLinkRow };
@@ -101,6 +101,25 @@ export async function previewLinkCode(
     },
     relation,
   };
+}
+
+/**
+ * Cross-device entry (RFC 8628): resolve a typed user code to the row's LONG
+ * code, so everything downstream (preview / photo / completion) runs the
+ * identical pipeline regardless of which credential the human presented.
+ * Null for malformed, unknown, used, or expired codes — indistinguishable.
+ */
+export async function lookupCodeByUserCode(input: string): Promise<string | null> {
+  const canonical = normalizeUserCode(input);
+  if (!canonical) return null;
+  const { data, error } = await supabase
+    .from("telegram_link_codes")
+    .select("code, used_at, expires_at")
+    .eq("user_code_hash", hashLinkCode(canonical))
+    .maybeSingle<{ code: string; used_at: string | null; expires_at: string }>();
+  if (error) throw error;
+  if (!data || data.used_at || new Date(data.expires_at) <= new Date()) return null;
+  return data.code;
 }
 
 /** The Telegram user behind a still-valid (unused, unexpired) code — for

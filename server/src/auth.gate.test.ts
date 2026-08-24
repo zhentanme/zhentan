@@ -29,6 +29,7 @@ vi.mock("./lib/telegram/linking.js", async (importOriginal) => {
     ...real,
     issueLinkCode: vi.fn(async () => ({
       code: "test-code",
+      userCode: "BDWKQPXT",
       expiresAt: new Date(Date.now() + 15 * 60_000),
     })),
   };
@@ -108,8 +109,10 @@ describe("telegram gate over every MCP-exposed route", () => {
       const body = await res.json();
       expect(body.error, path).toBe("auth_required");
       expect(body.verification_uri, path).toContain("/link?code=");
+      expect(body.user_code, path).toBe("BDWK-QPXT");
       expect(typeof body.relay, path).toBe("string");
       expect(body.relay, path).toContain(body.verification_uri);
+      expect(body.relay, path).toContain("BDWK-QPXT");
     }
     expect(handlerHits).toEqual([]); // ZERO account information from any tool
   });

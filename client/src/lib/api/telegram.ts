@@ -13,8 +13,12 @@ export interface TelegramLinkState {
   telegram: TelegramIdentity | null;
 }
 
+/** The two RFC 8628 entry paths: deep-link long code, or typed user code. */
+export type LinkCredential = { code: string } | { userCode: string };
+
 export type LinkPreview =
   | { status: "invalid_code" }
+  | { status: "rate_limited"; retryAfter?: number }
   | {
       status: "valid";
       telegram: { userId: string; username: string | null; name: string | null };
@@ -41,22 +45,29 @@ export function telegramApi(req: ApiFetchFn) {
     },
 
     /** Non-consuming code lookup for the /link consent page. */
-    async previewLink(code: string): Promise<LinkPreview> {
+    async previewLink(credential: LinkCredential): Promise<LinkPreview> {
       const res = await req("/telegram/link/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify(credential),
       });
+      if (res.status === 429) {
+        const data = await res.json().catch(() => ({}));
+        return { status: "rate_limited", retryAfter: data?.retry_after };
+      }
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
 
     /** Consume the code and write the binding (relink needs explicit consent). */
-    async completeLink(code: string, confirmRelink = false): Promise<LinkCompleteResult> {
+    async completeLink(
+      credential: LinkCredential,
+      confirmRelink = false
+    ): Promise<LinkCompleteResult> {
       const res = await req("/telegram/link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, confirmRelink }),
+        body: JSON.stringify({ ...credential, confirmRelink }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok && !data?.status) throw new Error(data?.error ?? "Link failed");
@@ -77,11 +88,11 @@ export function telegramApi(req: ApiFetchFn) {
     },
 
     /** Photo of the Telegram a link code would bind — for the consent page. */
-    async linkPhoto(code: string): Promise<Blob | null> {
+    async linkPhoto(credential: LinkCredential): Promise<Blob | null> {
       const res = await req("/telegram/link/photo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify(credential),
       });
       return res.ok ? res.blob() : null;
     },
