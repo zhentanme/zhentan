@@ -97,7 +97,7 @@ export function createUsersRouter(): IRouter {
 
   // GET /users?safe=0x...
   router.get("/", async (req: Request, res: Response) => {
-    // The row carries email, telegram id and signer address — own-record only.
+    // The row carries email and signer address — own-record only.
     const safe = assertOwnsSafe(req, res, req.query.safe as string | undefined);
     if (!safe) return;
     try {
@@ -114,7 +114,6 @@ export function createUsersRouter(): IRouter {
       safeAddress,
       email,
       name,
-      telegramId,
       signerAddress,
       username,
       onboardingCompleted,
@@ -140,14 +139,14 @@ export function createUsersRouter(): IRouter {
 
       // Bind the row to the wallet the token proved rather than the one the body
       // claims. Without this an attacker could point a fresh row's signer at
-      // someone else, or redirect notifications by rewriting telegram_id.
+      // someone else. (Telegram identity is NOT writable here — the binding
+      // lives in telegram_links and is owned by the #134 link flow.)
       const boundSigner = req.signerAddress ?? signerAddress;
 
       const before = await getUserDetails(safeAddress);
       await upsertUserDetails(safeAddress, {
         ...(email !== undefined && { email }),
         ...(name !== undefined && { name }),
-        ...(telegramId !== undefined && { telegram_id: telegramId }),
         ...(signerAddress !== undefined && { signer_address: boundSigner }),
         ...(username !== undefined && { username: username.toLowerCase() }),
         ...(onboardingCompleted !== undefined && { onboarding_completed: onboardingCompleted }),

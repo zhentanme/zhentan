@@ -9,24 +9,25 @@ import {
 } from "../lib/supabase/index.js";
 import type { UserDetailsRow } from "../lib/supabase/types.js";
 import { payCampaignClaim } from "../lib/campaignPayout.js";
+import { getLinkBySafe } from "../lib/telegram/binding.js";
 
 type RequirementKey = "tg_connected" | "username_claimed";
 
-function checkRequirements(
+async function checkRequirements(
   requirements: Record<string, unknown>,
   user: UserDetailsRow
-): { met: boolean; missing: string[] } {
+): Promise<{ met: boolean; missing: string[] }> {
   const missing: string[] = [];
 
-  const checks: Record<RequirementKey, () => boolean> = {
-    tg_connected:     () => !!user.telegram_id,
+  const checks: Record<RequirementKey, () => Promise<boolean> | boolean> = {
+    tg_connected:     async () => Boolean(await getLinkBySafe(user.safe_address)),
     username_claimed: () => !!user.username,
   };
 
   for (const [key, required] of Object.entries(requirements)) {
     if (!required) continue;
     const check = checks[key as RequirementKey];
-    if (!check || !check()) missing.push(key);
+    if (!check || !(await check())) missing.push(key);
   }
 
   return { met: missing.length === 0, missing };
@@ -117,7 +118,7 @@ export function createCampaignsRouter(): IRouter {
         return;
       }
 
-      const { met, missing } = checkRequirements(
+      const { met, missing } = await checkRequirements(
         campaign.requirements as Record<string, unknown>,
         userDetails
       );

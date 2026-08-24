@@ -26,7 +26,7 @@ import { bsc } from "viem/chains";
 import { privateKeyToAccount, nonceManager } from "viem/accounts";
 
 import { BSC_RPC } from "../constants.js";
-import { notifyTelegram } from "../../notify.js";
+import { notifyAdminTelegram } from "../../notify.js";
 import { getRelayerPublicClient } from "../safe/relayer.js";
 
 /** Pure resolution — exported for tests. Typed as a plain string record so
@@ -82,7 +82,7 @@ export async function assertSponsorGas(): Promise<void> {
     const now = Date.now();
     if (now - lastLowGasAlert < LOW_GAS_ALERT_INTERVAL_MS) return;
     lastLowGasAlert = now;
-    notifyTelegram(
+    notifyAdminTelegram(
       `⛽ Agent relayer low on gas: ${formatEther(balance)} BNB ` +
         `(threshold ${minBnb} BNB).\n` +
         `Top up ${getSponsorAddress()} or SafeTx execution will stall.`

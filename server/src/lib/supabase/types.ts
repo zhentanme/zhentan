@@ -61,7 +61,6 @@ export interface TransactionRow {
 export interface UserDetailsRow {
   safe_address: string;
   email: string | null;
-  telegram_id: string | null;
   name: string | null;
   username: string | null;
   signer_address: string | null;
@@ -87,10 +86,18 @@ export interface UserSettingsRow {
   safe_address: string;
   screening_mode: boolean;
   last_check: string | null;
-  telegram_chat_id: string | null;
-  bot_connected: boolean | null;
   decisions: unknown[];
   updated_at: string;
+}
+
+/** Telegram identity/delivery binding (#134) — one account per Telegram. */
+export interface TelegramLinkRow {
+  telegram_user_id: string;
+  safe_address: string;
+  telegram_chat_id: string;
+  telegram_username: string | null;
+  telegram_name: string | null;
+  linked_at: string;
 }
 
 export interface RequestRow {

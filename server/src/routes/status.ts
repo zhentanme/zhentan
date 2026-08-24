@@ -8,6 +8,7 @@ import {
 } from "../agent/index.js";
 import type { GlobalLimitsRow } from "../lib/supabase/types.js";
 import { assertOwnsSafe } from "../lib/authz.js";
+import { getLinkBySafe } from "../lib/telegram/binding.js";
 
 export function createStatusRouter(): IRouter {
   const router = Router();
@@ -19,17 +20,24 @@ export function createStatusRouter(): IRouter {
       const safe = assertOwnsSafe(req, res, req.query.safe as string | undefined);
       if (!safe) return;
 
-      const [settings, patterns] = await Promise.all([
+      const [settings, patterns, link] = await Promise.all([
         getUserSettings(safe),
         loadPolicySnapshot(safe),
+        getLinkBySafe(safe),
       ]);
 
       res.json({
         screeningMode: settings.screening_mode,
         lastCheck: settings.last_check,
         totalDecisions: (settings.decisions ?? []).length,
-        telegramChatId: settings.telegram_chat_id,
-        botConnected: settings.bot_connected ?? false,
+        telegramLinked: Boolean(link),
+        telegram: link
+          ? {
+              userId: link.telegram_user_id,
+              username: link.telegram_username,
+              name: link.telegram_name,
+            }
+          : null,
         patterns,
       });
     } catch (err) {
@@ -40,7 +48,9 @@ export function createStatusRouter(): IRouter {
 
   // PATCH /status
   // Accepts: safe (optional; cross-checked against the caller), plus any combination of:
-  //   User settings: screeningMode, telegramChatId, botConnected
+  //   User settings: screeningMode
+  //   (Telegram identity is NOT writable here — the binding is owned by the
+  //    #134 link flow: POST /telegram/link + /telegram/unlink.)
   //   Global limits: maxSingleTx, maxHourlyVolume, maxDailyVolume,
   //     maxWeeklyVolume, maxDailyTxCount, allowedHoursUTC, allowedDaysUTC,
   //     unknownRecipientAction, riskThresholdApprove, riskThresholdBlock,
@@ -51,8 +61,6 @@ export function createStatusRouter(): IRouter {
         safe: claimedSafe,
         // User settings fields
         screeningMode,
-        telegramChatId,
-        botConnected,
         // Global limits fields
         maxSingleTx,
         maxHourlyVolume,
@@ -83,22 +91,6 @@ export function createStatusRouter(): IRouter {
           return;
         }
         settingsPatch.screening_mode = screeningMode;
-        hasSettingsUpdate = true;
-      }
-      if (telegramChatId !== undefined) {
-        if (typeof telegramChatId !== "string") {
-          res.status(400).json({ error: "telegramChatId must be a string" });
-          return;
-        }
-        settingsPatch.telegram_chat_id = telegramChatId || null;
-        hasSettingsUpdate = true;
-      }
-      if (botConnected !== undefined) {
-        if (typeof botConnected !== "boolean") {
-          res.status(400).json({ error: "botConnected must be a boolean" });
-          return;
-        }
-        settingsPatch.bot_connected = botConnected;
         hasSettingsUpdate = true;
       }
 
@@ -155,8 +147,6 @@ export function createStatusRouter(): IRouter {
 
       res.json({
         screeningMode: updatedSettings.screening_mode,
-        telegramChatId: updatedSettings.telegram_chat_id,
-        botConnected: updatedSettings.bot_connected ?? false,
         limits: {
           maxSingleTx:             updatedLimits.max_single_tx,
           maxHourlyVolume:         updatedLimits.max_hourly_volume,
@@ -178,11 +168,4 @@ export function createStatusRouter(): IRouter {
   });
 
   return router;
-}
-
-export async function getTelegramChatIdForSafe(
-  safeAddress: string
-): Promise<string | undefined> {
-  const settings = await getUserSettings(safeAddress);
-  return settings.telegram_chat_id ?? undefined;
 }

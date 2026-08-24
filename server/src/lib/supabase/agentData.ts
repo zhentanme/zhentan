@@ -26,8 +26,6 @@ import type { PatternsFile } from "zhentan-screening/risk";
 const DEFAULT_USER_SETTINGS: Omit<UserSettingsRow, "safe_address" | "updated_at"> = {
   screening_mode: false,
   last_check: null,
-  telegram_chat_id: null,
-  bot_connected: null,
   decisions: [],
 };
 
