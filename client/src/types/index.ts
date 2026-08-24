@@ -178,8 +178,8 @@ export interface StatusResponse {
   screeningMode: boolean;
   lastCheck: string | null;
   totalDecisions: number;
-  telegramChatId?: string | null;
-  botConnected?: boolean;
+  telegramLinked?: boolean;
+  telegram?: { userId: string; username: string | null; name: string | null } | null;
   patterns: PatternsFile;
 }
 

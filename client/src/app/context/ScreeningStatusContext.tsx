@@ -10,42 +10,40 @@ import {
   type ReactNode,
 } from "react";
 import { useApiClient } from "@/lib/api/client";
+import type { TelegramIdentity } from "@/lib/api/telegram";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { useAuth } from "./AuthContext";
 
 interface ScreeningStatusContextType {
   screeningMode: boolean;
-  botConnected: boolean;
+  /** Server-truth Telegram binding (#134) — the ONLY link signal. */
   telegramLinked: boolean;
+  telegramIdentity: TelegramIdentity | null;
+  /** Linked chat implies an open, messageable bot — one step, one flag. */
   fullyActivated: boolean;
   isScreeningActive: boolean;
   loading: boolean;
   setScreeningMode: (v: boolean) => void;
-  setBotConnected: (v: boolean) => void;
-  setTelegramLinked: (v: boolean) => void;
   refresh: () => Promise<void>;
 }
 
 const ScreeningStatusContext = createContext<ScreeningStatusContextType | null>(null);
 
 export function ScreeningStatusProvider({ children }: { children: ReactNode }) {
-  const { safeAddress, telegramUserId } = useAuth();
+  const { safeAddress } = useAuth();
   const api = useApiClient();
   const [screeningMode, setScreeningMode] = useState(false);
-  const [botConnected, setBotConnected] = useState(false);
   const [telegramLinked, setTelegramLinked] = useState(false);
+  const [telegramIdentity, setTelegramIdentity] = useState<TelegramIdentity | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setTelegramLinked(!!telegramUserId);
-  }, [telegramUserId]);
 
   const refresh = useCallback(async () => {
     if (!safeAddress) return;
     try {
       const data = await api.status.get(safeAddress);
       setScreeningMode(data.screeningMode ?? false);
-      setBotConnected(data.botConnected ?? false);
+      setTelegramLinked(data.telegramLinked ?? false);
+      setTelegramIdentity(data.telegram ?? null);
     } catch {
       // silent
     }
@@ -59,23 +57,21 @@ export function ScreeningStatusProvider({ children }: { children: ReactNode }) {
 
   useAutoRefresh(refresh, 30_000);
 
-  const fullyActivated = telegramLinked && botConnected;
+  const fullyActivated = telegramLinked;
   const isScreeningActive = screeningMode && fullyActivated;
 
   const value = useMemo(
     () => ({
       screeningMode,
-      botConnected,
       telegramLinked,
+      telegramIdentity,
       fullyActivated,
       isScreeningActive,
       loading,
       setScreeningMode,
-      setBotConnected,
-      setTelegramLinked,
       refresh,
     }),
-    [screeningMode, botConnected, telegramLinked, fullyActivated, isScreeningActive, loading, refresh]
+    [screeningMode, telegramLinked, telegramIdentity, fullyActivated, isScreeningActive, loading, refresh]
   );
 
   return (

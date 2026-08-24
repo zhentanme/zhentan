@@ -23,7 +23,8 @@ import { useBackupCandidate } from "@/components/BackupAddressPicker";
 import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
-import { useLinkAccount, usePrivy } from "@privy-io/react-auth";
+import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
+import { useTelegramLink } from "@/hooks/useTelegramLink";
 import {
   markOnboardingWalletLinked,
   markOnboardingUsernameSkipped,
@@ -638,69 +639,24 @@ const TelegramIcon = ({ className }: { className?: string }) => (
 );
 
 function ConnectStep({
-  safeAddress,
   onFinish,
   onSkip,
 }: {
-  safeAddress: string;
   onFinish: () => void;
   onSkip: () => void;
 }) {
-  const { telegramUserId, privyUser } = useAuth();
-  const { unlinkTelegram } = usePrivy();
-  const api = useApiClient();
-
-  // Derive initial state from existing Privy linked accounts
-  const existingTgAccount = (privyUser?.linkedAccounts as unknown as Array<Record<string, unknown>>)
-    ?.find((a) => a.type === "telegram");
-  const existingTgName =
-    (existingTgAccount?.firstName as string) ||
-    (existingTgAccount?.username as string) ||
-    null;
-
-  const [telegramLinked, setTelegramLinked] = useState(!!telegramUserId);
-  const [tgUsername, setTgUsername] = useState<string | null>(existingTgName);
-  const [linking, setLinking] = useState(false);
-  const [unlinking, setUnlinking] = useState(false);
-
-  const { linkTelegram } = useLinkAccount({
-    onSuccess: ({ linkedAccount, linkMethod }) => {
-      if (linkMethod === "telegram") {
-        const acc = linkedAccount as unknown as Record<string, unknown>;
-        const tgUserId =
-          (acc?.telegramUserId as string) ||
-          (acc?.username as string) ||
-          (acc?.subject as string);
-        const name =
-          (acc?.firstName as string) ||
-          (acc?.username as string) ||
-          null;
-        if (tgUserId) {
-          setTelegramLinked(true);
-          setTgUsername(name);
-          api.status.update({ safe: safeAddress, telegramChatId: String(tgUserId) }).catch(() => {});
-          api.users.upsert({ safeAddress, telegramId: String(tgUserId) }).catch(() => {});
-        }
-      }
-      setLinking(false);
-    },
-    onError: () => setLinking(false),
-  });
+  // One step (#134): open the bot chat, say hi, tap the secure link it sends
+  // back. The server-truth binding is polled until it lands.
+  const { linked, identity, waiting, unlinking, start, unlink } = useTelegramLink();
+  const tgLabel = identity?.username
+    ? `@${identity.username}`
+    : identity?.name ?? (linked ? "Account linked" : null);
 
   const handleDisconnect = async () => {
-    setUnlinking(true);
     try {
-      await (unlinkTelegram as unknown as (id: string) => Promise<unknown>)(
-        tgUsername ?? "telegram"
-      );
-      setTelegramLinked(false);
-      setTgUsername(null);
-      api.status.update({ safe: safeAddress, telegramChatId: "" }).catch(() => {});
-      api.users.upsert({ safeAddress, telegramId: "" }).catch(() => {});
+      await unlink();
     } catch {
-      // ignore
-    } finally {
-      setUnlinking(false);
+      // ignore — the row stays visibly linked and can be retried
     }
   };
 
@@ -715,12 +671,12 @@ function ConnectStep({
     >
       <h2 className="text-[23px] font-bold tracking-tight mb-2">Get alerts on Telegram</h2>
       <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5">
-        Zhentan pings you when it screens a transaction, so you can approve or
-        reject from anywhere.
+        Say hi to the Zhentan bot and it replies with your personal secure
+        link — one tap and this chat can approve or reject from anywhere.
       </p>
 
       <AnimatePresence mode="wait">
-        {telegramLinked ? (
+        {linked ? (
           <motion.div
             key="connected"
             initial={{ opacity: 0, y: 6 }}
@@ -740,7 +696,7 @@ function ConnectStep({
                 </span>
               </span>
               <span className="block font-mono text-[11.5px] text-muted-foreground mt-1 truncate">
-                {tgUsername ? `@${tgUsername}` : "Account linked"}
+                {tgLabel}
               </span>
             </span>
             <button
@@ -760,24 +716,24 @@ function ConnectStep({
             exit={{ opacity: 0, y: -6 }}
             transition={{ type: "spring", bounce: 0.1 }}
             type="button"
-            onClick={() => {
-              setLinking(true);
-              linkTelegram();
-            }}
-            disabled={linking}
+            onClick={start}
             className="w-full flex items-center gap-3 text-left p-3.5 rounded-2xl border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
           >
             <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-foreground/6">
-              {linking ? (
+              {waiting ? (
                 <Loader2 className="h-[17px] w-[17px] text-muted-foreground animate-spin" />
               ) : (
                 <TelegramIcon className="h-[17px] w-[17px] text-muted-foreground" />
               )}
             </span>
             <span className="flex-1">
-              <span className="block text-[13.5px] font-semibold">Connect Telegram</span>
+              <span className="block text-[13.5px] font-semibold">
+                {waiting ? "Waiting for you to say hi…" : "Open the Zhentan bot"}
+              </span>
               <span className="block text-[11.5px] text-muted-foreground mt-0.5">
-                {linking ? "Opening Telegram…" : "Approve or reject from your chat"}
+                {waiting
+                  ? "Send any message, then tap the link the bot sends back"
+                  : "Say hi and tap the secure link it replies with"}
               </span>
             </span>
             <ChevronRight className="h-[15px] w-[15px] text-muted-foreground/80 shrink-0" />
@@ -921,8 +877,8 @@ function OnboardingContent() {
     refreshSafe,
     pendingProfile,
     externalWalletAddress,
-    telegramUserId,
   } = useAuth();
+  const { telegramLinked } = useScreeningStatus();
   const api = useApiClient();
 
   const [step, setStep] = useState(0);
@@ -1046,7 +1002,6 @@ function OnboardingContent() {
           )}
           {step === 2 && safeAddress && (
             <ConnectStep
-              safeAddress={safeAddress}
               onFinish={handleTelegramDone}
               onSkip={handleSkipTelegram}
             />
@@ -1055,7 +1010,7 @@ function OnboardingContent() {
             <DoneStep
               screeningOn={(safeConfig?.profile ?? pendingProfile) !== "starter"}
               backupSet={!!externalWalletAddress}
-              tgLinked={!!telegramUserId}
+              tgLinked={telegramLinked}
               onFinish={handleFinish}
             />
           )}

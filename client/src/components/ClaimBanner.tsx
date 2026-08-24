@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Dialog } from "@/components/ui/Dialog";
 import { useApiClient } from "@/lib/api/client";
+import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import type { CampaignStatus } from "@/lib/api/campaigns";
 import { ClaimAnimation, type ClaimAnimationPhase } from "@/components/ClaimAnimation";
 
@@ -43,7 +44,6 @@ const TASK_LABELS: Record<
 
 interface ClaimBannerProps {
   safeAddress: string;
-  telegramUserId: string | null | undefined;
   username: string | null | undefined;
   /** If true, the banner animates out and disappears once claimed */
   hideWhenClaimed?: boolean;
@@ -55,13 +55,13 @@ interface ClaimBannerProps {
 
 export function ClaimBanner({
   safeAddress,
-  telegramUserId,
   username,
   hideWhenClaimed = false,
   onClaimed,
   className,
 }: ClaimBannerProps) {
   const api = useApiClient();
+  const { telegramLinked } = useScreeningStatus();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<CampaignStatus | null>(null);
@@ -74,7 +74,7 @@ export function ClaimBanner({
   const [animTokenAmount, setAnimTokenAmount] = useState(0);
 
   const taskMet: Record<string, boolean> = {
-    tg_connected:     !!telegramUserId,
+    tg_connected:     telegramLinked,
     username_claimed: !!username,
   };
 

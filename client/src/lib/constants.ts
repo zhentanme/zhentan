@@ -1,5 +1,13 @@
 import { type Hex } from "viem";
 
+/**
+ * The Zhentan agent bot. Linking is chat-initiated (#134): the user says hi,
+ * the bot replies with a personal secure link, and the app session completes
+ * the binding at /link.
+ */
+export const TELEGRAM_BOT_USERNAME = "zhentanme_bot";
+export const TELEGRAM_BOT_URL = `https://t.me/${TELEGRAM_BOT_USERNAME}`;
+
 /** Canonical Safe 1.4.1 MultiSendCallOnly — batches calls inside one SafeTx (operation=1). */
 export const MULTISEND_CALL_ONLY: Hex =
   "0x9641d764fc13c8B624c04430C7356C1C7C8102e2";

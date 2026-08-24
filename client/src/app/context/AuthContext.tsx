@@ -24,7 +24,6 @@ export interface AuthUser {
   email?: string;
   name?: string;
   image?: string;
-  telegramUserId?: string;
 }
 
 export interface AuthWallet {
@@ -141,8 +140,6 @@ export interface AuthContextType {
    * record loads (or for brand-new users with no record yet).
    */
   recordOnboardingCompleted: boolean | null;
-  /** Telegram user ID from linked account */
-  telegramUserId?: string;
   /** Raw Privy user for accessing linkedAccounts */
   privyUser: ReturnType<typeof usePrivy>["user"];
   /** Privy identity token — attach as Authorization: Bearer for backend calls */
@@ -227,12 +224,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [primaryWallet]);
 
-  const telegramUserId = useMemo(() => {
-    if (!privyUser?.linkedAccounts) return undefined;
-    const tg = privyUser.linkedAccounts.find((a) => a.type === "telegram");
-    return tg && "telegramUserId" in tg ? String(tg.telegramUserId) : undefined;
-  }, [privyUser]);
-
   const user: AuthUser | null = useMemo(() => {
     if (!privyUser) return null;
     const google = (privyUser as { google?: { email?: string; name?: string; picture?: string } }).google;
@@ -241,9 +232,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: google?.email,
       name: google?.name,
       image: google?.picture,
-      telegramUserId,
     };
-  }, [privyUser, telegramUserId]);
+  }, [privyUser]);
 
   // The session's signer IDENTITY — stable across extension account switches.
   // Embedded users: the Privy wallet. Wallet-login users: the SIWE-linked
@@ -537,7 +527,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         safeAddress,
         email: google?.email,
         name: google?.name,
-        telegramId: telegramUserId,
         signerAddress: wallet?.address,
         // Persist the owner model only for freshly derived Safes — legacy
         // records get their owner set from the upgrade flow, not this sync.
@@ -562,7 +551,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     safeAddress,
     identityToken,
     privyUser,
-    telegramUserId,
     wallet?.address,
     safeDerived,
     safeCommitted,
@@ -640,11 +628,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       safeConfig,
       refreshSafe,
       recordOnboardingCompleted: safeRecord?.onboarding_completed ?? null,
-      telegramUserId,
       privyUser: privyUser ?? null,
       identityToken: identityToken ?? null,
     }),
-    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, displayedSignerMeta, signerMismatch, signerDisplay, requestSignerSwitch, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, pendingProfile, safeConfig, refreshSafe, safeRecord, telegramUserId, privyUser, identityToken]
+    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, displayedSignerMeta, signerMismatch, signerDisplay, requestSignerSwitch, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, pendingProfile, safeConfig, refreshSafe, safeRecord, privyUser, identityToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

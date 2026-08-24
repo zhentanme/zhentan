@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { Button } from "./ui/Button";
 import { proposeTransaction } from "@/lib/propose";
 import { useAuth } from "@/app/context/AuthContext";
+import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
 import { useLiveTransaction } from "@/hooks/useLiveTransaction";
 import { CoSignButton } from "@/components/CoSignButton";
@@ -17,7 +18,7 @@ import { MaoAvatar } from "./MaoAvatar";
 import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, Loader2, MessageCircle, X, UserRound, Zap } from "lucide-react";
 import { useForceExecuteSetting } from "@/lib/useForceExecute";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
-import { BSC_EXPLORER_URL } from "@/lib/constants";
+import { BSC_EXPLORER_URL, TELEGRAM_BOT_URL, TELEGRAM_BOT_USERNAME } from "@/lib/constants";
 import { useApiClient, apiFetch } from "@/lib/api/client";
 import { Dialog } from "./ui/Dialog";
 import { TokenRow } from "./TokenRow";
@@ -34,7 +35,8 @@ interface SendPanelProps {
 }
 
 export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, screeningMode = true }: SendPanelProps) {
-  const { user, wallet, getOwnerAccount, telegramUserId, identityToken, safeAddress, safeConfig } = useAuth();
+  const { user, wallet, getOwnerAccount, identityToken, safeAddress, safeConfig } = useAuth();
+  const { telegramLinked } = useScreeningStatus();
   const api = useApiClient();
   const { addOptimisticTransaction, transactions } = useActivityData();
   const router = useRouter();
@@ -259,7 +261,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       return;
     }
 
-    if (screeningMode && !telegramUserId) {
+    if (screeningMode && !telegramLinked) {
       setShowTgRequiredModal(true);
       return;
     }
@@ -749,16 +751,16 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             AI screening is active. Telegram must be connected so the agent can notify you when a transaction needs review.
           </p>
           <p className="text-xs text-muted-foreground/80">
-            Message{" "}
+            Say hi to{" "}
             <a
-              href="https://t.me/zhentan_clawbot"
+              href={TELEGRAM_BOT_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="text-gold/80 hover:text-gold transition-colors"
             >
-              @zhentan_clawbot
+              @{TELEGRAM_BOT_USERNAME}
             </a>{" "}
-            first, then link your account in Settings.
+            and tap the secure link it replies with.
           </p>
         </div>
         <Button
