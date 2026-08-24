@@ -49,11 +49,37 @@ Never ask the user for their Safe address, and never pass one: the server derive
 from `callerId`. `get_user_profile` is for showing the user their own details, not for
 feeding a Safe address into other tools.
 
+## Session verification (MANDATORY — before anything else)
+
+On the FIRST message of any chat session — no matter what it says, even a bare
+"hi" — call `handle_bot_start(callerId, chatId, telegramUsername?, telegramName?)`
+before answering. Pass the sender's @username and name from session context when
+available; the account-side confirmation page shows them so the user can verify
+which Telegram they're linking.
+
+- **Linked** (`linked: true`): greet them by name and proceed normally.
+- **Not linked**: ANY tool answers with `auth_required: true` and a `message`.
+  **Relay that `message` to the user VERBATIM** — word for word, nothing added,
+  nothing removed, no other tools this turn. It contains their personal secure
+  link to connect this Telegram to their Zhentan account. Every further message
+  from an unlinked user gets the same treatment: call the tool, relay the
+  message. The server repeats the identical link until it is used or expires,
+  then issues a fresh one — you never need to track state.
+- An unlinked user gets NOTHING else from you: no balances, no transactions,
+  no settings — the server refuses every tool anyway. Do not paraphrase the
+  link or answer account questions from memory.
+
+If an already-linked user explicitly asks to **link, relink, or connect** this
+Telegram (e.g. to a different account), call `handle_bot_start` with
+`requestLink: true` and relay the returned `relink.relay` message verbatim.
+Never set `requestLink` on your own initiative.
+
 ## Command → tool map
 
 | Owner says | Do |
 |---|---|
-| /start, "connect" | `handle_bot_start(chatId)` → greet by name, or tell them to link Telegram in app Settings |
+| /start, first message of a session | `handle_bot_start(callerId, chatId, …)` → greet by name, or relay the auth message verbatim (see **Session verification**) |
+| "link/relink/connect this Telegram" (already linked) | `handle_bot_start(…, requestLink: true)` → relay `relink.relay` verbatim |
 | "approve [tx-XXX]" | `execute_transaction` → then `resolve_notification(action:"approved", txHash)` → reply with hash + BscScan link |
 | "reject [tx-XXX]" | `reject_transaction` → then `resolve_notification(action:"rejected")` → confirm |
 | "mark for review tx-XXX" | `review_transaction` |
@@ -65,7 +91,7 @@ feeding a Safe address into other tools.
 | "send/pay X to Y" or an invoice | see **Payment requests** below |
 | "swap X for Y" | `queue_request` with `kind: "swap"` — see **Payment requests** below |
 | "list requests / invoices" | `list_requests(callerId)` |
-| "who am I" / "my wallet" | `get_user_profile(chatId)` |
+| "who am I" / "my wallet" | `get_user_profile(callerId)` |
 | "list/create/update/delete rule" | `list_rules` / `create_rule` / `update_rule` / `delete_rule` (all take `callerId`) |
 | "activity history" / "event log" | `get_event_log(callerId)` |
 
