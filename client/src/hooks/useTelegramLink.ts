@@ -26,16 +26,37 @@ export function useTelegramLink() {
     setWaiting(false);
   }, []);
 
-  /** Opens the bot chat and starts watching for the link to land. */
-  const start = useCallback(() => {
+  /** Just opens the bot chat — no polling side effects. */
+  const openBot = useCallback(() => {
     window.open(TELEGRAM_BOT_URL, "_blank", "noopener,noreferrer");
-    setWaiting(true);
-    if (!pollRef.current) {
-      pollRef.current = setInterval(() => {
-        refresh().catch(() => {});
-      }, 4000);
-    }
-  }, [refresh]);
+  }, []);
+
+  /**
+   * Watch for the binding to land, decoupled from opening the chat — the
+   * activation dialog watches for as long as it is OPEN, so the link is
+   * picked up no matter which device completes it.
+   */
+  const setWatching = useCallback(
+    (active: boolean) => {
+      if (!active) {
+        stopPolling();
+        return;
+      }
+      setWaiting(true);
+      if (!pollRef.current) {
+        pollRef.current = setInterval(() => {
+          refresh().catch(() => {});
+        }, 4000);
+      }
+    },
+    [refresh, stopPolling]
+  );
+
+  /** Opens the bot chat and starts watching (the onboarding step's one-tap). */
+  const start = useCallback(() => {
+    openBot();
+    setWatching(true);
+  }, [openBot, setWatching]);
 
   const check = useCallback(async () => {
     setChecking(true);
@@ -71,6 +92,8 @@ export function useTelegramLink() {
     checking,
     unlinking,
     start,
+    openBot,
+    setWatching,
     check,
     unlink,
     refresh,

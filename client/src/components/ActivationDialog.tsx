@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { clsx } from "clsx";
 import { ExternalLink, Loader2, XIcon } from "lucide-react";
 import { Dialog } from "./ui/Dialog";
 import { TELEGRAM_BOT_USERNAME } from "@/lib/constants";
@@ -12,20 +11,18 @@ import { MaoAvatar } from "./MaoAvatar";
 
 /**
  * One-step activation (#134): open the bot chat, say hi, tap the personal
- * secure link the bot replies with. The dialog just watches the server-truth
- * binding land.
+ * secure link the bot replies with. The dialog watches the server-truth
+ * binding for as long as it is open (the owner starts that poll), so the
+ * "Open bot" button is a pure link with no side effects.
  */
 interface ActivationDialogProps {
   open: boolean;
   onClose: () => void;
   telegramLinked: boolean;
-  /** True while we're waiting for the user to finish in the bot chat. */
-  waiting: boolean;
-  checking: boolean;
   unlinking: boolean;
   tgDisplayName: string | null;
-  onStart: () => void;
-  onCheck: () => void;
+  /** Opens the t.me chat — nothing else. */
+  onOpenBot: () => void;
   onUnlinkTelegram: () => void;
 }
 
@@ -78,12 +75,9 @@ export function ActivationDialog({
   open,
   onClose,
   telegramLinked,
-  waiting,
-  checking,
   unlinking,
   tgDisplayName,
-  onStart,
-  onCheck,
+  onOpenBot,
   onUnlinkTelegram,
 }: ActivationDialogProps) {
   const wasInitiallyCompleteRef = useRef(false);
@@ -170,30 +164,18 @@ export function ActivationDialog({
                   and your chat can approve or reject reviews.
                 </p>
 
-                <div
-                  className={clsx(
-                    "p-4 rounded-2xl border transition-colors duration-300",
-                    waiting ? "bg-gold/5 border-gold/20" : "bg-foreground/2 border-foreground/6"
-                  )}
-                >
+                <div className="p-4 rounded-2xl border bg-gold/5 border-gold/20">
                   <div className="flex items-start gap-3">
                     <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
-                      {waiting && (
-                        <motion.div
-                          className="absolute inset-0 rounded-2xl border-2 border-gold/40"
-                          animate={{ scale: [1, 1.25], opacity: [0.6, 0] }}
-                          transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
-                        />
-                      )}
-                      <div
-                        className={clsx(
-                          "relative w-11 h-11 rounded-2xl flex items-center justify-center",
-                          waiting ? "bg-gold/10" : "bg-foreground/6"
-                        )}
-                      >
-                        {/* The loader IS Mao: light sweeping his shades while he
-                            watches the chat for the link to land. */}
-                        <MaoAvatar state={waiting ? "scanning" : "idle"} size={34} variant="detail" />
+                      <motion.div
+                        className="absolute inset-0 rounded-2xl border-2 border-gold/40"
+                        animate={{ scale: [1, 1.25], opacity: [0.6, 0] }}
+                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
+                      />
+                      <div className="relative w-11 h-11 rounded-2xl bg-gold/10 flex items-center justify-center">
+                        {/* Mao is already on watch while this dialog is open —
+                            the sweep across his shades IS the listening state. */}
+                        <MaoAvatar state="scanning" size={34} variant="detail" />
                       </div>
                     </div>
                     <div className="flex-1 min-w-0 flex flex-row justify-between items-start gap-3">
@@ -202,35 +184,16 @@ export function ActivationDialog({
                           Say hi to @{TELEGRAM_BOT_USERNAME}
                         </h4>
                         <div className="text-[11px] text-muted-foreground leading-relaxed max-w-56">
-                          {waiting ? (
-                            <>
-                              Send any message to{" "}
-                              <a
-                                href={`https://t.me/${TELEGRAM_BOT_USERNAME}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-gold/90 hover:text-gold transition-colors"
-                              >
-                                @{TELEGRAM_BOT_USERNAME}
-                              </a>
-                              , then tap the secure link it replies with…
-                            </>
-                          ) : (
-                            "The bot replies with your personal secure link — one tap connects this chat."
-                          )}
+                          Send any message, then tap the secure link the bot
+                          replies with — this connects the moment you do.
                         </div>
                       </div>
                       <button
-                        onClick={waiting ? onCheck : onStart}
-                        disabled={checking}
-                        className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-gold/10 text-gold hover:bg-gold/15 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-default inline-flex items-center gap-1.5 shrink-0"
+                        onClick={onOpenBot}
+                        className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-gold/10 text-gold hover:bg-gold/15 transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
                       >
-                        {checking ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : !waiting ? (
-                          <ExternalLink className="h-3 w-3" />
-                        ) : null}
-                        {waiting ? "Check again" : "Open bot"}
+                        <ExternalLink className="h-3 w-3" />
+                        Open bot
                       </button>
                     </div>
                   </div>

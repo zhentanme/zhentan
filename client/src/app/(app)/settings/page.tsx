@@ -264,13 +264,17 @@ function SettingsPageContent() {
   const {
     linked: telegramLinked,
     identity: tgIdentity,
-    waiting: tgWaiting,
-    checking: tgChecking,
     unlinking: tgUnlinking,
-    start: startTelegramLink,
-    check: checkTelegramLink,
+    openBot: openTelegramBot,
+    setWatching: setWatchingTelegram,
     unlink: unlinkTelegramLink,
   } = useTelegramLink();
+
+  // Watch for the binding the whole time the activation dialog is open — the
+  // link can be completed from any device, not just behind the Open-bot tap.
+  useEffect(() => {
+    setWatchingTelegram(activationOpen && !telegramLinked);
+  }, [activationOpen, telegramLinked, setWatchingTelegram]);
 
   const tgDisplayName = tgIdentity?.username
     ? `@${tgIdentity.username}`
@@ -654,12 +658,9 @@ function SettingsPageContent() {
         open={activationOpen}
         onClose={() => setActivationOpen(false)}
         telegramLinked={telegramLinked}
-        waiting={tgWaiting}
-        checking={tgChecking}
         unlinking={tgUnlinking}
         tgDisplayName={tgDisplayName}
-        onStart={startTelegramLink}
-        onCheck={checkTelegramLink}
+        onOpenBot={openTelegramBot}
         onUnlinkTelegram={handleUnlinkTelegram}
       />
     </div>
