@@ -46,6 +46,8 @@ For local development without an agent, `DEV_OPEN=1` disables authentication; it
 | `POST` | `/payout` | Treasury payouts (admin-key protected) |
 | `*` | `/runtime/*` | Runtime worker job protocol — lease, heartbeat, result (dedicated bearer token) |
 | `POST` | `/notify-resolve` | Update Telegram message with final outcome |
+| `GET`/`POST` | `/telegram`, `/telegram/link*`, `/telegram/unlink` | Telegram binding — link preview/completion (app session) and atomic unlink |
+| `POST` | `/bot-start` | Agent session verification — greeting when linked, `auth_required` link envelope when not |
 | `GET` | `/portfolio` | Live portfolio data via Zerion (public) |
 | `GET` | `/tokens` | Token market data (public) |
 | `GET` | `/notifications` | Notification feed (public) |

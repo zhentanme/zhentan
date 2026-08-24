@@ -123,12 +123,13 @@ pnpm install
 
 1. Visit `http://localhost:3000`
 2. Sign in with Google (embedded wallet) or connect a wallet — then pick a [profile](/technology/signing#wallet-profiles) during onboarding
-3. A Safe multisig is deployed on BNB Chain (the sponsor EOA pays gas)
-4. Navigate to **Send** → enter a recipient and amount
-5. Confirm → the SafeTx is queued **and visible at app.safe.global at 1/2**
-6. Check runtime logs for the risk score and verdict
-7. **APPROVE**: the runtime signs, the sponsor relays — txHash appears in the UI
-8. **REVIEW**: check Telegram for the interactive approve/reject message (or override with your backup key in the Safe app)
+3. Connect Telegram in one step: say hi to the Zhentan bot, then tap the personal secure link it replies with (the app session confirms the binding)
+4. A Safe multisig is deployed on BNB Chain (the sponsor EOA pays gas)
+5. Navigate to **Send** → enter a recipient and amount
+6. Confirm → the SafeTx is queued **and visible at app.safe.global at 1/2**
+7. Check runtime logs for the risk score and verdict
+8. **APPROVE**: the runtime signs, the sponsor relays — txHash appears in the UI
+9. **REVIEW**: check Telegram for the interactive approve/reject message (or override with your backup key in the Safe app)
 
 ## Troubleshooting
 
@@ -140,7 +141,7 @@ pnpm install
     Verify the sponsor EOA (`SPONSOR_PRIVATE_KEY`) holds BNB — it relays every execution. If the proposal isn't visible in app.safe.global, check `SAFE_API_KEY`.
   </Accordion>
   <Accordion title="No Telegram notification">
-    Verify `TELEGRAM_BOT_TOKEN` is set in `server/.env` and the bot has been started in your Telegram chat.
+    Verify `TELEGRAM_BOT_TOKEN` is set in `server/.env` and that your Telegram is linked — message the bot and it will reply with a secure link if it isn't.
   </Accordion>
   <Accordion title="Safe not deploying">
     Confirm BNB Chain RPC is reachable and the sponsor EOA has enough BNB to pay deployment gas.
