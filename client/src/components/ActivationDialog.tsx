@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Dialog } from "./ui/Dialog";
 import { TELEGRAM_BOT_USERNAME } from "@/lib/constants";
+import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
 
 /**
  * One-step activation (#134): open the bot chat, say hi, tap the personal
@@ -91,6 +92,7 @@ export function ActivationDialog({
 }: ActivationDialogProps) {
   const wasInitiallyCompleteRef = useRef(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const photoUrl = useTelegramPhoto({ enabled: open && telegramLinked });
 
   useEffect(() => {
     if (open) {
@@ -125,8 +127,13 @@ export function ActivationDialog({
               /* ── Connected: manage ── */
               <div className="p-4 rounded-2xl border bg-safe/5 border-safe/20">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-safe/15 flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="h-5 w-5 text-safe" />
+                  <div className="w-10 h-10 rounded-2xl bg-safe/15 flex items-center justify-center shrink-0 overflow-hidden">
+                    {photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <CheckCircle2 className="h-5 w-5 text-safe" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0 flex flex-row justify-between items-start gap-3">
                     <div className="flex flex-col gap-1 min-w-0">

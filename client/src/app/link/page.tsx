@@ -20,6 +20,7 @@ import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
+import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
 import type { LinkPreview } from "@/lib/api/telegram";
 
 type Phase =
@@ -47,6 +48,7 @@ function LinkPageInner() {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const [relinkConfirmed, setRelinkConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const photoUrl = useTelegramPhoto({ code, enabled: phase.kind === "confirm" });
 
   const authed = !authLoading && !!user && !safeLoading && !!safeAddress;
 
@@ -175,8 +177,13 @@ function LinkPageInner() {
               <h1 className="text-[19px] font-bold tracking-tight mb-2">Connect this Telegram?</h1>
 
               <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-foreground/[0.035] border border-foreground/8 mb-4">
-                <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-gold/12">
-                  <ShieldCheck className="h-[17px] w-[17px] text-gold" />
+                <span className="w-[38px] h-[38px] rounded-xl shrink-0 flex items-center justify-center bg-gold/12 overflow-hidden">
+                  {photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <ShieldCheck className="h-[17px] w-[17px] text-gold" />
+                  )}
                 </span>
                 <span className="min-w-0">
                   <span className="block text-[13.5px] font-semibold truncate">

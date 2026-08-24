@@ -25,6 +25,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useTelegramLink } from "@/hooks/useTelegramLink";
+import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
 import {
   markOnboardingWalletLinked,
   markOnboardingUsernameSkipped,
@@ -648,6 +649,7 @@ function ConnectStep({
   // One step (#134): open the bot chat, say hi, tap the secure link it sends
   // back. The server-truth binding is polled until it lands.
   const { linked, identity, waiting, unlinking, start, unlink } = useTelegramLink();
+  const photoUrl = useTelegramPhoto({ enabled: linked });
   const tgLabel = identity?.username
     ? `@${identity.username}`
     : identity?.name ?? (linked ? "Account linked" : null);
@@ -685,8 +687,13 @@ function ConnectStep({
             transition={{ type: "spring", bounce: 0.1 }}
             className="flex items-center gap-3 p-3.5 rounded-2xl bg-safe/[0.07] border border-safe/20"
           >
-            <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-safe/14">
-              <TelegramIcon className="h-[17px] w-[17px] text-safe" />
+            <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-safe/14 overflow-hidden">
+              {photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <TelegramIcon className="h-[17px] w-[17px] text-safe" />
+              )}
             </span>
             <span className="flex-1 min-w-0">
               <span className="flex items-center gap-2">

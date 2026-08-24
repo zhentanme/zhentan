@@ -15,6 +15,7 @@
  * re-reads of an active code are free.
  */
 import crypto from "node:crypto";
+import { fetchTelegramProfile } from "./profile.js";
 
 export const AUTH_REQUIRED_ERROR = "auth_required" as const;
 
@@ -133,7 +134,8 @@ export type IssueLinkCodeResult =
 export async function issueLinkCode(
   input: IssueLinkCodeInput,
   now: Date = new Date(),
-  store: LinkCodeStore = supabaseStore
+  store: LinkCodeStore = supabaseStore,
+  enrich: typeof fetchTelegramProfile = fetchTelegramProfile
 ): Promise<IssueLinkCodeResult> {
   const existing = await store.get(input.telegramUserId);
 
@@ -162,6 +164,15 @@ export async function issueLinkCode(
     }
   }
 
+  // Identity display shouldn't depend on the gateway passing metadata along:
+  // when the caller supplied none, ask Telegram directly (the user has
+  // messaged the bot, so getChat resolves). Best-effort — the code issues
+  // either way, and the completion page falls back to the numeric id.
+  let fetched: Awaited<ReturnType<typeof fetchTelegramProfile>> = null;
+  if (!input.username && !input.name && !existing?.telegram_username && !existing?.telegram_name) {
+    fetched = await enrich(input.telegramUserId).catch(() => null);
+  }
+
   const code = crypto.randomBytes(32).toString("base64url");
   const expiresAt = new Date(now.getTime() + LINK_CODE_TTL_MS);
   await store.put({
@@ -169,8 +180,8 @@ export async function issueLinkCode(
     code,
     code_hash: hashLinkCode(code),
     telegram_chat_id: input.chatId ?? input.telegramUserId,
-    telegram_username: input.username ?? existing?.telegram_username ?? null,
-    telegram_name: input.name ?? existing?.telegram_name ?? null,
+    telegram_username: input.username ?? existing?.telegram_username ?? fetched?.username ?? null,
+    telegram_name: input.name ?? existing?.telegram_name ?? fetched?.name ?? null,
     created_at: now.toISOString(),
     expires_at: expiresAt.toISOString(),
     used_at: null,

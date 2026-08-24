@@ -11,8 +11,28 @@
 import { supabase } from "../supabase/client.js";
 import type { TelegramLinkRow } from "../supabase/types.js";
 import { hashLinkCode, type LinkCodeRow } from "./linking.js";
+import { fetchTelegramProfile } from "./profile.js";
 
 export type { TelegramLinkRow };
+
+/**
+ * Lazy identity enrichment: links created before enrichment existed (the
+ * Privy-era backfill) carry neither username nor name. Fill them from the
+ * Bot API ONCE — Telegram guarantees a first name, so after one successful
+ * fetch the row is never re-fetched. Best-effort; the caller always gets a
+ * usable link back.
+ */
+export async function ensureLinkMeta(link: TelegramLinkRow): Promise<TelegramLinkRow> {
+  if (link.telegram_username || link.telegram_name) return link;
+  const profile = await fetchTelegramProfile(link.telegram_user_id).catch(() => null);
+  if (!profile || (!profile.username && !profile.name)) return link;
+  const { error } = await supabase
+    .from("telegram_links")
+    .update({ telegram_username: profile.username, telegram_name: profile.name })
+    .eq("telegram_user_id", link.telegram_user_id);
+  if (error) console.error("Telegram link meta refresh failed:", error.message);
+  return { ...link, telegram_username: profile.username, telegram_name: profile.name };
+}
 
 export async function getLinkBySafe(safeAddress: string): Promise<TelegramLinkRow | null> {
   const { data, error } = await supabase
@@ -81,6 +101,19 @@ export async function previewLinkCode(
     },
     relation,
   };
+}
+
+/** The Telegram user behind a still-valid (unused, unexpired) code — for
+ *  the consent page's photo proxy. Null for anything else. */
+export async function telegramUserIdForCode(code: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("telegram_link_codes")
+    .select("telegram_user_id, used_at, expires_at")
+    .eq("code_hash", hashLinkCode(code))
+    .maybeSingle<{ telegram_user_id: string; used_at: string | null; expires_at: string }>();
+  if (error) throw error;
+  if (!data || data.used_at || new Date(data.expires_at) <= new Date()) return null;
+  return data.telegram_user_id;
 }
 
 // ─────────────────────────────────────────────────────────────

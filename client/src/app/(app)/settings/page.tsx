@@ -7,6 +7,7 @@ import { ActivationDialog } from "@/components/ActivationDialog";
 import { useAuth } from "@/app/context/AuthContext";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useTelegramLink } from "@/hooks/useTelegramLink";
+import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
 import {
   Loader2,
   Rocket,
@@ -274,6 +275,7 @@ function SettingsPageContent() {
   const tgDisplayName = tgIdentity?.username
     ? `@${tgIdentity.username}`
     : tgIdentity?.name ?? (tgIdentity ? `ID ${tgIdentity.userId}` : null);
+  const tgPhotoUrl = useTelegramPhoto({ enabled: telegramLinked });
 
   const profile = safeConfig?.profile ?? null;
   // Legacy v1 guarded wallets (pre-refactor 2-of-2) predate the strict model:
@@ -454,12 +456,21 @@ function SettingsPageContent() {
                     onClick={() => setActivationOpen(true)}
                     icon={
                       fullyActivated ? (
-                        <CheckCircle2 className="h-[17px] w-[17px]" />
+                        tgPhotoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={tgPhotoUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <CheckCircle2 className="h-[17px] w-[17px]" />
+                        )
                       ) : (
                         <AlertCircle className="h-[17px] w-[17px]" />
                       )
                     }
-                    iconTint={fullyActivated ? "bg-safe/10 text-safe" : "bg-watch/10 text-watch"}
+                    iconTint={
+                      fullyActivated
+                        ? "bg-safe/10 text-safe overflow-hidden"
+                        : "bg-watch/10 text-watch"
+                    }
                     title={fullyActivated ? "Telegram alerts" : "Setup required"}
                     desc={
                       <span className="font-mono text-[11px] truncate block">

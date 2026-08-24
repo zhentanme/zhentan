@@ -69,5 +69,21 @@ export function telegramApi(req: ApiFetchFn) {
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
+
+    /** Profile photo of the linked Telegram (server-proxied). Null = none. */
+    async photo(): Promise<Blob | null> {
+      const res = await req("/telegram/photo");
+      return res.ok ? res.blob() : null;
+    },
+
+    /** Photo of the Telegram a link code would bind — for the consent page. */
+    async linkPhoto(code: string): Promise<Blob | null> {
+      const res = await req("/telegram/link/photo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      return res.ok ? res.blob() : null;
+    },
   };
 }

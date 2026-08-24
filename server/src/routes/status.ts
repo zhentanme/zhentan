@@ -8,7 +8,7 @@ import {
 } from "../agent/index.js";
 import type { GlobalLimitsRow } from "../lib/supabase/types.js";
 import { assertOwnsSafe } from "../lib/authz.js";
-import { getLinkBySafe } from "../lib/telegram/binding.js";
+import { ensureLinkMeta, getLinkBySafe } from "../lib/telegram/binding.js";
 
 export function createStatusRouter(): IRouter {
   const router = Router();
@@ -23,7 +23,7 @@ export function createStatusRouter(): IRouter {
       const [settings, patterns, link] = await Promise.all([
         getUserSettings(safe),
         loadPolicySnapshot(safe),
-        getLinkBySafe(safe),
+        getLinkBySafe(safe).then((l) => (l ? ensureLinkMeta(l) : l)),
       ]);
 
       res.json({

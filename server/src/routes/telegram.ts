@@ -18,10 +18,13 @@ import { Router, type Request, type Response, type IRouter } from "express";
 import { requireCallerSafe } from "../lib/authz.js";
 import {
   completeLink,
+  ensureLinkMeta,
   getLinkBySafe,
   previewLinkCode,
+  telegramUserIdForCode,
   unlinkTelegram,
 } from "../lib/telegram/binding.js";
+import { fetchTelegramPhoto } from "../lib/telegram/profile.js";
 import { getUserDetails } from "../lib/supabase/index.js";
 import { notify } from "../notifications/index.js";
 import { retireChatNotifications } from "../notify.js";
@@ -64,7 +67,8 @@ export function createTelegramRouter(): IRouter {
     const safe = requireCallerSafe(req, res);
     if (!safe) return;
     try {
-      const link = await getLinkBySafe(safe);
+      let link = await getLinkBySafe(safe);
+      if (link) link = await ensureLinkMeta(link);
       res.json({
         linked: Boolean(link),
         telegram: link
@@ -76,6 +80,51 @@ export function createTelegramRouter(): IRouter {
             }
           : null,
       });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // Profile photo of the caller's LINKED Telegram, proxied — Telegram file
+  // URLs embed the bot token and can never be handed to a browser.
+  router.get("/photo", async (req: Request, res: Response) => {
+    const safe = requireCallerSafe(req, res);
+    if (!safe) return;
+    try {
+      const link = await getLinkBySafe(safe);
+      const photo = link ? await fetchTelegramPhoto(link.telegram_user_id) : null;
+      if (!photo) {
+        res.status(404).json({ error: "No photo" });
+        return;
+      }
+      res.setHeader("Content-Type", photo.contentType);
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      res.end(photo.bytes);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // Photo of the Telegram a still-valid link code would bind — shown on the
+  // consent page next to the handle. POST so the code stays out of URLs.
+  router.post("/link/photo", async (req: Request, res: Response) => {
+    const safe = requireAppSession(req, res);
+    if (!safe) return;
+    const code = typeof req.body?.code === "string" ? req.body.code : "";
+    if (!code) {
+      res.status(400).json({ error: "Missing code" });
+      return;
+    }
+    try {
+      const userId = await telegramUserIdForCode(code);
+      const photo = userId ? await fetchTelegramPhoto(userId) : null;
+      if (!photo) {
+        res.status(404).json({ error: "No photo" });
+        return;
+      }
+      res.setHeader("Content-Type", photo.contentType);
+      res.setHeader("Cache-Control", "private, max-age=600");
+      res.end(photo.bytes);
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

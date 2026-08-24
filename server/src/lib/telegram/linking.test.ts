@@ -84,6 +84,42 @@ describe("issueLinkCode", () => {
     expect(next.code).not.toBe(first.code);
   });
 
+  it("enriches identity from the Bot API when the gateway passed no metadata", async () => {
+    const store = memoryStore();
+    const enrich = async () => ({ username: "koshik", name: "Koshik Raj" });
+    const first = await issueLinkCode({ telegramUserId: "42" }, T0, store, enrich);
+    if ("rateLimited" in first) throw new Error("rate limited");
+    expect(store.rows.get("42")!.telegram_username).toBe("koshik");
+    expect(store.rows.get("42")!.telegram_name).toBe("Koshik Raj");
+    // Idempotent re-issue never re-fetches.
+    let calls = 0;
+    const counting = async () => (calls++, null);
+    await issueLinkCode({ telegramUserId: "42" }, minutes(1), store, counting);
+    expect(calls).toBe(0);
+  });
+
+  it("gateway-provided metadata wins over enrichment, and its absence never blocks issuance", async () => {
+    const store = memoryStore();
+    let enriched = false;
+    const enrich = async () => ((enriched = true), { username: "other", name: "Other" });
+    const withMeta = await issueLinkCode(
+      { telegramUserId: "42", username: "koshik" },
+      T0,
+      store,
+      enrich
+    );
+    expect("rateLimited" in withMeta).toBe(false);
+    expect(enriched).toBe(false);
+    expect(store.rows.get("42")!.telegram_username).toBe("koshik");
+    // Enrichment failing entirely still issues a code.
+    const failing = async () => {
+      throw new Error("tg down");
+    };
+    const bare = await issueLinkCode({ telegramUserId: "43" }, T0, store, failing);
+    expect("rateLimited" in bare).toBe(false);
+    expect(store.rows.get("43")!.telegram_username).toBeNull();
+  });
+
   it("rate-limits fresh generations per chat, and resets after the window", async () => {
     const store = memoryStore();
     // Burn through the window: each generation is forced fresh by consuming
