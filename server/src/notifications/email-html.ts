@@ -59,9 +59,10 @@ export interface EmailOpts {
   badgeText: string;
   title: string;
   subtitle: string;
-  /** Amount hero — shown as a prominent number block. */
-  amount: string;
-  token: string;
+  /** Amount hero — shown as a prominent number block. Omit both for
+   *  non-transactional emails (account events) to skip the block. */
+  amount?: string;
+  token?: string;
   /** URL for the token logo (16px circle). Optional. */
   tokenLogoUrl?: string;
   /** USD equivalent, e.g. "$12.34". Shown below the amount when provided. */
@@ -409,7 +410,7 @@ export function buildEmailHtml(opts: EmailOpts): string {
         line-height:1.55;margin:0 0 22px;">${opts.subtitle}</p>
 
       <!-- Amount block -->
-      <table class="z-amt${amtGoldClass}" width="100%" cellpadding="0" cellspacing="0"
+      ${opts.amount === undefined ? "" : `<table class="z-amt${amtGoldClass}" width="100%" cellpadding="0" cellspacing="0"
         style="background:${amtBlockBg};border:1px solid ${amtBlockBorder};
         border-radius:10px;margin-bottom:22px;border-collapse:separate;">
         <tr>
@@ -441,7 +442,7 @@ export function buildEmailHtml(opts: EmailOpts): string {
             </table>
           </td>
         </tr>
-      </table>
+      </table>`}
 
       ${kvSection}
       ${reasonsSection}

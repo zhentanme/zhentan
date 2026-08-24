@@ -68,6 +68,16 @@ export interface TxRejectedPayload {
   rejectReason?: string;
 }
 
+export interface TelegramLinkedPayload {
+  username?: string;
+  name?: string;
+}
+
+export interface TelegramUnlinkedPayload {
+  /** "unlinked" = explicit removal; "relinked" = the Telegram moved to another account. */
+  reason: "unlinked" | "relinked";
+}
+
 export interface TxReceivedPayload {
   amount: string;
   token: string;
@@ -279,6 +289,88 @@ export const EVENTS = {
       }),
     }),
   } satisfies EventDefinition<TxRejectedPayload>,
+  telegram_linked: {
+    name: "telegram_linked",
+
+    // Greeting into the freshly bound chat — confirms which account it now speaks for.
+    telegram: (user, payload) => ({
+      text:
+        `🔗 *Connected!* This Telegram is now linked to the Zhentan account ` +
+        `*${user.username ?? user.name ?? shortAddr(user.safe_address)}*.\n\n` +
+        `You'll get transaction alerts here${payload.username ? ` (@${payload.username})` : ""} ` +
+        `and can approve or reject reviews from this chat.`,
+    }),
+
+    // The actionable alert to the account's EXISTING channels: if the owner
+    // didn't do this, the revoke path is one click away (#134 §4).
+    email: (user, payload) => {
+      const identity = payload.username
+        ? `@${payload.username}${payload.name ? ` (${payload.name})` : ""}`
+        : payload.name ?? "a Telegram account";
+      return {
+        subject: "New Telegram linked to your Zhentan account",
+        html: buildEmailHtml({
+          variant: "gold",
+          badgeText: "Telegram Linked",
+          title: "A Telegram account was just linked",
+          subtitle:
+            `${identity} can now receive transaction alerts and approve or reject ` +
+            `reviews for your account.`,
+          kvRows: [
+            { key: "Telegram", value: identity },
+            { key: "Account", value: shortAddr(user.safe_address), mono: true },
+          ],
+          buttons: [
+            {
+              text: "Not you? Revoke access",
+              href: `${APP_URL}/settings?revoke-telegram=1`,
+              variant: "danger",
+            },
+            { text: "Open Zhentan", href: APP_URL, variant: "ghost" },
+          ],
+          helper:
+            "If you didn't link this Telegram, <b>revoke it now</b> — until then it can approve transactions under review.",
+          footerLinks: [{ text: "Open Zhentan", href: APP_URL }],
+          footerFine:
+            "You receive this alert whenever a Telegram account is linked to your Zhentan account.",
+        }),
+      };
+    },
+  } satisfies EventDefinition<TelegramLinkedPayload>,
+
+  telegram_unlinked: {
+    name: "telegram_unlinked",
+    // No Telegram message — the channel this event describes is gone by definition.
+
+    email: (user, payload) => ({
+      subject: "Telegram disconnected from your Zhentan account",
+      html: buildEmailHtml({
+        variant: "warn",
+        badgeText: "Telegram Removed",
+        title: "Telegram was disconnected",
+        subtitle:
+          payload.reason === "relinked"
+            ? "Your Telegram was connected to a different Zhentan account, so it no longer receives alerts or approves reviews for this one."
+            : "This account no longer has a Telegram channel for alerts and review approvals.",
+        kvRows: [
+          { key: "Account", value: shortAddr(user.safe_address), mono: true },
+          { key: "Screening", value: "Set to manual", colorVariant: "warn" },
+        ],
+        buttons: [
+          { text: "Reconnect Telegram", href: `${APP_URL}/settings`, variant: "primary" },
+          { text: "Open Zhentan", href: APP_URL, variant: "ghost" },
+        ],
+        helper:
+          "Pending reviews can still be approved or rejected from your <b>Zhentan dashboard</b> at any time.",
+        footerLinks: [{ text: "Open Zhentan", href: APP_URL }],
+        footerFine:
+          payload.reason === "relinked"
+            ? "If you didn't make this change, reconnect your Telegram from settings and review your account access."
+            : "You receive this alert whenever the Telegram link is removed from your account.",
+      }),
+    }),
+  } satisfies EventDefinition<TelegramUnlinkedPayload>,
+
   tx_received: {
     name: "tx_received",
 

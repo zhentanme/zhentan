@@ -23,7 +23,7 @@ import { padTokensWithFallbacks } from "@/lib/tokenFallbacks";
 import type { TransactionWithStatus, StatusResponse, TokenPosition, PortfolioResponse } from "@/types";
 
 function Dashboard() {
-  const { user, safeAddress, safeLoading, telegramUserId } = useAuth();
+  const { user, safeAddress, safeLoading } = useAuth();
   const api = useApiClient();
 
   const [username, setUsername] = useState<string | null>(null);
@@ -128,7 +128,6 @@ function Dashboard() {
         <div className="mb-4">
         <ClaimBanner
           safeAddress={safeAddress}
-          telegramUserId={telegramUserId}
           username={username}
           hideWhenClaimed
           className="mx-0"

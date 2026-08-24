@@ -11,14 +11,12 @@ import {
   MessageCircle,
   ShieldCheck,
 } from "lucide-react";
-import { useLinkAccount } from "@privy-io/react-auth";
-
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { BackupAddressPicker } from "@/components/BackupAddressPicker";
 import { useAuth } from "@/app/context/AuthContext";
 import { useSafeTransitions } from "@/lib/useSafeUpgrade";
-import { useApiClient } from "@/lib/api/client";
+import { useTelegramLink } from "@/hooks/useTelegramLink";
 
 /**
  * Wallet-upgrade wizard — an onboarding-style stepped dialog that walks a
@@ -46,9 +44,7 @@ export function UpgradeDialog({
 }) {
   const { profile, busy, error, activateProtection, enableAgentOnly, addBackup } =
     useSafeTransitions();
-  const { externalWalletAddress, setBackupAddress, telegramUserId, safeAddress } =
-    useAuth();
-  const api = useApiClient();
+  const { externalWalletAddress, setBackupAddress } = useAuth();
 
   // The flow is fixed from the profile at open time — running a transition
   // flips the live profile mid-wizard, so we must not re-derive from it.
@@ -56,37 +52,21 @@ export function UpgradeDialog({
     profile === "starter" ? "starter" : "guarded"
   );
   const [step, setStep] = useState<Step>(profile === "starter" ? "agent" : "backup");
-  const [telegramLinked, setTelegramLinked] = useState(!!telegramUserId);
 
   useEffect(() => {
     if (!open) return;
     const starter = profile === "starter";
     setFlow(starter ? "starter" : "guarded");
     setStep(starter ? "agent" : "backup");
-    setTelegramLinked(!!telegramUserId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Telegram: link only (no bot-connection polling) — mirrors onboarding's step.
-  const [linkingTg, setLinkingTg] = useState(false);
-  const { linkTelegram } = useLinkAccount({
-    onSuccess: ({ linkedAccount, linkMethod }) => {
-      if (linkMethod === "telegram") {
-        const acc = linkedAccount as unknown as Record<string, unknown>;
-        const tgUserId =
-          (acc?.telegramUserId as string) ||
-          (acc?.username as string) ||
-          (acc?.subject as string);
-        if (tgUserId && safeAddress) {
-          setTelegramLinked(true);
-          api.status.update({ safe: safeAddress, telegramChatId: String(tgUserId) }).catch(() => {});
-          api.users.upsert({ safeAddress, telegramId: String(tgUserId) }).catch(() => {});
-        }
-      }
-      setLinkingTg(false);
-    },
-    onError: () => setLinkingTg(false),
-  });
+  // Telegram: the one-step bot-chat flow (#134) — mirrors onboarding's step.
+  const {
+    linked: telegramLinked,
+    waiting: linkingTg,
+    start: startTelegramLink,
+  } = useTelegramLink();
 
   // After the backup step's transition runs: link Telegram (starter path) if it
   // isn't already, else finish.
@@ -223,11 +203,7 @@ export function UpgradeDialog({
               </div>
             ) : (
               <button
-                onClick={() => {
-                  setLinkingTg(true);
-                  linkTelegram();
-                }}
-                disabled={linkingTg}
+                onClick={startTelegramLink}
                 className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 transition-all disabled:opacity-60"
               >
                 <div className="w-8 h-8 rounded-lg bg-foreground/6 flex items-center justify-center shrink-0">
@@ -238,7 +214,7 @@ export function UpgradeDialog({
                   )}
                 </div>
                 <p className="text-sm font-semibold text-foreground flex-1 text-left">
-                  {linkingTg ? "Opening Telegram..." : "Connect Telegram"}
+                  {linkingTg ? "Say hi to the bot, tap its link…" : "Open the Zhentan bot"}
                 </p>
                 <ArrowRight className="h-4 w-4 text-muted-foreground/80 shrink-0" />
               </button>

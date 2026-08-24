@@ -322,34 +322,16 @@ export async function getLastInReviewTransaction(
 
 
 export async function getTelegramChatId(safeAddress: string): Promise<string | undefined> {
-  // Backend-owned read of the MIXED user_settings table (the E2 wrinkle):
-  // telegram identity lives beside agent screening state until the split.
-  // Deliberately a direct minimal query — the settings accessor is
-  // agent-domain (agentData.ts) and the backend must not import it.
+  // Delivery destination for per-user Telegram sends: the telegram_links
+  // binding (#134). No link → undefined, and the caller drops the Telegram
+  // channel silently (never the admin chat).
   const { data, error } = await supabase
-    .from("user_settings")
+    .from("telegram_links")
     .select("telegram_chat_id")
     .eq("safe_address", safeAddress.toLowerCase())
     .maybeSingle();
   if (error) throw error;
   return data?.telegram_chat_id ?? undefined;
-}
-
-/**
- * Marks bot_connected = true for whichever safe has the given telegram_chat_id.
- * Called by the Telegram webhook when any message arrives from a known user.
- * Returns true if a row was found and updated.
- */
-export async function markBotConnectedByChatId(chatId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("user_settings")
-    .update({ bot_connected: true })
-    .eq("telegram_chat_id", chatId)
-    .select("safe_address")
-    .returns<{ safe_address: string }[]>();
-
-  if (error) throw error;
-  return (data ?? []).length > 0;
 }
 
 
@@ -525,12 +507,17 @@ export async function updateCampaignClaim(
 // ─────────────────────────────────────────────────────────────
 
 export async function getUserByTelegramId(telegramId: string): Promise<UserDetailsRow | null> {
-  const { data } = await supabase
-    .from("user_details")
-    .select("*")
-    .eq("telegram_id", telegramId)
-    .maybeSingle();
-  return data ?? null;
+  // Caller-identity resolution ("telegram:<id>" → Safe) goes through the
+  // telegram_links binding (#134) — one account per Telegram, enforced by
+  // the table's UNIQUE constraint.
+  const { data: link, error } = await supabase
+    .from("telegram_links")
+    .select("safe_address")
+    .eq("telegram_user_id", telegramId)
+    .maybeSingle<{ safe_address: string }>();
+  if (error) throw error;
+  if (!link) return null;
+  return getUserDetails(link.safe_address);
 }
 
 export async function getUserByUsername(username: string): Promise<UserDetailsRow | null> {

@@ -21,7 +21,9 @@ export async function notify<E extends EventName>(
 
   const tasks: Promise<void>[] = [];
 
-  if (def.telegram && telegramChannel.isConfigured() && user.telegram_id) {
+  // Whether the user HAS a Telegram is the channel's own concern: send()
+  // resolves the telegram_links binding and drops silently when there is none.
+  if (def.telegram && telegramChannel.isConfigured()) {
     const msg = def.telegram(user, payload);
     if (msg) {
       tasks.push(
@@ -32,10 +34,8 @@ export async function notify<E extends EventName>(
     }
   }
 
-  console.log(payload)
   if (def.email && emailChannel.isConfigured() && user.email) {
     const msg = def.email(user, payload);
-    console.log(user)
     if (msg) {
       tasks.push(
         emailChannel.send(user, msg).catch((err) => {

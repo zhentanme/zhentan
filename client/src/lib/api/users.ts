@@ -4,7 +4,6 @@ export interface UpsertUserBody {
   safeAddress: string;
   email?: string;
   name?: string;
-  telegramId?: string;
   signerAddress?: string;
   username?: string;
   onboardingCompleted?: boolean;
@@ -17,7 +16,6 @@ export interface UpsertUserBody {
 export interface UserDetails {
   safe_address: string;
   email: string | null;
-  telegram_id: string | null;
   name: string | null;
   username: string | null;
   signer_address: string | null;

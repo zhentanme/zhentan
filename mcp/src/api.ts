@@ -20,6 +20,24 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The server's `auth_required` envelope (#134): the caller's Telegram is not
+ * linked to any account, and the ONLY correct behavior is to relay the
+ * server-pinned `relay` text verbatim. Preserved as a typed error so every
+ * tool surfaces it identically through result.ts — never collapsed into a
+ * generic ApiError.
+ */
+export class AuthRequiredError extends Error {
+  constructor(
+    /** Exact user-facing text to relay verbatim. */
+    public readonly relay: string,
+    public readonly verificationUri: string,
+    public readonly expiresIn: number,
+  ) {
+    super("auth_required");
+  }
+}
+
 export class ApiTimeoutError extends Error {
   constructor(public readonly path: string) {
     super(`Request to ${path} timed out`);
@@ -87,6 +105,13 @@ export async function callApi<T = Record<string, unknown>>(
   }
 
   if (!res.ok) {
+    if (json.error === "auth_required" && typeof json.relay === "string") {
+      throw new AuthRequiredError(
+        json.relay,
+        typeof json.verification_uri === "string" ? json.verification_uri : "",
+        typeof json.expires_in === "number" ? json.expires_in : 0,
+      );
+    }
     const message = typeof json.error === "string" ? json.error : `HTTP ${res.status}`;
     throw new ApiError(message, res.status);
   }

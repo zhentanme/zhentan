@@ -48,15 +48,22 @@ async function deleteNotificationMessage(txId: string): Promise<void> {
   if (error) console.error(`Notification message cleanup failed for ${txId}:`, error.message);
 }
 
+/**
+ * Per-USER Telegram send. Requires the user's resolved chat id — when the
+ * account has no Telegram link the message is dropped silently (email/in-app
+ * still fire via notify()). There is deliberately NO fallback to the admin
+ * chat: a screen-job result applying just after an unlink must never deliver
+ * that user's transaction details to the operator (#134 §7).
+ */
 export function notifyTelegram(
   message: string,
   buttons?: ReplyButton[][],
   txId?: string,
   chatId?: string
 ): void {
-  const targetChatId = chatId || TELEGRAM_CHAT_ID;
+  const targetChatId = chatId;
   if (!targetChatId) {
-    console.warn("TELEGRAM_CHAT_ID is unset and no chatId was provided — dropping notification:", message.slice(0, 120));
+    console.warn("No Telegram chat resolved for user notification — dropping:", message.slice(0, 120));
     return;
   }
   const body: Record<string, unknown> = {
@@ -97,6 +104,26 @@ export function notifyTelegram(
     });
 }
 
+/**
+ * OPERATIONAL alerts only (sponsor low-gas and the like) — goes to the admin
+ * chat (TELEGRAM_CHAT_ID). Never route per-user content through this.
+ */
+export function notifyAdminTelegram(message: string): void {
+  if (!TELEGRAM_CHAT_ID) {
+    console.warn("TELEGRAM_CHAT_ID is unset — dropping operational alert:", message.slice(0, 120));
+    return;
+  }
+  fetch(`${TG_API}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: message, parse_mode: "Markdown" }),
+  })
+    .then(async (res) => {
+      if (!res.ok) console.error("Telegram admin sendMessage failed:", res.status, await res.text());
+    })
+    .catch((err) => console.error("Telegram admin notification error:", err));
+}
+
 export function editNotification(txId: string, newMessage: string, chatId?: string): void {
   void (async () => {
     const stored = await takeNotificationMessage(txId);
@@ -124,4 +151,48 @@ export function editNotification(txId: string, newMessage: string, chatId?: stri
   })().catch((err) => {
     console.error("Telegram edit error:", err);
   });
+}
+
+/**
+ * Unlink cleanup (#134 §7): live ✅/❌ messages in a chat that just lost its
+ * binding would fail closed by accident — retire them EXPLICITLY so the chat
+ * doesn't look actionable, and drop the tracking rows so nothing later tries
+ * to edit into an unlinked chat. Best-effort per message; fire-and-forget.
+ */
+export function retireChatNotifications(chatId: string, newMessage: string): void {
+  void (async () => {
+    const { data, error } = await (await db())
+      .from("notification_messages")
+      .select("tx_id, message_id")
+      .eq("chat_id", chatId)
+      .eq("channel", "telegram")
+      .returns<{ tx_id: string; message_id: string }[]>();
+    if (error) {
+      console.error(`Notification lookup for chat ${chatId} failed:`, error.message);
+      return;
+    }
+    for (const row of data ?? []) {
+      const res = await fetch(`${TG_API}/editMessageText`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: Number(row.message_id),
+          text: newMessage,
+          parse_mode: "Markdown",
+        }),
+      }).catch(() => null);
+      if (res && !res.ok) {
+        console.error(`Retiring message for ${row.tx_id} failed:`, res.status, await res.text());
+      }
+    }
+    const { error: delError } = await (await db())
+      .from("notification_messages")
+      .delete()
+      .eq("chat_id", chatId)
+      .eq("channel", "telegram");
+    if (delError) {
+      console.error(`Notification cleanup for chat ${chatId} failed:`, delError.message);
+    }
+  })().catch((err) => console.error("Telegram chat retirement error:", err));
 }

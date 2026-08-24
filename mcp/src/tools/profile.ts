@@ -3,25 +3,59 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { callApi, ApiError } from "../api.js";
 import { ok, fail, failFrom } from "../result.js";
 
-const CHAT_ID = z.string().regex(/^\d+$/, "chatId is the numeric Telegram chat id, e.g. 593960240");
+const CALLER_ID = z
+  .string()
+  .regex(/^telegram:\d+$/, 'callerId must be "telegram:<numeric user id>"')
+  .describe("Telegram caller identity from session context, e.g. telegram:593960240");
 
 export function registerProfileTools(server: McpServer) {
   server.registerTool(
     "handle_bot_start",
     {
-      title: "Handle /start (bot connect)",
+      title: "Verify chat session (bot start / link)",
       description:
-        "Call when a user sends /start or asks to connect the Zhentan agent. Marks the bot as connected " +
-        "for the user's Safe and returns their name/username/safeAddress for a greeting. " +
-        "found:false means they haven't linked Telegram in the Zhentan app yet — tell them to link via " +
-        "app Settings → Telegram Link.",
+        "MANDATORY first call for ANY message from a chat session you haven't verified yet, and for " +
+        "/start or 'connect'. For a linked user it returns their name/username/safeAddress for a " +
+        "greeting. For an UNLINKED chat it returns an auth_required message — relay that message " +
+        "verbatim and do nothing else; repeat calls return the same message until the user completes " +
+        "the link. Pass the chat context fields so the account-side confirmation can show the user " +
+        "which Telegram they are linking. Set requestLink:true ONLY when an already-linked user " +
+        "explicitly asks to link/relink/connect this Telegram to an account.",
       inputSchema: {
-        chatId: CHAT_ID.describe("Numeric Telegram chat id from the session (origin.chat.id)"),
+        callerId: CALLER_ID,
+        chatId: z
+          .string()
+          .regex(/^\d+$/, "chatId is the numeric private-chat id, e.g. 593960240")
+          .describe("Numeric Telegram chat id from the session (origin.chat.id)"),
+        telegramUsername: z
+          .string()
+          .optional()
+          .describe("Sender's Telegram @username from session context, without the @"),
+        telegramName: z
+          .string()
+          .optional()
+          .describe("Sender's display/first name from session context"),
+        requestLink: z
+          .boolean()
+          .optional()
+          .describe("true only on an explicit link/relink request from an already-linked user"),
       },
     },
-    async ({ chatId }) => {
+    async ({ callerId, chatId, telegramUsername, telegramName, requestLink }) => {
       try {
-        const result = await callApi("POST", "/bot-ping", { chatId });
+        const result = await callApi(
+          "POST",
+          "/bot-start",
+          {
+            callerId,
+            chatId,
+            ...(telegramUsername ? { telegramUsername } : {}),
+            ...(telegramName ? { telegramName } : {}),
+            ...(requestLink ? { requestLink: true } : {}),
+          },
+          30_000,
+          callerId,
+        );
         return ok(result);
       } catch (err) {
         return failFrom(err);
@@ -34,21 +68,20 @@ export function registerProfileTools(server: McpServer) {
     {
       title: "Get user profile",
       description:
-        'Fetch the user\'s profile (name, username, email, safeAddress, signerAddress) by Telegram chat id. ' +
-        'Use when the user asks "who am I", "my wallet", "my details", or when you need their Safe address ' +
-        "for other tools.",
+        'Fetch the user\'s profile (name, username, email, safeAddress, signerAddress). ' +
+        'Use when the user asks "who am I", "my wallet", "my details".',
       inputSchema: {
-        chatId: CHAT_ID,
+        callerId: CALLER_ID,
       },
     },
-    async ({ chatId }) => {
+    async ({ callerId }) => {
       try {
-        const result = await callApi("GET", `/me?chatId=${encodeURIComponent(chatId)}`);
+        const result = await callApi("GET", "/me", undefined, 30_000, callerId);
         return ok(result);
       } catch (err) {
         if (err instanceof ApiError && err.status === 404) {
           return fail(
-            "No user is linked to this Telegram chat. Ask the user to link Telegram in the Zhentan app (Settings → Telegram Link).",
+            "No Zhentan account found for this Telegram. Ask the user to message the bot to get a link, or finish onboarding at the Zhentan app.",
           );
         }
         return failFrom(err);

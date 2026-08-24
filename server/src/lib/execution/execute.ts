@@ -4,6 +4,7 @@ import {
   getTransaction,
   updateTransaction,
   getUserDetails,
+  getRequestByTxId,
   syncLinkedRequest,
 } from "../supabase/index.js";
 import { getApiKit } from "../safe/service.js";
@@ -15,6 +16,7 @@ import {
   getSponsorWalletClient,
 } from "../chain/sponsor.js";
 import { encodeExecTransaction } from "./assemble.js";
+import { executionSignPlan } from "./signPlan.js";
 import { isRejectionActive } from "../safe/rejectionState.js";
 import { claimExecutionLease, releaseExecutionLease } from "./lease.js";
 import { requestAgentSignature } from "../runtime/signing.js";
@@ -122,18 +124,22 @@ async function executeSafeTx(tx: PendingTransaction): Promise<ExecutionOutcome> 
   // D4: the agent signature comes from the RUNTIME through a verified sign
   // job — the backend holds no threshold-bearing key. One signature, used
   // twice below: the service confirmation and the on-chain assembly are
-  // the same bytes over the same safeTxHash. userApproved: a REVIEW/BLOCK
-  // verdict reaching execution means the user approved it (the review gate
-  // is the only path here); the runtime demands that evidence.
-  const agentSignature = relayOnly
-    ? null
-    : await requestAgentSignature("execution", {
-        txId: tx.id,
-        safeAddress: tx.safeAddress,
-        safeTx: tx.safeTx,
-        safeTxHash: tx.safeTxHash,
-        userApproved: tx.riskVerdict === "REVIEW" || tx.riskVerdict === "BLOCK",
-      });
+  // the same bytes over the same safeTxHash. The purpose (and with it the
+  // runtime's rule) depends on the transaction's origin — agent-drafted
+  // request txs are screened inline and sign under the draft rule; see
+  // signPlan.ts.
+  let agentSignature: Awaited<ReturnType<typeof requestAgentSignature>> | null = null;
+  if (!relayOnly) {
+    const linkedRequest = await getRequestByTxId(tx.id).catch(() => null);
+    const plan = executionSignPlan(tx, Boolean(linkedRequest));
+    agentSignature = await requestAgentSignature(plan.purpose, {
+      txId: tx.id,
+      safeAddress: tx.safeAddress,
+      safeTx: tx.safeTx,
+      safeTxHash: tx.safeTxHash,
+      userApproved: plan.userApproved,
+    });
+  }
 
   // Mirror confirmations to the service so the Safe UI shows n/n —
   // idempotent, and a service outage must not block execution (signatures

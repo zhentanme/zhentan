@@ -26,8 +26,8 @@ and the secret lives in this process's env where the model can never see it.
 | `update_request_status` | `PATCH /requests` | bookkeeping only |
 | `update_screening_settings` | `PATCH /status` | screening toggle + limits/thresholds |
 | `get_screening_status` | `GET /status` | config + optional learned patterns (`includePatterns`) |
-| `handle_bot_start` | `POST /bot-ping` | /start onboarding; marks bot connected, returns greeting details |
-| `get_user_profile` | `GET /me?chatId=` | friendly guidance when Telegram isn't linked |
+| `handle_bot_start` | `POST /bot-start` | MANDATORY first call for any unverified chat session; greeting details when linked, the `auth_required` relay when not; `requestLink: true` for explicit relink |
+| `get_user_profile` | `GET /me` | the caller's own profile, resolved from `callerId` |
 | `resolve_recipient` | `GET /resolve?name=` | generic: 0x address, ENS (.eth), SPACE ID (.bnb), or Zhentan username — same resolver as the UI |
 | `list_rules` / `create_rule` / `update_rule` / `delete_rule` | `/rules` | screening rules CRUD; delete is a soft-delete |
 | `get_event_log` | `GET /events` | behavioral audit trail (max 500) |
@@ -42,6 +42,29 @@ The server resolves it to exactly one Safe and authorizes the call against that
 Safe, so no tool accepts a `safe`/`safeAddress` argument any more — the model
 cannot aim a call at another user, and a call without a `callerId` is refused
 rather than served.
+
+## The `auth_required` envelope (#134)
+
+A valid-but-unlinked Telegram caller is refused by the server's auth middleware
+on EVERY route with a device-grant-style envelope:
+
+```json
+{ "error": "auth_required", "verification_uri": "https://app.zhentan.me/link?code=…",
+  "user_code": "BDWK-QPXT", "expires_in": 900, "relay": "<exact user-facing text>" }
+```
+
+Two entry paths per RFC 8628: the deep link (same device), and the short
+`user_code` typed at the stable `/link` page from any signed-in device —
+entry is authenticated and attempt-limited, which is what makes the short
+code safe.
+
+`api.ts` preserves it as a typed `AuthRequiredError` (never collapsed into
+`ApiError`), and `result.ts` maps it — for every tool identically, through the
+shared `failFrom` — into a non-error tool result instructing the model to relay
+the server-pinned `relay` text verbatim. Repeat calls return the identical code
+until it is used or expires (`authorization_pending` semantics), so the bot
+naturally repeats the same message. Unlinked callers get zero account data from
+any tool; the completion happens in the Privy-authed app at `/link`.
 
 ## Build
 

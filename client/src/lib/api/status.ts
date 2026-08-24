@@ -4,8 +4,6 @@ import type { StatusResponse } from "@/types/index";
 export interface StatusPatch {
   safe: string;
   screeningMode?: boolean;
-  telegramChatId?: string;
-  botConnected?: boolean;
   maxSingleTx?: string;
   maxHourlyVolume?: string;
   maxDailyVolume?: string;
@@ -37,11 +35,5 @@ export function statusApi(req: ApiFetchFn) {
       return res.json();
     },
 
-    async checkBotConnected(safeAddress: string): Promise<boolean> {
-      const res = await req(`/status?safe=${encodeURIComponent(safeAddress)}`);
-      if (!res.ok) return false;
-      const data: StatusResponse = await res.json();
-      return data.botConnected ?? false;
-    },
   };
 }

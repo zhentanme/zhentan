@@ -10,6 +10,7 @@ import { GuardianCard } from "@/components/GuardianCard";
 import { ThemeLoader } from "@/components/ThemeLoader";
 import { useAuth } from "@/app/context/AuthContext";
 import { useOnboarding } from "@/lib/useOnboarding";
+import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useLoginWithOAuth, usePrivy } from "@privy-io/react-auth";
 
 /* ── Supported-wallet brand marks ── */
@@ -27,7 +28,8 @@ function RabbyIcon({ className }: { className?: string }) {
 }
 
 export default function LoginPage() {
-  const { user, wallet, loading, safeAddress, safeLoading, recordOnboardingCompleted, telegramUserId } = useAuth();
+  const { user, wallet, loading, safeAddress, safeLoading, recordOnboardingCompleted } = useAuth();
+  const { telegramLinked } = useScreeningStatus();
   const { initOAuth, loading: oauthLoading } = useLoginWithOAuth();
   const { login } = usePrivy();
   const [signingInGoogle, setSigningInGoogle] = useState(false);
@@ -41,7 +43,7 @@ export default function LoginPage() {
       ready: !loading && !!user && !!wallet && !safeLoading,
       recordOnboardingCompleted,
     },
-    telegramUserId
+    telegramLinked
   );
 
   useEffect(() => {

@@ -5,9 +5,11 @@ import { useRouter, usePathname } from "next/navigation";
 import { ThemeLoader } from "./ThemeLoader";
 import { useAuth } from "@/app/context/AuthContext";
 import { useOnboarding } from "@/lib/useOnboarding";
+import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, wallet, loading, safeAddress, safeLoading, recordOnboardingCompleted, telegramUserId } = useAuth();
+  const { user, wallet, loading, safeAddress, safeLoading, recordOnboardingCompleted } = useAuth();
+  const { telegramLinked } = useScreeningStatus();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -19,7 +21,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       ready: !loading && !!user && !!wallet && !safeLoading && !skipOnboardingCheck,
       recordOnboardingCompleted,
     },
-    telegramUserId
+    telegramLinked
   );
 
   useEffect(() => {

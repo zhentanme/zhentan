@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type IRouter } from "express";
-import { getUserDetails } from "../lib/supabase/index.js";
+import { getUserDetails, getTelegramChatId } from "../lib/supabase/index.js";
 import { notify, type EventName } from "../notifications/index.js";
 import { EVENTS } from "../notifications/events.js";
 
@@ -44,7 +44,7 @@ export function createNotificationsRouter(): IRouter {
         ok: true,
         event,
         sentTo: {
-          telegram: Boolean(user.telegram_id),
+          telegram: Boolean(await getTelegramChatId(user.safe_address)),
           email: Boolean(user.email),
         },
       });

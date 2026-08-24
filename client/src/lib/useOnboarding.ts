@@ -130,7 +130,7 @@ export function useOnboarding(
      */
     recordOnboardingCompleted: boolean | null;
   },
-  telegramUserId?: string
+  telegramLinked?: boolean
 ): OnboardingStatus {
   const api = useApiClient();
   const [loading, setLoading] = useState(true);
@@ -179,7 +179,7 @@ export function useOnboarding(
       .get(safeAddress)
       .then((data) => {
         const backendCompleted = data?.onboarding_completed === true;
-        const naturallyComplete = !!data?.username && !!telegramUserId;
+        const naturallyComplete = !!data?.username && !!telegramLinked;
         if (backendCompleted || naturallyComplete) {
           patchStored(walletAddress, { completed: true, step: 3 });
           setOnboardingCompleteCookie();

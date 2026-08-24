@@ -2,141 +2,28 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { clsx } from "clsx";
-import {
-  CheckCircle2,
-  Loader2,
-  MessageCircle,
-  Send,
-  ShieldCheck,
-  XIcon,
-} from "lucide-react";
+import { ExternalLink, Loader2, XIcon } from "lucide-react";
 import { Dialog } from "./ui/Dialog";
+import { TELEGRAM_BOT_USERNAME } from "@/lib/constants";
+import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
+import { TelegramLinkFlow } from "./TelegramLinkFlow";
+import { MaoAvatar } from "./MaoAvatar";
 
-type StepState = "idle" | "running" | "done";
-
+/**
+ * One-step activation (#134): open the bot chat, say hi, tap the personal
+ * secure link the bot replies with. The dialog watches the server-truth
+ * binding for as long as it is open (the owner starts that poll), so the
+ * "Open bot" button is a pure link with no side effects.
+ */
 interface ActivationDialogProps {
   open: boolean;
   onClose: () => void;
   telegramLinked: boolean;
-  botConnected: boolean;
-  linkingTelegram: boolean;
-  botActivationInitiated: boolean;
-  isCheckingBotConnection: boolean;
+  unlinking: boolean;
   tgDisplayName: string | null;
-  onLinkTelegram: () => void;
-  onStartBotActivation: () => void;
-  onCheckBotConnection: () => void;
+  /** Opens the t.me chat — nothing else. */
+  onOpenBot: () => void;
   onUnlinkTelegram: () => void;
-}
-
-function StepIndicator({ step, state }: { step: number; state: StepState }) {
-  if (state === "done") {
-    return (
-      <motion.div
-        key="done"
-        initial={{ scale: 0, rotate: -30 }}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: "spring", bounce: 0.5, duration: 0.5 }}
-        className="w-10 h-10 rounded-2xl bg-safe/15 flex items-center justify-center shrink-0"
-      >
-        <CheckCircle2 className="h-5 w-5 text-safe" />
-      </motion.div>
-    );
-  }
-
-  if (state === "running") {
-    return (
-      <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
-        <motion.div
-          className="absolute inset-0 rounded-2xl border-2 border-gold/40"
-          animate={{ scale: [1, 1.25], opacity: [0.6, 0] }}
-          transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
-        />
-        <div className="relative w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center">
-          <Loader2 className="h-5 w-5 animate-spin text-gold" />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-10 h-10 rounded-2xl bg-foreground/6 flex items-center justify-center shrink-0">
-      <span className="text-sm font-semibold text-muted-foreground">{step}</span>
-    </div>
-  );
-}
-
-interface StepCardProps {
-  step: number;
-  state: StepState;
-  title: string;
-  idleDescription: string;
-  runningDescription: React.ReactNode;
-  doneDescription: React.ReactNode;
-  actionLabel: string;
-  actionLoading?: boolean;
-  onAction: () => void;
-  rightSlot?: React.ReactNode;
-  disabled?: boolean;
-  icon: React.ReactNode;
-}
-
-function StepCard({
-  step,
-  state,
-  title,
-  idleDescription,
-  runningDescription,
-  doneDescription,
-  actionLabel,
-  actionLoading,
-  onAction,
-  rightSlot,
-  disabled,
-  icon,
-}: StepCardProps) {
-  return (
-    <div
-      className={clsx(
-        "p-4 rounded-2xl border transition-colors duration-300",
-        state === "done" && "bg-safe/5 border-safe/20",
-        state === "running" && "bg-gold/5 border-gold/20",
-        state === "idle" && "bg-foreground/2 border-foreground/6",
-        disabled && "opacity-40 pointer-events-none"
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <StepIndicator step={step} state={state} />
-        <div className="flex-1 min-w-0 flex flex-row justify-between items-start">
-        <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 min-w-0">
-            
-            <h4 className="text-sm font-semibold text-foreground truncate">{title}</h4>
-          </div>
-          <div className="text-[11px] text-muted-foreground mt-1 leading-relaxed min-h-[1.5em] max-w-48">
-            {state === "done"
-              ? doneDescription
-              : state === "running"
-              ? runningDescription
-              : idleDescription}
-          </div>
-        </div>
-          {state !== "done" && (
-            <button
-              onClick={onAction}
-              disabled={actionLoading || disabled}
-              className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-gold/10 text-gold hover:bg-gold/15 transition-all disabled:opacity-50 cursor-pointer disabled:cursor-default inline-flex items-center gap-1.5"
-            >
-              {actionLoading && <Loader2 className="h-3 w-3 animate-spin" />}
-              {actionLabel}
-            </button>
-          )}
-        </div>
-        {rightSlot && <div className="shrink-0">{rightSlot}</div>}
-      </div>
-    </div>
-  );
 }
 
 function SuccessSplash({ onDone }: { onDone: () => void }) {
@@ -166,7 +53,8 @@ function SuccessSplash({ onDone }: { onDone: () => void }) {
           transition={{ type: "spring", bounce: 0.5, duration: 0.6 }}
           className="relative w-16 h-16 rounded-full bg-safe/15 flex items-center justify-center"
         >
-          <ShieldCheck className="h-8 w-8 text-safe" />
+          {/* Mao clears the connection — twin ticks in the glass. */}
+          <MaoAvatar state="cleared" size={52} interactive ambient={["nod", "pounce", "glint"]} />
         </motion.div>
       </div>
       <h3 className="text-lg font-semibold text-foreground">Zhentan Activated</h3>
@@ -187,47 +75,32 @@ export function ActivationDialog({
   open,
   onClose,
   telegramLinked,
-  botConnected,
-  linkingTelegram,
-  botActivationInitiated,
-  isCheckingBotConnection,
+  unlinking,
   tgDisplayName,
-  onLinkTelegram,
-  onStartBotActivation,
-  onCheckBotConnection,
+  onOpenBot,
   onUnlinkTelegram,
 }: ActivationDialogProps) {
   const wasInitiallyCompleteRef = useRef(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  // Cross-device path (RFC 8628): type the bot's short code right here.
+  const [showCodeEntry, setShowCodeEntry] = useState(false);
+  const photoUrl = useTelegramPhoto({ enabled: open && telegramLinked });
 
   useEffect(() => {
     if (open) {
-      wasInitiallyCompleteRef.current = telegramLinked && botConnected;
+      wasInitiallyCompleteRef.current = telegramLinked;
       setShowSuccess(false);
+      setShowCodeEntry(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
-    if (telegramLinked && botConnected && !wasInitiallyCompleteRef.current) {
+    if (telegramLinked && !wasInitiallyCompleteRef.current) {
       setShowSuccess(true);
     }
-  }, [open, telegramLinked, botConnected]);
-
-  const step1State: StepState = telegramLinked
-    ? "done"
-    : linkingTelegram
-    ? "running"
-    : "idle";
-
-  const step2State: StepState = botConnected
-    ? "done"
-    : botActivationInitiated
-    ? "running"
-    : "idle";
-
-  const step2Disabled = !telegramLinked;
+  }, [open, telegramLinked]);
 
   return (
     <Dialog open={open} onClose={onClose} title="Activate Zhentan">
@@ -243,71 +116,105 @@ export function ActivationDialog({
             transition={{ duration: 0.2 }}
             className="space-y-3"
           >
-            <p className="text-xs text-muted-foreground leading-relaxed -mt-1 mb-4 text-center">
-              Complete these 2 steps so your AI agent can notify you about
-              transactions that need review.
-            </p>
+            {telegramLinked ? (
+              /* ── Connected: manage ── */
+              <div className="p-4 rounded-2xl border bg-safe/5 border-safe/20">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-safe/15 flex items-center justify-center shrink-0 overflow-hidden">
+                    {photoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <MaoAvatar state="cleared" size={26} variant="solid" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-row justify-between items-start gap-3">
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <h4 className="text-sm font-semibold text-foreground truncate">
+                        Telegram connected
+                      </h4>
+                      <p className="text-[11px] text-safe/90 leading-relaxed truncate">
+                        {tgDisplayName ?? "Alerts and approvals active"}
+                      </p>
+                    </div>
+                    <button
+                      onClick={onUnlinkTelegram}
+                      disabled={unlinking}
+                      className="px-2 py-1 text-[11px] font-medium rounded-lg bg-foreground/6 text-danger hover:bg-foreground/10 transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                    >
+                      {unlinking ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <XIcon className="h-3 w-3" />
+                      )}
+                      Unlink
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed mt-3">
+                  Unlinking sets screening to manual and retires the chat&apos;s
+                  pending approval messages. You can reconnect any time.
+                </p>
+              </div>
+            ) : (
+              /* ── Not connected: one step ── */
+              <>
+                <p className="text-xs text-muted-foreground leading-relaxed -mt-1 mb-4 text-center">
+                  One step: message the bot, tap the secure link it sends back,
+                  and your chat can approve or reject reviews.
+                </p>
 
-            <StepCard
-              step={1}
-              state={step1State}
-              icon={<MessageCircle className="h-3.5 w-3.5" />}
-              title="Link Telegram"
-              idleDescription="Connect your Telegram account to receive notifications."
-              runningDescription="Waiting for you to finish linking in the Privy popup…"
-              doneDescription={
-                <span className="text-safe/90">
-                  {tgDisplayName ? ` ${tgDisplayName}` : ""}
-                </span>
-              }
-              actionLabel={linkingTelegram ? "Connecting..." : "Connect Telegram"}
-              actionLoading={linkingTelegram}
-              onAction={onLinkTelegram}
-              rightSlot={
-                telegramLinked ? (
+                <div className="p-4 rounded-2xl border bg-gold/5 border-gold/20">
+                  <div className="flex items-start gap-3">
+                    <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
+                      <motion.div
+                        className="absolute inset-0 rounded-2xl border-2 border-gold/40"
+                        animate={{ scale: [1, 1.25], opacity: [0.6, 0] }}
+                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
+                      />
+                      <div className="relative w-11 h-11 rounded-2xl bg-gold/10 flex items-center justify-center">
+                        {/* Mao is already on watch while this dialog is open —
+                            the sweep across his shades IS the listening state. */}
+                        <MaoAvatar state="scanning" size={34} variant="detail" />
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0 flex flex-row justify-between items-start gap-3">
+                      <div className="flex flex-col gap-1">
+                        <h4 className="text-sm font-semibold text-foreground">
+                          Say hi to @{TELEGRAM_BOT_USERNAME}
+                        </h4>
+                        <div className="text-[11px] text-muted-foreground leading-relaxed max-w-56">
+                          Send any message, then tap the secure link the bot
+                          replies with — this connects the moment you do.
+                        </div>
+                      </div>
+                      <button
+                        onClick={onOpenBot}
+                        className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-gold/10 text-gold hover:bg-gold/15 transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Open bot
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {showCodeEntry ? (
+                  <div className="p-4 rounded-2xl border bg-foreground/2 border-foreground/6">
+                    <TelegramLinkFlow variant="embedded" />
+                  </div>
+                ) : (
                   <button
-                    onClick={onUnlinkTelegram}
-                    className="px-2 py-1 text-[11px] font-medium rounded-lg bg-foreground/6 text-danger hover:bg-foreground/10 transition-all cursor-pointer flex items-center gap-1"
+                    type="button"
+                    onClick={() => setShowCodeEntry(true)}
+                    className="w-full text-[11px] text-muted-foreground/80 hover:text-gold leading-relaxed text-center pt-1 transition-colors cursor-pointer"
                   >
-                    <XIcon className="h-3 w-3" />
-                    Unlink
+                    Got a code from Telegram?{" "}
+                    <span className="text-gold/90">Enter the short code here →</span>
                   </button>
-                ) : undefined
-              }
-            />
-
-            <StepCard
-              step={2}
-              state={step2State}
-              icon={<Send className="h-3.5 w-3.5" />}
-              title="Link the Agent"
-              idleDescription='Open @zhentanme_bot and send a "Connect to Zhentan" message.'
-              runningDescription={
-                <>
-                  Listening for your message ("Connect to Zhentan") to{" "}
-                  <a
-                    href="https://t.me/zhentanme_bot"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gold/90 hover:text-gold transition-colors"
-                  >
-                    @zhentanme_bot
-                  </a>
-                  …
-                </>
-              }
-              doneDescription={
-                <span className="text-safe/90">Bot connected</span>
-              }
-              actionLabel={botActivationInitiated ? "Check again" : "Activate"}
-              actionLoading={isCheckingBotConnection}
-              onAction={
-                botActivationInitiated ? onCheckBotConnection : onStartBotActivation
-              }
-              disabled={step2Disabled}
-            />
-
-           
+                )}
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

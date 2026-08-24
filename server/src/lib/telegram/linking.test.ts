@@ -1,0 +1,240 @@
+import { describe, expect, it } from "vitest";
+import {
+  AUTH_REQUIRED_ERROR,
+  LINK_CODE_RATE_LIMIT,
+  LINK_CODE_TTL_MS,
+  USER_CODE_ALPHABET,
+  USER_CODE_GUESS_LIMIT,
+  buildAuthRequiredEnvelope,
+  checkUserCodeGuess,
+  formatUserCode,
+  hashLinkCode,
+  issueLinkCode,
+  normalizeUserCode,
+  relinkRelayText,
+  verificationUri,
+  type LinkCodeRow,
+  type LinkCodeStore,
+} from "./linking.js";
+
+function memoryStore(): LinkCodeStore & { rows: Map<string, LinkCodeRow> } {
+  const rows = new Map<string, LinkCodeRow>();
+  return {
+    rows,
+    async get(id) {
+      return rows.get(id) ?? null;
+    },
+    async put(row) {
+      rows.set(row.telegram_user_id, { ...(rows.get(row.telegram_user_id) ?? {}), ...row });
+    },
+  };
+}
+
+const T0 = new Date("2026-08-24T12:00:00Z");
+const minutes = (n: number) => new Date(T0.getTime() + n * 60_000);
+
+describe("issueLinkCode", () => {
+  it("mints a high-entropy code with the full TTL", async () => {
+    const store = memoryStore();
+    const result = await issueLinkCode({ telegramUserId: "42" }, T0, store);
+    if ("rateLimited" in result) throw new Error("unexpected rate limit");
+    // 32 random bytes base64url — 43 chars, well past the 128-bit floor.
+    expect(result.code).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(result.expiresAt.getTime()).toBe(T0.getTime() + LINK_CODE_TTL_MS);
+    const row = store.rows.get("42")!;
+    expect(row.code_hash).toBe(hashLinkCode(result.code));
+    // Private-chat default: delivery chat is the user id itself.
+    expect(row.telegram_chat_id).toBe("42");
+  });
+
+  it("re-issues the IDENTICAL code while it is active (idempotent repeat message)", async () => {
+    const store = memoryStore();
+    const first = await issueLinkCode({ telegramUserId: "42" }, T0, store);
+    const second = await issueLinkCode({ telegramUserId: "42" }, minutes(5), store);
+    if ("rateLimited" in first || "rateLimited" in second) throw new Error("rate limited");
+    expect(second.code).toBe(first.code);
+    // Remaining TTL, not a fresh one — RFC 8628 authorization_pending spirit.
+    expect(second.expiresAt.getTime()).toBe(first.expiresAt.getTime());
+  });
+
+  it("enriches chat metadata on re-issue without rotating the code", async () => {
+    const store = memoryStore();
+    const first = await issueLinkCode({ telegramUserId: "42" }, T0, store);
+    const second = await issueLinkCode(
+      { telegramUserId: "42", username: "koshik", name: "Koshik" },
+      minutes(1),
+      store
+    );
+    if ("rateLimited" in first || "rateLimited" in second) throw new Error("rate limited");
+    expect(second.code).toBe(first.code);
+    const row = store.rows.get("42")!;
+    expect(row.telegram_username).toBe("koshik");
+    expect(row.telegram_name).toBe("Koshik");
+  });
+
+  it("rotates to a fresh code once the active one expires", async () => {
+    const store = memoryStore();
+    const first = await issueLinkCode({ telegramUserId: "42" }, T0, store);
+    const later = await issueLinkCode({ telegramUserId: "42" }, minutes(16), store);
+    if ("rateLimited" in first || "rateLimited" in later) throw new Error("rate limited");
+    expect(later.code).not.toBe(first.code);
+  });
+
+  it("rotates to a fresh code after single-use consumption", async () => {
+    const store = memoryStore();
+    const first = await issueLinkCode({ telegramUserId: "42" }, T0, store);
+    if ("rateLimited" in first) throw new Error("rate limited");
+    store.rows.get("42")!.used_at = minutes(1).toISOString();
+    const next = await issueLinkCode({ telegramUserId: "42" }, minutes(2), store);
+    if ("rateLimited" in next) throw new Error("rate limited");
+    expect(next.code).not.toBe(first.code);
+  });
+
+  it("enriches identity from the Bot API when the gateway passed no metadata", async () => {
+    const store = memoryStore();
+    const enrich = async () => ({ username: "koshik", name: "Koshik Raj" });
+    const first = await issueLinkCode({ telegramUserId: "42" }, T0, store, enrich);
+    if ("rateLimited" in first) throw new Error("rate limited");
+    expect(store.rows.get("42")!.telegram_username).toBe("koshik");
+    expect(store.rows.get("42")!.telegram_name).toBe("Koshik Raj");
+    // Idempotent re-issue never re-fetches.
+    let calls = 0;
+    const counting = async () => (calls++, null);
+    await issueLinkCode({ telegramUserId: "42" }, minutes(1), store, counting);
+    expect(calls).toBe(0);
+  });
+
+  it("gateway-provided metadata wins over enrichment, and its absence never blocks issuance", async () => {
+    const store = memoryStore();
+    let enriched = false;
+    const enrich = async () => ((enriched = true), { username: "other", name: "Other" });
+    const withMeta = await issueLinkCode(
+      { telegramUserId: "42", username: "koshik" },
+      T0,
+      store,
+      enrich
+    );
+    expect("rateLimited" in withMeta).toBe(false);
+    expect(enriched).toBe(false);
+    expect(store.rows.get("42")!.telegram_username).toBe("koshik");
+    // Enrichment failing entirely still issues a code.
+    const failing = async () => {
+      throw new Error("tg down");
+    };
+    const bare = await issueLinkCode({ telegramUserId: "43" }, T0, store, failing);
+    expect("rateLimited" in bare).toBe(false);
+    expect(store.rows.get("43")!.telegram_username).toBeNull();
+  });
+
+  it("rate-limits fresh generations per chat, and resets after the window", async () => {
+    const store = memoryStore();
+    // Burn through the window: each generation is forced fresh by consuming
+    // the previous code.
+    for (let i = 0; i < LINK_CODE_RATE_LIMIT.max; i++) {
+      const r = await issueLinkCode({ telegramUserId: "42" }, minutes(i), store);
+      expect("rateLimited" in r).toBe(false);
+      store.rows.get("42")!.used_at = minutes(i).toISOString();
+    }
+    const refused = await issueLinkCode({ telegramUserId: "42" }, minutes(10), store);
+    expect(refused).toMatchObject({ rateLimited: true });
+    if ("rateLimited" in refused) {
+      expect(refused.retryAfterSeconds).toBeGreaterThan(0);
+    }
+    // A different chat is unaffected.
+    const other = await issueLinkCode({ telegramUserId: "43" }, minutes(10), store);
+    expect("rateLimited" in other).toBe(false);
+    // The window expires and issuance resumes.
+    const afterWindow = await issueLinkCode(
+      { telegramUserId: "42" },
+      new Date(T0.getTime() + LINK_CODE_RATE_LIMIT.windowMs + 60_000),
+      store
+    );
+    expect("rateLimited" in afterWindow).toBe(false);
+  });
+});
+
+describe("auth_required envelope", () => {
+  it("is credential-agnostic and carries the pinned relay verbatim", () => {
+    const expiresAt = new Date(T0.getTime() + LINK_CODE_TTL_MS);
+    const envelope = buildAuthRequiredEnvelope("some-code", expiresAt, "BDWKQPXT", T0);
+    expect(envelope.error).toBe(AUTH_REQUIRED_ERROR);
+    expect(envelope.verification_uri).toBe(verificationUri("some-code"));
+    expect(envelope.expires_in).toBe(LINK_CODE_TTL_MS / 1000);
+    expect(envelope.user_code).toBe("BDWK-QPXT");
+    // The relay text embeds the exact URI, the typed-entry path, and the expiry.
+    expect(envelope.relay).toContain(envelope.verification_uri);
+    expect(envelope.relay).toContain("BDWK-QPXT");
+    expect(envelope.relay).toContain("/link");
+    expect(envelope.relay).toContain("15 minutes");
+    // Nothing Telegram-protocol-specific leaks into the field names.
+    expect(Object.keys(envelope).sort()).toEqual([
+      "error",
+      "expires_in",
+      "relay",
+      "user_code",
+      "verification_uri",
+    ]);
+  });
+
+  it("reports REMAINING lifetime for a re-issued code", () => {
+    const expiresAt = new Date(T0.getTime() + LINK_CODE_TTL_MS);
+    const fiveLater = new Date(T0.getTime() + 5 * 60_000);
+    const envelope = buildAuthRequiredEnvelope("some-code", expiresAt, "BDWKQPXT", fiveLater);
+    expect(envelope.expires_in).toBe(10 * 60);
+  });
+});
+
+describe("user codes (RFC 8628 cross-device entry)", () => {
+  it("mints an ambiguity-free 8-char code on fresh issuance, kept on re-issue", async () => {
+    const store = memoryStore();
+    const first = await issueLinkCode({ telegramUserId: "42" }, T0, store);
+    if ("rateLimited" in first) throw new Error("rate limited");
+    expect(first.userCode).toMatch(new RegExp(`^[${USER_CODE_ALPHABET}]{8}$`));
+    const again = await issueLinkCode({ telegramUserId: "42" }, minutes(5), store);
+    if ("rateLimited" in again) throw new Error("rate limited");
+    expect(again.userCode).toBe(first.userCode);
+  });
+
+  it("backfills a user code onto an active pre-user-code row", async () => {
+    const store = memoryStore();
+    const first = await issueLinkCode({ telegramUserId: "42" }, T0, store);
+    if ("rateLimited" in first) throw new Error("rate limited");
+    store.rows.get("42")!.user_code = null;
+    store.rows.get("42")!.user_code_hash = null;
+    const again = await issueLinkCode({ telegramUserId: "42" }, minutes(1), store);
+    if ("rateLimited" in again) throw new Error("rate limited");
+    expect(again.code).toBe(first.code); // long code untouched
+    expect(again.userCode).toMatch(new RegExp(`^[${USER_CODE_ALPHABET}]{8}$`));
+    expect(store.rows.get("42")!.user_code).toBe(again.userCode);
+  });
+
+  it("normalizes typed entry and formats for display", () => {
+    expect(normalizeUserCode("bdwk-qpxt")).toBe("BDWKQPXT");
+    expect(normalizeUserCode(" BDWK QPXT ")).toBe("BDWKQPXT");
+    expect(normalizeUserCode("BDWKQPX")).toBeNull(); // too short
+    expect(normalizeUserCode("AEIOU123")).toBeNull(); // outside the alphabet
+    expect(formatUserCode("BDWKQPXT")).toBe("BDWK-QPXT");
+  });
+
+  it("relink relay carries BOTH entry paths, like enrollment", () => {
+    const relay = relinkRelayText("https://app.zhentan.me/link?code=x", 900, "BDWKQPXT", "koshik");
+    expect(relay).toContain("already connected to *koshik*");
+    expect(relay).toContain("https://app.zhentan.me/link?code=x");
+    expect(relay).toContain("BDWK-QPXT");
+    expect(relay).toContain("15 minutes");
+  });
+
+  it("limits verification attempts per account, then resets after the window", () => {
+    for (let i = 0; i < USER_CODE_GUESS_LIMIT.max; i++) {
+      expect(checkUserCodeGuess("0xsafe", minutes(i * 0.1)).allowed).toBe(true);
+    }
+    const refused = checkUserCodeGuess("0xsafe", minutes(2));
+    expect(refused.allowed).toBe(false);
+    if (!refused.allowed) expect(refused.retryAfterSeconds).toBeGreaterThan(0);
+    // Another account is unaffected; the window eventually resets.
+    expect(checkUserCodeGuess("0xother", minutes(2)).allowed).toBe(true);
+    expect(
+      checkUserCodeGuess("0xsafe", new Date(T0.getTime() + USER_CODE_GUESS_LIMIT.windowMs + 1)).allowed
+    ).toBe(true);
+  });
+});

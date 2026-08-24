@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useLinkAccount, usePrivy } from "@privy-io/react-auth";
 import { AuthGuard } from "@/components/AuthGuard";
 import { ActivationDialog } from "@/components/ActivationDialog";
 import { useAuth } from "@/app/context/AuthContext";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
+import { useTelegramLink } from "@/hooks/useTelegramLink";
+import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
 import {
   Loader2,
   Rocket,
@@ -244,56 +245,41 @@ const staggerItem = {
 
 function SettingsPageContent() {
   const [toggling, setToggling] = useState(false);
-  const [linkingTelegram, setLinkingTelegram] = useState(false);
-  const [botActivationInitiated, setBotActivationInitiated] = useState(false);
-  const [isCheckingBotConnection, setIsCheckingBotConnection] = useState(false);
   const [activationOpen, setActivationOpen] = useState(false);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoOpenedRef = useRef(false);
   const prevFullyActivatedRef = useRef<boolean | null>(null);
-  const { telegramUserId, privyUser, safeAddress, safeConfig } = useAuth();
+  const { safeAddress, safeConfig } = useAuth();
   const { start: startTour } = useTour();
   const {
     screeningMode,
-    botConnected,
-    telegramLinked,
     fullyActivated,
     isScreeningActive,
     loading,
     setScreeningMode,
-    setBotConnected,
-    setTelegramLinked,
   } = useScreeningStatus();
   const api = useApiClient();
-  const { unlinkTelegram } = usePrivy();
 
-  // Extract TG account details for display
-  const tgAccount = (privyUser?.linkedAccounts as unknown as Array<Record<string, unknown>> | undefined)
-    ?.find((a) => a.type === "telegram");
-  const tgUsername = tgAccount?.username as string | undefined;
-  const tgFirstName = tgAccount?.firstName as string | undefined;
-  const tgDisplayName = tgUsername ? `@${tgUsername}` : tgFirstName ?? (telegramUserId ? `ID ${telegramUserId}` : null);
+  // One-step Telegram connect (#134): open the bot chat, the bot replies with
+  // a personal secure link, the app session completes the binding.
+  const {
+    linked: telegramLinked,
+    identity: tgIdentity,
+    unlinking: tgUnlinking,
+    openBot: openTelegramBot,
+    setWatching: setWatchingTelegram,
+    unlink: unlinkTelegramLink,
+  } = useTelegramLink();
 
-  const { linkTelegram } = useLinkAccount({
-    onSuccess: ({ linkedAccount, linkMethod }) => {
-      if (linkMethod === "telegram") {
-        const acc = linkedAccount as unknown as Record<string, unknown>;
-        const tgUserId =
-          (acc?.telegramUserId as string) ||
-          (acc?.username as string) ||
-          (acc?.subject as string);
-        if (tgUserId) {
-          setTelegramLinked(true);
-          api.status.update({ safe: safeAddress!, telegramChatId: String(tgUserId) }).catch(() => { });
-          api.users.upsert({ safeAddress: safeAddress!, telegramId: String(tgUserId) }).catch(() => { });
-        }
-      }
-      setLinkingTelegram(false);
-    },
-    onError: () => {
-      setLinkingTelegram(false);
-    },
-  });
+  // Watch for the binding the whole time the activation dialog is open — the
+  // link can be completed from any device, not just behind the Open-bot tap.
+  useEffect(() => {
+    setWatchingTelegram(activationOpen && !telegramLinked);
+  }, [activationOpen, telegramLinked, setWatchingTelegram]);
+
+  const tgDisplayName = tgIdentity?.username
+    ? `@${tgIdentity.username}`
+    : tgIdentity?.name ?? (tgIdentity ? `ID ${tgIdentity.userId}` : null);
+  const tgPhotoUrl = useTelegramPhoto({ enabled: telegramLinked });
 
   const profile = safeConfig?.profile ?? null;
   // Legacy v1 guarded wallets (pre-refactor 2-of-2) predate the strict model:
@@ -329,44 +315,16 @@ function SettingsPageContent() {
     }
   };
 
-  const stopPolling = useCallback(() => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
+  // One-click revoke entry point from the "new Telegram linked" alert email:
+  // /settings?revoke-telegram=1 opens the manage dialog directly.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("revoke-telegram")) {
+      setActivationOpen(true);
     }
   }, []);
 
-  const checkBotConnection = useCallback(async () => {
-    if (!safeAddress) return;
-    setIsCheckingBotConnection(true);
-    try {
-      const connected = await api.status.checkBotConnected(safeAddress);
-      if (connected) {
-        setBotConnected(true);
-        stopPolling();
-      }
-    } catch {
-      // silent
-    } finally {
-      setIsCheckingBotConnection(false);
-    }
-  }, [safeAddress, api, stopPolling]);
-
-  const handleStartBotActivation = useCallback(() => {
-    window.open("https://t.me/zhentanme_bot", "_blank");
-    setBotActivationInitiated(true);
-    // Begin polling every 4 seconds
-    pollIntervalRef.current = setInterval(checkBotConnection, 4000);
-  }, [checkBotConnection]);
-
-  // Stop polling when bot connects or component unmounts
-  useEffect(() => {
-    if (botConnected) stopPolling();
-  }, [botConnected, stopPolling]);
-
-  useEffect(() => () => stopPolling(), [stopPolling]);
-
-  // Auto-enable screening the moment the user completes both activation steps.
+  // Auto-enable screening the moment activation completes.
   // Skip the initial load so a deliberate off-state isn't overridden.
   useEffect(() => {
     if (loading || !safeAddress) return;
@@ -392,30 +350,14 @@ function SettingsPageContent() {
     }
   }, [loading, screeningMode, fullyActivated]);
 
+  // ONE server call, one transaction: binding cleared ⇔ screening set to
+  // manual, stale chat messages retired — no more three-way best-effort writes.
   const handleUnlinkTelegram = async () => {
     try {
-      if (tgAccount) {
-        const identifier =
-          (tgAccount.subject as string) ||
-          (tgAccount.telegramUserId as string) ||
-          (tgAccount.username as string);
-        if (identifier) {
-          await (unlinkTelegram as unknown as (id: string) => Promise<unknown>)(identifier);
-        }
-      }
-      setTelegramLinked(false);
-      setBotConnected(false);
-      setBotActivationInitiated(false);
+      await unlinkTelegramLink();
       setScreeningMode(false);
-      stopPolling();
-      await api.status.update({
-        safe: safeAddress!,
-        telegramChatId: "",
-        screeningMode: false,
-      });
-      await api.users.upsert({ safeAddress: safeAddress!, telegramId: "" });
     } catch {
-      /* ignore */
+      /* ignore — state refreshes from the server either way */
     }
   };
 
@@ -518,18 +460,27 @@ function SettingsPageContent() {
                     onClick={() => setActivationOpen(true)}
                     icon={
                       fullyActivated ? (
-                        <CheckCircle2 className="h-[17px] w-[17px]" />
+                        tgPhotoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={tgPhotoUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <CheckCircle2 className="h-[17px] w-[17px]" />
+                        )
                       ) : (
                         <AlertCircle className="h-[17px] w-[17px]" />
                       )
                     }
-                    iconTint={fullyActivated ? "bg-safe/10 text-safe" : "bg-watch/10 text-watch"}
+                    iconTint={
+                      fullyActivated
+                        ? "bg-safe/10 text-safe overflow-hidden"
+                        : "bg-watch/10 text-watch"
+                    }
                     title={fullyActivated ? "Telegram alerts" : "Setup required"}
                     desc={
                       <span className="font-mono text-[11px] truncate block">
                         {fullyActivated
                           ? `${tgDisplayName ?? "Telegram"} · notifications active`
-                          : "Complete 2 steps to enable the agent"}
+                          : "Connect Telegram to enable the agent"}
                       </span>
                     }
                     action={
@@ -707,17 +658,9 @@ function SettingsPageContent() {
         open={activationOpen}
         onClose={() => setActivationOpen(false)}
         telegramLinked={telegramLinked}
-        botConnected={botConnected}
-        linkingTelegram={linkingTelegram}
-        botActivationInitiated={botActivationInitiated}
-        isCheckingBotConnection={isCheckingBotConnection}
+        unlinking={tgUnlinking}
         tgDisplayName={tgDisplayName}
-        onLinkTelegram={() => {
-          setLinkingTelegram(true);
-          linkTelegram();
-        }}
-        onStartBotActivation={handleStartBotActivation}
-        onCheckBotConnection={checkBotConnection}
+        onOpenBot={openTelegramBot}
         onUnlinkTelegram={handleUnlinkTelegram}
       />
     </div>
