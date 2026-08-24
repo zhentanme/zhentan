@@ -253,8 +253,8 @@ export function ActivationDialog({
                     onClick={() => setShowCodeEntry(true)}
                     className="w-full text-[11px] text-muted-foreground/80 hover:text-gold leading-relaxed text-center pt-1 transition-colors cursor-pointer"
                   >
-                    Telegram on another device? The bot&apos;s message also shows a
-                    short code — <span className="text-gold/90">enter it here →</span>
+                    Got a code from Telegram?{" "}
+                    <span className="text-gold/90">Enter the short code here →</span>
                   </button>
                 )}
               </>
