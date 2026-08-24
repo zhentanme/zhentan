@@ -11,6 +11,7 @@ import {
   hashLinkCode,
   issueLinkCode,
   normalizeUserCode,
+  relinkRelayText,
   verificationUri,
   type LinkCodeRow,
   type LinkCodeStore,
@@ -213,6 +214,14 @@ describe("user codes (RFC 8628 cross-device entry)", () => {
     expect(normalizeUserCode("BDWKQPX")).toBeNull(); // too short
     expect(normalizeUserCode("AEIOU123")).toBeNull(); // outside the alphabet
     expect(formatUserCode("BDWKQPXT")).toBe("BDWK-QPXT");
+  });
+
+  it("relink relay carries BOTH entry paths, like enrollment", () => {
+    const relay = relinkRelayText("https://app.zhentan.me/link?code=x", 900, "BDWKQPXT", "koshik");
+    expect(relay).toContain("already connected to *koshik*");
+    expect(relay).toContain("https://app.zhentan.me/link?code=x");
+    expect(relay).toContain("BDWK-QPXT");
+    expect(relay).toContain("15 minutes");
   });
 
   it("limits verification attempts per account, then resets after the window", () => {

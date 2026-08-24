@@ -120,6 +120,31 @@ export function authRequiredRelayText(
   );
 }
 
+/**
+ * Pinned relay for the consented RELINK intent (#134 §6) — same issuance and
+ * the same two entry paths as enrollment; only the framing differs, because
+ * the chat IS already connected and the user asked to re-point it.
+ */
+export function relinkRelayText(
+  uri: string,
+  expiresInSeconds: number,
+  userCode?: string | null,
+  accountLabel?: string | null
+): string {
+  const minutes = Math.max(1, Math.round(expiresInSeconds / 60));
+  const codeLine = userCode
+    ? `Or, on any device where you're signed in, go to ${appUrl()}/link ` +
+      `and enter this code: ${formatUserCode(userCode)}\n\n`
+    : "";
+  return (
+    `🔁 This Telegram is already connected` +
+    (accountLabel ? ` to *${accountLabel}*` : "") +
+    `.\n\nTo link it to a (different) Zhentan account, open this link and confirm:\n${uri}\n\n` +
+    codeLine +
+    `It expires in ${minutes} minute${minutes === 1 ? "" : "s"}.`
+  );
+}
+
 export interface AuthRequiredEnvelope {
   error: typeof AUTH_REQUIRED_ERROR;
   verification_uri: string;

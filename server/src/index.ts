@@ -29,7 +29,7 @@ import { editNotification } from "./notify.js";
 import { assertOwnsTx, requireCallerSafe } from "./lib/authz.js";
 import { getUserDetails } from "./lib/supabase/index.js";
 import { getLinkBySafe } from "./lib/telegram/binding.js";
-import { buildAuthRequiredEnvelope, issueLinkCode } from "./lib/telegram/linking.js";
+import { buildAuthRequiredEnvelope, issueLinkCode, relinkRelayText } from "./lib/telegram/linking.js";
 import { classifyTelegramCaller, telegramMetaFromBody } from "./lib/telegram/gate.js";
 
 const app = express();
@@ -158,12 +158,14 @@ app.post("/bot-start", auth, async (req, res) => {
         linked: true,
         relink: {
           verification_uri: envelope.verification_uri,
+          user_code: envelope.user_code,
           expires_in: envelope.expires_in,
-          relay:
-            `🔁 This Telegram is already connected` +
-            (user?.username ? ` to *${user.username}*` : "") +
-            `.\n\nTo link it to a (different) Zhentan account, open this link and confirm:\n` +
-            `${envelope.verification_uri}\n\nIt expires in ${Math.max(1, Math.round(envelope.expires_in / 60))} minutes.`,
+          relay: relinkRelayText(
+            envelope.verification_uri,
+            envelope.expires_in,
+            issued.userCode,
+            user?.username ?? null
+          ),
         },
       });
       return;
