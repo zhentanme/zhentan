@@ -26,6 +26,8 @@ import { useApiClient } from "@/lib/api/client";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useTelegramLink } from "@/hooks/useTelegramLink";
 import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
+import { MaoAvatar } from "@/components/MaoAvatar";
+import { TelegramLinkFlow } from "@/components/TelegramLinkFlow";
 import {
   markOnboardingWalletLinked,
   markOnboardingUsernameSkipped,
@@ -633,12 +635,6 @@ function UsernameStep({
 
 /* ─── Step 3: Telegram alerts ────────────────────────────────────── */
 
-const TelegramIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z" />
-  </svg>
-);
-
 function ConnectStep({
   onFinish,
   onSkip,
@@ -647,12 +643,22 @@ function ConnectStep({
   onSkip: () => void;
 }) {
   // One step (#134): open the bot chat, say hi, tap the secure link it sends
-  // back. The server-truth binding is polled until it lands.
-  const { linked, identity, waiting, unlinking, start, unlink } = useTelegramLink();
+  // back. The step watches the server-truth binding the whole time it is on
+  // screen, so a link completed from ANY device is picked up — the tap below
+  // is a pure open-the-chat link.
+  const { linked, identity, unlinking, openBot, setWatching, unlink } = useTelegramLink();
   const photoUrl = useTelegramPhoto({ enabled: linked });
+  const [opened, setOpened] = useState(false);
+  // Cross-device path (RFC 8628): type the bot's short code right here.
+  const [showCodeEntry, setShowCodeEntry] = useState(false);
   const tgLabel = identity?.username
     ? `@${identity.username}`
     : identity?.name ?? (linked ? "Account linked" : null);
+
+  useEffect(() => {
+    setWatching(!linked);
+    return () => setWatching(false);
+  }, [linked, setWatching]);
 
   const handleDisconnect = async () => {
     try {
@@ -692,7 +698,7 @@ function ConnectStep({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photoUrl} alt="" className="w-full h-full object-cover" />
               ) : (
-                <TelegramIcon className="h-[17px] w-[17px] text-safe" />
+                <MaoAvatar state="cleared" size={24} variant="solid" />
               )}
             </span>
             <span className="flex-1 min-w-0">
@@ -723,22 +729,23 @@ function ConnectStep({
             exit={{ opacity: 0, y: -6 }}
             transition={{ type: "spring", bounce: 0.1 }}
             type="button"
-            onClick={start}
+            onClick={() => {
+              setOpened(true);
+              openBot();
+            }}
             className="w-full flex items-center gap-3 text-left p-3.5 rounded-2xl border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
           >
             <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-foreground/6">
-              {waiting ? (
-                <Loader2 className="h-[17px] w-[17px] text-muted-foreground animate-spin" />
-              ) : (
-                <TelegramIcon className="h-[17px] w-[17px] text-muted-foreground" />
-              )}
+              {/* Mao is already on watch — the sweep across his shades IS the
+                  listening state; no spinner needed. */}
+              <MaoAvatar state="scanning" size={30} variant="detail" />
             </span>
             <span className="flex-1">
               <span className="block text-[13.5px] font-semibold">
-                {waiting ? "Waiting for you to say hi…" : "Open the Zhentan bot"}
+                {opened ? "Waiting for you to say hi…" : "Open the Zhentan bot"}
               </span>
               <span className="block text-[11.5px] text-muted-foreground mt-0.5">
-                {waiting
+                {opened
                   ? "Send any message, then tap the link the bot sends back"
                   : "Say hi and tap the secure link it replies with"}
               </span>
@@ -747,6 +754,22 @@ function ConnectStep({
           </motion.button>
         )}
       </AnimatePresence>
+
+      {!linked &&
+        (showCodeEntry ? (
+          <div className="mt-3 p-3.5 rounded-2xl border border-foreground/8 bg-foreground/[0.035]">
+            <TelegramLinkFlow variant="embedded" />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowCodeEntry(true)}
+            className="w-full text-[11px] text-muted-foreground/80 hover:text-gold leading-relaxed text-center mt-2.5 transition-colors cursor-pointer"
+          >
+            Got a code from Telegram?{" "}
+            <span className="text-gold/90">Enter the short code here →</span>
+          </button>
+        ))}
 
       <Button onClick={onFinish} className="w-full mt-4">
         Continue
