@@ -1,9 +1,16 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createServer, type Server } from "http";
 import type { AddressInfo } from "net";
+import { tmpdir } from "os";
+import { join } from "path";
 import { computeInputHash, JOB_SCHEMA_VERSION } from "zhentan-screening";
 import { RuntimeApiClient } from "./apiClient.js";
 import { loadConfigFromEnv, processJob } from "./worker.js";
+
+// processJob records decisions through the store — point it at a throwaway
+// file so test runs never append stub rows to the REAL data/decisions.jsonl
+// (the signing authority's evidence store).
+process.env.DECISION_STORE_PATH = join(tmpdir(), `zhentan-test-decisions-${process.pid}.jsonl`);
 
 // ─────────────────────────────────────────────────────────────
 // Boundary proof: the runtime imports and configures with NO database
