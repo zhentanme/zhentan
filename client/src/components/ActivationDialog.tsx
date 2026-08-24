@@ -3,18 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { clsx } from "clsx";
-import {
-  CheckCircle2,
-  ExternalLink,
-  Loader2,
-  Send,
-  ShieldCheck,
-  XIcon,
-} from "lucide-react";
+import { ExternalLink, Loader2, XIcon } from "lucide-react";
 import { Dialog } from "./ui/Dialog";
 import { TELEGRAM_BOT_USERNAME } from "@/lib/constants";
 import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
 import { TelegramLinkFlow } from "./TelegramLinkFlow";
+import { MaoAvatar } from "./MaoAvatar";
 
 /**
  * One-step activation (#134): open the bot chat, say hi, tap the personal
@@ -62,7 +56,8 @@ function SuccessSplash({ onDone }: { onDone: () => void }) {
           transition={{ type: "spring", bounce: 0.5, duration: 0.6 }}
           className="relative w-16 h-16 rounded-full bg-safe/15 flex items-center justify-center"
         >
-          <ShieldCheck className="h-8 w-8 text-safe" />
+          {/* Mao clears the connection — twin ticks in the glass. */}
+          <MaoAvatar state="cleared" size={52} interactive ambient={["nod", "pounce", "glint"]} />
         </motion.div>
       </div>
       <h3 className="text-lg font-semibold text-foreground">Zhentan Activated</h3>
@@ -136,7 +131,7 @@ export function ActivationDialog({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={photoUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <CheckCircle2 className="h-5 w-5 text-safe" />
+                      <MaoAvatar state="cleared" size={26} variant="solid" />
                     )}
                   </div>
                   <div className="flex-1 min-w-0 flex flex-row justify-between items-start gap-3">
@@ -182,7 +177,7 @@ export function ActivationDialog({
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
+                    <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
                       {waiting && (
                         <motion.div
                           className="absolute inset-0 rounded-2xl border-2 border-gold/40"
@@ -192,15 +187,13 @@ export function ActivationDialog({
                       )}
                       <div
                         className={clsx(
-                          "relative w-10 h-10 rounded-2xl flex items-center justify-center",
+                          "relative w-11 h-11 rounded-2xl flex items-center justify-center",
                           waiting ? "bg-gold/10" : "bg-foreground/6"
                         )}
                       >
-                        {waiting ? (
-                          <Loader2 className="h-5 w-5 animate-spin text-gold" />
-                        ) : (
-                          <Send className="h-4 w-4 text-muted-foreground" />
-                        )}
+                        {/* The loader IS Mao: light sweeping his shades while he
+                            watches the chat for the link to land. */}
+                        <MaoAvatar state={waiting ? "scanning" : "idle"} size={34} variant="detail" />
                       </div>
                     </div>
                     <div className="flex-1 min-w-0 flex flex-row justify-between items-start gap-3">

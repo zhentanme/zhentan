@@ -9,8 +9,9 @@
  * account demands an explicit, non-defaulted confirmation.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { MaoAvatar } from "@/components/MaoAvatar";
 import { useApiClient } from "@/lib/api/client";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
@@ -146,9 +147,13 @@ export function TelegramLinkFlow({
     : "text-[13.5px] leading-relaxed text-muted-foreground";
 
   if (phase.kind === "loading") {
+    // The loader is Mao weighing the code — dots pulsing in the glass.
     return (
-      <div className={embedded ? "flex justify-center py-5" : "flex justify-center py-10"}>
-        <Loader2 className={embedded ? "h-5 w-5 animate-spin text-gold" : "h-6 w-6 animate-spin text-gold"} />
+      <div className={`flex flex-col items-center gap-2 ${embedded ? "py-4" : "py-8"}`}>
+        <MaoAvatar state="thinking" size={embedded ? 44 : 64} />
+        <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
+          Checking code
+        </span>
       </div>
     );
   }
@@ -156,6 +161,12 @@ export function TelegramLinkFlow({
   if (phase.kind === "enter") {
     return (
       <>
+        {!embedded && (
+          <div className="flex justify-center mb-4">
+            {/* Mao is waiting on YOUR code — ?? in the lenses. */}
+            <MaoAvatar state="asking" size={64} interactive ambient={["tilt", "perk", "glint", "ear-flick"]} />
+          </div>
+        )}
         {!embedded && heading("Connect Telegram")}
         <p className={`${bodyText} ${embedded ? "mb-3" : "mb-5"}`}>
           Enter the code the Zhentan bot showed you — say hi to the bot on
@@ -191,6 +202,10 @@ export function TelegramLinkFlow({
   if (phase.kind === "invalid") {
     return (
       <>
+        <div className={`flex ${embedded ? "" : "justify-center"} mb-3`}>
+          {/* The link fell asleep — benign, not alarming. */}
+          <MaoAvatar state="resting" size={embedded ? 40 : 56} />
+        </div>
         {heading("Link expired")}
         <p className={`${bodyText} mb-4`}>
           This link was already used or has expired. Message the bot on
@@ -213,6 +228,9 @@ export function TelegramLinkFlow({
   if (phase.kind === "error") {
     return (
       <>
+        <div className={`flex ${embedded ? "" : "justify-center"} mb-3`}>
+          <MaoAvatar state="flagged" size={embedded ? 40 : 56} />
+        </div>
         {heading("Something went wrong")}
         <p className={bodyText}>{phase.message}</p>
       </>
@@ -222,8 +240,14 @@ export function TelegramLinkFlow({
   if (phase.kind === "done") {
     return (
       <div className="flex flex-col items-center text-center py-2">
-        <span className={`${embedded ? "w-11 h-11 mb-3" : "w-14 h-14 mb-4"} rounded-full bg-safe/15 flex items-center justify-center`}>
-          <CheckCircle2 className={embedded ? "h-5 w-5 text-safe" : "h-7 w-7 text-safe"} />
+        <span className={`${embedded ? "w-12 h-12 mb-3" : "w-16 h-16 mb-4"} rounded-full bg-safe/15 flex items-center justify-center`}>
+          {/* Twin ticks in the glass — Mao clears the connection. */}
+          <MaoAvatar
+            state="cleared"
+            size={embedded ? 40 : 52}
+            interactive
+            ambient={["nod", "pounce", "glint"]}
+          />
         </span>
         {heading(phase.already ? "Already connected" : "Telegram connected")}
         <p className={`${bodyText} ${doneAction ? "mb-5" : "mb-1"}`}>
