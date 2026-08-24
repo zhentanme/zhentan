@@ -14,6 +14,7 @@ import {
 import { Dialog } from "./ui/Dialog";
 import { TELEGRAM_BOT_USERNAME } from "@/lib/constants";
 import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
+import { TelegramLinkFlow } from "./TelegramLinkFlow";
 
 /**
  * One-step activation (#134): open the bot chat, say hi, tap the personal
@@ -92,12 +93,15 @@ export function ActivationDialog({
 }: ActivationDialogProps) {
   const wasInitiallyCompleteRef = useRef(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  // Cross-device path (RFC 8628): type the bot's short code right here.
+  const [showCodeEntry, setShowCodeEntry] = useState(false);
   const photoUrl = useTelegramPhoto({ enabled: open && telegramLinked });
 
   useEffect(() => {
     if (open) {
       wasInitiallyCompleteRef.current = telegramLinked;
       setShowSuccess(false);
+      setShowCodeEntry(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -239,14 +243,20 @@ export function ActivationDialog({
                   </div>
                 </div>
 
-                <p className="text-[11px] text-muted-foreground/80 leading-relaxed text-center pt-1">
-                  Telegram on another device? The bot&apos;s message also shows a
-                  short code — enter it at{" "}
-                  <a href="/link" className="text-gold/90 hover:text-gold transition-colors">
-                    app.zhentan.me/link
-                  </a>
-                  .
-                </p>
+                {showCodeEntry ? (
+                  <div className="p-4 rounded-2xl border bg-foreground/2 border-foreground/6">
+                    <TelegramLinkFlow variant="embedded" />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowCodeEntry(true)}
+                    className="w-full text-[11px] text-muted-foreground/80 hover:text-gold leading-relaxed text-center pt-1 transition-colors cursor-pointer"
+                  >
+                    Telegram on another device? The bot&apos;s message also shows a
+                    short code — <span className="text-gold/90">enter it here →</span>
+                  </button>
+                )}
               </>
             )}
           </motion.div>
