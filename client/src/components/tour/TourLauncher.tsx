@@ -23,7 +23,7 @@ import {
  * and Settings → Product tour is the on-demand replay.
  */
 export function TourLauncher() {
-  const { safeAddress } = useAuth();
+  const { safeAddress, safeConfig } = useAuth();
   const { start, active } = useTour();
   const pathname = usePathname();
   // Bumped when a flow queues a tour mid-session, so the effect re-checks.
@@ -58,12 +58,16 @@ export function TourLauncher() {
         return;
       }
       clearPendingTour();
-      start(pending === "main" ? mainTour(safeAddress) : upgradeTour(safeAddress));
+      start(
+        pending === "main"
+          ? mainTour(safeAddress, safeConfig?.profile)
+          : upgradeTour(safeAddress)
+      );
     };
     timer = setTimeout(tick, 900);
 
     return () => clearTimeout(timer);
-  }, [active, safeAddress, pathname, start, queueTick]);
+  }, [active, safeAddress, safeConfig?.profile, pathname, start, queueTick]);
 
   return null;
 }

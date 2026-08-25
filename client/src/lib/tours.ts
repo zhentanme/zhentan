@@ -95,8 +95,14 @@ export function markTourSeen(key: string, safeAddress: string) {
 
 // ── Definitions ─────────────────────────────────────────────────────────────
 
-/** First-time walkthrough: requests → agent → settings. */
-export function mainTour(safeAddress: string): TourDefinition {
+/**
+ * First-time walkthrough: requests → agent → fund → settings. Copy is
+ * PROFILE-AWARE (#136.7): a starter wallet has no agent on it — telling its
+ * user "every signature gets screened" would be false. Default (no profile
+ * passed) keeps the screening copy for guarded/protected.
+ */
+export function mainTour(safeAddress: string, profile?: string | null): TourDefinition {
+  const starter = profile === "starter";
   return {
     key: "main",
     finishLabel: "Let's go",
@@ -105,8 +111,10 @@ export function mainTour(safeAddress: string): TourDefinition {
       {
         id: "welcome",
         brand: true,
-        title: "Meet your co-signer",
-        body: "Zhentan screens every transaction before it moves your money. Here's your wallet in thirty seconds.",
+        title: starter ? "Welcome to Zhentan" : "Meet your co-signer",
+        body: starter
+          ? "Your wallet is ready — sends relay gas-free, and AI screening is one tap away whenever you want it. Here's the thirty-second lay of the land."
+          : "Zhentan screens every transaction before it moves your money. Here's your wallet in thirty seconds.",
       },
       {
         id: "requests",
@@ -118,22 +126,36 @@ export function mainTour(safeAddress: string): TourDefinition {
         id: "agent",
         route: "/home",
         targets: ['[data-tour="agent-rail"]', '[data-tour="agent-status"]'],
-        title: "Your agent, live",
-        body: "Screening decisions and co-signs stream in here as they happen — approvals, reviews, and blocks in real time.",
-        fallbackBody:
-          "This pill is your agent's heartbeat — Watching means every signature gets screened before it executes.",
+        title: starter ? "Your agent lives here" : "Your agent, live",
+        body: starter
+          ? "This is where screening decisions will stream once you activate protection — approvals, reviews, and blocks in real time."
+          : "Screening decisions and co-signs stream in here as they happen — approvals, reviews, and blocks in real time.",
+        fallbackBody: starter
+          ? "This pill becomes your agent's heartbeat once protection is on."
+          : "This pill is your agent's heartbeat — Watching means every signature gets screened before it executes.",
+      },
+      {
+        id: "fund",
+        route: "/home",
+        targets: ['[data-tour="receive"]'],
+        title: "Fund your vault",
+        body: "Receive holds your address and QR — send BNB Chain assets there and they appear right below.",
       },
       {
         id: "settings",
         targets: ['[data-tour="nav-settings"]'],
         title: "You're always in control",
-        body: "Pause screening, manage your keys, or detach entirely — Zhentan Guard lives in Settings.",
+        body: starter
+          ? "Activate protection, add keys, claim your username — Zhentan Guard lives in Settings."
+          : "Pause screening, manage your keys, or detach entirely — Zhentan Guard lives in Settings.",
       },
       {
         id: "done",
         brand: true,
-        title: "You're guarded",
-        body: "Your agent is watching. Make your first transfer whenever you're ready.",
+        title: starter ? "You're set" : "You're guarded",
+        body: starter
+          ? "Fund your vault and make your first transfer — and turn on AI screening any time from Settings."
+          : "Your agent is watching. Make your first transfer whenever you're ready.",
       },
     ],
   };

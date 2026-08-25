@@ -540,6 +540,9 @@ function UsernameStep({
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [taken, setTaken] = useState(false);
+  // Availability lookup failed (network) — don't claim "Available" (#136.9);
+  // the save itself still enforces uniqueness server-side.
+  const [checkFailed, setCheckFailed] = useState(false);
   const api = useApiClient();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -551,6 +554,7 @@ function UsernameStep({
     setUsername(clean);
     setError(null);
     setTaken(false);
+    setCheckFailed(false);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (clean.length >= 3) {
       setChecking(true);
@@ -559,7 +563,7 @@ function UsernameStep({
           const ok = await api.users.checkUsername(clean);
           setTaken(!ok);
         } catch {
-          setTaken(false);
+          setCheckFailed(true);
         } finally {
           setChecking(false);
         }
@@ -587,10 +591,17 @@ function UsernameStep({
       ? "That username is taken."
       : username.length > 0 && username.length < 3
         ? "At least 3 characters."
-        : available
-          ? `Available — friends can pay you at @${username}`
-          : "";
-  const hintColor = error || taken ? "text-danger" : available ? "text-safe" : "text-muted-foreground/80";
+        : checkFailed && isValid
+          ? "Couldn't check availability — you can still continue."
+          : available
+            ? `Available — friends can pay you at @${username}`
+            : "";
+  const hintColor =
+    error || taken
+      ? "text-danger"
+      : available && !checkFailed
+        ? "text-safe"
+        : "text-muted-foreground/80";
 
   return (
     <motion.div

@@ -70,7 +70,7 @@ export function TokenList({ tokens, loading, embedded }: TokenListProps) {
               key={token.id}
               token={token}
               index={i}
-              onClick={token.tokenId ? () => setSelected(token) : undefined}
+              onClick={token.tokenId && !token.placeholder ? () => setSelected(token) : undefined}
             />
           ))}
         </motion.div>
