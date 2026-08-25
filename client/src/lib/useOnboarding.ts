@@ -23,7 +23,7 @@ export function clearOnboardingCompleteCookie() {
 // during onboarding, but progress must persist from step 0.
 
 interface StoredState {
-  /** Current step: 0 = wallet shape, 1 = telegram, 2 = backup key, 3 = username, 4 = done */
+  /** Current step: 0 = wallet shape, 1 = telegram, 2 = username, 3 = done */
   step: number;
   /** Cached once confirmed by backend — avoids a round-trip on the same device */
   completed: boolean;
@@ -77,14 +77,9 @@ export function markOnboardingWalletLinked(walletAddress: string) {
   patchStored(walletAddress, { step: 1 });
 }
 
-/** Telegram done or skipped → backup-key step */
+/** Telegram done or skipped → username step */
 export function markOnboardingTelegramDone(walletAddress: string) {
   patchStored(walletAddress, { step: 2 });
-}
-
-/** Backup key added or skipped (or not applicable) → username step */
-export function markOnboardingBackupDone(walletAddress: string) {
-  patchStored(walletAddress, { step: 3 });
 }
 
 /** Username skipped → Done step reached, cache completed locally */
@@ -99,14 +94,14 @@ export function markOnboardingUsernameSet(walletAddress: string) {
 
 /** Done step reached (also re-stamped at finish) → completed locally. */
 export function markOnboardingDone(walletAddress: string) {
-  patchStored(walletAddress, { step: 4, completed: true });
+  patchStored(walletAddress, { step: 3, completed: true });
   setOnboardingCompleteCookie();
 }
 
 /** Restore the persisted step for this device (0 when nothing stored). */
 export function readOnboardingStep(walletAddress: string): number {
   const s = readStored(walletAddress).step;
-  return typeof s === "number" && s >= 0 && s <= 4 ? s : 0;
+  return typeof s === "number" && s >= 0 && s <= 3 ? s : 0;
 }
 
 // ── Hook (used by AuthGuard / login page) ─────────────────────────────────────
@@ -154,7 +149,7 @@ export function useOnboarding(
     // dependency. Cache the result locally + set the cookie for the middleware
     // fast path.
     if (recordOnboardingCompleted === true) {
-      patchStored(walletAddress, { completed: true, step: 4 });
+      patchStored(walletAddress, { completed: true, step: 3 });
       setOnboardingCompleteCookie();
       setComplete(true);
       setLoading(false);
@@ -191,7 +186,7 @@ export function useOnboarding(
         const backendCompleted = data?.onboarding_completed === true;
         const naturallyComplete = !!data?.username && !!telegramLinked;
         if (backendCompleted || naturallyComplete) {
-          patchStored(walletAddress, { completed: true, step: 4 });
+          patchStored(walletAddress, { completed: true, step: 3 });
           setOnboardingCompleteCookie();
           setComplete(true);
         }

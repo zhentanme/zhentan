@@ -13,12 +13,13 @@ import {
   Loader2,
   Minus,
   ShieldCheck,
+  Wallet,
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
 import { Button } from "@/components/ui/Button";
 import { AuthGuard } from "@/components/AuthGuard";
-import { BackupAddressPicker } from "@/components/BackupAddressPicker";
+import { useBackupCandidate } from "@/components/BackupAddressPicker";
 import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
@@ -32,11 +33,9 @@ import {
   markOnboardingUsernameSkipped,
   markOnboardingUsernameSet,
   markOnboardingTelegramDone,
-  markOnboardingBackupDone,
   markOnboardingDone,
   readOnboardingStep,
 } from "@/lib/useOnboarding";
-import { useSafeTransitions } from "@/lib/useSafeUpgrade";
 import { queueTour } from "@/lib/tours";
 
 /* ─── Progress header: step dashes + label ───────────────────────── */
@@ -44,7 +43,7 @@ import { queueTour } from "@/lib/tours";
 function ProgressHeader({ step }: { step: number }) {
   return (
     <div className="flex items-center gap-[7px] mb-6">
-      {[0, 1, 2, 3, 4].map((i) => (
+      {[0, 1, 2, 3].map((i) => (
         <span
           key={i}
           className={clsx(
@@ -55,7 +54,7 @@ function ProgressHeader({ step }: { step: number }) {
       ))}
       <span className="flex-1" />
       <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
-        Step {step + 1} of 5
+        Step {step + 1} of 4
       </span>
     </div>
   );
@@ -105,6 +104,12 @@ const optionClass = (selected: boolean) =>
       : "border-foreground/8 bg-foreground/[0.025] hover:bg-foreground/[0.045]"
   );
 
+const segClass = (on: boolean) =>
+  clsx(
+    "flex-1 py-[9px] rounded-[11px] text-xs font-semibold transition-all duration-200 cursor-pointer",
+    on ? "bg-gold/16 text-gold" : "text-muted-foreground hover:text-foreground"
+  );
+
 interface Cta {
   label: string;
   enabled: boolean;
@@ -124,9 +129,11 @@ function PrimaryCta({ cta }: { cta: Cta }) {
 
 function ProtectionStep({ onContinue }: { onContinue: () => void }) {
   const {
+    externalWalletAddress,
+    setBackupAddress,
+    backupAddressLocked,
     pendingProfile,
     setPendingProfile,
-    setBackupAddress,
     safeAddress,
     safeLoading,
     safeError,
@@ -135,11 +142,27 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
     hasExistingWallet,
   } = useAuth();
 
-  // ONE screen: the protection choice IS the creation. Choosing screening
-  // creates the vault as GUARDED right away — Telegram (the screening
-  // channel) comes next, and the backup key is added AFTER creation as an
-  // on-chain upgrade (BackupStep). This is what lets Telegram precede the
-  // backup flow: the address exists before either.
+  // Two screens: "protect" (screening choice) then "backup" (override key).
+  // The end profile is wherever the user stops — each is a valid creation
+  // profile and upgrades later never change the address.
+  const [screen, setScreen] = useState<"protect" | "backup">("protect");
+  const [mode, setMode] = useState<"connect" | "address">("connect");
+  const [skipPanel, setSkipPanel] = useState(false);
+  // Skipping through the warning panel IS the lockout-risk acknowledgment
+  // (replaces the old consent checkbox).
+  const [skipped, setSkipped] = useState(false);
+  // Candidate confirmed via the primary CTA — auto-advance once the
+  // protected derivation lands ("Use this key & create my vault" is one tap).
+  const [advancePending, setAdvancePending] = useState(false);
+
+  const cand = useBackupCandidate();
+
+  // Readiness gates check the RESOLVED derivation (safeConfig.profile is
+  // classified from the derived owner set), never just the pending inputs:
+  // right after a choice changes, safeAddress/safeConfig still describe the
+  // PREVIOUS derivation for a render or two — and the auto-advance effect
+  // runs before the provider effect that flips safeLoading. Committing in
+  // that window persists a row for the stale address (the duplicate-row bug).
   const derived = !!safeAddress && !safeLoading && !!safeConfig;
   const resolvedProfile = safeConfig?.profile ?? null;
 
@@ -159,26 +182,55 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
       setPendingProfile(resolvedProfile);
     }
   }, [hasExistingWallet, resolvedProfile, pendingProfile, setPendingProfile]);
-
-  // "protected" appears here only for resumed legacy sessions — the option
-  // itself now always creates guarded (backup key rides the later step).
   const guardedSelected = pendingProfile === "guarded" || pendingProfile === "protected";
   const starterSelected = pendingProfile === "starter";
   const starterReady = starterSelected && derived && resolvedProfile === "starter";
-  const screeningReady =
-    guardedSelected &&
+  const protectedReady =
+    pendingProfile === "protected" &&
+    !!externalWalletAddress &&
     derived &&
-    (resolvedProfile === "guarded" || resolvedProfile === "protected");
+    resolvedProfile === "protected";
+  const guardedReady =
+    pendingProfile === "guarded" && derived && resolvedProfile === "guarded";
+
+  useEffect(() => {
+    if (advancePending && protectedReady) {
+      setAdvancePending(false);
+      onContinue();
+    }
+  }, [advancePending, protectedReady, onContinue]);
+
+  // A backup key that already exists (resumed session, pre-linked wallet)
+  // makes the wallet protected — without this the ready-gate can never pass.
+  useEffect(() => {
+    if (screen === "backup" && externalWalletAddress && pendingProfile === "guarded") {
+      setPendingProfile("protected");
+    }
+  }, [screen, externalWalletAddress, pendingProfile, setPendingProfile]);
 
   const pickGuarded = () => {
     if (hasExistingWallet) return;
-    setBackupAddress(null);
-    setPendingProfile("guarded");
+    if (pendingProfile !== "protected") setPendingProfile("guarded");
   };
   const pickStarter = () => {
     if (hasExistingWallet) return;
     setBackupAddress(null);
     setPendingProfile("starter");
+  };
+
+  const confirmCandidate = () => {
+    if (!cand.candidate) return;
+    setBackupAddress(cand.candidate.address);
+    setPendingProfile("protected");
+    cand.clearCandidate();
+    setSkipped(false);
+    setSkipPanel(false);
+    setAdvancePending(true);
+  };
+
+  const clearBackup = () => {
+    setBackupAddress(null);
+    setPendingProfile("guarded");
   };
 
   const protectCta: Cta = hasExistingWallet
@@ -191,9 +243,20 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
         ? starterReady
           ? { label: "Create my wallet", enabled: true, onClick: onContinue }
           : { label: "Creating your vault...", enabled: false, onClick: () => {} }
-        : screeningReady
-          ? { label: "Create my vault", enabled: true, onClick: onContinue }
-          : { label: "Creating your vault...", enabled: false, onClick: () => {} };
+        : { label: "Turn on screening", enabled: true, onClick: () => setScreen("backup") };
+
+  const creating: Cta = { label: "Creating your vault...", enabled: false, onClick: () => {} };
+  const backupCta: Cta = cand.candidate
+    ? { label: "Use this key & create my vault", enabled: true, onClick: confirmCandidate }
+    : externalWalletAddress
+      ? advancePending || !protectedReady
+        ? creating
+        : { label: "Create my vault", enabled: true, onClick: onContinue }
+      : skipped
+        ? guardedReady
+          ? { label: "Create vault anyway", enabled: true, onClick: onContinue }
+          : creating
+        : { label: "Add a key", enabled: false, onClick: () => {} };
 
   return (
     <motion.div
@@ -204,281 +267,294 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
       transition={{ type: "spring", bounce: 0.15 }}
       className="w-full"
     >
-      <h2 className="text-[23px] font-bold tracking-tight mb-2">
-        How should this wallet be protected?
-      </h2>
-      <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5">
-        Pick one now — you can switch anytime in Settings and your wallet
-        address never changes.
-      </p>
+      {screen === "protect" ? (
+        /* ── 1a: how should this wallet be protected? ── */
+        <>
+          <h2 className="text-[23px] font-bold tracking-tight mb-2">
+            How should this wallet be protected?
+          </h2>
+          <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5">
+            Pick one now — you can switch anytime in Settings and your wallet
+            address never changes.
+          </p>
 
-      <div className="flex flex-col gap-2.5">
-        <button type="button" onClick={pickGuarded} className={optionClass(guardedSelected)}>
-          <span className="flex items-start gap-3">
-            <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-gold/12">
-              <ShieldCheck className="h-[17px] w-[17px] text-gold" />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="flex items-center gap-2 flex-wrap">
-                <span className="text-[14.5px] font-bold tracking-tight">AI screening on</span>
-                <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] px-2 py-[3px] rounded-pill bg-gold/14 text-gold">
-                  Recommended
+          <div className="flex flex-col gap-2.5">
+            <button type="button" onClick={pickGuarded} className={optionClass(guardedSelected)}>
+              <span className="flex items-start gap-3">
+                <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-gold/12">
+                  <ShieldCheck className="h-[17px] w-[17px] text-gold" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[14.5px] font-bold tracking-tight">AI screening on</span>
+                    <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] px-2 py-[3px] rounded-pill bg-gold/14 text-gold">
+                      Recommended
+                    </span>
+                  </span>
+                  <span className="block text-xs leading-relaxed text-muted-foreground mt-1">
+                    Zhentan reviews and co-signs every transaction, catching
+                    scams and mistakes before they land.
+                  </span>
+                </span>
+                <Tick selected={guardedSelected} />
+              </span>
+            </button>
+
+            <button type="button" onClick={pickStarter} className={optionClass(starterSelected)}>
+              <span className="flex items-start gap-3">
+                <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-foreground/6">
+                  <KeyRound className="h-[17px] w-[17px] text-muted-foreground" />
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="text-[14.5px] font-bold tracking-tight">Just my key</span>
+                  <span className="block text-xs leading-relaxed text-muted-foreground mt-1">
+                    A standard wallet with no screening. Zhentan still relays
+                    your transactions gas-free.
+                  </span>
+                </span>
+                <Tick selected={starterSelected} />
+              </span>
+            </button>
+          </div>
+
+          <PrimaryCta cta={protectCta} />
+          {safeError && <ResolutionErrorNote onRetry={refreshSafe} />}
+          {hasExistingWallet ? (
+            <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
+              This wallet was already created with the protection shown above —
+              its address never changes. You can adjust protection any time in
+              Settings.
+            </p>
+          ) : (
+            starterSelected && (
+              <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
+                Your vault address is minted on creation — adding protection
+                later never changes it.
+              </p>
+            )
+          )}
+        </>
+      ) : (
+        /* ── 1b: add the override key ── */
+        <>
+          <h2 className="text-[23px] font-bold tracking-tight mb-2">Add your override key</h2>
+          <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-[18px]">
+            A second wallet you control, so you can always move funds yourself
+            at <span className="text-foreground/75">app.safe.global</span> — even
+            if Zhentan is offline. It is never asked to sign during setup.
+          </p>
+
+          {externalWalletAddress ? (
+            /* Saved override key */
+            <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-safe/[0.07] border border-safe/20">
+              <span className="w-[30px] h-[30px] rounded-[10px] shrink-0 flex items-center justify-center bg-safe/14">
+                <Check className="h-[15px] w-[15px] text-safe" strokeWidth={2.6} />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-[13px] font-semibold">Override key set</span>
+                <span className="block font-mono text-[11px] text-muted-foreground mt-0.5 truncate">
+                  {externalWalletAddress}
                 </span>
               </span>
-              <span className="block text-xs leading-relaxed text-muted-foreground mt-1">
-                Zhentan reviews and co-signs every transaction, catching
-                scams and mistakes before they land.
-              </span>
-            </span>
-            <Tick selected={guardedSelected} />
-          </span>
-        </button>
-
-        <button type="button" onClick={pickStarter} className={optionClass(starterSelected)}>
-          <span className="flex items-start gap-3">
-            <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-foreground/6">
-              <KeyRound className="h-[17px] w-[17px] text-muted-foreground" />
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="text-[14.5px] font-bold tracking-tight">Just my key</span>
-              <span className="block text-xs leading-relaxed text-muted-foreground mt-1">
-                A standard wallet with no screening. Zhentan still relays
-                your transactions gas-free.
-              </span>
-            </span>
-            <Tick selected={starterSelected} />
-          </span>
-        </button>
-      </div>
-
-      <PrimaryCta cta={protectCta} />
-      {safeError && <ResolutionErrorNote onRetry={refreshSafe} />}
-      {hasExistingWallet ? (
-        <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
-          This wallet was already created with the protection shown above —
-          its address never changes. You can adjust protection any time in
-          Settings.
-        </p>
-      ) : guardedSelected ? (
-        <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
-          Next: connect Telegram for approvals, then add a backup key you
-          control — your address never changes.
-        </p>
-      ) : (
-        starterSelected && (
-          <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
-            Your vault address is minted on creation — adding protection
-            later never changes it.
-          </p>
-        )
-      )}
-    </motion.div>
-  );
-}
-
-/* ─── Step 3: Backup key (post-creation upgrade) ───────────────── */
-
-function BackupStep({ onContinue }: { onContinue: () => void }) {
-  // The vault already exists (created guarded) — adding the override key is
-  // the guarded→protected TRANSITION: an owner-management SafeTx on the same
-  // address, screened + auto-approved server-side. The Safe must be deployed
-  // first (transitions execute on-chain), so the eager deploy fires on entry.
-  const { safeConfig, externalWalletAddress, setBackupAddress, refreshSafe } = useAuth();
-  const { addBackup, busy, error } = useSafeTransitions();
-  const api = useApiClient();
-
-  const [skipPanel, setSkipPanel] = useState(false);
-  const [pendingUpgrade, setPendingUpgrade] = useState(false);
-  const [deployError, setDeployError] = useState<string | null>(null);
-  const deployStartedRef = useRef(false);
-
-  const deployed = safeConfig?.deployed ?? false;
-  useEffect(() => {
-    if (deployed || deployStartedRef.current || !safeConfig) return;
-    deployStartedRef.current = true;
-    setDeployError(null);
-    api.safe
-      .deploy(safeConfig.owners, safeConfig.threshold)
-      .then(() => refreshSafe())
-      .catch((err) => {
-        deployStartedRef.current = false;
-        setDeployError(err instanceof Error ? err.message : "Deploy failed");
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deployed, safeConfig?.owners?.length]);
-
-  const handleAdd = async () => {
-    try {
-      const result = await addBackup();
-      if (result.pending) setPendingUpgrade(true);
-      else onContinue();
-    } catch {
-      /* error surfaced by the hook */
-    }
-  };
-
-  if (pendingUpgrade) {
-    return (
-      <motion.div
-        key="backup-pending"
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full flex flex-col items-center py-6 text-center"
-      >
-        <MaoAvatar state="thinking" size={56} />
-        <h2 className="mt-4 text-[19px] font-bold tracking-tight">Adding your key</h2>
-        <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground max-w-[300px]">
-          The upgrade is signed and completes automatically in a moment — no
-          need to wait here.
-        </p>
-        <Button onClick={onContinue} className="w-full mt-6">
-          Continue
-          <ArrowRight className="w-4 h-4" />
-        </Button>
-      </motion.div>
-    );
-  }
-
-  return (
-    <motion.div
-      key="backup"
-      initial={{ opacity: 0, x: 40 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -40 }}
-      transition={{ type: "spring", bounce: 0.15 }}
-      className="w-full"
-    >
-      <h2 className="text-[23px] font-bold tracking-tight mb-2">Add your override key</h2>
-      <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-[18px]">
-        A second wallet you control, so you can always move funds yourself
-        at <span className="text-foreground/75">app.safe.global</span> — even
-        if Zhentan is offline. It is never asked to sign during setup.
-      </p>
-
-      {externalWalletAddress ? (
-        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-safe/[0.07] border border-safe/20">
-          <span className="w-[30px] h-[30px] rounded-[10px] shrink-0 flex items-center justify-center bg-safe/14">
-            <Check className="h-[15px] w-[15px] text-safe" strokeWidth={2.6} />
-          </span>
-          <span className="flex-1 min-w-0">
-            <span className="block text-[13px] font-semibold">Override key</span>
-            <span className="block font-mono text-[11px] text-muted-foreground mt-0.5 truncate">
-              {externalWalletAddress}
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={() => setBackupAddress(null)}
-            className="shrink-0 p-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          >
-            Change
-          </button>
-        </div>
-      ) : (
-        !skipPanel && <BackupAddressPicker onSelect={setBackupAddress} />
-      )}
-
-      {error && (
-        <p className="flex items-start gap-1.5 text-[11.5px] leading-relaxed text-danger mt-3">
-          <AlertTriangle className="h-[13px] w-[13px] shrink-0 mt-0.5" />
-          {error}
-        </p>
-      )}
-      {deployError && (
-        <div className="mt-3 p-3 rounded-2xl bg-danger/[0.06] border border-danger/20 flex items-start gap-2.5">
-          <AlertTriangle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" />
-          <p className="flex-1 text-[11.5px] leading-relaxed text-danger/90">
-            Couldn&apos;t put your vault on-chain yet — it retries on your
-            first transaction too.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              deployStartedRef.current = false;
-              setDeployError(null);
-              refreshSafe();
-            }}
-            className="shrink-0 text-[11.5px] font-semibold text-danger hover:opacity-80 transition-opacity cursor-pointer"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* Skip warning — accepting it acknowledges the lockout risk */}
-      <AnimatePresence>
-        {skipPanel && (
-          <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            className="mt-3 p-[15px] rounded-2xl bg-watch/[0.06] border border-watch/18"
-          >
-            <p className="flex items-center gap-2 text-[13px] font-semibold text-watch mb-1.5">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Continue without an override key?
-            </p>
-            <p className="text-xs leading-relaxed text-watch/85 mb-3">
-              Zhentan must co-sign every transaction. If its agent is ever
-              offline, your funds sit safe but wait. Adding a key later
-              takes one tap in Settings.
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={onContinue}
-                className="flex-1 py-2.5 rounded-xl border border-watch/35 text-watch text-xs font-semibold hover:bg-watch/10 transition-colors cursor-pointer"
-              >
-                Skip for now
-              </button>
-              <button
-                type="button"
-                onClick={() => setSkipPanel(false)}
-                className="flex-1 py-2.5 rounded-xl bg-gold text-ink-900 text-xs font-bold hover:bg-gold/90 transition-colors cursor-pointer"
-              >
-                Add a key
-              </button>
+              {!backupAddressLocked && (
+                <button
+                  type="button"
+                  onClick={clearBackup}
+                  className="shrink-0 p-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  Change
+                </button>
+              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {externalWalletAddress && (
-        <Button onClick={handleAdd} disabled={busy || !deployed} className="w-full mt-4">
-          {busy ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Adding your key...
-            </>
-          ) : !deployed ? (
-            "Preparing your vault..."
           ) : (
-            <>
-              Add key & upgrade
-              <ArrowRight className="w-4 h-4" />
-            </>
+            !skipped && (
+              <div>
+                {/* Segmented: connect / enter address */}
+                <div className="flex gap-1 p-1 rounded-[14px] bg-foreground/4 mb-3">
+                  <button type="button" onClick={() => { setMode("connect"); cand.clearError(); }} className={segClass(mode === "connect")}>
+                    Connect a wallet
+                  </button>
+                  <button type="button" onClick={() => setMode("address")} className={segClass(mode === "address")}>
+                    Enter an address
+                  </button>
+                </div>
+
+                {mode === "connect" ? (
+                  <button
+                    type="button"
+                    onClick={cand.connect}
+                    disabled={cand.connecting}
+                    className="w-full flex items-center gap-3 text-left p-3.5 rounded-2xl border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
+                  >
+                    <span className="w-8 h-8 rounded-[10px] shrink-0 flex items-center justify-center bg-foreground/6">
+                      {cand.connecting ? (
+                        <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                      ) : (
+                        <Wallet className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </span>
+                    <span className="flex-1">
+                      <span className="block text-[13.5px] font-semibold">Connect a wallet</span>
+                      <span className="block text-[11.5px] text-muted-foreground mt-0.5">
+                        {cand.connecting ? "Opening your wallet…" : "Read-only — no signature asked"}
+                      </span>
+                    </span>
+                    <ChevronRight className="h-[15px] w-[15px] text-muted-foreground/80 shrink-0" />
+                  </button>
+                ) : (
+                  <div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={cand.input}
+                        onChange={(e) => cand.updateInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") cand.resolveInput();
+                        }}
+                        placeholder="0x address, name.eth or name.bnb"
+                        spellCheck={false}
+                        autoComplete="off"
+                        className="flex-1 min-w-0 bg-foreground/4 border border-foreground/10 rounded-[13px] px-3.5 py-[11px] font-mono text-[12.5px] text-foreground placeholder:font-sans placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
+                      />
+                      <button
+                        type="button"
+                        onClick={cand.resolveInput}
+                        disabled={cand.resolving || !cand.input.trim()}
+                        className="shrink-0 px-[15px] rounded-[13px] border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-45 disabled:cursor-default cursor-pointer"
+                      >
+                        {cand.resolving ? "Checking…" : "Use"}
+                      </button>
+                    </div>
+                    {cand.error && (
+                      <p className="flex items-start gap-1.5 text-[11.5px] leading-relaxed text-danger mt-2">
+                        <AlertTriangle className="h-[13px] w-[13px] shrink-0 mt-0.5" />
+                        {cand.error}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Candidate preview — confirmed by the primary CTA below */}
+                <AnimatePresence>
+                  {cand.candidate && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className="mt-3 p-3.5 rounded-2xl border border-gold/25 bg-gold/[0.06]"
+                    >
+                      <p className="text-[13px] font-semibold">
+                        {cand.candidate.label ?? "Pasted address"}
+                      </p>
+                      <p className="font-mono text-[11px] text-muted-foreground mt-1 break-all">
+                        {cand.candidate.address}
+                      </p>
+                      <div className="flex items-start gap-2.5 mt-2.5">
+                        <p className="flex-1 text-[11.5px] leading-relaxed text-muted-foreground/90">
+                          Confirm you control this wallet. It becomes a permanent
+                          owner of your vault and can&apos;t be swapped casually
+                          later.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={cand.clearCandidate}
+                          className="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )
           )}
-        </Button>
+
+          {/* Skip warning panel — accepting it acknowledges the lockout risk */}
+          <AnimatePresence>
+            {skipPanel && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="mt-3 p-[15px] rounded-2xl bg-watch/[0.06] border border-watch/18"
+              >
+                <p className="flex items-center gap-2 text-[13px] font-semibold text-watch mb-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Continue without an override key?
+                </p>
+                <p className="text-xs leading-relaxed text-watch/85 mb-3">
+                  Zhentan must co-sign every transaction. If its agent is ever
+                  offline, your funds sit safe but wait. Adding a key later
+                  takes one tap in Settings.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSkipped(true);
+                      setSkipPanel(false);
+                      cand.clearCandidate();
+                    }}
+                    className="flex-1 py-2.5 rounded-xl border border-watch/35 text-watch text-xs font-semibold hover:bg-watch/10 transition-colors cursor-pointer"
+                  >
+                    Skip for now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSkipPanel(false);
+                      setSkipped(false);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-gold text-ink-900 text-xs font-bold hover:bg-gold/90 transition-colors cursor-pointer"
+                  >
+                    Add a key
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <PrimaryCta cta={backupCta} />
+          {safeError && <ResolutionErrorNote onRetry={refreshSafe} />}
+
+          {/* Finality note: the CTA below mints the address / locks the key */}
+          {(cand.candidate || externalWalletAddress || skipped) && (
+            <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
+              {skipped && !cand.candidate && !externalWalletAddress
+                ? "Your vault address is minted on creation — adding an override key later never changes it."
+                : "Creating your vault makes this key a permanent owner — changing it later is an on-chain owner swap in Settings."}
+            </p>
+          )}
+
+          <div className="flex items-center justify-between mt-3">
+            <button
+              type="button"
+              onClick={() => setScreen("protect")}
+              className="inline-flex items-center gap-1.5 py-1 text-xs text-muted-foreground/75 hover:text-foreground transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="h-[13px] w-[13px]" />
+              Back
+            </button>
+            {!externalWalletAddress && !skipPanel && !skipped && (
+              <button
+                type="button"
+                onClick={() => setSkipPanel(true)}
+                className="py-1 text-xs text-muted-foreground/75 hover:text-foreground transition-colors cursor-pointer"
+              >
+                I&apos;ll add this later
+              </button>
+            )}
+          </div>
+
+          <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-[18px]">
+            With an override key your vault is a 2-of-3 Safe — your key, your
+            override key, the screening agent. Any two move funds, so
+            you&apos;re never locked out and Zhentan alone can never move a
+            cent.
+          </p>
+        </>
       )}
-
-      <div className="flex items-center justify-center mt-3">
-        {!externalWalletAddress && !skipPanel && (
-          <button
-            type="button"
-            onClick={() => setSkipPanel(true)}
-            className="py-1 text-xs text-muted-foreground/75 hover:text-foreground transition-colors cursor-pointer"
-          >
-            I&apos;ll add this later
-          </button>
-        )}
-      </div>
-
-      <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-[18px]">
-        With an override key your vault is a 2-of-3 Safe — your key, your
-        override key, the screening agent. Any two move funds, so
-        you&apos;re never locked out and Zhentan alone can never move a
-        cent.
-      </p>
     </motion.div>
   );
 }
@@ -946,34 +1022,17 @@ function OnboardingContent() {
     setStep(2);
   };
 
-  const handleBackupDone = () => {
-    if (!wallet?.address) return;
-    markOnboardingBackupDone(wallet.address);
-    setStep(3);
-  };
-
-  // The backup step is the guarded→protected upgrade — only guarded wallets
-  // have it; starter (no agent) and already-protected resumes skip through.
-  const resolvedProfile = safeConfig?.profile ?? null;
-  useEffect(() => {
-    if (step !== 2 || !stepReady || !wallet?.address) return;
-    if (resolvedProfile && resolvedProfile !== "guarded") {
-      markOnboardingBackupDone(wallet.address);
-      setStep(3);
-    }
-  }, [step, stepReady, resolvedProfile, wallet?.address]);
-
   const handleSaveUsername = async (username: string) => {
     if (!safeAddress || !wallet?.address) throw new Error("Wallet not ready");
     await api.users.upsert({ safeAddress, username });
     markOnboardingUsernameSet(wallet.address);
-    setStep(4);
+    setStep(3);
   };
 
   const handleSkipUsername = () => {
     if (!wallet?.address) return;
     markOnboardingUsernameSkipped(wallet.address);
-    setStep(4);
+    setStep(3);
   };
 
   const handleFinish = async () => {
@@ -1039,16 +1098,13 @@ function OnboardingContent() {
         <AnimatePresence mode="wait">
           {step === 0 && <ProtectionStep onContinue={handleBackupKeyDone} />}
           {step === 1 && safeAddress && <ConnectStep onFinish={handleTelegramDone} />}
-          {step === 2 && safeAddress && resolvedProfile === "guarded" && (
-            <BackupStep onContinue={handleBackupDone} />
-          )}
-          {step === 3 && safeAddress && (
+          {step === 2 && safeAddress && (
             <UsernameStep
               onSave={handleSaveUsername}
               onSkip={handleSkipUsername}
             />
           )}
-          {(step === 1 || step === 2 || step === 3) && !safeAddress && (
+          {(step === 1 || step === 2) && !safeAddress && (
             /* Resumed session still resolving the Safe — a visible wait state,
                not a blank card (the step-0 fallback effect handles the
                genuinely-missing case). */
@@ -1062,7 +1118,7 @@ function OnboardingContent() {
               <p className="text-xs text-muted-foreground">Preparing your vault…</p>
             </motion.div>
           )}
-          {step === 4 && (
+          {step === 3 && (
             <DoneStep
               screeningOn={(safeConfig?.profile ?? pendingProfile) !== "starter"}
               backupSet={!!externalWalletAddress}
