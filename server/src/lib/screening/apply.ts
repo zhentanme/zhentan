@@ -25,6 +25,27 @@ import { notify } from "../../notifications/index.js";
 import { classifyProfile } from "../safe/profiles.js";
 import { getAgentAddress } from "../safe/relayer.js";
 import { isRejectionActive } from "../safe/rejectionState.js";
+import { decodeTxKind } from "../safe/kind.js";
+import { validateTransitionTx, finishTransition } from "../safe/transition.js";
+import type { PendingTransaction } from "../../types.js";
+
+/**
+ * A screened wallet-profile transition that auto-executes here (the async
+ * path — decision landed after the propose window) still needs its owner
+ * set + threshold mirrored onto the record, exactly like the /queue sync
+ * path does. Validation re-runs against the still-pre-transition record;
+ * anything that isn't a transition simply no-ops. Idempotent with the
+ * /queue observer's own finishTransition call.
+ */
+async function mirrorExecutedTransition(tx: PendingTransaction): Promise<void> {
+  try {
+    if (decodeTxKind(tx).kind !== "config") return;
+    const target = await validateTransitionTx(tx);
+    await finishTransition(tx.safeAddress, target);
+  } catch {
+    // Not a recognized transition, or the record already reflects it.
+  }
+}
 
 export type ApplyOutcome =
   | { status: "applied_executed"; txHash?: string }
@@ -81,6 +102,9 @@ export async function applyScreeningDecision(
       // authenticated HTTP surface (see lib/authz.ts).
       const execResult = await runExecutionById(txId);
       if (execResult.status === "executed") {
+        mirrorExecutedTransition(tx).catch((err) =>
+          console.error("Transition mirror failed (self-heals on retry):", err)
+        );
         // tx_sent notification (TG + email) is fired by execute.ts
         recordOutcome(txWithRisk, "auto_approved", {
           riskScore: risk.riskScore,

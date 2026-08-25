@@ -31,6 +31,7 @@ import { getUserDetails } from "./lib/supabase/index.js";
 import { getLinkBySafe } from "./lib/telegram/binding.js";
 import { buildAuthRequiredEnvelope, issueLinkCode, relinkRelayText } from "./lib/telegram/linking.js";
 import { classifyTelegramCaller, telegramMetaFromBody } from "./lib/telegram/gate.js";
+import { runtimeLiveness } from "./lib/runtime/liveness.js";
 
 const app = express();
 
@@ -209,7 +210,10 @@ app.get("/me", auth, async (req, res) => {
 });
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true });
+  // `runtime` is the public liveness signal (#136.5) — the login page's
+  // agent badge and any status surface must reflect THIS, never a hardcoded
+  // "online". Boolean only; no operational detail leaks on a public route.
+  res.json({ ok: true, runtime: runtimeLiveness().online ? "online" : "offline" });
 });
 
 const port = Number(process.env.PORT) || 3001;

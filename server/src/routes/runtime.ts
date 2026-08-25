@@ -15,6 +15,7 @@ import { leaseNextJob, heartbeatJob, submitJobResult, getJob, getDeadLetterJobs 
 import type { JobResultSubmission } from "../lib/runtime/jobsPolicy.js";
 import { loadPolicySnapshot, type RiskResult } from "../agent/index.js";
 import { applyScreeningDecision } from "../lib/screening/apply.js";
+import { markRuntimeSeen } from "../lib/runtime/liveness.js";
 
 /**
  * A screen result must carry a complete, well-formed decision BEFORE it can
@@ -56,6 +57,9 @@ function runtimeAuth(req: Request, res: Response, next: NextFunction): void {
     res.status(401).json({ error: "Invalid runtime credential" });
     return;
   }
+  // Every authenticated runtime call (the lease long-poll above all) is
+  // proof of life — the signal behind /status agent liveness (#136.5).
+  markRuntimeSeen();
   next();
 }
 

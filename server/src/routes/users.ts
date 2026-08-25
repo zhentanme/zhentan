@@ -14,9 +14,10 @@ import { assertOwnsSafe, sameAddress } from "../lib/authz.js";
  * Decides whether the caller may write the `user_details` row for `safeAddress`.
  *
  * This route can't authorize against `req.user` the way the others do. `req.user`
- * is found by `signer_address`, and during onboarding that column is empty until
- * the very last step — the username and Telegram writes happen before it. Gating
- * on `req.user` would therefore reject every new user.
+ * is found by `signer_address`, which the onboarding sync now stamps at the
+ * step-0 commit — but the very FIRST write of a brand-new account still races
+ * it, and rows from failed/legacy syncs can lack it. Gating on `req.user`
+ * would therefore reject those users.
  *
  * So the anchor is the embedded wallet the Privy token proves, which exists from
  * the first request. A row belongs to whoever's wallet it names; a row that names

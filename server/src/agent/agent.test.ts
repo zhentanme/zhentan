@@ -114,6 +114,32 @@ describe("agent domain — Tier 1 evaluation", () => {
     expect(TX).toEqual(txCopy);
   });
 
+  it("auto-approves a VALIDATED wallet-profile transition (config self-call)", () => {
+    // Transition tx: `to` is the Safe itself — an address no pattern file
+    // knows. Without the config rule this scored REVIEW-40 "Unknown
+    // recipient" (#136.3, the stuck onboarding transitions).
+    const transitionTx = { ...TX, to: TX.safeAddress } as PendingTransaction;
+    const decoded: DecodedKind = {
+      kind: "config",
+      transition: { endState: "guarded", validated: true },
+    };
+    const result = evaluateTransaction(transitionTx, SNAPSHOT, decoded, AT);
+    expect(result.verdict).toBe("APPROVE");
+    expect(result.riskScore).toBe(0);
+    expect(result.reasons.join(" ")).toContain("guarded");
+    expect(result.reasons.join(" ")).not.toContain("Unknown recipient");
+  });
+
+  it("keeps an UNVALIDATED config self-call review-worthy, with an honest reason", () => {
+    const configTx = { ...TX, to: TX.safeAddress } as PendingTransaction;
+    const result = evaluateTransaction(configTx, SNAPSHOT, { kind: "config" }, AT);
+    // Default thresholds (40/70): fixed score 40 maps to REVIEW.
+    expect(result.verdict).toBe("REVIEW");
+    expect(result.riskScore).toBe(40);
+    expect(result.reasons.join(" ")).toContain("Owner/configuration change");
+    expect(result.reasons.join(" ")).not.toContain("Unknown recipient");
+  });
+
   it("the two shapes are distinct entry points, not aliases of caller intent", () => {
     // Same tx, same snapshot — a real transfer decode and a synthetic swap
     // decode may legitimately score differently; what matters is each is

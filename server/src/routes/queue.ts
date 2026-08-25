@@ -1,13 +1,16 @@
 import { Router, Request, Response, type IRouter } from "express";
-import { decodeFunctionData, isAddressEqual, type Address, type Hex } from "viem";
+import { type Hex } from "viem";
 import {
   createTransaction,
   getUserDetails,
   upsertUserDetails,
 } from "../lib/supabase/index.js";
-import { SAFE_ABI, MULTISEND_CALL_ONLY } from "../lib/constants.js";
-import { decodeMultiSendData } from "@safe-global/protocol-kit";
-import { classifyProfile, type WalletState } from "../lib/safe/profiles.js";
+import { upsertUserSettings } from "../agent/index.js";
+import {
+  validateTransitionTx,
+  finishTransition,
+  type TransitionTarget,
+} from "../lib/safe/transition.js";
 import { enqueueScreenJob, awaitScreeningOutcome } from "../lib/runtime/screening.js";
 import {
   computeSafeTxHash,
@@ -27,7 +30,9 @@ import type { PendingTransaction, SafeTxData } from "../types.js";
  * recover to a non-agent owner of this Safe (otherwise /queue would be a
  * signature oracle for arbitrary payloads).
  */
-async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<void> {
+async function validateSafeTxProposal(
+  pendingTx: PendingTransaction
+): Promise<{ forcedScreening: boolean }> {
   const { safeTx, safeTxHash, safeNonce, userSignature, rejectionSignature, safeAddress } =
     pendingTx;
   if (!safeTx || !safeTxHash || safeNonce === undefined || !userSignature || !rejectionSignature) {
@@ -94,10 +99,11 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
   // Service) and finishes later via in-app co-sign or the Safe app;
   // /execute refuses the row until the signatures arrive.
   //
-  // Rejected outright only when no completing signature can ever exist:
-  // guarded wallets have one user key against the threshold, so the only
-  // possible second signer is the agent — queueing would park the nonce on
-  // a transaction nothing in the world can complete.
+  // Guarded wallets have one user key against the threshold, so the only
+  // possible second signer is the agent — screening is STRUCTURAL for them
+  // (#136.1). A guarded proposal claiming screening-off is not refused (that
+  // soft-locked wallets whose stored flag drifted to false): it is FORCED
+  // through screening, and the caller self-heals the stored flag.
   //
   // EXCEPTION — legacy v1 accounts WITHOUT a backup key: pre-refactor 2-of-2
   // Safes predate this model, and their users have relied on the agent as
@@ -111,16 +117,14 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
   const legacyExempt =
     derivationVersion === DERIVATION_V1_4337 &&
     userOwnerCount < pendingTx.threshold;
+  let forcedScreening = false;
   if (
     pendingTx.screeningDisabled &&
     seenSigners.size < pendingTx.threshold &&
-    !legacyExempt
+    !legacyExempt &&
+    userOwnerCount < pendingTx.threshold
   ) {
-    if (userOwnerCount < pendingTx.threshold) {
-      throw new Error(
-        "Screening cannot be disabled for this wallet — your keys alone can never meet the signing threshold. Add a backup key first."
-      );
-    }
+    forcedScreening = true;
   }
 
   const rejectionTx: SafeTxData = {
@@ -142,171 +146,7 @@ async function validateSafeTxProposal(pendingTx: PendingTransaction): Promise<vo
   if (rejectionSigner !== signer) {
     throw new Error("rejectionSignature does not recover to the proposing owner");
   }
-}
-
-/**
- * Hard validation for wallet-profile transition txs (the only thing /queue
- * skips the risk engine for): owner-management calls on the caller's own
- * Safe that move between MANAGED states.
- *
- *   starter → guarded     addOwnerWithThreshold(agent, 2)
- *   starter → protected   MultiSend[addOwner(backup, 1), addOwner(agent, 2)]
- *   guarded → protected   addOwnerWithThreshold(backup, 2)   (legacy upgrade)
- *   protected → detached  removeOwner(prev, agent, 2)        (exit)
- *   backup key swap       swapOwner(prev, oldBackup, newBackup)
- *
- * Every added owner must be the agent or the REGISTERED backup key; the
- * simulated end state must classify to a managed profile (or detached, for
- * the exit). The profile must change — except for a backup-key swap, which
- * legitimately keeps the wallet protected while replacing an owner.
- */
-async function validateTransitionTx(
-  pendingTx: PendingTransaction & { calldata?: string }
-): Promise<{ endState: WalletState; endThreshold: number; endOwners: string[] }> {
-  const { safeAddress } = pendingTx;
-  // For SafeTx proposals, validate the SIGNED payload (its hash was already
-  // recomputed and signature-verified) — not the loose display fields.
-  const to =
-    pendingTx.txType === "safetx" && pendingTx.safeTx ? pendingTx.safeTx.to : pendingTx.to;
-  const calldata =
-    pendingTx.txType === "safetx" && pendingTx.safeTx
-      ? pendingTx.safeTx.data
-      : pendingTx.calldata;
-  if (!to || !calldata) throw new Error("Transition tx requires to and calldata");
-
-  const record = await getUserDetails(safeAddress);
-  if (!record) throw new Error("Unknown Safe — complete onboarding first");
-
-  const agent = getAgentAddress();
-  const currentOwners =
-    record.safe_owners?.length
-      ? record.safe_owners
-      : [record.signer_address ?? "", agent];
-  const currentThreshold = record.safe_threshold ?? 2;
-  const currentState = classifyProfile(currentOwners, currentThreshold, agent);
-
-  // Unpack the inner owner-management calls: either a single self-call, or
-  // a MultiSendCallOnly batch of self-calls.
-  let innerCalls: { to: string; data: Hex }[];
-  if (isAddressEqual(to as Address, safeAddress as Address)) {
-    innerCalls = [{ to, data: calldata as Hex }];
-  } else if (isAddressEqual(to as Address, MULTISEND_CALL_ONLY as Address)) {
-    innerCalls = decodeMultiSendData(calldata).map((t: { to: string; data: string }) => ({
-      to: t.to,
-      data: t.data as Hex,
-    }));
-  } else {
-    throw new Error("Transition tx must target the Safe itself (or MultiSend it)");
-  }
-  if (innerCalls.length === 0) throw new Error("Transition tx has no calls");
-
-  // Simulate the end state call by call.
-  const owners = currentOwners.map((o) => o.toLowerCase());
-  let threshold = currentThreshold;
-  let swapped = false;
-
-  for (const call of innerCalls) {
-    if (!isAddressEqual(call.to as Address, safeAddress as Address)) {
-      throw new Error("Every transition call must target the Safe itself");
-    }
-    const decoded = decodeFunctionData({ abi: SAFE_ABI, data: call.data });
-    if (decoded.functionName === "addOwnerWithThreshold") {
-      const [newOwner, t] = decoded.args as readonly [Address, bigint];
-      const addr = newOwner.toLowerCase();
-      const isAgent = addr === agent.toLowerCase();
-      const isRegisteredBackup =
-        !!record.external_wallet_address &&
-        addr === record.external_wallet_address.toLowerCase();
-      if (!isAgent && !isRegisteredBackup) {
-        throw new Error(
-          "Transition may only add the agent or the registered backup key as owner"
-        );
-      }
-      if (owners.includes(addr)) throw new Error(`${newOwner} is already an owner`);
-      owners.push(addr);
-      threshold = Number(t);
-    } else if (decoded.functionName === "removeOwner") {
-      const [, removed, t] = decoded.args as readonly [Address, Address, bigint];
-      const addr = removed.toLowerCase();
-      if (addr !== agent.toLowerCase()) {
-        throw new Error("Transition may only remove the agent (detach)");
-      }
-      const idx = owners.indexOf(addr);
-      if (idx === -1) throw new Error("Agent is not an owner of this Safe");
-      owners.splice(idx, 1);
-      threshold = Number(t);
-    } else if (decoded.functionName === "swapOwner") {
-      const [, oldOwner, newOwner] = decoded.args as readonly [Address, Address, Address];
-      const oldAddr = oldOwner.toLowerCase();
-      const newAddr = newOwner.toLowerCase();
-      // Only the backup slot may be swapped — never the agent, never the
-      // account signer.
-      if (oldAddr === agent.toLowerCase()) {
-        throw new Error("Transition may not swap out the agent");
-      }
-      if (record.signer_address && oldAddr === record.signer_address.toLowerCase()) {
-        throw new Error("Transition may not swap out the account signer");
-      }
-      const isRegisteredBackup =
-        !!record.external_wallet_address &&
-        newAddr === record.external_wallet_address.toLowerCase();
-      if (!isRegisteredBackup || newAddr === agent.toLowerCase()) {
-        throw new Error("Swap may only install the registered backup key as owner");
-      }
-      const idx = owners.indexOf(oldAddr);
-      if (idx === -1) throw new Error(`${oldOwner} is not an owner of this Safe`);
-      if (owners.includes(newAddr)) throw new Error(`${newOwner} is already an owner`);
-      owners[idx] = newAddr;
-      swapped = true;
-    } else {
-      throw new Error(`Unsupported transition call: ${decoded.functionName}`);
-    }
-  }
-
-  const endState = classifyProfile(owners, threshold, agent);
-  if (endState !== "starter" && endState !== "guarded" && endState !== "protected" && endState !== "detached") {
-    throw new Error(`Transition ends in an unmanaged state (${endState})`);
-  }
-  if (endState === currentState && !swapped) {
-    throw new Error("Transition does not change the wallet profile");
-  }
-  // The simulated end state IS the post-execution truth (the tx is validated
-  // hard and executed atomically) — return it so finishTransition can persist
-  // a deterministic threshold and owner set instead of racing an RPC read.
-  return { endState, endThreshold: threshold, endOwners: owners };
-}
-
-/**
- * After an executed transition: mirror the new owner set + threshold onto the
- * record. The threshold is taken from the VALIDATED simulation, never a
- * post-execution chain read — a load-balanced RPC (1rpc.io) can serve the
- * post-upgrade owners from one replica and the pre-upgrade threshold from
- * another, persisting an inconsistent state (e.g. `[embedded, agent]` with
- * threshold 1 → classifies as "unknown", no upgrade banner). Only the owner
- * SET is read from chain (for its correct linked-list order, which detach
- * later relies on), retried through replica lag until it matches the profile
- * the transition is known to produce.
- */
-async function finishTransition(
-  safeAddress: string,
-  target: { endState: WalletState; endThreshold: number; endOwners: string[] }
-): Promise<void> {
-  // Match the SIMULATED owner set, not just the classification — a swap keeps
-  // the profile identical before and after, so classification alone can't
-  // tell a lagging replica from the executed swap.
-  const want = new Set(target.endOwners.map((o) => o.toLowerCase()));
-  const matches = (list: string[]) =>
-    list.length === want.size && list.every((o) => want.has(o.toLowerCase()));
-  let owners = await readSafeOwners(safeAddress);
-  for (let i = 0; i < 6 && !matches(owners); i++) {
-    await new Promise((r) => setTimeout(r, 1200));
-    owners = await readSafeOwners(safeAddress);
-  }
-  await upsertUserDetails(safeAddress, {
-    safe_owners: owners,
-    safe_threshold: target.endThreshold,
-    safe_deployed: true,
-  });
+  return { forcedScreening };
 }
 
 export function createQueueRouter(): IRouter {
@@ -328,18 +168,27 @@ export function createQueueRouter(): IRouter {
       const isUpgrade = pendingTx.upgrade === true || pendingTx.transition === true;
       // The transition's simulated end state (owners+threshold), captured at
       // validation and reused to persist a deterministic post-execution profile.
-      let transitionTarget:
-        | { endState: WalletState; endThreshold: number; endOwners: string[] }
-        | undefined;
+      let transitionTarget: TransitionTarget | undefined;
 
+      let forcedScreening = false;
       if (isSafeTx) {
         try {
-          await validateSafeTxProposal(pendingTx);
+          ({ forcedScreening } = await validateSafeTxProposal(pendingTx));
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Invalid SafeTx proposal";
           res.status(400).json({ error: msg });
           return;
         }
+      }
+      if (forcedScreening) {
+        // Guarded wallet with a drifted screening_mode=false (#136.1): the
+        // agent is the only possible co-signer, so screening is structural.
+        // Screen the proposal instead of refusing it, and converge the stored
+        // flag so status/settings stop reporting the impossible state.
+        pendingTx.screeningDisabled = false;
+        upsertUserSettings(pendingTx.safeAddress, { screening_mode: true }).catch((err) =>
+          console.error("screening_mode self-heal failed:", err)
+        );
       }
 
       if (isUpgrade) {
@@ -405,9 +254,16 @@ export function createQueueRouter(): IRouter {
         }
       }
 
-      // ── Upgrade tx: validated hard above, skips the risk engine ─────
-      // Auto-execute through the legacy 4337 path (agent co-signs, gasless),
-      // then persist the new on-chain owner set and flip to SafeTx mode.
+      // ── Transition tx: hard-validated above ─────────────────────────
+      // Two execution routes, chosen by WHO must sign (#136.3):
+      //  - user signatures meet the current threshold (starter transitions,
+      //    co-signed proposals) or the legacy v1 capability applies → direct
+      //    synchronous execute, exactly as before (works without a runtime).
+      //  - the agent must co-sign (threshold-2 target, v2) → THROUGH
+      //    screening: the engine auto-approves the validated transition, the
+      //    decision leaves the runtime record D4 signing requires, and
+      //    auto-execute completes. The record-less direct execute would be
+      //    refused by the runtime's signing authority.
       if (isUpgrade) {
         // Set above when isUpgrade validation passed; guard for the type system.
         if (!transitionTarget) {
@@ -433,6 +289,48 @@ export function createQueueRouter(): IRouter {
         } catch {
           // Undeployed Safe (readSafeOwners reverts) or transient RPC — fall
           // through to the normal execute path.
+        }
+
+        const userSigCount = isSafeTx ? 1 + (pendingTx.userSignatures?.length ?? 0) : 0;
+        const legacyCapable =
+          (transitionTarget.derivationVersion ?? DERIVATION_V1_4337) === DERIVATION_V1_4337 &&
+          transitionTarget.userOwnerCount < transitionTarget.currentThreshold;
+        const needsAgentCosign =
+          isSafeTx && userSigCount < transitionTarget.currentThreshold && !legacyCapable;
+
+        if (needsAgentCosign) {
+          const enqueued = await enqueueScreenJob(pendingTx);
+          const outcome = enqueued ? await awaitScreeningOutcome(pendingTx.id) : null;
+          if (outcome?.kind === "executed") {
+            let upgradeWarning: string | undefined;
+            try {
+              await finishTransition(pendingTx.safeAddress, transitionTarget);
+            } catch (err) {
+              upgradeWarning = err instanceof Error ? err.message : String(err);
+              console.error("finishTransition failed (will self-heal on retry):", upgradeWarning);
+            }
+            res.json({
+              success: true,
+              id: pendingTx.id,
+              autoExecuted: true,
+              upgraded: true,
+              txHash: outcome.txHash,
+              ...(serviceWarning && { serviceWarning }),
+              ...(upgradeWarning && { upgradeWarning }),
+            });
+            return;
+          }
+          // Decision (and execution) lands asynchronously — apply.ts mirrors
+          // the owner set for validated transitions when it auto-executes.
+          // No runtime → fail-closed: the transition stays queued, upgraded:false.
+          res.json({
+            success: true,
+            id: pendingTx.id,
+            upgraded: false,
+            screening: outcome ? outcome.kind : "pending",
+            ...(serviceWarning && { serviceWarning }),
+          });
+          return;
         }
 
         try {

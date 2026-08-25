@@ -41,6 +41,15 @@ export type DecodedKind =
       amountWei: bigint;
       infinite: boolean;
     }
-  | { kind: "config" }
+  | {
+      kind: "config";
+      /**
+       * Present when the backend validated the calls as a wallet-profile
+       * transition (validateTransitionTx: whitelisted owner-management
+       * self-calls ending in a managed state). The engine auto-approves
+       * validated transitions; unvalidated config stays review-worthy.
+       */
+      transition?: { endState: string; validated: true };
+    }
   | { kind: "dapp-call"; target: string; selector: string | null }
   | { kind: "unknown" };
