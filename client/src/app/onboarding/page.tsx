@@ -33,6 +33,7 @@ import {
   markOnboardingUsernameSkipped,
   markOnboardingUsernameSet,
   markOnboardingTelegramDone,
+  markOnboardingDone,
   readOnboardingStep,
 } from "@/lib/useOnboarding";
 import { queueTour } from "@/lib/tours";
@@ -1010,20 +1011,29 @@ function OnboardingContent() {
     setStep(1);
   };
 
+  // Telegram directly follows the wallet-shape step (#136 follow-up): for
+  // guarded creations it's the approval channel for the screening the user
+  // just turned on — connecting it before anything else is the natural
+  // continuation. (It cannot precede the backup screen: the binding and the
+  // record are keyed by the Safe ADDRESS, which the backup key determines.)
+  const handleTelegramDone = () => {
+    if (!wallet?.address) return;
+    markOnboardingTelegramDone(wallet.address);
+    setStep(2);
+  };
+
   const handleSaveUsername = async (username: string) => {
     if (!safeAddress || !wallet?.address) throw new Error("Wallet not ready");
     await api.users.upsert({ safeAddress, username });
     markOnboardingUsernameSet(wallet.address);
-    setStep(2);
+    setStep(3);
   };
 
   const handleSkipUsername = () => {
     if (!wallet?.address) return;
     markOnboardingUsernameSkipped(wallet.address);
-    setStep(2);
+    setStep(3);
   };
-
-  const handleTelegramDone = () => setStep(3);
 
   const handleFinish = async () => {
     if (!safeAddress || !wallet?.address) return;
@@ -1051,7 +1061,7 @@ function OnboardingContent() {
           console.error("Eager Safe deploy failed (will retry on first tx):", err);
         });
     }
-    markOnboardingTelegramDone(wallet.address);
+    markOnboardingDone(wallet.address);
     // Queue the first-time tour for arrival on /home — TourLauncher consumes
     // this marker; it never infers "new user" from account state.
     queueTour("main");
@@ -1087,14 +1097,14 @@ function OnboardingContent() {
 
         <AnimatePresence mode="wait">
           {step === 0 && <ProtectionStep onContinue={handleBackupKeyDone} />}
-          {step === 1 && (
+          {step === 1 && safeAddress && <ConnectStep onFinish={handleTelegramDone} />}
+          {step === 2 && safeAddress && (
             <UsernameStep
               onSave={handleSaveUsername}
               onSkip={handleSkipUsername}
             />
           )}
-          {step === 2 && safeAddress && <ConnectStep onFinish={handleTelegramDone} />}
-          {step === 2 && !safeAddress && (
+          {(step === 1 || step === 2) && !safeAddress && (
             /* Resumed session still resolving the Safe — a visible wait state,
                not a blank card (the step-0 fallback effect handles the
                genuinely-missing case). */

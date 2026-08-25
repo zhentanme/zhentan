@@ -193,10 +193,18 @@ export async function finishTransition(
   const want = new Set(target.endOwners.map((o) => o.toLowerCase()));
   const matches = (list: string[]) =>
     list.length === want.size && list.every((o) => want.has(o.toLowerCase()));
-  let owners = await readSafeOwners(safeAddress);
+  let owners = await readSafeOwners(safeAddress).catch(() => [] as string[]);
   for (let i = 0; i < 6 && !matches(owners); i++) {
     await new Promise((r) => setTimeout(r, 1200));
-    owners = await readSafeOwners(safeAddress);
+    owners = await readSafeOwners(safeAddress).catch(() => owners);
+  }
+  if (!matches(owners)) {
+    // Replica lag (or RPC failure) outlasted the retry window. NEVER persist
+    // a known-stale owner set — it mis-classifies the profile (a finished
+    // guarded→protected showed guarded forever). The SIMULATED set is the
+    // validated post-execution membership; only its ORDER may differ from
+    // the chain's linked list, and the next successful mirror refines that.
+    owners = target.endOwners;
   }
   await upsertUserDetails(safeAddress, {
     safe_owners: owners,

@@ -26,11 +26,16 @@ import { useTelegramLink } from "@/hooks/useTelegramLink";
  * the user's choices and executes a SINGLE owner-management transition at the
  * end (no chained txs, so there's no stale-owner-set race between them):
  *
- *   starter  → [enable agent] → [add backup?] → [telegram] → done
+ *   starter  → [enable agent] → [telegram] → [add backup?] → done
  *              add backup  ⇒ activateProtection (starter → protected, atomic)
  *              skip backup ⇒ enableAgentOnly     (starter → guarded)
- *   guarded  → [add backup] → [telegram] → done
+ *   guarded  → [telegram] → [add backup] → done
  *              add backup  ⇒ addBackup           (guarded → protected)
+ *
+ * Telegram comes RIGHT AFTER enabling the agent (#136 follow-up): it is the
+ * approval channel for the screening being turned on. Possible here (unlike
+ * onboarding, where the backup key still determines the address) because the
+ * wallet already exists — linking binds to the existing Safe.
  *
  * Renders nothing meaningful for protected/detached — the banner that opens it
  * only shows for starter/guarded.
@@ -54,6 +59,10 @@ export function UpgradeDialog({
     profile === "starter" ? "starter" : "guarded"
   );
   const [step, setStep] = useState<Step>(profile === "starter" ? "agent" : "backup");
+  // Telegram (#134/#136.2): identical semantics to onboarding and the
+  // settings ActivationDialog — the binding watch runs the whole time the
+  // step is on screen; "Open bot" is a pure link.
+  const { linked: telegramLinked, openBot, setWatching } = useTelegramLink();
   // Consent parity with onboarding (#136.8): skipping the backup key on the
   // starter flow accepts the guarded lockout trade-off — disclose it first.
   const [skipWarning, setSkipWarning] = useState(false);
@@ -64,24 +73,20 @@ export function UpgradeDialog({
     if (!open) return;
     const starter = profile === "starter";
     setFlow(starter ? "starter" : "guarded");
-    setStep(starter ? "agent" : "backup");
+    setStep(starter ? "agent" : telegramLinked ? "backup" : "telegram");
     setSkipWarning(false);
     setExpectedProfile(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Telegram (#134/#136.2): identical semantics to onboarding and the
-  // settings ActivationDialog — the binding watch runs the whole time the
-  // step is on screen; "Open bot" is a pure link.
-  const { linked: telegramLinked, openBot, setWatching } = useTelegramLink();
   useEffect(() => {
     if (!open || step !== "telegram") return;
     setWatching(!telegramLinked);
     return () => setWatching(false);
   }, [open, step, telegramLinked, setWatching]);
 
-  // After the transition lands: offer Telegram (both flows) unless linked.
-  const afterUpgrade = () => setStep(telegramLinked ? "done" : "telegram");
+  // Telegram was offered BEFORE the transition ran — done directly.
+  const afterUpgrade = () => setStep("done");
 
   // Screened-path transitions (#136.3) execute asynchronously: poll the
   // record until the profile flips instead of declaring success early.
@@ -135,7 +140,10 @@ export function UpgradeDialog({
             title="Enable AI screening"
             subtitle="Zhentan reviews every transaction before it executes — catching scams and mistakes. Next you can add a backup key so you always keep control."
           >
-            <Button onClick={() => setStep("backup")} className="w-full">
+            <Button
+              onClick={() => setStep(telegramLinked ? "backup" : "telegram")}
+              className="w-full"
+            >
               Enable the agent
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -234,7 +242,7 @@ export function UpgradeDialog({
 
             {flow === "starter" && (
               <button
-                onClick={() => setStep("agent")}
+                onClick={() => setStep(telegramLinked ? "agent" : "telegram")}
                 className="w-full inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground py-1 transition-colors"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -272,7 +280,7 @@ export function UpgradeDialog({
             key="telegram"
             icon={<MaoAvatar state="scanning" size={30} variant="detail" />}
             title="Connect Telegram"
-            subtitle="Get notified the moment a transaction needs your review, and approve or reject from anywhere."
+            subtitle="Screening needs a way to reach you — connect Telegram to approve or reject reviews from anywhere. Skipping keeps alerts on email only."
           >
             {telegramLinked ? (
               <div className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-safe/25 bg-safe/6">
@@ -283,10 +291,19 @@ export function UpgradeDialog({
               <TelegramConnectCard onOpenBot={openBot} />
             )}
 
-            <Button onClick={() => setStep("done")} className="w-full">
+            <Button onClick={() => setStep("backup")} className="w-full">
               {telegramLinked ? "Continue" : "Skip for now"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
+            {flow === "starter" && (
+              <button
+                onClick={() => setStep("agent")}
+                className="w-full inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground py-1 transition-colors"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back
+              </button>
+            )}
           </StepShell>
         )}
 
