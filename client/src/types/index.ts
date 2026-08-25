@@ -176,6 +176,12 @@ export interface PatternsFile {
 
 export interface StatusResponse {
   screeningMode: boolean;
+  /** Guarded wallets: screening is structural — the toggle is locked ON. */
+  screeningLocked?: boolean;
+  /** Live wallet profile computed server-side from the mirrored owner set. */
+  profile?: "starter" | "guarded" | "protected" | "detached" | "unknown";
+  /** Runtime liveness (#136.5) — the truth behind any "agent online" surface. */
+  agent?: { online: boolean; lastSeenSecondsAgo: number | null };
   lastCheck: string | null;
   totalDecisions: number;
   telegramLinked?: boolean;

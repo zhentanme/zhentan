@@ -8,7 +8,8 @@ import { useOnboarding } from "@/lib/useOnboarding";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, wallet, loading, safeAddress, safeLoading, recordOnboardingCompleted } = useAuth();
+  const { user, wallet, loading, safeAddress, safeLoading, safeError, recordOnboardingCompleted } =
+    useAuth();
   const { telegramLinked } = useScreeningStatus();
   const pathname = usePathname();
   const router = useRouter();
@@ -37,7 +38,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }, [loading, user, wallet, safeLoading, onboardingLoading, complete, skipOnboardingCheck, router]);
 
   if (loading || (!skipOnboardingCheck && (safeLoading || onboardingLoading))) {
-    return (
+    // Repeated resolution failures (#136.4): say so instead of pretending
+    // this is a normal load. Retries keep running underneath.
+    return safeError ? (
+      <ThemeLoader
+        variant="auth"
+        message="Can't reach Zhentan"
+        subtext="Connection trouble — retrying automatically"
+      />
+    ) : (
       <ThemeLoader
         variant="auth"
         message="Loading Zhentan"

@@ -16,25 +16,30 @@ import {
 import type { WalletState } from "@/lib/safe/profiles";
 import { queueTour } from "@/lib/tours";
 
+/**
+ * `pending: true` means the transition was ACCEPTED but executes
+ * asynchronously (screened path, #136.3) — the wallet is not upgraded yet;
+ * callers must show a pending state and wait for the profile to flip.
+ */
+export interface TransitionResult {
+  pending: boolean;
+}
+
 export interface SafeTransitionsState {
   /** Current wallet state (starter/guarded/protected/detached/unknown). */
   profile: WalletState | null;
-  /** Guarded wallets are nudged to add the backup key. */
-  needsUpgrade: boolean;
-  /** Backup key chosen/registered (prerequisite for protection transitions). */
-  backupKeyLinked: boolean;
   busy: boolean;
   error: string | null;
   /** starter → protected (backup + agent, atomic). */
-  activateProtection: () => Promise<void>;
+  activateProtection: () => Promise<TransitionResult>;
   /** starter → guarded (agent only — screening becomes mandatory). */
-  enableAgentOnly: () => Promise<void>;
+  enableAgentOnly: () => Promise<TransitionResult>;
   /** guarded → protected (add backup key; the legacy upgrade). */
-  addBackup: () => Promise<void>;
+  addBackup: () => Promise<TransitionResult>;
   /** Replace the backup key with a new one (profile stays protected). */
-  swapBackup: (newBackup: string) => Promise<void>;
+  swapBackup: (newBackup: string) => Promise<TransitionResult>;
   /** protected → detached (remove the agent — the exit). */
-  detach: () => Promise<void>;
+  detach: () => Promise<TransitionResult>;
 }
 
 /**
@@ -59,16 +64,14 @@ export function useSafeTransitions(): SafeTransitionsState {
 
   const agentAddress = process.env.NEXT_PUBLIC_AGENT_ADDRESS;
   const profile = safeConfig?.profile ?? null;
-  const needsUpgrade = profile === "guarded";
-  const backupKeyLinked = !!externalWalletAddress;
 
   const run = useCallback(
     async (
       label: string,
       buildCalls: () => ReturnType<typeof activateProtectionCalls>,
       opts?: { registerBackup?: boolean }
-    ) => {
-      if (!safeAddress || !safeConfig) return;
+    ): Promise<TransitionResult> => {
+      if (!safeAddress || !safeConfig) return { pending: false };
       setBusy(true);
       setError(null);
       try {
@@ -78,7 +81,7 @@ export function useSafeTransitions(): SafeTransitionsState {
           // against it.
           await api.users.upsert({ safeAddress, externalWalletAddress });
         }
-        await proposeTransition({
+        const result = await proposeTransition({
           calls: buildCalls(),
           label,
           safe: {
@@ -91,6 +94,7 @@ export function useSafeTransitions(): SafeTransitionsState {
         });
         // Server persisted the new on-chain owner set — re-pull the record.
         refreshSafe();
+        return { pending: result.pending };
       } catch (err) {
         setError(err instanceof Error ? err.message : `${label} failed`);
         throw err;
@@ -101,12 +105,12 @@ export function useSafeTransitions(): SafeTransitionsState {
     [safeAddress, safeConfig, externalWalletAddress, api, getOwnerAccount, identityToken, refreshSafe]
   );
 
-  const activateProtection = useCallback(async () => {
+  const activateProtection = useCallback(async (): Promise<TransitionResult> => {
     if (!agentAddress || !externalWalletAddress || !safeAddress) {
       setError("Add a backup key first");
-      return;
+      return { pending: false };
     }
-    await run(
+    const result = await run(
       "Activate protection",
       () =>
         activateProtectionCalls(
@@ -119,21 +123,22 @@ export function useSafeTransitions(): SafeTransitionsState {
     // Wallet just became protected — queue the settings walkthrough
     // (TourLauncher waits for the wizard's success dialog to close).
     queueTour("upgrade");
+    return result;
   }, [run, safeAddress, externalWalletAddress, agentAddress]);
 
-  const enableAgentOnly = useCallback(async () => {
-    if (!agentAddress || !safeAddress) return;
-    await run("Enable Zhentan agent", () =>
+  const enableAgentOnly = useCallback(async (): Promise<TransitionResult> => {
+    if (!agentAddress || !safeAddress) return { pending: false };
+    return run("Enable Zhentan agent", () =>
       enableAgentCalls(safeAddress as Address, agentAddress as Address)
     );
   }, [run, safeAddress, agentAddress]);
 
-  const addBackup = useCallback(async () => {
+  const addBackup = useCallback(async (): Promise<TransitionResult> => {
     if (!externalWalletAddress || !safeAddress) {
       setError("Add a backup key first");
-      return;
+      return { pending: false };
     }
-    await run(
+    const result = await run(
       "Add backup key",
       () => addBackupCalls(safeAddress as Address, externalWalletAddress as Address),
       { registerBackup: true }
@@ -141,11 +146,12 @@ export function useSafeTransitions(): SafeTransitionsState {
     // Wallet just became protected — queue the settings walkthrough
     // (this is the legacy upgrade path as well as the v2 add-backup).
     queueTour("upgrade");
+    return result;
   }, [run, safeAddress, externalWalletAddress]);
 
   const swapBackup = useCallback(
-    async (newBackup: string) => {
-      if (!safeAddress || !safeConfig || !agentAddress) return;
+    async (newBackup: string): Promise<TransitionResult> => {
+      if (!safeAddress || !safeConfig || !agentAddress) return { pending: false };
       const agent = agentAddress.toLowerCase();
       const signer = wallet?.address?.toLowerCase() ?? "";
       // The backup slot is the user owner that is neither agent nor signer.
@@ -165,7 +171,7 @@ export function useSafeTransitions(): SafeTransitionsState {
       // record can't drift from the on-chain owner set.
       await api.users.upsert({ safeAddress, externalWalletAddress: newBackup });
       try {
-        await run("Change backup key", () =>
+        return await run("Change backup key", () =>
           swapBackupCalls(
             safeAddress as Address,
             safeConfig.owners,
@@ -183,17 +189,15 @@ export function useSafeTransitions(): SafeTransitionsState {
     [run, safeAddress, safeConfig, agentAddress, wallet?.address, api]
   );
 
-  const detach = useCallback(async () => {
-    if (!agentAddress || !safeAddress || !safeConfig) return;
-    await run("Detach Zhentan", () =>
+  const detach = useCallback(async (): Promise<TransitionResult> => {
+    if (!agentAddress || !safeAddress || !safeConfig) return { pending: false };
+    return run("Detach Zhentan", () =>
       detachAgentCalls(safeAddress as Address, safeConfig.owners, agentAddress as Address)
     );
   }, [run, safeAddress, safeConfig, agentAddress]);
 
   return {
     profile,
-    needsUpgrade,
-    backupKeyLinked,
     busy,
     error,
     activateProtection,

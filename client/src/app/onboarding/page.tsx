@@ -74,6 +74,27 @@ function Tick({ selected }: { selected: boolean }) {
   );
 }
 
+/** Repeated Safe-resolution failures (#136.4): stop pretending "Creating your
+ *  vault..." is progress — say so, keep auto-retrying, offer a manual kick. */
+function ResolutionErrorNote({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="mt-3 p-3 rounded-2xl bg-danger/[0.06] border border-danger/20 flex items-start gap-2.5">
+      <AlertTriangle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" />
+      <p className="flex-1 text-[11.5px] leading-relaxed text-danger/90">
+        Can&apos;t reach Zhentan right now — retrying automatically. Your
+        wallet isn&apos;t affected.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="shrink-0 text-[11.5px] font-semibold text-danger hover:opacity-80 transition-opacity cursor-pointer"
+      >
+        Try again
+      </button>
+    </div>
+  );
+}
+
 const optionClass = (selected: boolean) =>
   clsx(
     "w-full text-left p-[15px] rounded-[18px] cursor-pointer transition-all duration-200 border",
@@ -114,7 +135,9 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
     setPendingProfile,
     safeAddress,
     safeLoading,
+    safeError,
     safeConfig,
+    refreshSafe,
   } = useAuth();
 
   // Two screens: "protect" (screening choice) then "backup" (override key).
@@ -270,6 +293,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
           </div>
 
           <PrimaryCta cta={protectCta} />
+          {safeError && <ResolutionErrorNote onRetry={refreshSafe} />}
           {starterSelected && (
             <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
               Your vault address is minted on creation — adding protection
@@ -459,6 +483,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
           </AnimatePresence>
 
           <PrimaryCta cta={backupCta} />
+          {safeError && <ResolutionErrorNote onRetry={refreshSafe} />}
 
           {/* Finality note: the CTA below mints the address / locks the key */}
           {(cand.candidate || externalWalletAddress || skipped) && (
@@ -635,18 +660,16 @@ function UsernameStep({
 
 /* ─── Step 3: Telegram alerts ────────────────────────────────────── */
 
-function ConnectStep({
-  onFinish,
-  onSkip,
-}: {
-  onFinish: () => void;
-  onSkip: () => void;
-}) {
+function ConnectStep({ onFinish }: { onFinish: () => void }) {
   // One step (#134): open the bot chat, say hi, tap the secure link it sends
   // back. The step watches the server-truth binding the whole time it is on
   // screen, so a link completed from ANY device is picked up — the tap below
   // is a pure open-the-chat link.
   const { linked, identity, unlinking, openBot, setWatching, unlink } = useTelegramLink();
+  // Guarded creations keep screening structurally ON (#136.1) — skipping
+  // Telegram means reviews reach email + dashboard only. Say so at the skip.
+  const { safeConfig, pendingProfile } = useAuth();
+  const guardedCreation = (safeConfig?.profile ?? pendingProfile) === "guarded";
   const photoUrl = useTelegramPhoto({ enabled: linked });
   const [opened, setOpened] = useState(false);
   // Cross-device path (RFC 8628): type the bot's short code right here.
@@ -771,17 +794,16 @@ function ConnectStep({
           </button>
         ))}
 
-      <Button onClick={onFinish} className="w-full mt-4">
-        Continue
+      {!linked && guardedCreation && (
+        <p className="text-[11px] leading-relaxed text-watch/90 text-center mt-3.5">
+          Screening stays on either way — without Telegram, review alerts
+          reach your email and dashboard only.
+        </p>
+      )}
+      <Button onClick={onFinish} className={clsx("w-full", linked || guardedCreation ? "mt-3.5" : "mt-4")}>
+        {linked ? "Continue" : "Continue without Telegram"}
         <ArrowRight className="w-4 h-4" />
       </Button>
-      <button
-        type="button"
-        onClick={onSkip}
-        className="w-full mt-2.5 py-1.5 text-xs text-muted-foreground/70 hover:text-foreground transition-colors cursor-pointer"
-      >
-        Skip for now
-      </button>
     </motion.div>
   );
 }
@@ -960,8 +982,6 @@ function OnboardingContent() {
 
   const handleTelegramDone = () => setStep(3);
 
-  const handleSkipTelegram = () => setStep(3);
-
   const handleFinish = async () => {
     if (!safeAddress || !wallet?.address) return;
     // Persist on the server first — we want onboarding_completed set even if the
@@ -1030,11 +1050,20 @@ function OnboardingContent() {
               onSkip={handleSkipUsername}
             />
           )}
-          {step === 2 && safeAddress && (
-            <ConnectStep
-              onFinish={handleTelegramDone}
-              onSkip={handleSkipTelegram}
-            />
+          {step === 2 && safeAddress && <ConnectStep onFinish={handleTelegramDone} />}
+          {step === 2 && !safeAddress && (
+            /* Resumed session still resolving the Safe — a visible wait state,
+               not a blank card (the step-0 fallback effect handles the
+               genuinely-missing case). */
+            <motion.div
+              key="connect-loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center gap-3 py-10"
+            >
+              <MaoAvatar state="thinking" size={44} />
+              <p className="text-xs text-muted-foreground">Preparing your vault…</p>
+            </motion.div>
           )}
           {step === 3 && (
             <DoneStep

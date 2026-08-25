@@ -15,14 +15,21 @@ import { getAgentAddress } from "../lib/safe/relayer.js";
 import { runtimeLiveness } from "../lib/runtime/liveness.js";
 
 /** Live wallet profile from the record's mirrored owner set (never stored). */
-async function profileForSafe(safe: string): Promise<WalletState> {
+async function profileForSafe(
+  safe: string
+): Promise<{ profile: WalletState; structuralScreening: boolean }> {
   const record = await getUserDetails(safe).catch(() => null);
-  if (!record) return "unknown";
+  if (!record) return { profile: "unknown", structuralScreening: false };
   const agent = getAgentAddress();
   const owners = record.safe_owners?.length
     ? record.safe_owners
     : [record.signer_address ?? "", agent];
-  return classifyProfile(owners, record.safe_threshold ?? 2, agent);
+  const profile = classifyProfile(owners, record.safe_threshold ?? 2, agent);
+  // Guarded v2 ⇒ screening is structural. Legacy v1 guarded (pre-refactor
+  // 2-of-2) keeps its historical choice: the agent co-signs even unscreened
+  // (the legacy capability), so pausing is legitimate there.
+  const structuralScreening = profile === "guarded" && (record.derivation_version ?? 1) >= 2;
+  return { profile, structuralScreening };
 }
 
 export function createStatusRouter(): IRouter {
@@ -35,17 +42,18 @@ export function createStatusRouter(): IRouter {
       const safe = assertOwnsSafe(req, res, req.query.safe as string | undefined);
       if (!safe) return;
 
-      const [settings, patterns, link, profile] = await Promise.all([
+      const [settings, patterns, link, { profile, structuralScreening }] = await Promise.all([
         getUserSettings(safe),
         loadPolicySnapshot(safe),
         getLinkBySafe(safe).then((l) => (l ? ensureLinkMeta(l) : l)),
         profileForSafe(safe),
       ]);
 
-      // EFFECTIVE screening mode (#136.1): guarded ⇒ structurally ON — the
-      // agent is the only possible co-signer, so a stored false is drift, not
-      // a choice. Report the effective value and converge the stored flag.
-      const screeningLocked = profile === "guarded";
+      // EFFECTIVE screening mode (#136.1): guarded v2 ⇒ structurally ON —
+      // the agent is the only possible co-signer, so a stored false is
+      // drift, not a choice. Report the effective value and converge the
+      // stored flag.
+      const screeningLocked = structuralScreening;
       const screeningMode = screeningLocked ? true : settings.screening_mode;
       if (screeningLocked && !settings.screening_mode) {
         upsertUserSettings(safe, { screening_mode: true }).catch((err) =>
@@ -122,11 +130,11 @@ export function createStatusRouter(): IRouter {
           res.status(400).json({ error: "screeningMode must be a boolean" });
           return;
         }
-        // Guarded ⇒ screening is structural (#136.1): the stored flag may
+        // Guarded v2 ⇒ screening is structural (#136.1): the stored flag may
         // never be written false while the agent is the only possible
         // co-signer. (Unlink's SQL consequence still sets it — /status and
         // /queue report/enforce the effective value regardless.)
-        if (screeningMode === false && (await profileForSafe(safe)) === "guarded") {
+        if (screeningMode === false && (await profileForSafe(safe)).structuralScreening) {
           res.status(400).json({
             error:
               "Screening cannot be turned off for this wallet — your keys alone can never meet the signing threshold. Add a backup key to control screening.",

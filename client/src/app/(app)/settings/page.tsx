@@ -419,7 +419,9 @@ function SettingsPageContent() {
                           ? isScreeningActive
                             ? "AI screening every signature — pause it and the agent still co-signs"
                             : "Screening off — the agent co-signs without risk analysis"
-                          : "Screening is always on — add a backup key to control it"
+                          : telegramLinked
+                            ? "Screening is always on — add a backup key to control it"
+                            : "Screening is always on — reviews reach you by email until Telegram is connected"
                         : profile === "starter" || profile === "detached"
                           ? "No agent on this wallet — activate protection to enable screening"
                           : isScreeningActive
@@ -432,7 +434,20 @@ function SettingsPageContent() {
                       <button
                         onClick={handleToggle}
                         disabled={toggling || !screeningTogglable}
-                        aria-label="Toggle screening"
+                        aria-label={
+                          screeningTogglable
+                            ? "Toggle screening"
+                            : profile === "guarded"
+                              ? "Screening is locked on — your key alone can't meet the signing threshold; add a backup key to control it"
+                              : "Screening unavailable — no agent on this wallet"
+                        }
+                        title={
+                          screeningTogglable
+                            ? undefined
+                            : profile === "guarded"
+                              ? "Locked on: add a backup key to control screening"
+                              : "No agent on this wallet"
+                        }
                         className={clsx(
                           "relative w-12 h-6 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default",
                           isScreeningActive ? "bg-gold" : "bg-foreground/12"

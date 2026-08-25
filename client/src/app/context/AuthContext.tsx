@@ -96,6 +96,12 @@ export interface AuthContextType {
   /** Whether the Safe address is still being computed */
   safeLoading: boolean;
   /**
+   * Non-null after repeated Safe-resolution failures (#136.4): the backend is
+   * unreachable. Retries continue in the background — surfaces so gates and
+   * onboarding can say so instead of spinning forever.
+   */
+  safeError: string | null;
+  /**
    * Brand of the connected signing wallet (name/icon) for wallet-login users.
    * Null for embedded signers (Google) and until the wallet (re)connects.
    */
@@ -227,7 +233,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const user: AuthUser | null = useMemo(() => {
     if (!privyUser) return null;
     const google = (privyUser as { google?: { email?: string; name?: string; picture?: string } }).google;
-    console.log("privyUser", privyUser);
     return {
       email: google?.email,
       name: google?.name,
@@ -381,6 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const {
     safeAddress,
     loading: safeLoading,
+    error: safeError,
     record: safeRecord,
     derived: safeDerived,
     derivationVersion,
@@ -615,6 +621,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       getBackupAccount,
       safeAddress,
       safeLoading,
+      safeError,
       signerWalletMeta: displayedSignerMeta,
       signerMismatch,
       signerDisplay,
@@ -631,7 +638,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       privyUser: privyUser ?? null,
       identityToken: identityToken ?? null,
     }),
-    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, displayedSignerMeta, signerMismatch, signerDisplay, requestSignerSwitch, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, pendingProfile, safeConfig, refreshSafe, safeRecord, privyUser, identityToken]
+    [user, wallet, loading, login, logout, getOwnerAccount, getBackupAccount, safeAddress, safeLoading, safeError, displayedSignerMeta, signerMismatch, signerDisplay, requestSignerSwitch, externalWalletAddress, setBackupAddress, backupAddressLocked, commitSafe, pendingProfile, safeConfig, refreshSafe, safeRecord, privyUser, identityToken]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

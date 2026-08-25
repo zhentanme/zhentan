@@ -263,7 +263,12 @@ function PendingCard({
 /* ── Rail ────────────────────────────────────────────────────────── */
 
 export function RightRail() {
-  const { isScreeningActive } = useScreeningStatus();
+  const { isScreeningActive, agentOnline } = useScreeningStatus();
+  // Screening configured on but the runtime is not polling (#136.5): every
+  // screened proposal will sit queued (fail-closed). Say so — never show the
+  // green "Monitoring" dot on configuration alone. null (unknown) keeps the
+  // optimistic rendering so older servers don't read as an outage.
+  const agentOffline = isScreeningActive && agentOnline === false;
   const { requests, transactions } = useActivityData();
   const { handleApprove, handleReject, refresh } = useRequestActions();
   const [selectedTx, setSelectedTx] = useState<TransactionWithStatus | null>(null);
@@ -319,7 +324,7 @@ export function RightRail() {
       >
         <div className="flex items-center gap-3">
           <div className="relative w-10 h-10 shrink-0 flex items-center justify-center">
-            {isScreeningActive && (
+            {isScreeningActive && !agentOffline && (
               <>
                 <span className="absolute inset-0 rounded-md border border-gold/50 [animation:sonar_2.6s_ease-out_infinite]" />
                 <span className="absolute inset-0 rounded-md border border-gold/50 [animation:sonar_2.6s_ease-out_1.3s_infinite]" />
@@ -332,7 +337,7 @@ export function RightRail() {
               )}
             >
               <MaoAvatar
-                state={isScreeningActive ? "scanning" : "resting"}
+                state={isScreeningActive && !agentOffline ? "scanning" : "resting"}
                 size={24}
                 variant="solid"
               />
@@ -344,25 +349,31 @@ export function RightRail() {
               <span
                 className={clsx(
                   "h-1.5 w-1.5 rounded-pill signal-dot",
-                  isScreeningActive
-                    ? "bg-safe animate-signal-pulse"
-                    : "bg-muted-foreground"
+                  agentOffline
+                    ? "bg-watch"
+                    : isScreeningActive
+                      ? "bg-safe animate-signal-pulse"
+                      : "bg-muted-foreground"
                 )}
               />
-              {isScreeningActive
-                ? "Monitoring · screening on"
-                : "Paused · screening off"}
+              {agentOffline
+                ? "Agent offline · screening delayed"
+                : isScreeningActive
+                  ? "Monitoring · screening on"
+                  : "Paused · screening off"}
             </p>
           </div>
           <span
             className={clsx(
               "shrink-0 font-mono uppercase tracking-wider text-[10px] font-semibold px-2.5 py-1 rounded-pill",
-              isScreeningActive
-                ? "bg-safe/10 text-safe"
-                : "bg-foreground/8 text-muted-foreground"
+              agentOffline
+                ? "bg-watch/10 text-watch"
+                : isScreeningActive
+                  ? "bg-safe/10 text-safe"
+                  : "bg-foreground/8 text-muted-foreground"
             )}
           >
-            {isScreeningActive ? "Live" : "Off"}
+            {agentOffline ? "Away" : isScreeningActive ? "Live" : "Off"}
           </span>
         </div>
       </Link>

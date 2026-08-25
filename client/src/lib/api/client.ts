@@ -23,6 +23,9 @@ const BASE = (
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"
 ).replace(/\/$/, "");
 
+/** Public backend origin — for unauthenticated reads like GET /health. */
+export const BACKEND_BASE = BASE;
+
 async function resolveToken(token?: string | null): Promise<string | null> {
   if (token) return token;
   try {

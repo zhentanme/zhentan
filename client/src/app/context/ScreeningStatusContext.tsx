@@ -16,6 +16,14 @@ import { useAuth } from "./AuthContext";
 
 interface ScreeningStatusContextType {
   screeningMode: boolean;
+  /** Guarded wallets: screening is structural — the toggle is locked ON (#136.1). */
+  screeningLocked: boolean;
+  /**
+   * Runtime liveness from the server (#136.5). null while unknown (first
+   * load) — treat as "don't claim online". Every "Monitoring"/"Watching"
+   * surface must consult this, never configuration alone.
+   */
+  agentOnline: boolean | null;
   /** Server-truth Telegram binding (#134) — the ONLY link signal. */
   telegramLinked: boolean;
   telegramIdentity: TelegramIdentity | null;
@@ -33,6 +41,8 @@ export function ScreeningStatusProvider({ children }: { children: ReactNode }) {
   const { safeAddress } = useAuth();
   const api = useApiClient();
   const [screeningMode, setScreeningMode] = useState(false);
+  const [screeningLocked, setScreeningLocked] = useState(false);
+  const [agentOnline, setAgentOnline] = useState<boolean | null>(null);
   const [telegramLinked, setTelegramLinked] = useState(false);
   const [telegramIdentity, setTelegramIdentity] = useState<TelegramIdentity | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +52,10 @@ export function ScreeningStatusProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.status.get(safeAddress);
       setScreeningMode(data.screeningMode ?? false);
+      setScreeningLocked(data.screeningLocked ?? false);
+      // Older servers omit `agent` — stay null (unknown) rather than lying
+      // in either direction.
+      setAgentOnline(data.agent ? data.agent.online : null);
       setTelegramLinked(data.telegramLinked ?? false);
       setTelegramIdentity(data.telegram ?? null);
     } catch {
@@ -58,11 +72,16 @@ export function ScreeningStatusProvider({ children }: { children: ReactNode }) {
   useAutoRefresh(refresh, 30_000);
 
   const fullyActivated = telegramLinked;
-  const isScreeningActive = screeningMode && fullyActivated;
+  // Structurally locked screening (guarded v2) is ACTIVE even without the
+  // Telegram channel — the server screens every proposal regardless; reviews
+  // reach email + dashboard. Claiming "Paused" there was a lie (#136.1/.6).
+  const isScreeningActive = screeningMode && (fullyActivated || screeningLocked);
 
   const value = useMemo(
     () => ({
       screeningMode,
+      screeningLocked,
+      agentOnline,
       telegramLinked,
       telegramIdentity,
       fullyActivated,
@@ -71,7 +90,7 @@ export function ScreeningStatusProvider({ children }: { children: ReactNode }) {
       setScreeningMode,
       refresh,
     }),
-    [screeningMode, telegramLinked, telegramIdentity, fullyActivated, isScreeningActive, loading, refresh]
+    [screeningMode, screeningLocked, agentOnline, telegramLinked, telegramIdentity, fullyActivated, isScreeningActive, loading, refresh]
   );
 
   return (
