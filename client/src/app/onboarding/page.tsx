@@ -138,6 +138,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
     safeError,
     safeConfig,
     refreshSafe,
+    hasExistingWallet,
   } = useAuth();
 
   // Two screens: "protect" (screening choice) then "backup" (override key).
@@ -163,6 +164,23 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
   // that window persists a row for the stale address (the duplicate-row bug).
   const derived = !!safeAddress && !safeLoading && !!safeConfig;
   const resolvedProfile = safeConfig?.profile ?? null;
+
+  // Returning signer with an abandoned earlier attempt: the record fixes the
+  // address AND the profile — no selection can re-derive it. Freeze the
+  // choice on the existing profile and let Continue proceed; without this,
+  // picking a different profile waited forever on "Creating your vault..."
+  // for a derivation the record-first resolution will never run.
+  useEffect(() => {
+    if (!hasExistingWallet || !resolvedProfile) return;
+    if (
+      (resolvedProfile === "starter" ||
+        resolvedProfile === "guarded" ||
+        resolvedProfile === "protected") &&
+      pendingProfile !== resolvedProfile
+    ) {
+      setPendingProfile(resolvedProfile);
+    }
+  }, [hasExistingWallet, resolvedProfile, pendingProfile, setPendingProfile]);
   const guardedSelected = pendingProfile === "guarded" || pendingProfile === "protected";
   const starterSelected = pendingProfile === "starter";
   const starterReady = starterSelected && derived && resolvedProfile === "starter";
@@ -190,9 +208,11 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
   }, [screen, externalWalletAddress, pendingProfile, setPendingProfile]);
 
   const pickGuarded = () => {
+    if (hasExistingWallet) return;
     if (pendingProfile !== "protected") setPendingProfile("guarded");
   };
   const pickStarter = () => {
+    if (hasExistingWallet) return;
     setBackupAddress(null);
     setPendingProfile("starter");
   };
@@ -212,13 +232,17 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
     setPendingProfile("guarded");
   };
 
-  const protectCta: Cta = !pendingProfile
-    ? { label: "Choose an option", enabled: false, onClick: () => {} }
-    : starterSelected
-      ? starterReady
-        ? { label: "Create my wallet", enabled: true, onClick: onContinue }
-        : { label: "Creating your vault...", enabled: false, onClick: () => {} }
-      : { label: "Turn on screening", enabled: true, onClick: () => setScreen("backup") };
+  const protectCta: Cta = hasExistingWallet
+    ? derived
+      ? { label: "Continue with my vault", enabled: true, onClick: onContinue }
+      : { label: "Loading your vault...", enabled: false, onClick: () => {} }
+    : !pendingProfile
+      ? { label: "Choose an option", enabled: false, onClick: () => {} }
+      : starterSelected
+        ? starterReady
+          ? { label: "Create my wallet", enabled: true, onClick: onContinue }
+          : { label: "Creating your vault...", enabled: false, onClick: () => {} }
+        : { label: "Turn on screening", enabled: true, onClick: () => setScreen("backup") };
 
   const creating: Cta = { label: "Creating your vault...", enabled: false, onClick: () => {} };
   const backupCta: Cta = cand.candidate
@@ -294,11 +318,19 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
 
           <PrimaryCta cta={protectCta} />
           {safeError && <ResolutionErrorNote onRetry={refreshSafe} />}
-          {starterSelected && (
+          {hasExistingWallet ? (
             <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
-              Your vault address is minted on creation — adding protection
-              later never changes it.
+              This wallet was already created with the protection shown above —
+              its address never changes. You can adjust protection any time in
+              Settings.
             </p>
+          ) : (
+            starterSelected && (
+              <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
+                Your vault address is minted on creation — adding protection
+                later never changes it.
+              </p>
+            )
           )}
         </>
       ) : (

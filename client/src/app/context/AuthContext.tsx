@@ -133,6 +133,13 @@ export interface AuthContextType {
   backupAddressLocked: boolean;
   /** Confirms the backup-key choice — allows the user record (safe_address PK + owner set) to persist */
   commitSafe: () => void;
+  /**
+   * A backend record already exists for this signer — the Safe address (and
+   * its creation profile) is fixed, so onboarding's profile choice is moot:
+   * the record always wins over pendingProfile (#136 follow-up: without this
+   * signal, step 0 waited forever for a derivation that can never run).
+   */
+  hasExistingWallet: boolean;
   /** Creation profile chosen during onboarding (drives new-user derivation) */
   pendingProfile: WalletProfile | null;
   setPendingProfile: (p: WalletProfile | null) => void;
@@ -630,6 +637,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setBackupAddress,
       backupAddressLocked,
       commitSafe,
+      hasExistingWallet: !!safeRecord,
       pendingProfile,
       setPendingProfile,
       safeConfig,
