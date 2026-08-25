@@ -184,7 +184,16 @@ export function useSafeTransitions(): SafeTransitionsState {
             newBackup as Address
           )
         );
-        if (result.pending) notePendingTransition("protected");
+        if (result.pending) {
+          // Same-profile transition: completion = the owner set with the OLD
+          // backup replaced by the new one (profile stays protected).
+          notePendingTransition(
+            "protected",
+            safeConfig.owners.map((o) =>
+              o.toLowerCase() === oldBackup.toLowerCase() ? newBackup : o
+            )
+          );
+        }
         return result;
       } catch (err) {
         await api.users

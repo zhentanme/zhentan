@@ -270,18 +270,20 @@ export function createQueueRouter(): IRouter {
           res.status(500).json({ error: "Transition target unresolved" });
           return;
         }
-        // Idempotency: if a previous attempt already added the owner on-chain
-        // but the DB flip failed (or a retry races), addOwnerWithThreshold
-        // would revert with "already an owner" — reconcile from chain instead.
+        // Idempotency: if a previous attempt already executed on-chain but the
+        // DB flip failed (or a retry races), re-running the calls would revert
+        // ("already an owner" / "not an owner") — reconcile from chain instead.
+        // The check is the FULL owner set matching the transition's simulated
+        // END state: backup-key membership alone falsely completed detach and
+        // swap, where the backup is an owner BEFORE the transition too.
         try {
-          const record = await getUserDetails(pendingTx.safeAddress);
           const onChainOwners = (await readSafeOwners(pendingTx.safeAddress)).map((o) =>
             o.toLowerCase()
           );
-          if (
-            record?.external_wallet_address &&
-            onChainOwners.includes(record.external_wallet_address.toLowerCase())
-          ) {
+          const want = new Set(transitionTarget.endOwners.map((o) => o.toLowerCase()));
+          const alreadyAtEndState =
+            onChainOwners.length === want.size && onChainOwners.every((o) => want.has(o));
+          if (alreadyAtEndState) {
             await finishTransition(pendingTx.safeAddress, transitionTarget);
             res.json({ success: true, id: pendingTx.id, upgraded: true, alreadyUpgraded: true });
             return;

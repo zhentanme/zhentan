@@ -28,6 +28,7 @@ import { BackupAddressPicker } from "@/components/BackupAddressPicker";
 import { truncateAddress } from "@/lib/format";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { useSafeTransitions } from "@/lib/useSafeUpgrade";
+import { readPendingTransition } from "@/lib/pendingTransition";
 import { useForceExecuteSetting } from "@/lib/useForceExecute";
 import { useTour } from "@/components/tour/TourProvider";
 import { mainTour, upgradeTour } from "@/lib/tours";
@@ -102,8 +103,21 @@ function SettingsRow({
  */
 function BackupKeyRow() {
   const { swapBackup, busy, error, profile } = useSafeTransitions();
-  const { externalWalletAddress } = useAuth();
+  const { externalWalletAddress, safeConfig } = useAuth();
   const [open, setOpen] = useState(false);
+  // Pending swap (accepted, executing async): the record already names the
+  // NEW key, but the OLD one stays live on-chain until the transition lands
+  // — say so instead of silently claiming the swap is done.
+  const [pendingSwap, setPendingSwap] = useState(false);
+  useEffect(() => {
+    const sync = () => {
+      const marker = readPendingTransition();
+      setPendingSwap(!!marker?.expectedOwners);
+    };
+    sync();
+    window.addEventListener("zhentan:pending-transition", sync);
+    return () => window.removeEventListener("zhentan:pending-transition", sync);
+  }, [safeConfig?.owners]);
 
   if (profile !== "protected" || !externalWalletAddress) return null;
 
@@ -115,9 +129,17 @@ function BackupKeyRow() {
         iconTint="bg-foreground/5 text-muted-foreground"
         title="Backup key"
         desc={
-          <span className="font-mono text-[11px] truncate block" title={externalWalletAddress}>
-            {truncateAddress(externalWalletAddress, 13)}
-          </span>
+          <>
+            <span className="font-mono text-[11px] truncate block" title={externalWalletAddress}>
+              {truncateAddress(externalWalletAddress, 13)}
+            </span>
+            {pendingSwap && (
+              <span className="block text-[11px] text-watch/90 mt-0.5">
+                Swap in progress — the previous key stays active until it
+                completes on-chain.
+              </span>
+            )}
+          </>
         }
         action={
           <button
@@ -156,8 +178,9 @@ function BackupKeyRow() {
             <BackupAddressPicker
               onSelect={async (addr) => {
                 try {
-                  await swapBackup(addr);
+                  const result = await swapBackup(addr);
                   setOpen(false);
+                  setPendingSwap(result.pending);
                 } catch {
                   // error surfaced by the hook
                 }

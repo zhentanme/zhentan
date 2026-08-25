@@ -22,12 +22,28 @@ const MAX_AGE_MS = 5 * 60_000;
 export interface PendingTransitionMarker {
   /** The profile the transition ends in. */
   target: "starter" | "guarded" | "protected" | "detached";
+  /**
+   * For SAME-profile transitions (backup-key swap: protected → protected),
+   * the profile alone can't tell pending from complete — completion is the
+   * owner SET matching this expected end state (lowercased).
+   */
+  expectedOwners?: string[];
   at: number;
 }
 
-export function notePendingTransition(target: PendingTransitionMarker["target"]): void {
+export function notePendingTransition(
+  target: PendingTransitionMarker["target"],
+  expectedOwners?: string[]
+): void {
   try {
-    sessionStorage.setItem(KEY, JSON.stringify({ target, at: Date.now() }));
+    sessionStorage.setItem(
+      KEY,
+      JSON.stringify({
+        target,
+        ...(expectedOwners && { expectedOwners: expectedOwners.map((o) => o.toLowerCase()) }),
+        at: Date.now(),
+      })
+    );
     window.dispatchEvent(new Event("zhentan:pending-transition"));
   } catch {
     // no storage → the dialog's own polling remains the only watcher
