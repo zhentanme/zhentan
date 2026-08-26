@@ -286,7 +286,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                 <span className="flex-1 min-w-0">
                   <span className="flex items-center gap-2 flex-wrap">
                     <span className="text-[14.5px] font-bold tracking-tight">Screening on</span>
-                    <Pill tone="gold" size="sm">Recommended</Pill>
+                    <Pill tone="gold" size="sm" strong>Recommended</Pill>
                   </span>
                   <span className="block text-xs leading-relaxed text-muted-foreground mt-1">
                     Zhentan reviews and co-signs every transaction, catching

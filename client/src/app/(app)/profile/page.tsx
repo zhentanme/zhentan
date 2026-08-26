@@ -237,10 +237,7 @@ function ProfilePageContent() {
                     <Pencil className="h-3 w-3 text-muted-foreground/40 group-hover:text-gold transition-colors" />
                   </button>
                   {username && (
-                    <Pill tone="safe" size="sm">
-                      <Check className="h-2.5 w-2.5" />
-                      Verified
-                    </Pill>
+                    <Pill tone="safe" size="sm">Verified</Pill>
                   )}
                 </div>
               )}

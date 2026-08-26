@@ -16,9 +16,11 @@ const toneMap: Record<TransactionStatus, PillTone> = {
   rejected: "danger",
 };
 
+const STRONG: TransactionStatus[] = ["in_review", "rejecting", "rejected"];
+
 export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
   return (
-    <Pill tone={toneMap[status]} size={size}>
+    <Pill tone={toneMap[status]} size={size} strong={STRONG.includes(status)}>
       {statusLabel(status)}
     </Pill>
   );

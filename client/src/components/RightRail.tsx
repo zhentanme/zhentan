@@ -367,6 +367,7 @@ export function RightRail() {
           <Pill
             tone={agentOffline ? "watch" : isScreeningActive ? "safe" : "neutral"}
             size="sm"
+            pulse={isScreeningActive && !agentOffline}
             className="shrink-0"
           >
             {agentOffline ? "Away" : isScreeningActive ? "Watching" : "Paused"}
@@ -495,7 +496,7 @@ export function RightRail() {
                       {truncateAddress(tx.to)}
                     </p>
                   </div>
-                  <Pill tone={rejected ? "danger" : "safe"} size="sm" className="shrink-0">
+                  <Pill tone={rejected ? "danger" : "safe"} size="sm" strong={rejected} className="shrink-0">
                     {rejected ? "Blocked" : "Approved"}
                   </Pill>
                 </motion.button>

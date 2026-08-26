@@ -70,24 +70,38 @@ export function Sidebar() {
 
       {/* Screening status */}
       <div className="px-3">
-        <div
-          className={clsx(
-            "flex items-center gap-2 px-3 py-2.5 rounded-md text-xs font-mono uppercase tracking-wider",
-            agentOffline
-              ? "bg-watch/10 text-watch"
-              : isScreeningActive
-                ? "bg-safe/10 text-safe"
-                : "bg-foreground/5 text-muted-foreground"
-          )}
-        >
-          <MaoAvatar
-            state={isScreeningActive && !agentOffline ? "scanning" : "resting"}
-            size={14}
-            variant="solid"
-            color="currentColor"
-          />
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-md border border-border bg-foreground/[0.03] text-[10px] font-mono uppercase tracking-[0.08em] text-foreground/70">
+          <span
+            className={clsx(
+              "inline-flex",
+              agentOffline ? "text-watch" : isScreeningActive ? "text-safe" : "text-muted-foreground"
+            )}
+          >
+            <MaoAvatar
+              state={isScreeningActive && !agentOffline ? "scanning" : "resting"}
+              size={14}
+              variant="solid"
+              color="currentColor"
+            />
+          </span>
           <span className="flex-1">Screening</span>
-          <span className="font-semibold">
+          <span
+            className={clsx(
+              "font-semibold inline-flex items-center gap-1.5",
+              agentOffline ? "text-watch" : isScreeningActive ? "text-foreground/70" : "text-muted-foreground"
+            )}
+          >
+            <span
+              className={clsx(
+                "h-1.5 w-1.5 rounded-full",
+                agentOffline
+                  ? "text-watch bg-current signal-dot"
+                  : isScreeningActive
+                    ? "text-safe bg-current signal-dot animate-signal-pulse"
+                    : "bg-muted-foreground/80"
+              )}
+              aria-hidden
+            />
             {agentOffline ? "Away" : isScreeningActive ? "Watching" : "Paused"}
           </span>
         </div>

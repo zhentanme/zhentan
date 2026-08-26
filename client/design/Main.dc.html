@@ -1,0 +1,170 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap">
+  <style>
+    body { margin: 0; background: #0a0d0e; color: #fbfbf7; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; }
+    a { color: #e8b93a; } a:hover { color: #f5d060; }
+  </style>
+</helmet>
+<div style="width: 1120px; background: #0a0d0e; padding: 48px 56px 56px 56px; display: flex; flex-direction: column; gap: 40px; box-sizing: border-box;">
+
+  <!-- Header -->
+  <div style="display: flex; flex-direction: column; gap: 10px;">
+    <div style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: #8e938a;">Zhentan · status system</div>
+    <div style="font-size: 30px; font-weight: 800; letter-spacing: -0.02em; color: #fbfbf7;">Signal chips</div>
+    <div style="font-size: 14px; line-height: 1.55; color: #8e938a; max-width: 62ch;">The tinted capsule is replaced by a hairline chip: state color lives in one glowing dot, the label stays quiet mono. Color returns to the text only when a state demands attention.</div>
+  </div>
+
+  <!-- Anatomy -->
+  <div style="display: flex; flex-direction: column; gap: 14px;">
+    <div style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(142,147,138,0.7);">Anatomy</div>
+    <div style="background: #14181a; border: 1px solid rgba(255,255,255,0.06); border-radius: 22px; padding: 28px 32px; display: flex; align-items: center; gap: 48px;">
+      <!-- zoomed chip -->
+      <div style="display: inline-flex; align-items: center; gap: 12px; height: 44px; padding: 0 20px; border: 2px solid rgba(255,255,255,0.09); border-radius: 999px; background: rgba(251,251,247,0.03);">
+        <span style="width: 12px; height: 12px; border-radius: 999px; background: #3fbe76; box-shadow: 0 0 16px #3fbe76;"></span>
+        <span style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 20px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Watching</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; line-height: 1.5; color: #8e938a;">
+        <div style="display: flex; gap: 8px;"><span style="color: #e8b93a; font-family: 'JetBrains Mono', monospace; font-size: 11px;">01</span><span><strong style="color: #fbfbf7; font-weight: 600;">Dot carries the state</strong> — 6px, tone color, soft glow (the app's existing signal-dot).</span></div>
+        <div style="display: flex; gap: 8px;"><span style="color: #e8b93a; font-family: 'JetBrains Mono', monospace; font-size: 11px;">02</span><span><strong style="color: #fbfbf7; font-weight: 600;">Label stays quiet</strong> — JetBrains Mono 10px / 0.08em, foreground at 72%, not the tone color.</span></div>
+        <div style="display: flex; gap: 8px;"><span style="color: #e8b93a; font-family: 'JetBrains Mono', monospace; font-size: 11px;">03</span><span><strong style="color: #fbfbf7; font-weight: 600;">Hairline shell</strong> — 22px tall, border rgba(255,255,255,.06), fill at 3% — sits on any surface.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tone x emphasis matrix -->
+  <div style="display: flex; flex-direction: column; gap: 14px;">
+    <div style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(142,147,138,0.7);">Tones × emphasis</div>
+    <div style="background: #14181a; border: 1px solid rgba(255,255,255,0.06); border-radius: 22px; padding: 24px 32px;">
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: center;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(142,147,138,0.55);">tone</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(142,147,138,0.55);">subtle (default)</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(142,147,138,0.55);">strong (needs eyes)</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(142,147,138,0.55);">small</div>
+
+        <div style="font-size: 12.5px; color: #8e938a;">safe</div>
+        <div><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #3fbe76; box-shadow: 0 0 8px #3fbe76;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Executed</span></span></div>
+        <div><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(63,190,118,0.28); border-radius: 999px; background: rgba(63,190,118,0.06);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #3fbe76; box-shadow: 0 0 8px #3fbe76;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #3fbe76;">Approved</span></span></div>
+        <div><span style="display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 5px; height: 5px; border-radius: 999px; background: #3fbe76; box-shadow: 0 0 6px #3fbe76;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Verified</span></span></div>
+
+        <div style="font-size: 12.5px; color: #8e938a;">watch</div>
+        <div><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #f0b33c; box-shadow: 0 0 8px #f0b33c;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Queued</span></span></div>
+        <div><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(240,179,60,0.3); border-radius: 999px; background: rgba(240,179,60,0.06);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #f0b33c; box-shadow: 0 0 8px #f0b33c;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #f0b33c;">In review</span></span></div>
+        <div><span style="display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 5px; height: 5px; border-radius: 999px; background: #f0b33c; box-shadow: 0 0 6px #f0b33c;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Risk 52</span></span></div>
+
+        <div style="font-size: 12.5px; color: #8e938a;">danger</div>
+        <div><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #e5524f; box-shadow: 0 0 8px #e5524f;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Rejected</span></span></div>
+        <div><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(229,82,79,0.32); border-radius: 999px; background: rgba(229,82,79,0.06);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #e5524f; box-shadow: 0 0 8px #e5524f;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #e5524f;">Blocked</span></span></div>
+        <div><span style="display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border: 1px solid rgba(229,82,79,0.32); border-radius: 999px; background: rgba(229,82,79,0.06);"><span style="width: 5px; height: 5px; border-radius: 999px; background: #e5524f; box-shadow: 0 0 6px #e5524f;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #e5524f;">Risk 85</span></span></div>
+
+        <div style="font-size: 12.5px; color: #8e938a;">gold</div>
+        <div><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #c49428; box-shadow: 0 0 8px #c49428;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Soon</span></span></div>
+        <div><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(196,148,40,0.35); border-radius: 999px; background: rgba(196,148,40,0.07);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #e8b93a; box-shadow: 0 0 8px #e8b93a;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #e8b93a;">Recommended</span></span></div>
+        <div><span style="display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 5px; height: 5px; border-radius: 999px; background: #c49428; box-shadow: 0 0 6px #c49428;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Connected</span></span></div>
+
+        <div style="font-size: 12.5px; color: #8e938a;">neutral</div>
+        <div><span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 6px; height: 6px; border-radius: 999px; background: rgba(142,147,138,0.8);"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Paused</span></span></div>
+        <div style="font-size: 11px; color: rgba(142,147,138,0.5); font-style: italic;">neutral has no strong form</div>
+        <div><span style="display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 5px; height: 5px; border-radius: 999px; background: rgba(142,147,138,0.8);"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Away</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Before / after -->
+  <div style="display: flex; flex-direction: column; gap: 14px;">
+    <div style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(142,147,138,0.7);">Before → after</div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+      <div style="background: #14181a; border: 1px solid rgba(255,255,255,0.06); border-radius: 22px; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-size: 11px; color: rgba(142,147,138,0.6);">Current — tinted capsules</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <span style="display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px; background: rgba(63,190,118,0.15); color: #3fbe76; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;">Executed</span>
+          <span style="display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px; background: rgba(240,179,60,0.15); color: #f0b33c; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;">Queued</span>
+          <span style="display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px; background: rgba(229,82,79,0.15); color: #e5524f; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;">Blocked</span>
+        </div>
+        <div style="font-size: 11.5px; line-height: 1.5; color: rgba(142,147,138,0.6);">Color blocks compete with content; three at once shout equally.</div>
+      </div>
+      <div style="background: #14181a; border: 1px solid rgba(196,148,40,0.2); border-radius: 22px; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-size: 11px; color: #e8b93a;">Proposed — signal chips</div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+          <span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #3fbe76; box-shadow: 0 0 8px #3fbe76;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Executed</span></span>
+          <span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #f0b33c; box-shadow: 0 0 8px #f0b33c;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Queued</span></span>
+          <span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(229,82,79,0.32); border-radius: 999px; background: rgba(229,82,79,0.06);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #e5524f; box-shadow: 0 0 8px #e5524f;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #e5524f;">Blocked</span></span>
+        </div>
+        <div style="font-size: 11.5px; line-height: 1.5; color: rgba(142,147,138,0.6);">Quiet by default; only Blocked raises its voice.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- In context -->
+  <div style="display: flex; flex-direction: column; gap: 14px;">
+    <div style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(142,147,138,0.7);">In context</div>
+
+    <!-- Requests row -->
+    <div style="background: #14181a; border: 1px solid rgba(255,255,255,0.06); border-radius: 22px; overflow: hidden;">
+      <div style="padding: 10px 20px 0 20px; font-size: 10.5px; color: rgba(142,147,138,0.5); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase;">Requests list</div>
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.04);">
+          <div style="width: 40px; height: 40px; border-radius: 14px; background: rgba(251,251,247,0.08); display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c49428" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path></svg></div>
+          <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 14px; font-weight: 600; color: #fbfbf7;">120 USDC</span><span style="color: rgba(142,147,138,0.6); font-size: 13px;">←</span><span style="font-size: 14px; color: #8e938a;">Hosting Co.</span></div>
+            <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 12px; color: rgba(142,147,138,0.8);">INV-2081 · Due Sep 2</span><span style="display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 5px; height: 5px; border-radius: 999px; background: #3fbe76; box-shadow: 0 0 6px #3fbe76;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Risk 12</span></span></div>
+          </div>
+          <span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #f0b33c; box-shadow: 0 0 8px #f0b33c;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Queued</span></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 14px; padding: 14px 20px;">
+          <div style="width: 40px; height: 40px; border-radius: 14px; background: rgba(251,251,247,0.08); display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c49428" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"></path><path d="M8 7h9v9"></path></svg></div>
+          <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 14px; font-weight: 600; color: #fbfbf7;">2.4 BNB</span><span style="color: rgba(142,147,138,0.6); font-size: 13px;">→</span><span style="font-size: 14px; color: #8e938a; font-family: 'JetBrains Mono', monospace;">0x91cd…4e2a</span></div>
+            <div style="display: flex; align-items: center; gap: 8px;"><span style="font-size: 12px; color: rgba(142,147,138,0.8);">Unknown recipient</span><span style="display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border: 1px solid rgba(229,82,79,0.32); border-radius: 999px; background: rgba(229,82,79,0.06);"><span style="width: 5px; height: 5px; border-radius: 999px; background: #e5524f; box-shadow: 0 0 6px #e5524f;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #e5524f;">Risk 85</span></span></div>
+          </div>
+          <span style="display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid rgba(229,82,79,0.32); border-radius: 999px; background: rgba(229,82,79,0.06);"><span style="width: 6px; height: 6px; border-radius: 999px; background: #e5524f; box-shadow: 0 0 8px #e5524f;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #e5524f;">Rejected</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+      <!-- Agent decisions -->
+      <div style="background: #14181a; border: 1px solid rgba(255,255,255,0.06); border-radius: 22px; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-size: 10.5px; color: rgba(142,147,138,0.5); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase;">Agent decisions (rail)</div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(251,251,247,0.9);">↗ 250 USDC</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8e938a;">0x7a4f…c918</span></div>
+          <span style="display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 5px; height: 5px; border-radius: 999px; background: #3fbe76; box-shadow: 0 0 6px #3fbe76;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Approved</span></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; opacity: 0.75;">
+          <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(251,251,247,0.9);">↗ 9,800 USDC</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8e938a;">0x33be…09dd</span></div>
+          <span style="display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border: 1px solid rgba(229,82,79,0.32); border-radius: 999px; background: rgba(229,82,79,0.06);"><span style="width: 5px; height: 5px; border-radius: 999px; background: #e5524f; box-shadow: 0 0 6px #e5524f;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #e5524f;">Blocked</span></span>
+        </div>
+      </div>
+      <!-- Settings screening row -->
+      <div style="background: #14181a; border: 1px solid rgba(255,255,255,0.06); border-radius: 22px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-size: 10.5px; color: rgba(142,147,138,0.5); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.08em; text-transform: uppercase;">Settings · protection</div>
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <div style="width: 36px; height: 36px; border-radius: 14px; background: rgba(196,148,40,0.1); display: flex; align-items: center; justify-content: center;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#c49428" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+          <div style="display: flex; align-items: center; gap: 8px; flex: 1;"><span style="font-size: 14px; font-weight: 600; color: #fbfbf7;">Screening</span><span style="display: inline-flex; align-items: center; gap: 5px; height: 18px; padding: 0 8px; border: 1px solid rgba(255,255,255,0.06); border-radius: 999px; background: rgba(251,251,247,0.03);"><span style="width: 5px; height: 5px; border-radius: 999px; background: #3fbe76; box-shadow: 0 0 6px #3fbe76;"></span><span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(251,251,247,0.72);">Watching</span></span></div>
+          <div style="width: 48px; height: 24px; border-radius: 999px; background: #c49428; position: relative;"><span style="position: absolute; top: 2px; left: 26px; width: 20px; height: 20px; border-radius: 999px; background: #fbfbf7;"></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rules -->
+  <div style="display: flex; flex-direction: column; gap: 14px;">
+    <div style="font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(142,147,138,0.7);">Usage rules</div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px;">
+      <div style="background: #14181a; border: 1px solid rgba(255,255,255,0.06); border-radius: 22px; padding: 16px 20px; font-size: 12px; line-height: 1.55; color: #8e938a;"><span style="display: block; font-weight: 700; color: #fbfbf7; font-size: 12.5px; margin-bottom: 4px;">Subtle is the default</span>Resting states — Executed, Queued, Watching, Paused, Verified — stay quiet: dot only.</div>
+      <div style="background: #14181a; border: 1px solid rgba(255,255,255,0.06); border-radius: 22px; padding: 16px 20px; font-size: 12px; line-height: 1.55; color: #8e938a;"><span style="display: block; font-weight: 700; color: #fbfbf7; font-size: 12.5px; margin-bottom: 4px;">Strong needs a reason</span>Only states that ask for the user's eyes: Blocked, In review, Risk ≥ 40, Recommended.</div>
+      <div style="background: #14181a; border: 1px solid rgba(255,255,255,0.06); border-radius: 22px; padding: 16px 20px; font-size: 12px; line-height: 1.55; color: #8e938a;"><span style="display: block; font-weight: 700; color: #fbfbf7; font-size: 12.5px; margin-bottom: 4px;">Live states may pulse</span>The dot of an actively-live state (Watching) uses the existing signal-pulse animation.</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

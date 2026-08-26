@@ -431,7 +431,7 @@ function SettingsPageContent() {
                     title={
                       <>
                         <h3 className="text-sm font-semibold">Screening</h3>
-                        <Pill tone={isScreeningActive ? "safe" : "neutral"} size="sm" dot>
+                        <Pill tone={isScreeningActive ? "safe" : "neutral"} size="sm" pulse={isScreeningActive}>
                           {isScreeningActive ? "Watching" : "Paused"}
                         </Pill>
                       </>

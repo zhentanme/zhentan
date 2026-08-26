@@ -15,8 +15,9 @@ interface RequestRowProps {
 }
 
 function RiskBadge({ score }: { score: number }) {
+  const sev = riskSeverity(score) ?? "neutral";
   return (
-    <Pill tone={riskSeverity(score) ?? "neutral"} size="sm">
+    <Pill tone={sev} size="sm" strong={sev === "watch" || sev === "danger"}>
       Risk {score}
     </Pill>
   );
@@ -37,7 +38,11 @@ const REQUEST_STATUS_LABEL: Record<QueuedRequest["status"], string> = {
 };
 
 function RequestStatusBadge({ status }: { status: QueuedRequest["status"] }) {
-  return <Pill tone={REQUEST_STATUS_TONE[status]}>{REQUEST_STATUS_LABEL[status]}</Pill>;
+  return (
+    <Pill tone={REQUEST_STATUS_TONE[status]} strong={status === "rejected"}>
+      {REQUEST_STATUS_LABEL[status]}
+    </Pill>
+  );
 }
 
 export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {

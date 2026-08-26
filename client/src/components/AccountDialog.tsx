@@ -83,10 +83,7 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
                 {username ? `@${username}` : ""}
               </span>
               {username && (
-                <Pill tone="safe" size="sm">
-                  <Check className="h-2.5 w-2.5" />
-                  Verified
-                </Pill>
+                <Pill tone="safe" size="sm">Verified</Pill>
               )}
             </div>
             {user?.email ? (

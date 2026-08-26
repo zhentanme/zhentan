@@ -39,21 +39,21 @@ export function TopBar() {
           <BrandMark href="/home" size="sm" priority />
           <div
             data-tour="agent-status"
-            className={clsx(
-              "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
-              agentOffline
-                ? "bg-watch/12 text-watch"
-                : isScreeningActive
-                  ? "bg-safe/12 text-safe"
-                  : "bg-foreground/6 text-muted-foreground"
-            )}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-foreground/[0.03] px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-[0.08em] text-foreground/70 transition-colors"
           >
-            <MaoAvatar
-              state={isScreeningActive && !agentOffline ? "scanning" : "resting"}
-              size={14}
-              variant="solid"
-              color="currentColor"
-            />
+            <span
+              className={clsx(
+                "inline-flex",
+                agentOffline ? "text-watch" : isScreeningActive ? "text-safe" : "text-muted-foreground"
+              )}
+            >
+              <MaoAvatar
+                state={isScreeningActive && !agentOffline ? "scanning" : "resting"}
+                size={14}
+                variant="solid"
+                color="currentColor"
+              />
+            </span>
             {agentOffline ? "Away" : isScreeningActive ? "Watching" : "Paused"}
           </div>
         </div>
