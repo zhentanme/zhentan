@@ -5,13 +5,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
   Shield,
+  ShieldOff,
   Users,
   Code2,
   TrendingUp,
   DollarSign,
+  Timer,
+  Bot,
+  Layers,
+  Search,
+  Zap,
+  type LucideIcon,
 } from "lucide-react";
 
 /* ─── Shared visual helpers ─────────────────────────────────────────── */
@@ -111,15 +119,17 @@ function SlideProblem() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-        {[
-          { icon: "⛔", t: "No Guardrails", d: "Standard wallets confirm what you sign — they don't screen it." },
-          { icon: "🐢", t: "Multisigs Are Too Slow", d: "Institutional co-signers can't match real-time DeFi speed." },
-          { icon: "🤖", t: "AI Is Ready", d: "Agents are finally capable enough to fill this gap autonomously." },
-        ].map((p, i) => (
+        {([
+          { icon: ShieldOff, t: "No guardrails", d: "Standard wallets confirm what you sign — they don't screen it." },
+          { icon: Timer, t: "Multisigs are too slow", d: "Institutional co-signers can't match real-time DeFi speed." },
+          { icon: Bot, t: "AI is ready", d: "Agents are finally capable enough to fill this gap autonomously." },
+        ] as { icon: LucideIcon; t: string; d: string }[]).map((p, i) => (
           <motion.div key={p.t} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 + i * 0.1, type: "spring" }}
             className="glass-card p-4 flex gap-3 items-start">
-            <span className="text-xl shrink-0">{p.icon}</span>
+            <span className="w-8 h-8 rounded-sm bg-gold/10 flex items-center justify-center shrink-0 text-gold">
+              <p.icon className="h-4 w-4" />
+            </span>
             <div>
               <div className="text-xs font-bold text-foreground mb-0.5">{p.t}</div>
               <div className="text-muted-foreground/80 text-[11px] leading-relaxed">{p.d}</div>
@@ -150,17 +160,19 @@ function SlidePhilosophy() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-        {[
-          { emoji: "🧬", title: "Agents as Trust Layers",   desc: "An autonomous layer that lives beside the user, not between them and the chain." },
-          { emoji: "🕵️", title: "Personalized Detective",   desc: "Learns your recipients, amounts, timing, limits. Flags anything outside your normal." },
-          { emoji: "⚡", title: "Real-Time Action",         desc: "Auto-approve safe flows, flag borderline ones via Telegram, block threats outright." },
-        ].map((p, i) => (
+        {([
+          { icon: Layers, title: "Agents as trust layers",  desc: "An autonomous layer that lives beside the user, not between them and the chain." },
+          { icon: Search, title: "Personalized detective",  desc: "Learns your recipients, amounts, timing, limits. Flags anything outside your normal." },
+          { icon: Zap,    title: "Real-time action",        desc: "Auto-approve safe flows, flag borderline ones via Telegram, block threats outright." },
+        ] as { icon: LucideIcon; title: string; desc: string }[]).map((p, i) => (
           <motion.div key={p.title} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 + i * 0.13, type: "spring" }}
             className="relative rounded-md p-5 overflow-hidden"
             style={{ background: "rgba(196,148,40,0.05)", border: "1px solid rgba(196,148,40,0.15)" }}>
             <GoldLine />
-            <div className="text-4xl mb-3">{p.emoji}</div>
+            <div className="w-10 h-10 rounded-sm bg-gold/12 flex items-center justify-center text-gold mb-3">
+              <p.icon className="h-5 w-5" />
+            </div>
             <div className="text-sm font-bold text-foreground mb-2">{p.title}</div>
             <p className="text-muted-foreground text-xs leading-relaxed">{p.desc}</p>
           </motion.div>
@@ -194,13 +206,13 @@ function SlideHowItWorks() {
       num: "02", title: "Zhentan Screens",
       desc: "Agent scores 0–100 against behavioral profile + GoPlus / Honeypot.is / De.fi scanners.",
       sub: "< 200ms decision",
-      color: "#6366f1", bg: "rgba(99,102,241,0.07)", border: "rgba(99,102,241,0.25)",
+      color: "var(--gold-400)", bg: "rgba(196,148,40,0.07)", border: "rgba(196,148,40,0.25)",
     },
     {
       num: "03", title: "Execute or Block",
       desc: "APPROVE auto-executed. REVIEW sent to Telegram. BLOCK denied with instant alert.",
       sub: "Safe 2-of-2 multisig",
-      color: "#10b981", bg: "rgba(16,185,129,0.07)", border: "rgba(16,185,129,0.25)",
+      color: "var(--safe)", bg: "rgba(63,190,118,0.07)", border: "rgba(63,190,118,0.25)",
     },
   ];
 
@@ -256,12 +268,12 @@ function SlideHowItWorks() {
 
 function SlideProduct() {
   const stack = [
-    { name: "Safe Multisig",  note: "2-of-2 smart account · $100B+ secured",  color: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.28)" },
-    { name: "ERC-4337",       note: "Account abstraction · 40M+ smart accounts", color: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.28)" },
-    { name: "ERC-7579",       note: "Module extensibility standard",           color: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.28)" },
+    { name: "Safe Multisig",  note: "2-of-2 smart account · $100B+ secured",  color: "rgba(63,190,118,0.10)", border: "rgba(63,190,118,0.28)" },
+    { name: "ERC-4337",       note: "Account abstraction · 40M+ smart accounts", color: "rgba(196,148,40,0.10)", border: "rgba(196,148,40,0.28)" },
+    { name: "ERC-7579",       note: "Module extensibility standard",           color: "rgba(196,148,40,0.10)", border: "rgba(196,148,40,0.28)" },
     { name: "ERC-8004",       note: "Agent identity on-chain",                 color: "rgba(196,148,40,0.10)", border: "rgba(196,148,40,0.28)" },
     { name: "NanoBot/Hermes",       note: "Qwen3-235B + Claude Sonnet agent",        color: "rgba(196,148,40,0.15)", border: "rgba(196,148,40,0.30)" },
-    { name: "Pimlico",        note: "Gasless bundler + paymaster",             color: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.25)" },
+    { name: "Pimlico",        note: "Gasless bundler + paymaster",             color: "rgba(196,148,40,0.10)", border: "rgba(196,148,40,0.25)" },
   ];
 
   return (
@@ -381,7 +393,7 @@ function SlideMarket() {
     {
       Icon: Users, title: "Individual BNB Users",
       desc: "486M+ addresses on BNB Chain. Protection without complexity — one-click setup, silent AI screening.",
-      color: "#10b981", bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.25)",
+      color: "var(--safe)", bg: "rgba(63,190,118,0.08)", border: "rgba(63,190,118,0.25)",
     },
     {
       Icon: Shield, title: "DAOs & Treasuries",
@@ -391,7 +403,7 @@ function SlideMarket() {
     {
       Icon: Code2, title: "Safe Developers",
       desc: "10,000+ Safe devs. Security & screening SDK with its own developer integration surface.",
-      color: "#6366f1", bg: "rgba(99,102,241,0.08)", border: "rgba(99,102,241,0.25)",
+      color: "var(--gold-400)", bg: "rgba(196,148,40,0.08)", border: "rgba(196,148,40,0.25)",
     },
   ];
 
@@ -463,14 +475,14 @@ function SlideRevenue() {
       target: "DAOs · institutions · Safe devs",
       desc: "Co-signer licensing, white-label agent deployment, Safe developer integrations.",
       metric: "→ High-ACV contracts",
-      color: "rgba(99,102,241,0.08)", border: "rgba(99,102,241,0.28)", accent: "#6366f1",
+      color: "rgba(196,148,40,0.08)", border: "rgba(196,148,40,0.28)", accent: "var(--gold-400)",
     },
     {
       name: "Enterprise",
       target: "Protocols · treasuries",
       desc: "Custom integrations, managed agent infra, SLAs, on-premise deployment.",
       metric: "→ Enterprise ARR",
-      color: "rgba(168,85,247,0.08)", border: "rgba(168,85,247,0.28)", accent: "#a855f7",
+      color: "rgba(196,148,40,0.08)", border: "rgba(196,148,40,0.28)", accent: "var(--gold-500)",
     },
   ];
 
@@ -561,7 +573,7 @@ function SlideRoadmap() {
             </div>
             {m.done && (
               <div className="shrink-0 w-5 h-5 rounded-full bg-gold/20 flex items-center justify-center">
-                <span className="text-gold text-[10px]">✓</span>
+                <Check className="h-3 w-3 text-gold" strokeWidth={3} />
               </div>
             )}
           </motion.div>
@@ -609,8 +621,7 @@ function SlideVision() {
         transition={{ delay: 0.52, type: "spring" }}
         className="flex flex-col sm:flex-row gap-3 items-center">
         <a href="https://zhentan.me" target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm text-black transition-opacity hover:opacity-90"
-          style={{ background: "linear-gradient(90deg, #f5d060, #c49428)" }}>
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm text-primary-foreground bg-gradient-to-r from-gold-light to-gold-500 transition-opacity hover:opacity-90">
           Try zhentan.me →
         </a>
       </motion.div>

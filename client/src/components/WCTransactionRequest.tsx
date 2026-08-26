@@ -2,7 +2,6 @@
 
 import { useRef, useEffect } from "react";
 import Image from "next/image";
-import { motion } from "framer-motion";
 import { Button } from "./ui/Button";
 import { useWalletConnect } from "@/app/context/WalletConnectContext";
 import { Dialog } from "./ui/Dialog";

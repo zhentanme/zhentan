@@ -9,7 +9,6 @@ import { InlineError } from "./ui/InlineError";
 import { EmptyState } from "./ui/EmptyState";
 import { useWalletConnect } from "@/app/context/WalletConnectContext";
 import { Plug, Unplug, ExternalLink } from "lucide-react";
-import { truncateAddress } from "@/lib/format";
 
 export function WalletConnectPanel() {
   const { ready, pair, sessions, disconnectSession } = useWalletConnect();

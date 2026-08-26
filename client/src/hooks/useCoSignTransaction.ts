@@ -82,7 +82,7 @@ export function useCoSignTransaction() {
         if (!account) {
           // Session evaporated between render and click — reconnect first.
           setHint(
-            `Connect your backup wallet${
+            `Connect your backup key${
               externalWalletAddress
                 ? ` (${truncateAddress(externalWalletAddress)})`
                 : ""
