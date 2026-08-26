@@ -18,7 +18,8 @@ import { truncateAddress } from "@/lib/format";
 export function Sidebar() {
   const pathname = usePathname();
   const { safeAddress, user } = useAuth();
-  const { isScreeningActive } = useScreeningStatus();
+  const { isScreeningActive, agentOnline } = useScreeningStatus();
+  const agentOffline = isScreeningActive && agentOnline === false;
   const { queuedCount } = useActivityData();
   const [accountOpen, setAccountOpen] = useState(false);
 
@@ -26,7 +27,7 @@ export function Sidebar() {
     <aside className="fixed inset-y-0 left-0 z-40 hidden lg:flex w-64 flex-col border-r border-border bg-card/30 backdrop-blur-xl">
       {/* Brand */}
       <div className="px-6 h-16 flex items-center">
-        <BrandMark href="/home" size="md" halo="#0a0d0e" />
+        <BrandMark href="/home" size="md" />
       </div>
 
       {/* Nav */}
@@ -72,17 +73,23 @@ export function Sidebar() {
         <div
           className={clsx(
             "flex items-center gap-2 px-3 py-2.5 rounded-md text-xs font-mono uppercase tracking-wider",
-            isScreeningActive ? "bg-safe/10 text-safe" : "bg-foreground/5 text-muted-foreground"
+            agentOffline
+              ? "bg-watch/10 text-watch"
+              : isScreeningActive
+                ? "bg-safe/10 text-safe"
+                : "bg-foreground/5 text-muted-foreground"
           )}
         >
           <MaoAvatar
-            state={isScreeningActive ? "scanning" : "resting"}
+            state={isScreeningActive && !agentOffline ? "scanning" : "resting"}
             size={14}
             variant="solid"
             color="currentColor"
           />
           <span className="flex-1">Screening</span>
-          <span className="font-semibold">{isScreeningActive ? "On" : "Off"}</span>
+          <span className="font-semibold">
+            {agentOffline ? "Away" : isScreeningActive ? "Watching" : "Paused"}
+          </span>
         </div>
       </div>
 

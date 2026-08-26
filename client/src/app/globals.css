@@ -80,8 +80,10 @@
   --ring: #c49428;
   --surface: #f3f1ea;
   --surface-light: #faf9f5;
-  /* Overlay scrim behind dialogs, tours, and takeovers */
+  /* Overlay scrims: --scrim behind dialogs, --scrim-strong for
+     spotlight/celebration takeovers */
   --scrim: rgba(31, 36, 33, 0.4);
+  --scrim-strong: rgba(31, 36, 33, 0.6);
 }
 
 /* Dark mode — ink canvas, gold accent (canonical) */
@@ -108,6 +110,7 @@
   --surface: var(--ink-800);
   --surface-light: var(--ink-700);
   --scrim: rgba(0, 0, 0, 0.6);
+  --scrim-strong: rgba(10, 13, 14, 0.82);
 }
 
 @layer base {

@@ -85,7 +85,7 @@ export function TopBar() {
                     {item.label}
                   </span>
                   {item.badge && queuedCount > 0 && (
-                    <span className="absolute top-1 right-1/4 flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-full bg-gold text-[9px] font-bold text-ink-900 leading-none">
+                    <span className="absolute top-1 right-1/4 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-gold text-[10px] font-bold text-ink-900 leading-none">
                       {queuedCount > 99 ? "99+" : queuedCount}
                     </span>
                   )}
