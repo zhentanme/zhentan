@@ -28,7 +28,7 @@ export async function proposeTransaction({
   const tokenAddress = tokenAddressParam;
   if (!tokenAddress) throw new Error("Token address required");
   if (typeof tokenDecimals !== "number" || !Number.isFinite(tokenDecimals)) {
-    throw new Error("Token decimals required — refusing to assume a default");
+    throw new Error("Couldn’t read this token’s decimals — try again");
   }
   const decimals = tokenDecimals;
   const symbol = tokenSymbol ?? "USDC";
@@ -87,7 +87,7 @@ export async function proposeTransaction({
 
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || "Failed to queue transaction");
+    throw new Error(err.error || "Couldn’t queue the transaction");
   }
 
   return pendingTx;

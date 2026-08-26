@@ -91,7 +91,7 @@ export function useCoSignTransaction() {
           connectWallet();
           return null;
         }
-        if (!tx.safeTx) throw new Error("Transaction payload unavailable");
+        if (!tx.safeTx) throw new Error("Prepared transaction is unavailable");
         const signature = await signSafeTx(account, tx.safeAddress as Address, tx.safeTx);
 
         let execution: { status?: string; txHash?: string; error?: string };

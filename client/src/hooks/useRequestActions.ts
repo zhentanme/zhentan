@@ -52,7 +52,7 @@ export function useRequestActions() {
 
   const handleApprove = useCallback(
     async (request: QueuedRequest): Promise<{ txId: string }> => {
-      if (!user || !wallet) throw new Error("Please log in first");
+      if (!user || !wallet) throw new Error("Sign in first");
       if (!safeAddress) throw new Error("Wallet not ready");
 
       // Auto-approve path: the agent already built + pre-signed this tx (1-of-2).
@@ -62,7 +62,7 @@ export function useRequestActions() {
       if (request.txId) {
         const { transaction } = await api.transactions.get(request.txId);
         if (!transaction.safeTx || !transaction.safeAddress) {
-          throw new Error("Pre-signed transaction is unavailable");
+          throw new Error("Prepared transaction is unavailable");
         }
         const account = await getOwnerAccount();
         if (!account) throw new Error("Wallet not ready for signing");

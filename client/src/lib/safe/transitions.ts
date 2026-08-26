@@ -153,7 +153,7 @@ export async function proposeTransition({
     txHash?: string;
     upgraded?: boolean;
   };
-  if (!res.ok) throw new Error(data.error || `${label} failed`);
+  if (!res.ok) throw new Error(data.error || `Couldn’t complete: ${label}`);
   // Threshold-2 transitions route through screening server-side (#136.3):
   // a 2xx with upgraded:false means the decision (and execution) lands
   // asynchronously — the caller must show a pending state, not success.

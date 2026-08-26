@@ -1,4 +1,5 @@
 import type { ApiFetchFn } from "./client";
+import { apiError } from "./client";
 import type { TokenDetails, TokenChartData, ChartPeriod } from "@/types";
 
 export interface TokenDetailsResponse {
@@ -19,7 +20,7 @@ export function tokensApi(req: ApiFetchFn) {
   return {
     async getDetails(tokenId: string, currency = "usd"): Promise<TokenDetailsResponse> {
       const res = await req(`/tokens/details/${encodeURIComponent(tokenId)}?currency=${currency}`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t load token data");
       return res.json();
     },
 

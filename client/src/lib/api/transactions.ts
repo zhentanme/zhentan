@@ -1,11 +1,12 @@
 import type { ApiFetchFn } from "./client";
+import { apiError } from "./client";
 import type { TransactionWithStatus } from "@/types";
 
 export function transactionsApi(req: ApiFetchFn) {
   return {
     async list(safeAddress: string): Promise<{ transactions: TransactionWithStatus[] }> {
       const res = await req(`/transactions?safeAddress=${encodeURIComponent(safeAddress)}`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t load activity");
       return res.json();
     },
 
@@ -16,13 +17,13 @@ export function transactionsApi(req: ApiFetchFn) {
      */
     async listDb(safeAddress: string): Promise<{ transactions: TransactionWithStatus[] }> {
       const res = await req(`/transactions/db?safeAddress=${encodeURIComponent(safeAddress)}`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t load activity");
       return res.json();
     },
 
     async get(id: string): Promise<{ transaction: TransactionWithStatus }> {
       const res = await req(`/transactions/${encodeURIComponent(id)}`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t load the transaction");
       return res.json();
     },
 
@@ -35,7 +36,7 @@ export function transactionsApi(req: ApiFetchFn) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t queue the transaction");
       return res.json();
     },
 
@@ -50,7 +51,7 @@ export function transactionsApi(req: ApiFetchFn) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t finalize the transaction");
       return res.json();
     },
 
@@ -69,7 +70,7 @@ export function transactionsApi(req: ApiFetchFn) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userSignature }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t submit the signature");
       return res.json();
     },
 
@@ -87,7 +88,7 @@ export function transactionsApi(req: ApiFetchFn) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ signature }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t update the transaction");
       return res.json();
     },
   };

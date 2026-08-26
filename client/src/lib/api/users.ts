@@ -52,7 +52,7 @@ export function usersApi(req: ApiFetchFn) {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error || "Failed to save");
+        throw new Error((data as { error?: string }).error || "Couldn’t save");
       }
     },
 

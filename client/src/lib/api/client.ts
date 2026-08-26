@@ -19,6 +19,34 @@ import { telegramApi } from "./telegram";
 /** A bound fetch function with BASE prepended — passed to each API module. */
 export type ApiFetchFn = (path: string, init?: RequestInit) => Promise<Response>;
 
+/**
+ * Turn a failed Response into a user-safe Error. Short server-provided
+ * `error`/`message` strings pass through (they're written for users, e.g.
+ * "Username already taken"); anything else — HTML error pages, stack traces,
+ * proxy bodies — is logged and replaced by `fallback`.
+ */
+export async function apiError(res: Response, fallback: string): Promise<Error> {
+  try {
+    const text = await res.text();
+    try {
+      const parsed = JSON.parse(text) as { error?: unknown; message?: unknown };
+      const msg =
+        typeof parsed.error === "string"
+          ? parsed.error
+          : typeof parsed.message === "string"
+            ? parsed.message
+            : null;
+      if (msg && msg.length <= 160) return new Error(msg);
+    } catch {
+      /* not JSON — fall through to the fallback */
+    }
+    console.error(`[api] ${res.status} ${res.url}:`, text.slice(0, 300));
+  } catch {
+    console.error(`[api] ${res.status} ${res.url}: unreadable body`);
+  }
+  return new Error(fallback);
+}
+
 const BASE = (
   process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001"
 ).replace(/\/$/, "");

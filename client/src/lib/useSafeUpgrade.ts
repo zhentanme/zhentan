@@ -97,7 +97,7 @@ export function useSafeTransitions(): SafeTransitionsState {
         refreshSafe();
         return { pending: result.pending };
       } catch (err) {
-        setError(err instanceof Error ? err.message : `${label} failed`);
+        setError(err instanceof Error ? err.message : `Couldn’t complete: ${label}`);
         throw err;
       } finally {
         setBusy(false);
