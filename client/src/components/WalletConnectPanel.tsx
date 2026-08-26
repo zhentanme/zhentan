@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./ui/Button";
+import { Input } from "./ui/Input";
+import { IconButton } from "./ui/IconButton";
+import { InlineError } from "./ui/InlineError";
+import { EmptyState } from "./ui/EmptyState";
 import { useWalletConnect } from "@/app/context/WalletConnectContext";
 import { Plug, Unplug, ExternalLink } from "lucide-react";
 import { truncateAddress } from "@/lib/format";
@@ -23,7 +27,7 @@ export function WalletConnectPanel() {
       await pair(uri.trim());
       setUri("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to pair");
+      setError("Couldn’t connect. Check the URI and try again.");
     } finally {
       setPairing(false);
     }
@@ -39,13 +43,11 @@ export function WalletConnectPanel() {
 
   if (!ready) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground text-sm">
-        <Plug className="h-8 w-8 mb-3 opacity-50" />
-        <p>WalletConnect initializing...</p>
-        <p className="text-xs text-muted-foreground/80 mt-1">
-          Ensure NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is set
-        </p>
-      </div>
+      <EmptyState
+        icon={Plug}
+        title="Starting WalletConnect…"
+        hint="If this doesn’t finish, WalletConnect isn’t configured for this deployment"
+      />
     );
   }
 
@@ -54,21 +56,23 @@ export function WalletConnectPanel() {
       {/* Pair input */}
       <div className="flex flex-col gap-3">
         <label className="text-sm font-medium text-foreground/80">
-          Connect to DApp
+          Connect to dApp
         </label>
         <div className="flex gap-2">
-          <input
-            type="text"
-            value={uri}
-            onChange={(e) => setUri(e.target.value)}
-            placeholder="Paste WalletConnect URI (wc:...)"
-            className="flex-1 rounded-md bg-foreground/6 border border-foreground/8 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:ring-1 focus:ring-gold/50 transition-all"
-            onKeyDown={(e) => e.key === "Enter" && handleConnect()}
-          />
+          <div className="flex-1">
+            <Input
+              type="text"
+              value={uri}
+              onChange={(e) => setUri(e.target.value)}
+              placeholder="Paste WalletConnect URI (wc:…)"
+              onKeyDown={(e) => e.key === "Enter" && handleConnect()}
+            />
+          </div>
           <Button
             onClick={handleConnect}
             loading={pairing}
             disabled={!uri.trim()}
+            aria-label="Connect"
             className="px-4 shrink-0"
           >
             <Plug className="h-4 w-4" />
@@ -76,14 +80,13 @@ export function WalletConnectPanel() {
         </div>
         <AnimatePresence>
           {error && (
-            <motion.p
+            <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              className="text-xs text-danger"
             >
-              {error}
-            </motion.p>
+              <InlineError>{error}</InlineError>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
@@ -91,17 +94,15 @@ export function WalletConnectPanel() {
       {/* Active sessions */}
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-medium text-muted-foreground">
-          Active Sessions ({sessionEntries.length})
+          Active sessions ({sessionEntries.length})
         </h3>
         {sessionEntries.length === 0 ? (
-          <p className="text-xs text-muted-foreground/80 py-4 text-center">
-            No connected DApps. Paste a WalletConnect URI above to connect.
-          </p>
+          <EmptyState compact title="No connected dApps" />
         ) : (
           <div className="flex flex-col gap-2">
             {sessionEntries.map(([topic, session]) => {
               const peer = (session as unknown as { peer?: { metadata?: { name?: string; url?: string; icons?: string[] } } })?.peer?.metadata;
-              const name = peer?.name || "Unknown DApp";
+              const name = peer?.name || "Unknown dApp";
               const url = peer?.url || "";
               const icon = peer?.icons?.[0];
 
@@ -117,10 +118,10 @@ export function WalletConnectPanel() {
                     <img
                       src={icon}
                       alt=""
-                      className="w-8 h-8 rounded-lg bg-foreground/10 shrink-0"
+                      className="w-8 h-8 rounded-sm bg-foreground/10 shrink-0"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-lg bg-foreground/10 flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-sm bg-foreground/10 flex items-center justify-center shrink-0">
                       <ExternalLink className="h-4 w-4 text-muted-foreground" />
                     </div>
                   )}
@@ -130,14 +131,14 @@ export function WalletConnectPanel() {
                       <p className="text-xs text-muted-foreground/80 truncate">{url}</p>
                     )}
                   </div>
-                  <button
-                    type="button"
+                  <IconButton
+                    tone="danger"
+                    label="Disconnect"
                     onClick={() => handleDisconnect(topic)}
-                    className="p-2 rounded-lg text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors shrink-0 cursor-pointer"
-                    aria-label="Disconnect"
+                    className="shrink-0"
                   >
                     <Unplug className="h-4 w-4" />
-                  </button>
+                  </IconButton>
                 </motion.div>
               );
             })}

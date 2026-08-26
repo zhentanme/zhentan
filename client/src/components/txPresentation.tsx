@@ -3,6 +3,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Repeat2,
+  Shield,
   ShieldCheck,
   ShieldOff,
   Zap,
@@ -111,6 +112,16 @@ export const LINK_BUTTON_GOLD =
   "flex items-center justify-center gap-2 w-full rounded-md py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-semibold cursor-pointer";
 export const LINK_BUTTON_NEUTRAL =
   "flex items-center justify-center gap-2 w-full rounded-md py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-semibold cursor-pointer";
+
+/** Gold shield note used above approve/reject actions (WalletConnect flows). */
+export function ScreeningNote({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3 rounded-md bg-gold/[0.08] border border-gold/20 px-4 py-3 w-full">
+      <Shield className="h-5 w-5 text-gold shrink-0 mt-0.5" aria-hidden />
+      <p className="text-xs text-foreground/80 leading-relaxed">{children}</p>
+    </div>
+  );
+}
 
 export function TokenAvatar({
   iconUrl,

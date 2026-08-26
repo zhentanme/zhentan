@@ -4,7 +4,8 @@ import { motion } from "framer-motion";
 import { Button } from "./ui/Button";
 import { useWalletConnect } from "@/app/context/WalletConnectContext";
 import { Dialog } from "./ui/Dialog";
-import { Shield, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import { ScreeningNote } from "./txPresentation";
 
 export function WCSessionProposal() {
   const { sessionProposal, approveSession, rejectSession } = useWalletConnect();
@@ -12,7 +13,7 @@ export function WCSessionProposal() {
   if (!sessionProposal) return null;
 
   const peer = sessionProposal.params.proposer.metadata;
-  const name = peer.name || "Unknown DApp";
+  const name = peer.name || "Unknown dApp";
   const url = peer.url || "";
   const icon = peer.icons?.[0];
   const description = peer.description || "";
@@ -24,7 +25,7 @@ export function WCSessionProposal() {
   const methods = eip155?.methods || [];
 
   return (
-    <Dialog open onClose={rejectSession} title="Connection Request">
+    <Dialog open onClose={rejectSession} title="Connection request">
       <div className="flex flex-col items-center gap-5 py-2">
         {/* DApp info */}
         <div className="flex flex-col items-center gap-3">
@@ -52,13 +53,7 @@ export function WCSessionProposal() {
           </div>
         </div>
 
-        {/* Security note */}
-        <div className="flex items-start gap-3 rounded-md bg-gold/[0.08] border border-gold/20 px-4 py-3 w-full">
-          <Shield className="h-5 w-5 text-gold shrink-0 mt-0.5" />
-          <p className="text-xs text-foreground/80 leading-relaxed">
-            Transactions from this DApp will be screened by your AI agent before execution.
-          </p>
-        </div>
+        <ScreeningNote>Transactions from this dApp are screened before execution.</ScreeningNote>
 
         {/* Requested permissions */}
         {(chains.length > 0 || methods.length > 0) && (
@@ -85,11 +80,7 @@ export function WCSessionProposal() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <Button
-            variant="secondary"
-            onClick={rejectSession}
-            className="flex-1"
-          >
+          <Button variant="danger" onClick={rejectSession} className="flex-1">
             Reject
           </Button>
           <Button onClick={approveSession} className="flex-1">
