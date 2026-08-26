@@ -50,7 +50,7 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
       className={clsx(
-        "group flex items-center gap-3 sm:gap-4 px-1 py-3.5 hover:bg-foreground/[0.035] transition-colors min-h-[3.5rem] touch-manipulation",
+        "group flex items-center gap-3 sm:gap-4 px-2 sm:px-3 py-3.5 hover:bg-foreground/[0.035] transition-colors min-h-[3.5rem] touch-manipulation",
         onClick && "cursor-pointer"
       )}
       initial={{ opacity: 0, y: 12 }}

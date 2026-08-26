@@ -7,6 +7,8 @@ import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/app/context/AuthContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
 import { TwinTickLoader } from "@/components/TwinTickLoader";
+import { Pill } from "@/components/ui/Pill";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { proposeTransaction } from "@/lib/propose";
 import { signSafeTx } from "@/lib/safe/safeTx";
 import { useApiClient } from "@/lib/api/client";
@@ -74,7 +76,7 @@ function RequestsPageContent() {
   // Returns the proposed tx id so the dialog can track screening progress.
   const handleApprove = useCallback(
     async (request: QueuedRequest): Promise<{ txId: string }> => {
-      if (!user || !wallet) throw new Error("Please log in first");
+      if (!user || !wallet) throw new Error("Sign in first");
       if (!safeAddress) throw new Error("Wallet not ready");
 
       // Draft path: the agent already built this tx (transfer or swap) as a
@@ -102,7 +104,7 @@ function RequestsPageContent() {
       // client-side swap builder to fall back to.
       if (request.kind === "swap") {
         throw new Error(
-          "This swap couldn't be prepared (no route or unknown token). Ask Zhentan to queue it again."
+          "This swap couldn’t be prepared. Ask Zhentan to queue it again."
         );
       }
 
@@ -145,7 +147,7 @@ function RequestsPageContent() {
       <div className="flex flex-col h-screen bg-background">
       
         <div className="flex-1 flex items-center justify-center">
-          <TwinTickLoader variant="sequential" size={120} label="Loading requests" />
+          <TwinTickLoader variant="pulse" size={64} label="Loading requests" />
         </div>
       </div>
     );
@@ -175,24 +177,20 @@ function RequestsPageContent() {
               </p>
             </div>
             {queuedCount > 0 && (
-              <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-watch/12 text-watch font-mono uppercase tracking-wider text-[11px]">
-                {queuedCount} Queued
-              </span>
+              <Pill tone="watch" className="shrink-0">
+                {queuedCount} queued
+              </Pill>
             )}
           </motion.div>
 
           {!loading && requests.length === 0 ? (
             <motion.div variants={staggerItem}>
-              <div className="py-16 rounded-md bg-foreground/2 border border-foreground/6">
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="mb-4 w-12 h-12 rounded-md bg-foreground/6 flex items-center justify-center text-muted-foreground/80">
-                    <FileText className="h-6 w-6" />
-                  </div>
-                  <p className="text-sm font-medium text-muted-foreground">No requests yet</p>
-                  <p className="mt-1 text-xs text-muted-foreground/60">
-                    Invoices and payment requests via Telegram or WhatsApp appear here
-                  </p>
-                </div>
+              <div className="rounded-md bg-foreground/2 border border-foreground/6">
+                <EmptyState
+                  icon={FileText}
+                  title="No requests yet"
+                  hint="Invoices and payment requests appear here"
+                />
               </div>
             </motion.div>
           ) : (

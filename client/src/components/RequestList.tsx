@@ -6,6 +6,8 @@ import type { QueuedRequest } from "@/types";
 import { RequestRow } from "./RequestRow";
 import { RequestDetailDialog } from "./RequestDetailDialog";
 import { Skeleton } from "./ui/Skeleton";
+import { EmptyState } from "./ui/EmptyState";
+import { FileText } from "lucide-react";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -35,7 +37,15 @@ export function RequestList({
   const [selectedRequest, setSelectedRequest] =
     useState<QueuedRequest | null>(null);
 
-  if (!loading && requests.length === 0) return null;
+  if (!loading && requests.length === 0) {
+    return (
+      <EmptyState
+        icon={FileText}
+        title="No requests yet"
+        hint="Invoices and payment requests appear here"
+      />
+    );
+  }
 
   return (
     <>

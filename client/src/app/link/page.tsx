@@ -12,7 +12,7 @@
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { TwinTickLoader } from "@/components/TwinTickLoader";
 import { usePrivy } from "@privy-io/react-auth";
 import { Button } from "@/components/ui/Button";
 import { BrandMark } from "@/components/BrandMark";
@@ -43,7 +43,7 @@ function LinkPageInner() {
         <div className="rounded-lg border border-foreground/8 bg-foreground/[0.02] p-6">
           {!authed && !authLoading ? (
             <>
-              <h1 className="text-[19px] font-bold tracking-tight mb-2">Connect Telegram</h1>
+              <h1 className="text-lg font-semibold tracking-tight mb-2">Connect Telegram</h1>
               <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5">
                 Sign in to your Zhentan account to finish connecting this Telegram.
               </p>
@@ -53,7 +53,7 @@ function LinkPageInner() {
             </>
           ) : authLoading ? (
             <div className="flex justify-center py-10">
-              <Loader2 className="h-6 w-6 animate-spin text-gold" />
+              <TwinTickLoader variant="pulse" size={48} />
             </div>
           ) : (
             <TelegramLinkFlow
@@ -67,7 +67,7 @@ function LinkPageInner() {
           )}
         </div>
 
-        <p className="text-center font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60 mt-5">
+        <p className="text-center eyebrow text-muted-foreground/60 mt-5">
           Secured by Safe · BNB Chain
         </p>
       </motion.div>
@@ -80,7 +80,7 @@ export default function LinkPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-background flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-gold" />
+          <TwinTickLoader variant="pulse" size={48} />
         </div>
       }
     >
