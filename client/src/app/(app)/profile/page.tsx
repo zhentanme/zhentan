@@ -21,6 +21,9 @@ import { TwinTick } from "@/components/BrandMark";
 import { SignerMismatchInline } from "@/components/SignerMismatchNotice";
 import { WalletBrandIcon } from "@/components/WalletBrandIcon";
 import { truncateAddress } from "@/lib/format";
+import { Button } from "@/components/ui/Button";
+import { Pill } from "@/components/ui/Pill";
+import { InlineError } from "@/components/ui/InlineError";
 
 const staggerContainer = {
   hidden: { opacity: 0 },
@@ -104,8 +107,8 @@ function ProfilePageContent() {
       setUsername(usernameInput.trim());
       setUsernameEditing(false);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to save username";
-      setUsernameError(msg.includes("taken") ? "Username already taken" : msg);
+      const msg = err instanceof Error ? err.message : "";
+      setUsernameError(/taken/i.test(msg) ? "Username already taken" : "Couldn’t save username");
     } finally {
       setUsernameSaving(false);
     }
@@ -168,7 +171,7 @@ function ProfilePageContent() {
                       onChange={(e) => handleUsernameInputChange(e.target.value)}
                       placeholder="Enter username"
                       autoFocus
-                      className="w-full bg-foreground/6 border border-border rounded-md px-3 py-2 pr-8 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
+                      className="w-full bg-foreground/6 border border-border rounded-md px-3 py-2 pr-8 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
                       onKeyDown={(e) => {
                         if (e.key === "Enter") saveUsername();
                         if (e.key === "Escape") {
@@ -191,26 +194,30 @@ function ProfilePageContent() {
                       </span>
                     )}
                   </div>
-                  {usernameError && <p className="mt-1.5 text-[11px] text-danger">{usernameError}</p>}
+                  {usernameError && <InlineError className="mt-1.5">{usernameError}</InlineError>}
                   <div className="flex gap-2 mt-2">
-                    <button
+                    <Button
+                      size="sm"
+                      loading={usernameSaving}
+                      disabled={!usernameInput.trim() || usernameTaken || usernameChecking || username === usernameInput.trim()}
                       onClick={saveUsername}
-                      disabled={usernameSaving || !usernameInput.trim() || usernameTaken || usernameChecking || username === usernameInput.trim()}
-                      className="flex-1 py-1.5 rounded-md bg-gradient-to-br from-gold-light to-gold-500 text-ink-900 text-xs font-semibold disabled:opacity-50 cursor-pointer disabled:cursor-default"
+                      className="flex-1"
                     >
-                      {usernameSaving ? <Loader2 className="h-3 w-3 animate-spin mx-auto" /> : "Save"}
-                    </button>
-                    <button
+                      Save
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="flex-1"
                       onClick={() => {
                         setUsernameEditing(false);
                         setUsernameInput(username ?? "");
                         setUsernameError(null);
                         setUsernameTaken(false);
                       }}
-                      className="flex-1 py-1.5 rounded-md bg-foreground/6 text-muted-foreground text-xs cursor-pointer hover:bg-foreground/10 transition-colors"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -230,10 +237,10 @@ function ProfilePageContent() {
                     <Pencil className="h-3 w-3 text-muted-foreground/40 group-hover:text-gold transition-colors" />
                   </button>
                   {username && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-safe/12 text-safe font-mono uppercase tracking-wider text-[10px] font-semibold">
+                    <Pill tone="safe" size="sm">
                       <Check className="h-2.5 w-2.5" />
                       Verified
-                    </span>
+                    </Pill>
                   )}
                 </div>
               )}
@@ -291,7 +298,7 @@ function ProfilePageContent() {
               <span className="eyebrow text-muted-foreground flex items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/arch-safe.png" alt="" className="h-3.5 w-3.5 object-contain shrink-0" />
-                Safe address
+                Wallet address
               </span>
               <p className="font-mono text-sm text-foreground/90 break-all mt-2.5">
                 {safeAddress || "—"}
@@ -300,9 +307,9 @@ function ProfilePageContent() {
             <button
               type="button"
               onClick={copyAddress}
-              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-border text-xs font-medium text-muted-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
+              className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-md border border-border bg-foreground/[0.02] text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
             >
-              {copied ? <Check className="h-3 w-3 text-gold" /> : <Copy className="h-3 w-3" />}
+              {copied ? <Check className="h-3.5 w-3.5 text-gold" /> : <Copy className="h-3.5 w-3.5" />}
               Copy
             </button>
           </motion.section>
@@ -315,20 +322,21 @@ function ProfilePageContent() {
             <div className="min-w-0">
               <p className="text-base font-medium text-foreground">Sign out of Zhentan</p>
               <p className="text-[13px] text-muted-foreground/70 mt-1">
-                Your co-signer goes quiet until you return.
+                Screening keeps running while you’re away.
               </p>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="danger"
+              size="sm"
+              className="shrink-0"
               onClick={async () => {
                 await logout();
                 router.replace("/login");
               }}
-              className="inline-flex items-center gap-2 py-2.5 px-4 rounded-md text-[13px] font-semibold text-foreground border border-border hover:text-danger hover:border-danger/35 hover:bg-danger/[0.04] transition-colors shrink-0 cursor-pointer"
             >
               <LogOut className="h-4 w-4" />
-              Log out
-            </button>
+              Sign out
+            </Button>
           </motion.section>
         </motion.div>
       </main>

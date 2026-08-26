@@ -12,6 +12,8 @@ import { WalletBrandIcon } from "@/components/WalletBrandIcon";
 import { useAuth } from "@/app/context/AuthContext";
 import { useApiClient } from "@/lib/api/client";
 import { truncateAddress } from "@/lib/format";
+import { Button } from "@/components/ui/Button";
+import { Pill } from "@/components/ui/Pill";
 
 /**
  * Compact account dialog — the profile page's hero, condensed: portrait,
@@ -40,7 +42,7 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
     if (!safeAddress) return;
     await navigator.clipboard.writeText(safeAddress);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const displayName =
@@ -81,10 +83,10 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
                 {username ? `@${username}` : ""}
               </span>
               {username && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-safe/12 text-safe font-mono uppercase tracking-wider text-[9px] font-semibold">
+                <Pill tone="safe" size="sm">
                   <Check className="h-2.5 w-2.5" />
                   Verified
-                </span>
+                </Pill>
               )}
             </div>
             {user?.email ? (
@@ -115,7 +117,7 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
             <span className="eyebrow text-muted-foreground flex items-center gap-1.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/arch-safe.png" alt="" className="h-3 w-3 object-contain shrink-0" />
-              Safe address
+              Wallet address
             </span>
             <p className="font-mono text-xs text-foreground/90 break-all mt-2">
               {safeAddress || "—"}
@@ -124,9 +126,9 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
           <button
             type="button"
             onClick={copyAddress}
-            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-border text-xs font-medium text-muted-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
+            className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-md border border-border bg-foreground/[0.02] text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
           >
-            {copied ? <Check className="h-3 w-3 text-gold" /> : <Copy className="h-3 w-3" />}
+            {copied ? <Check className="h-3.5 w-3.5 text-gold" /> : <Copy className="h-3.5 w-3.5" />}
             Copy
           </button>
         </div>
@@ -136,12 +138,14 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
           <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">Sign out of Zhentan</p>
             <p className="text-[11px] text-muted-foreground/70 mt-0.5">
-              Your co-signer goes quiet until you return.
+              Screening keeps running while you’re away.
             </p>
           </div>
-          <button
-            type="button"
-            disabled={loggingOut}
+          <Button
+            variant="danger"
+            size="sm"
+            loading={loggingOut}
+            className="shrink-0"
             onClick={async () => {
               setLoggingOut(true);
               try {
@@ -151,11 +155,10 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
                 setLoggingOut(false);
               }
             }}
-            className="inline-flex items-center gap-2 py-2 px-3.5 rounded-md text-xs font-semibold text-foreground border border-border hover:text-danger hover:border-danger/35 hover:bg-danger/[0.04] transition-colors shrink-0 cursor-pointer disabled:opacity-60"
           >
             <LogOut className="h-3.5 w-3.5" />
-            {loggingOut ? "Signing out..." : "Log out"}
-          </button>
+            Sign out
+          </Button>
         </div>
       </div>
     </Dialog>

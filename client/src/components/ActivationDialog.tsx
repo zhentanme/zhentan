@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, XIcon } from "lucide-react";
+import { XIcon } from "lucide-react";
+import { Button } from "./ui/Button";
 import { Dialog } from "./ui/Dialog";
 import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
 import { TelegramConnectCard } from "./TelegramConnectCard";
@@ -56,16 +57,13 @@ function SuccessSplash({ onDone }: { onDone: () => void }) {
           <MaoAvatar state="cleared" size={52} interactive ambient={["nod", "pounce", "glint"]} />
         </motion.div>
       </div>
-      <h3 className="text-lg font-semibold text-foreground">Zhentan Activated</h3>
+      <h3 className="text-lg font-semibold text-foreground">Zhentan activated</h3>
       <p className="text-xs text-muted-foreground mt-1.5 text-center">
-        Your AI agent is ready to screen transactions
+        Every transaction is now screened
       </p>
-      <button
-        onClick={onDone}
-        className="mt-6 px-5 py-2 text-xs font-semibold rounded-md bg-safe/15 text-safe hover:bg-safe/20 transition-all cursor-pointer"
-      >
+      <Button variant="secondary" size="sm" onClick={onDone} className="mt-6 px-5">
         Done
-      </button>
+      </Button>
     </motion.div>
   );
 }
@@ -99,7 +97,7 @@ export function ActivationDialog({
   }, [open, telegramLinked]);
 
   return (
-    <Dialog open={open} onClose={onClose} title="Activate Zhentan">
+    <Dialog open={open} onClose={onClose} title="Activate screening">
       <AnimatePresence mode="wait">
         {showSuccess ? (
           <SuccessSplash onDone={onClose} />
@@ -133,31 +131,28 @@ export function ActivationDialog({
                         {tgDisplayName ?? "Alerts and approvals active"}
                       </p>
                     </div>
-                    <button
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      loading={unlinking}
                       onClick={onUnlinkTelegram}
-                      disabled={unlinking}
-                      className="px-2 py-1 text-[11px] font-medium rounded-lg bg-foreground/6 text-danger hover:bg-foreground/10 transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                      className="shrink-0"
                     >
-                      {unlinking ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <XIcon className="h-3 w-3" />
-                      )}
+                      {!unlinking && <XIcon className="h-3 w-3" />}
                       Unlink
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed mt-3">
-                  Unlinking sets screening to manual and retires the chat&apos;s
-                  pending approval messages. You can reconnect any time.
+                  Unlinking sets screening to manual and clears pending approvals.
+                  Reconnect anytime.
                 </p>
               </div>
             ) : (
               /* ── Not connected: one step ── */
               <>
                 <p className="text-xs text-muted-foreground leading-relaxed -mt-1 mb-4 text-center">
-                  One step: message the bot, tap the secure link it sends back,
-                  and your chat can approve or reject reviews.
+                  Message the bot, then tap the link it sends back.
                 </p>
 
                 <TelegramConnectCard onOpenBot={onOpenBot} />
