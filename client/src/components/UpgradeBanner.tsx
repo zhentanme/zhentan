@@ -1,11 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertTriangle, KeyRound, ShieldCheck } from "lucide-react";
+import { AlertTriangle, KeyRound, Loader2, ShieldCheck } from "lucide-react";
 
+import { useAuth } from "@/app/context/AuthContext";
 import { useSafeTransitions } from "@/lib/useSafeUpgrade";
 import { UpgradeDialog } from "@/components/UpgradeDialog";
+import {
+  clearPendingTransition,
+  readPendingTransition,
+  type PendingTransitionMarker,
+} from "@/lib/pendingTransition";
 
 /**
  * Wallet-profile prompt that opens the upgrade wizard (UpgradeDialog):
@@ -25,28 +31,91 @@ export function UpgradeBanner({
   variant?: "banner" | "row";
 }) {
   const { profile } = useSafeTransitions();
+  const { refreshSafe, safeConfig } = useAuth();
   const [open, setOpen] = useState(false);
+  // In-flight screened transition (#136.8): the dialog may be long closed
+  // while the transition executes server-side — this banner is the always-
+  // mounted surface, so IT owns the record polling and the honest
+  // "in progress" state (instead of nudging to start an upgrade that is
+  // already running).
+  const [pending, setPending] = useState<PendingTransitionMarker | null>(null);
+
+  useEffect(() => {
+    const sync = () => setPending(readPendingTransition());
+    sync();
+    window.addEventListener("zhentan:pending-transition", sync);
+    return () => window.removeEventListener("zhentan:pending-transition", sync);
+  }, []);
+
+  // Same-profile transitions (backup swap) complete only when the OWNER SET
+  // matches the expected end state — the profile never changes for them.
+  const ownersMatch = (marker: { expectedOwners?: string[] }): boolean => {
+    if (!marker.expectedOwners) return true;
+    const live = (safeConfig?.owners ?? []).map((o) => o.toLowerCase());
+    return (
+      live.length === marker.expectedOwners.length &&
+      marker.expectedOwners.every((o) => live.includes(o))
+    );
+  };
+
+  useEffect(() => {
+    if (!pending) return;
+    if (profile === pending.target && ownersMatch(pending)) {
+      clearPendingTransition();
+      setPending(null);
+      return;
+    }
+    const t = setInterval(() => {
+      refreshSafe();
+      if (!readPendingTransition()) setPending(null); // marker expired
+    }, 5000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, profile, safeConfig?.owners, refreshSafe]);
 
   const isStarter = profile === "starter";
   const isGuarded = profile === "guarded";
+  const upgrading = !!pending && !(profile === pending.target && ownersMatch(pending));
   const showNudge = isStarter || isGuarded;
 
   // Keep the dialog mounted while it's open even after the transition upgrades
   // the profile past starter/guarded — otherwise the success step is unmounted
   // out from under the user the instant the Safe refreshes.
-  if (!showNudge && !open) return null;
+  // A pending transition renders the in-progress card for ANY profile —
+  // swap/detach start from protected, where the nudge itself never shows.
+  if (!showNudge && !open && !upgrading) return null;
 
   return (
     <>
       <AnimatePresence>
-        {showNudge && (
+        {(showNudge || upgrading) && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, height: 0 }}
             className={className}
           >
-            {variant === "row" ? (
+            {upgrading ? (
+              /* ── Transition executing server-side — not a nudge moment ── */
+              <div
+                className={
+                  variant === "row"
+                    ? "flex items-center gap-3.5 p-[18px] border-t border-border"
+                    : "rounded-xl border border-gold/25 bg-gold/[0.04] flex items-center gap-3 px-4 py-3.5"
+                }
+              >
+                <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                  <Loader2 className="h-[17px] w-[17px] text-gold animate-spin" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-foreground">Upgrade in progress</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                    Your transition is signed and executing — this updates by
+                    itself in a moment.
+                  </p>
+                </div>
+              </div>
+            ) : variant === "row" ? (
               /* ── Settings Protection-card row ── */
               isGuarded ? (
                 <div className="flex items-center gap-3.5 p-[18px] border-t border-border bg-watch/5">

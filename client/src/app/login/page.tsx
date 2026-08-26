@@ -12,6 +12,33 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useOnboarding } from "@/lib/useOnboarding";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useLoginWithOAuth, usePrivy } from "@privy-io/react-auth";
+import { BACKEND_BASE } from "@/lib/api/client";
+
+/**
+ * Real agent liveness for the hero badge (#136.5): GET /health reports the
+ * runtime's poll status. null = unknown (loading or unreachable) — the badge
+ * then makes no online/offline claim at all.
+ */
+function useAgentHealth(): boolean | null {
+  const [online, setOnline] = useState<boolean | null>(null);
+  useEffect(() => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    fetch(`${BACKEND_BASE}/health`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { runtime?: string } | null) => {
+        if (d?.runtime === "online") setOnline(true);
+        else if (d?.runtime === "offline") setOnline(false);
+      })
+      .catch(() => {})
+      .finally(() => clearTimeout(t));
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, []);
+  return online;
+}
 
 /* ── Supported-wallet brand marks ── */
 
@@ -29,6 +56,7 @@ function RabbyIcon({ className }: { className?: string }) {
 
 export default function LoginPage() {
   const { user, wallet, loading, safeAddress, safeLoading, recordOnboardingCompleted } = useAuth();
+  const agentOnline = useAgentHealth();
   const { telegramLinked } = useScreeningStatus();
   const { initOAuth, loading: oauthLoading } = useLoginWithOAuth();
   const { login } = usePrivy();
@@ -110,13 +138,23 @@ export default function LoginPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, type: "spring", bounce: 0.15 }}
         >
-          {/* Agent-id badge */}
+          {/* Agent-id badge — liveness from /health, never hardcoded (#136.5) */}
           <span className="inline-flex items-center gap-3 px-3.5 py-2 rounded-pill bg-gold/[0.06] border border-gold/20 font-mono text-[11px] tracking-[0.14em] uppercase text-gold-300">
             <span className="w-[18px] h-[18px] rounded-pill bg-gold/15 flex items-center justify-center p-0.5">
               <TwinTick size={13} halo="none" />
             </span>
-            Agent · online
-            <span className="w-1.5 h-1.5 rounded-pill bg-gold-400 animate-signal-pulse" />
+            {agentOnline === null
+              ? "Zhentan Agent"
+              : agentOnline
+                ? "Agent · online"
+                : "Agent · offline"}
+            <span
+              className={
+                agentOnline
+                  ? "w-1.5 h-1.5 rounded-pill bg-gold-400 animate-signal-pulse"
+                  : "w-1.5 h-1.5 rounded-pill bg-gold-400/40"
+              }
+            />
           </span>
 
           <h1 className="mt-6 font-bold text-[40px] sm:text-5xl lg:text-6xl leading-[1.02] tracking-[-0.04em] max-w-[15ch] text-foreground">

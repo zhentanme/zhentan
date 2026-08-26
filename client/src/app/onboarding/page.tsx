@@ -33,6 +33,7 @@ import {
   markOnboardingUsernameSkipped,
   markOnboardingUsernameSet,
   markOnboardingTelegramDone,
+  markOnboardingDone,
   readOnboardingStep,
 } from "@/lib/useOnboarding";
 import { queueTour } from "@/lib/tours";
@@ -71,6 +72,27 @@ function Tick({ selected }: { selected: boolean }) {
     >
       {selected && <Check className="h-3 w-3 text-ink-900" strokeWidth={3.5} />}
     </span>
+  );
+}
+
+/** Repeated Safe-resolution failures (#136.4): stop pretending "Creating your
+ *  vault..." is progress — say so, keep auto-retrying, offer a manual kick. */
+function ResolutionErrorNote({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="mt-3 p-3 rounded-2xl bg-danger/[0.06] border border-danger/20 flex items-start gap-2.5">
+      <AlertTriangle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" />
+      <p className="flex-1 text-[11.5px] leading-relaxed text-danger/90">
+        Can&apos;t reach Zhentan right now — retrying automatically. Your
+        wallet isn&apos;t affected.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="shrink-0 text-[11.5px] font-semibold text-danger hover:opacity-80 transition-opacity cursor-pointer"
+      >
+        Try again
+      </button>
+    </div>
   );
 }
 
@@ -114,7 +136,10 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
     setPendingProfile,
     safeAddress,
     safeLoading,
+    safeError,
     safeConfig,
+    refreshSafe,
+    hasExistingWallet,
   } = useAuth();
 
   // Two screens: "protect" (screening choice) then "backup" (override key).
@@ -140,6 +165,23 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
   // that window persists a row for the stale address (the duplicate-row bug).
   const derived = !!safeAddress && !safeLoading && !!safeConfig;
   const resolvedProfile = safeConfig?.profile ?? null;
+
+  // Returning signer with an abandoned earlier attempt: the record fixes the
+  // address AND the profile — no selection can re-derive it. Freeze the
+  // choice on the existing profile and let Continue proceed; without this,
+  // picking a different profile waited forever on "Creating your vault..."
+  // for a derivation the record-first resolution will never run.
+  useEffect(() => {
+    if (!hasExistingWallet || !resolvedProfile) return;
+    if (
+      (resolvedProfile === "starter" ||
+        resolvedProfile === "guarded" ||
+        resolvedProfile === "protected") &&
+      pendingProfile !== resolvedProfile
+    ) {
+      setPendingProfile(resolvedProfile);
+    }
+  }, [hasExistingWallet, resolvedProfile, pendingProfile, setPendingProfile]);
   const guardedSelected = pendingProfile === "guarded" || pendingProfile === "protected";
   const starterSelected = pendingProfile === "starter";
   const starterReady = starterSelected && derived && resolvedProfile === "starter";
@@ -167,9 +209,11 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
   }, [screen, externalWalletAddress, pendingProfile, setPendingProfile]);
 
   const pickGuarded = () => {
+    if (hasExistingWallet) return;
     if (pendingProfile !== "protected") setPendingProfile("guarded");
   };
   const pickStarter = () => {
+    if (hasExistingWallet) return;
     setBackupAddress(null);
     setPendingProfile("starter");
   };
@@ -189,13 +233,17 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
     setPendingProfile("guarded");
   };
 
-  const protectCta: Cta = !pendingProfile
-    ? { label: "Choose an option", enabled: false, onClick: () => {} }
-    : starterSelected
-      ? starterReady
-        ? { label: "Create my wallet", enabled: true, onClick: onContinue }
-        : { label: "Creating your vault...", enabled: false, onClick: () => {} }
-      : { label: "Turn on screening", enabled: true, onClick: () => setScreen("backup") };
+  const protectCta: Cta = hasExistingWallet
+    ? derived
+      ? { label: "Continue with my vault", enabled: true, onClick: onContinue }
+      : { label: "Loading your vault...", enabled: false, onClick: () => {} }
+    : !pendingProfile
+      ? { label: "Choose an option", enabled: false, onClick: () => {} }
+      : starterSelected
+        ? starterReady
+          ? { label: "Create my wallet", enabled: true, onClick: onContinue }
+          : { label: "Creating your vault...", enabled: false, onClick: () => {} }
+        : { label: "Turn on screening", enabled: true, onClick: () => setScreen("backup") };
 
   const creating: Cta = { label: "Creating your vault...", enabled: false, onClick: () => {} };
   const backupCta: Cta = cand.candidate
@@ -270,11 +318,20 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
           </div>
 
           <PrimaryCta cta={protectCta} />
-          {starterSelected && (
+          {safeError && <ResolutionErrorNote onRetry={refreshSafe} />}
+          {hasExistingWallet ? (
             <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
-              Your vault address is minted on creation — adding protection
-              later never changes it.
+              This wallet was already created with the protection shown above —
+              its address never changes. You can adjust protection any time in
+              Settings.
             </p>
+          ) : (
+            starterSelected && (
+              <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
+                Your vault address is minted on creation — adding protection
+                later never changes it.
+              </p>
+            )
           )}
         </>
       ) : (
@@ -459,6 +516,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
           </AnimatePresence>
 
           <PrimaryCta cta={backupCta} />
+          {safeError && <ResolutionErrorNote onRetry={refreshSafe} />}
 
           {/* Finality note: the CTA below mints the address / locks the key */}
           {(cand.candidate || externalWalletAddress || skipped) && (
@@ -515,6 +573,9 @@ function UsernameStep({
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
   const [taken, setTaken] = useState(false);
+  // Availability lookup failed (network) — don't claim "Available" (#136.9);
+  // the save itself still enforces uniqueness server-side.
+  const [checkFailed, setCheckFailed] = useState(false);
   const api = useApiClient();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -526,6 +587,7 @@ function UsernameStep({
     setUsername(clean);
     setError(null);
     setTaken(false);
+    setCheckFailed(false);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (clean.length >= 3) {
       setChecking(true);
@@ -534,7 +596,7 @@ function UsernameStep({
           const ok = await api.users.checkUsername(clean);
           setTaken(!ok);
         } catch {
-          setTaken(false);
+          setCheckFailed(true);
         } finally {
           setChecking(false);
         }
@@ -562,10 +624,17 @@ function UsernameStep({
       ? "That username is taken."
       : username.length > 0 && username.length < 3
         ? "At least 3 characters."
-        : available
-          ? `Available — friends can pay you at @${username}`
-          : "";
-  const hintColor = error || taken ? "text-danger" : available ? "text-safe" : "text-muted-foreground/80";
+        : checkFailed && isValid
+          ? "Couldn't check availability — you can still continue."
+          : available
+            ? `Available — friends can pay you at @${username}`
+            : "";
+  const hintColor =
+    error || taken
+      ? "text-danger"
+      : available && !checkFailed
+        ? "text-safe"
+        : "text-muted-foreground/80";
 
   return (
     <motion.div
@@ -635,18 +704,16 @@ function UsernameStep({
 
 /* ─── Step 3: Telegram alerts ────────────────────────────────────── */
 
-function ConnectStep({
-  onFinish,
-  onSkip,
-}: {
-  onFinish: () => void;
-  onSkip: () => void;
-}) {
+function ConnectStep({ onFinish }: { onFinish: () => void }) {
   // One step (#134): open the bot chat, say hi, tap the secure link it sends
   // back. The step watches the server-truth binding the whole time it is on
   // screen, so a link completed from ANY device is picked up — the tap below
   // is a pure open-the-chat link.
   const { linked, identity, unlinking, openBot, setWatching, unlink } = useTelegramLink();
+  // Guarded creations keep screening structurally ON (#136.1) — skipping
+  // Telegram means reviews reach email + dashboard only. Say so at the skip.
+  const { safeConfig, pendingProfile } = useAuth();
+  const guardedCreation = (safeConfig?.profile ?? pendingProfile) === "guarded";
   const photoUrl = useTelegramPhoto({ enabled: linked });
   const [opened, setOpened] = useState(false);
   // Cross-device path (RFC 8628): type the bot's short code right here.
@@ -771,17 +838,16 @@ function ConnectStep({
           </button>
         ))}
 
-      <Button onClick={onFinish} className="w-full mt-4">
-        Continue
+      {!linked && guardedCreation && (
+        <p className="text-[11px] leading-relaxed text-watch/90 text-center mt-3.5">
+          Screening stays on either way — without Telegram, review alerts
+          reach your email and dashboard only.
+        </p>
+      )}
+      <Button onClick={onFinish} className={clsx("w-full", linked || guardedCreation ? "mt-3.5" : "mt-4")}>
+        {linked ? "Continue" : "Continue without Telegram"}
         <ArrowRight className="w-4 h-4" />
       </Button>
-      <button
-        type="button"
-        onClick={onSkip}
-        className="w-full mt-2.5 py-1.5 text-xs text-muted-foreground/70 hover:text-foreground transition-colors cursor-pointer"
-      >
-        Skip for now
-      </button>
     </motion.div>
   );
 }
@@ -945,22 +1011,29 @@ function OnboardingContent() {
     setStep(1);
   };
 
+  // Telegram directly follows the wallet-shape step (#136 follow-up): for
+  // guarded creations it's the approval channel for the screening the user
+  // just turned on — connecting it before anything else is the natural
+  // continuation. (It cannot precede the backup screen: the binding and the
+  // record are keyed by the Safe ADDRESS, which the backup key determines.)
+  const handleTelegramDone = () => {
+    if (!wallet?.address) return;
+    markOnboardingTelegramDone(wallet.address);
+    setStep(2);
+  };
+
   const handleSaveUsername = async (username: string) => {
     if (!safeAddress || !wallet?.address) throw new Error("Wallet not ready");
     await api.users.upsert({ safeAddress, username });
     markOnboardingUsernameSet(wallet.address);
-    setStep(2);
+    setStep(3);
   };
 
   const handleSkipUsername = () => {
     if (!wallet?.address) return;
     markOnboardingUsernameSkipped(wallet.address);
-    setStep(2);
+    setStep(3);
   };
-
-  const handleTelegramDone = () => setStep(3);
-
-  const handleSkipTelegram = () => setStep(3);
 
   const handleFinish = async () => {
     if (!safeAddress || !wallet?.address) return;
@@ -988,7 +1061,7 @@ function OnboardingContent() {
           console.error("Eager Safe deploy failed (will retry on first tx):", err);
         });
     }
-    markOnboardingTelegramDone(wallet.address);
+    markOnboardingDone(wallet.address);
     // Queue the first-time tour for arrival on /home — TourLauncher consumes
     // this marker; it never infers "new user" from account state.
     queueTour("main");
@@ -1024,17 +1097,26 @@ function OnboardingContent() {
 
         <AnimatePresence mode="wait">
           {step === 0 && <ProtectionStep onContinue={handleBackupKeyDone} />}
-          {step === 1 && (
+          {step === 1 && safeAddress && <ConnectStep onFinish={handleTelegramDone} />}
+          {step === 2 && safeAddress && (
             <UsernameStep
               onSave={handleSaveUsername}
               onSkip={handleSkipUsername}
             />
           )}
-          {step === 2 && safeAddress && (
-            <ConnectStep
-              onFinish={handleTelegramDone}
-              onSkip={handleSkipTelegram}
-            />
+          {(step === 1 || step === 2) && !safeAddress && (
+            /* Resumed session still resolving the Safe — a visible wait state,
+               not a blank card (the step-0 fallback effect handles the
+               genuinely-missing case). */
+            <motion.div
+              key="connect-loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex flex-col items-center gap-3 py-10"
+            >
+              <MaoAvatar state="thinking" size={44} />
+              <p className="text-xs text-muted-foreground">Preparing your vault…</p>
+            </motion.div>
           )}
           {step === 3 && (
             <DoneStep

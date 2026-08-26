@@ -28,6 +28,7 @@ import { BackupAddressPicker } from "@/components/BackupAddressPicker";
 import { truncateAddress } from "@/lib/format";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { useSafeTransitions } from "@/lib/useSafeUpgrade";
+import { readPendingTransition } from "@/lib/pendingTransition";
 import { useForceExecuteSetting } from "@/lib/useForceExecute";
 import { useTour } from "@/components/tour/TourProvider";
 import { mainTour, upgradeTour } from "@/lib/tours";
@@ -102,8 +103,21 @@ function SettingsRow({
  */
 function BackupKeyRow() {
   const { swapBackup, busy, error, profile } = useSafeTransitions();
-  const { externalWalletAddress } = useAuth();
+  const { externalWalletAddress, safeConfig } = useAuth();
   const [open, setOpen] = useState(false);
+  // Pending swap (accepted, executing async): the record already names the
+  // NEW key, but the OLD one stays live on-chain until the transition lands
+  // — say so instead of silently claiming the swap is done.
+  const [pendingSwap, setPendingSwap] = useState(false);
+  useEffect(() => {
+    const sync = () => {
+      const marker = readPendingTransition();
+      setPendingSwap(!!marker?.expectedOwners);
+    };
+    sync();
+    window.addEventListener("zhentan:pending-transition", sync);
+    return () => window.removeEventListener("zhentan:pending-transition", sync);
+  }, [safeConfig?.owners]);
 
   if (profile !== "protected" || !externalWalletAddress) return null;
 
@@ -115,9 +129,17 @@ function BackupKeyRow() {
         iconTint="bg-foreground/5 text-muted-foreground"
         title="Backup key"
         desc={
-          <span className="font-mono text-[11px] truncate block" title={externalWalletAddress}>
-            {truncateAddress(externalWalletAddress, 13)}
-          </span>
+          <>
+            <span className="font-mono text-[11px] truncate block" title={externalWalletAddress}>
+              {truncateAddress(externalWalletAddress, 13)}
+            </span>
+            {pendingSwap && (
+              <span className="block text-[11px] text-watch/90 mt-0.5">
+                Swap in progress — the previous key stays active until it
+                completes on-chain.
+              </span>
+            )}
+          </>
         }
         action={
           <button
@@ -156,8 +178,9 @@ function BackupKeyRow() {
             <BackupAddressPicker
               onSelect={async (addr) => {
                 try {
-                  await swapBackup(addr);
+                  const result = await swapBackup(addr);
                   setOpen(false);
+                  setPendingSwap(result.pending);
                 } catch {
                   // error surfaced by the hook
                 }
@@ -419,7 +442,9 @@ function SettingsPageContent() {
                           ? isScreeningActive
                             ? "AI screening every signature — pause it and the agent still co-signs"
                             : "Screening off — the agent co-signs without risk analysis"
-                          : "Screening is always on — add a backup key to control it"
+                          : telegramLinked
+                            ? "Screening is always on — add a backup key to control it"
+                            : "Screening is always on — reviews reach you by email until Telegram is connected"
                         : profile === "starter" || profile === "detached"
                           ? "No agent on this wallet — activate protection to enable screening"
                           : isScreeningActive
@@ -432,7 +457,20 @@ function SettingsPageContent() {
                       <button
                         onClick={handleToggle}
                         disabled={toggling || !screeningTogglable}
-                        aria-label="Toggle screening"
+                        aria-label={
+                          screeningTogglable
+                            ? "Toggle screening"
+                            : profile === "guarded"
+                              ? "Screening is locked on — your key alone can't meet the signing threshold; add a backup key to control it"
+                              : "Screening unavailable — no agent on this wallet"
+                        }
+                        title={
+                          screeningTogglable
+                            ? undefined
+                            : profile === "guarded"
+                              ? "Locked on: add a backup key to control screening"
+                              : "No agent on this wallet"
+                        }
                         className={clsx(
                           "relative w-12 h-6 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default",
                           isScreeningActive ? "bg-gold" : "bg-foreground/12"

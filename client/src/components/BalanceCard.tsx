@@ -73,9 +73,9 @@ export function BalanceCard({
 
   const greeting = name?.trim() ? `gm, ${name.trim()}` : "gm";
 
-  const actions: { label: string; icon: LucideIcon; onClick: () => void; active: boolean }[] = [
+  const actions: { label: string; icon: LucideIcon; onClick: () => void; active: boolean; tour?: string }[] = [
     { label: "Send", icon: ArrowUpRight, onClick: onToggleSend, active: sendOpen },
-    { label: "Receive", icon: ArrowDownLeft, onClick: onToggleReceive, active: receiveOpen },
+    { label: "Receive", icon: ArrowDownLeft, onClick: onToggleReceive, active: receiveOpen, tour: "receive" },
     ...(onToggleSwap
       ? [{ label: "Swap", icon: ArrowLeftRight, onClick: onToggleSwap, active: !!swapOpen }]
       : []),
@@ -131,6 +131,21 @@ export function BalanceCard({
           </motion.div>
         )}
 
+        {!loading && (portfolioTotalUsd ?? 0) === 0 && (
+          /* Fresh vault (#136.7): the one moment the page should say HOW to
+             fund it — Receive holds the address + QR. */
+          <motion.button
+            type="button"
+            onClick={onToggleReceive}
+            className="mt-3.5 flex items-center gap-2 font-mono text-xs text-gold/90 hover:text-gold transition-colors cursor-pointer"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.25 }}
+          >
+            <ArrowDownLeft className="h-3.5 w-3.5" />
+            Fund your vault — tap Receive for your deposit address
+          </motion.button>
+        )}
         {hasDelta && (
           <motion.div
             className="mt-3.5 flex items-center gap-3 font-mono text-xs"
@@ -159,6 +174,7 @@ export function BalanceCard({
           <button
             key={action.label}
             type="button"
+            data-tour={action.tour}
             onClick={action.onClick}
             className={clsx(
               "group flex flex-col items-center gap-2.5 py-4 px-2 transition-colors touch-manipulation cursor-pointer",

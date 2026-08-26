@@ -3,17 +3,19 @@
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Check,
   KeyRound,
   Loader2,
-  MessageCircle,
   ShieldCheck,
 } from "lucide-react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { BackupAddressPicker } from "@/components/BackupAddressPicker";
+import { MaoAvatar } from "@/components/MaoAvatar";
+import { TelegramConnectCard } from "@/components/TelegramConnectCard";
 import { useAuth } from "@/app/context/AuthContext";
 import { useSafeTransitions } from "@/lib/useSafeUpgrade";
 import { useTelegramLink } from "@/hooks/useTelegramLink";
@@ -24,16 +26,21 @@ import { useTelegramLink } from "@/hooks/useTelegramLink";
  * the user's choices and executes a SINGLE owner-management transition at the
  * end (no chained txs, so there's no stale-owner-set race between them):
  *
- *   starter  → [enable agent] → [add backup?] → [telegram] → done
+ *   starter  → [enable agent] → [telegram] → [add backup?] → done
  *              add backup  ⇒ activateProtection (starter → protected, atomic)
  *              skip backup ⇒ enableAgentOnly     (starter → guarded)
- *   guarded  → [add backup] → done
+ *   guarded  → [telegram] → [add backup] → done
  *              add backup  ⇒ addBackup           (guarded → protected)
+ *
+ * Telegram comes RIGHT AFTER enabling the agent (#136 follow-up): it is the
+ * approval channel for the screening being turned on. Possible here (unlike
+ * onboarding, where the backup key still determines the address) because the
+ * wallet already exists — linking binds to the existing Safe.
  *
  * Renders nothing meaningful for protected/detached — the banner that opens it
  * only shows for starter/guarded.
  */
-type Step = "agent" | "backup" | "telegram" | "done";
+type Step = "agent" | "backup" | "pending" | "telegram" | "done";
 
 export function UpgradeDialog({
   open,
@@ -44,7 +51,7 @@ export function UpgradeDialog({
 }) {
   const { profile, busy, error, activateProtection, enableAgentOnly, addBackup } =
     useSafeTransitions();
-  const { externalWalletAddress, setBackupAddress } = useAuth();
+  const { externalWalletAddress, setBackupAddress, refreshSafe } = useAuth();
 
   // The flow is fixed from the profile at open time — running a transition
   // flips the live profile mid-wizard, so we must not re-derive from it.
@@ -52,48 +59,74 @@ export function UpgradeDialog({
     profile === "starter" ? "starter" : "guarded"
   );
   const [step, setStep] = useState<Step>(profile === "starter" ? "agent" : "backup");
+  // Telegram (#134/#136.2): identical semantics to onboarding and the
+  // settings ActivationDialog — the binding watch runs the whole time the
+  // step is on screen; "Open bot" is a pure link.
+  const { linked: telegramLinked, openBot, setWatching } = useTelegramLink();
+  // Consent parity with onboarding (#136.8): skipping the backup key on the
+  // starter flow accepts the guarded lockout trade-off — disclose it first.
+  const [skipWarning, setSkipWarning] = useState(false);
+  // The profile the running transition ends in — drives the pending step.
+  const [expectedProfile, setExpectedProfile] = useState<"guarded" | "protected" | null>(null);
 
   useEffect(() => {
     if (!open) return;
     const starter = profile === "starter";
     setFlow(starter ? "starter" : "guarded");
-    setStep(starter ? "agent" : "backup");
+    setStep(starter ? "agent" : telegramLinked ? "backup" : "telegram");
+    setSkipWarning(false);
+    setExpectedProfile(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Telegram: the one-step bot-chat flow (#134) — mirrors onboarding's step.
-  const {
-    linked: telegramLinked,
-    waiting: linkingTg,
-    start: startTelegramLink,
-  } = useTelegramLink();
+  useEffect(() => {
+    if (!open || step !== "telegram") return;
+    setWatching(!telegramLinked);
+    return () => setWatching(false);
+  }, [open, step, telegramLinked, setWatching]);
 
-  // After the backup step's transition runs: link Telegram (starter path) if it
-  // isn't already, else finish.
-  const afterUpgrade = () =>
-    setStep(flow === "starter" && !telegramLinked ? "telegram" : "done");
+  // Telegram was offered BEFORE the transition ran — done directly.
+  const afterUpgrade = () => setStep("done");
 
-  const handleActivateWithBackup = async () => {
-    try {
-      // starter → protected (atomic) or guarded → protected
-      await (flow === "starter" ? activateProtection() : addBackup());
+  // Screened-path transitions (#136.3) execute asynchronously: poll the
+  // record until the profile flips instead of declaring success early.
+  useEffect(() => {
+    if (!open || step !== "pending" || !expectedProfile) return;
+    if (profile === expectedProfile) {
       afterUpgrade();
+      return;
+    }
+    const t = setInterval(() => refreshSafe(), 4000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, step, expectedProfile, profile]);
+
+  const runTransition = async (
+    action: () => Promise<{ pending: boolean }>,
+    target: "guarded" | "protected"
+  ) => {
+    try {
+      const result = await action();
+      if (result.pending) {
+        setExpectedProfile(target);
+        setStep("pending");
+      } else {
+        afterUpgrade();
+      }
     } catch {
       /* error surfaced by the hook */
     }
   };
+
+  const handleActivateWithBackup = () =>
+    runTransition(flow === "starter" ? activateProtection : addBackup, "protected");
 
   const handleSkipBackup = async () => {
     if (flow === "guarded") {
       onClose();
       return;
     }
-    try {
-      await enableAgentOnly(); // starter → guarded
-      afterUpgrade();
-    } catch {
-      /* error surfaced by the hook */
-    }
+    await runTransition(enableAgentOnly, "guarded");
   };
 
   return (
@@ -107,7 +140,10 @@ export function UpgradeDialog({
             title="Enable AI screening"
             subtitle="Zhentan reviews every transaction before it executes — catching scams and mistakes. Next you can add a backup key so you always keep control."
           >
-            <Button onClick={() => setStep("backup")} className="w-full">
+            <Button
+              onClick={() => setStep(telegramLinked ? "backup" : "telegram")}
+              className="w-full"
+            >
               Enable the agent
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -162,9 +198,39 @@ export function UpgradeDialog({
                   </>
                 )}
               </Button>
+            ) : flow === "starter" && skipWarning ? (
+              /* Lockout disclosure — the same acknowledgment onboarding
+                 requires before creating a guarded wallet (#136.8). */
+              <div className="w-full p-[15px] rounded-2xl bg-watch/[0.06] border border-watch/18">
+                <p className="flex items-center gap-2 text-[13px] font-semibold text-watch mb-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Continue without a backup key?
+                </p>
+                <p className="text-xs leading-relaxed text-watch/85 mb-3">
+                  Zhentan must co-sign every transaction. If its agent is ever
+                  offline, your funds sit safe but wait. Adding a key later
+                  takes one tap in Settings.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSkipBackup}
+                    disabled={busy}
+                    className="flex-1 py-2.5 rounded-xl border border-watch/35 text-watch text-xs font-semibold hover:bg-watch/10 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {busy ? "Enabling…" : "Enable anyway"}
+                  </button>
+                  <button
+                    onClick={() => setSkipWarning(false)}
+                    disabled={busy}
+                    className="flex-1 py-2.5 rounded-xl bg-gold text-ink-900 text-xs font-bold hover:bg-gold/90 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Add a key
+                  </button>
+                </div>
+              </div>
             ) : (
               <button
-                onClick={handleSkipBackup}
+                onClick={() => (flow === "starter" ? setSkipWarning(true) : onClose())}
                 disabled={busy}
                 className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground py-1.5 transition-colors disabled:opacity-50"
               >
@@ -176,7 +242,7 @@ export function UpgradeDialog({
 
             {flow === "starter" && (
               <button
-                onClick={() => setStep("agent")}
+                onClick={() => setStep(telegramLinked ? "agent" : "telegram")}
                 className="w-full inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground py-1 transition-colors"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
@@ -186,50 +252,56 @@ export function UpgradeDialog({
           </StepShell>
         )}
 
-        {/* ── Step: connect Telegram (starter path) ── */}
+        {/* ── Step: transition accepted, executing asynchronously ── */}
+        {step === "pending" && (
+          <motion.div
+            key="pending"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ type: "spring", bounce: 0.15 }}
+            className="flex flex-col items-center py-4"
+          >
+            <MaoAvatar state="thinking" size={64} />
+            <h3 className="mt-4 text-lg font-semibold text-foreground">Upgrading your wallet</h3>
+            <p className="text-xs text-muted-foreground mt-1.5 text-center max-w-xs leading-relaxed">
+              The transition is signed and queued — it completes automatically
+              in a moment. You can close this; your wallet updates on its own.
+            </p>
+            <Button onClick={onClose} className="mt-6 w-full max-w-xs">
+              Close
+            </Button>
+          </motion.div>
+        )}
+
+        {/* ── Step: connect Telegram — shared card (#136.2) ── */}
         {step === "telegram" && (
           <StepShell
             key="telegram"
-            icon={<MessageCircle className="w-7 h-7 text-gold" />}
+            icon={<MaoAvatar state="scanning" size={30} variant="detail" />}
             title="Connect Telegram"
-            subtitle="Get notified the moment a transaction needs your review, and approve or reject from anywhere."
+            subtitle="Screening needs a way to reach you — connect Telegram to approve or reject reviews from anywhere. Skipping keeps alerts on email only."
           >
             {telegramLinked ? (
               <div className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-safe/25 bg-safe/6">
-                <Check className="h-4 w-4 text-safe shrink-0" />
-                <p className="text-xs text-muted-foreground flex-1">
-                  Telegram connected
-                </p>
+                <MaoAvatar state="cleared" size={22} variant="solid" />
+                <p className="text-xs text-muted-foreground flex-1">Telegram connected</p>
               </div>
             ) : (
-              <button
-                onClick={startTelegramLink}
-                className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 transition-all disabled:opacity-60"
-              >
-                <div className="w-8 h-8 rounded-lg bg-foreground/6 flex items-center justify-center shrink-0">
-                  {linkingTg ? (
-                    <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
-                  ) : (
-                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </div>
-                <p className="text-sm font-semibold text-foreground flex-1 text-left">
-                  {linkingTg ? "Say hi to the bot, tap its link…" : "Open the Zhentan bot"}
-                </p>
-                <ArrowRight className="h-4 w-4 text-muted-foreground/80 shrink-0" />
-              </button>
+              <TelegramConnectCard onOpenBot={openBot} />
             )}
 
-            <Button onClick={() => setStep("done")} className="w-full">
-              {telegramLinked ? "Continue" : "Done"}
+            <Button onClick={() => setStep("backup")} className="w-full">
+              {telegramLinked ? "Continue" : "Skip for now"}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-            {!telegramLinked && (
+            {flow === "starter" && (
               <button
-                onClick={() => setStep("done")}
-                className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground py-1.5 transition-colors"
+                onClick={() => setStep("agent")}
+                className="w-full inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground py-1 transition-colors"
               >
-                Skip for now
+                <ArrowLeft className="h-3.5 w-3.5" />
+                Back
               </button>
             )}
           </StepShell>
@@ -251,7 +323,7 @@ export function UpgradeDialog({
                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
               />
               <div className="relative w-14 h-14 rounded-full bg-safe/15 flex items-center justify-center">
-                <ShieldCheck className="h-7 w-7 text-safe" />
+                <MaoAvatar state="cleared" size={40} interactive ambient={["nod", "glint"]} />
               </div>
             </div>
             <h3 className="text-lg font-semibold text-foreground">Wallet upgraded</h3>

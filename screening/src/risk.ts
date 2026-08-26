@@ -146,6 +146,38 @@ export function analyzeRisk(
   const today = now.toISOString().split("T")[0];
 
   // ── 0. Kind-specific scoring ──────────────────────────────
+  // Owner/config management targets the Safe ITSELF — recipient trust,
+  // amount limits, velocity and time-of-day are all meaningless for it
+  // (scoring them made every profile transition a REVIEW-40 "unknown
+  // recipient"). A transition the backend VALIDATED (whitelisted calls,
+  // managed end state) auto-approves deterministically; any other config
+  // self-call scores a fixed 40 with an honest reason and maps through the
+  // user's own thresholds.
+  if (decoded?.kind === "config") {
+    if (decoded.transition?.validated) {
+      return {
+        riskScore: 0,
+        verdict: "APPROVE",
+        reasons: [
+          `Wallet-profile transition (→ ${decoded.transition.endState}) — validated owner management on this Safe`,
+        ],
+        triggeredRules: [],
+      };
+    }
+    const configScore = 40;
+    return {
+      riskScore: configScore,
+      verdict:
+        configScore < limits.riskThresholdApprove
+          ? "APPROVE"
+          : configScore < limits.riskThresholdBlock
+            ? "REVIEW"
+            : "BLOCK",
+      reasons: ["Owner/configuration change on this Safe — not a recognized profile transition"],
+      triggeredRules: [],
+    };
+  }
+
   // Swaps and standalone approvals have no payment recipient: `tx.to` is a
   // DEX router or token contract, so recipient trust/history is skipped for
   // them (it would score the router as an "unknown recipient" and pollute

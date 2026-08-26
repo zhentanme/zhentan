@@ -26,6 +26,12 @@ const cache = new Map<string, DerivedEntry>();
 export interface SafeResolution {
   safeAddress: string | null;
   loading: boolean;
+  /**
+   * Set after several CONSECUTIVE resolution failures (#136.4) — the backend
+   * is unreachable or erroring. Retries continue regardless; surfaces so the
+   * UI can say so instead of spinning forever. Cleared on the next success.
+   */
+  error: string | null;
   /** Backend user record when the address came from the DB (legacy + returning users). */
   record: UserDetails | null;
   /** True when the address was freshly derived (new user, no backend record yet). */
@@ -75,6 +81,7 @@ export function useSafeAddress({
   const [state, setState] = useState<SafeResolution>({
     safeAddress: null,
     loading: true,
+    error: null,
     record: null,
     derived: false,
     derivationVersion: null,
@@ -82,6 +89,10 @@ export function useSafeAddress({
     derivedThreshold: null,
   });
   const computingRef = useRef<string | null>(null);
+  // Consecutive resolution failures — 3+ (~12s of 4s retries) surfaces
+  // `error` so gates can stop pretending this is a normal load (#136.4).
+  const failuresRef = useRef(0);
+  const FAILURE_THRESHOLD = 3;
   // Bumped to re-run the effect after a failed backend lookup (kept in
   // loading state) so a transient blip doesn't strand the user on a spinner.
   const [retry, setRetry] = useState(0);
@@ -91,6 +102,7 @@ export function useSafeAddress({
       setState({
         safeAddress: null,
         loading: false,
+        error: null,
         record: null,
         derived: false,
         derivationVersion: null,
@@ -125,6 +137,7 @@ export function useSafeAddress({
             : {
                 safeAddress: cachedRecord.safe_address,
                 loading: false,
+                error: null,
                 record: cachedRecord,
                 derived: false,
                 derivationVersion: cachedRecord.derivation_version ?? null,
@@ -161,6 +174,10 @@ export function useSafeAddress({
       const empty = (loading: boolean): SafeResolution => ({
         safeAddress: null,
         loading,
+        error:
+          loading && failuresRef.current >= FAILURE_THRESHOLD
+            ? "Can't reach Zhentan right now"
+            : null,
         record: null,
         derived: false,
         derivationVersion: null,
@@ -179,6 +196,7 @@ export function useSafeAddress({
         // Transient backend failure: keep loading rather than mis-deriving,
         // and retry shortly.
         console.error(`Safe address backend lookup failed: ${res.status}`);
+        failuresRef.current += 1;
         scheduleRetry();
         return empty(true);
       }
@@ -186,9 +204,11 @@ export function useSafeAddress({
       if (data.user?.safe_address) {
         // Refresh the local identity cache so the next boot hydrates instantly.
         if (privyUserId) writeIdentityCache(privyUserId, embeddedAddress, data.user);
+        failuresRef.current = 0;
         return {
           safeAddress: data.user.safe_address,
           loading: false,
+          error: null,
           record: data.user,
           derived: false,
           derivationVersion: data.user.derivation_version ?? null,
@@ -204,15 +224,18 @@ export function useSafeAddress({
       // 2. New user: server-side derivation with the chosen creation profile.
       //    The protected profile also needs the backup key address.
       if (!profile || (profile === "protected" && !externalAddress)) {
+        failuresRef.current = 0;
         return empty(false);
       }
 
       const cacheKey = `${profile}|${embeddedAddress}|${externalAddress ?? ""}`.toLowerCase();
       const cached = cache.get(cacheKey);
       if (cached) {
+        failuresRef.current = 0;
         return {
           safeAddress: cached.safeAddress,
           loading: false,
+          error: null,
           record: null,
           derived: true,
           derivationVersion: cached.derivationVersion,
@@ -236,6 +259,7 @@ export function useSafeAddress({
           "Safe derivation failed:",
           (err as { error?: string }).error ?? deriveRes.status
         );
+        failuresRef.current += 1;
         scheduleRetry();
         return empty(true);
       }
@@ -246,9 +270,11 @@ export function useSafeAddress({
         derivationVersion: number;
       };
       cache.set(cacheKey, derivedData);
+      failuresRef.current = 0;
       return {
         safeAddress: derivedData.safeAddress,
         loading: false,
+        error: null,
         record: null,
         derived: true,
         derivationVersion: derivedData.derivationVersion,
@@ -272,8 +298,11 @@ export function useSafeAddress({
         // (Background refreshes keep their last-known-good state instead.)
         console.error("Failed to resolve Safe address:", err);
         if (!cancelled) {
+          failuresRef.current += 1;
+          const error =
+            failuresRef.current >= FAILURE_THRESHOLD ? "Can't reach Zhentan right now" : null;
           setState((s) =>
-            isBackgroundRefresh(s) ? s : { ...s, safeAddress: null, loading: true }
+            isBackgroundRefresh(s) ? s : { ...s, safeAddress: null, loading: true, error }
           );
           scheduleRetry();
         }

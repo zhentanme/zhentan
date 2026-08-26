@@ -237,7 +237,7 @@ function Dashboard() {
           {/* Segment tab bar */}
           <div className="flex items-center gap-7 border-b border-border">
             {([
-              { key: "tokens", label: "Assets", count: tokens.length },
+              { key: "tokens", label: "Assets", count: tokens.filter((t) => !t.placeholder).length },
               { key: "activity", label: "Activity", count: transactions.length },
             ] as const).map((tab) => {
               const active = listTab === tab.key;

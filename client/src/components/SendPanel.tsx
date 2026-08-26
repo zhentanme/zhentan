@@ -36,7 +36,7 @@ interface SendPanelProps {
 
 export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, screeningMode = true }: SendPanelProps) {
   const { user, wallet, getOwnerAccount, identityToken, safeAddress, safeConfig } = useAuth();
-  const { telegramLinked } = useScreeningStatus();
+  const { telegramLinked, agentOnline } = useScreeningStatus();
   const api = useApiClient();
   const { addOptimisticTransaction, transactions } = useActivityData();
   const router = useRouter();
@@ -261,11 +261,18 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       return;
     }
 
+    // Soft gate (#136.6): screening without Telegram still WORKS — reviews
+    // reach email and the dashboard — it's just slower. Warn once per submit
+    // attempt instead of hard-blocking the send.
     if (screeningMode && !telegramLinked) {
       setShowTgRequiredModal(true);
       return;
     }
 
+    await submitTransaction(address);
+  };
+
+  const submitTransaction = async (address: string) => {
     setLoading(true);
     setError(null);
     if (screeningMode) setSendPhase("proposing");
@@ -465,12 +472,20 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             </dd>
           </div>
         </dl>
+        {agentOnline === false && tx.status !== "in_review" && (
+          <p className="text-xs text-watch/90 text-center leading-relaxed">
+            The screening agent is offline right now — your transaction stays
+            safely queued and screens the moment it&apos;s back.
+          </p>
+        )}
         {canCoSign && (
           <div className="space-y-2.5">
             <p className="text-xs text-muted-foreground/80 text-center">
               {tx.status === "in_review"
                 ? "Flagged for your review — signing with your backup key executes it anyway."
-                : "Zhentan is screening — signing with your backup key executes it right away."}
+                : agentOnline === false
+                  ? "No need to wait — signing with your backup key executes it right away."
+                  : "Zhentan is screening — signing with your backup key executes it right away."}
             </p>
             <CoSignButton
               tx={tx}
@@ -739,7 +754,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     <Dialog
       open={showTgRequiredModal}
       onClose={() => setShowTgRequiredModal(false)}
-      title="Telegram Required"
+      title="Connect Telegram?"
       sheetOnMobile
     >
       <div className="flex flex-col items-center gap-5 py-2">
@@ -748,7 +763,9 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         </div>
         <div className="text-center space-y-2">
           <p className="text-sm text-foreground/80 leading-relaxed">
-            AI screening is active. Telegram must be connected so the agent can notify you when a transaction needs review.
+            AI screening is on, but Telegram isn&apos;t connected — if this
+            transaction needs your review, the alert reaches you by email and
+            the dashboard only, so approving it can be slower.
           </p>
           <p className="text-xs text-muted-foreground/80">
             Say hi to{" "}
@@ -771,8 +788,21 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             router.push("/settings");
           }}
         >
-          Go to Settings
+          Connect Telegram
         </Button>
+        <button
+          type="button"
+          onClick={() => {
+            setShowTgRequiredModal(false);
+            const address =
+              resolvedAddress ||
+              (recipient.startsWith("0x") && recipient.length === 42 ? recipient : null);
+            if (address) void submitTransaction(address);
+          }}
+          className="w-full py-2.5 rounded-2xl border border-foreground/10 text-sm text-foreground/80 hover:bg-foreground/5 transition-colors cursor-pointer"
+        >
+          Send anyway — alert me by email
+        </button>
         <button
           type="button"
           onClick={() => setShowTgRequiredModal(false)}

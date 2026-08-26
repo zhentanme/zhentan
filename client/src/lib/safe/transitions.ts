@@ -127,7 +127,7 @@ export async function proposeTransition({
   safe: SafeProposalContext;
   getOwnerAccount: () => Promise<LocalAccount | null>;
   identityToken?: string | null;
-}): Promise<{ txHash?: string }> {
+}): Promise<{ txHash?: string; pending: boolean }> {
   const signedFields = await buildSafeTxProposal({ calls, safe, getOwnerAccount, identityToken });
 
   const txId = `tx-${crypto.randomUUID().slice(0, 8)}`;
@@ -154,5 +154,8 @@ export async function proposeTransition({
     upgraded?: boolean;
   };
   if (!res.ok) throw new Error(data.error || `${label} failed`);
-  return { txHash: data.txHash };
+  // Threshold-2 transitions route through screening server-side (#136.3):
+  // a 2xx with upgraded:false means the decision (and execution) lands
+  // asynchronously — the caller must show a pending state, not success.
+  return { txHash: data.txHash, pending: data.upgraded === false };
 }

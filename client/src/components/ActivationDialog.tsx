@@ -2,11 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, Loader2, XIcon } from "lucide-react";
+import { Loader2, XIcon } from "lucide-react";
 import { Dialog } from "./ui/Dialog";
-import { TELEGRAM_BOT_USERNAME } from "@/lib/constants";
 import { useTelegramPhoto } from "@/hooks/useTelegramPhoto";
-import { TelegramLinkFlow } from "./TelegramLinkFlow";
+import { TelegramConnectCard } from "./TelegramConnectCard";
 import { MaoAvatar } from "./MaoAvatar";
 
 /**
@@ -82,15 +81,12 @@ export function ActivationDialog({
 }: ActivationDialogProps) {
   const wasInitiallyCompleteRef = useRef(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  // Cross-device path (RFC 8628): type the bot's short code right here.
-  const [showCodeEntry, setShowCodeEntry] = useState(false);
   const photoUrl = useTelegramPhoto({ enabled: open && telegramLinked });
 
   useEffect(() => {
     if (open) {
       wasInitiallyCompleteRef.current = telegramLinked;
       setShowSuccess(false);
-      setShowCodeEntry(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
@@ -164,55 +160,7 @@ export function ActivationDialog({
                   and your chat can approve or reject reviews.
                 </p>
 
-                <div className="p-4 rounded-2xl border bg-gold/5 border-gold/20">
-                  <div className="flex items-start gap-3">
-                    <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
-                      <motion.div
-                        className="absolute inset-0 rounded-2xl border-2 border-gold/40"
-                        animate={{ scale: [1, 1.25], opacity: [0.6, 0] }}
-                        transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
-                      />
-                      <div className="relative w-11 h-11 rounded-2xl bg-gold/10 flex items-center justify-center">
-                        {/* Mao is already on watch while this dialog is open —
-                            the sweep across his shades IS the listening state. */}
-                        <MaoAvatar state="scanning" size={34} variant="detail" />
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-row justify-between items-start gap-3">
-                      <div className="flex flex-col gap-1">
-                        <h4 className="text-sm font-semibold text-foreground">
-                          Say hi to @{TELEGRAM_BOT_USERNAME}
-                        </h4>
-                        <div className="text-[11px] text-muted-foreground leading-relaxed max-w-56">
-                          Send any message, then tap the secure link the bot
-                          replies with — this connects the moment you do.
-                        </div>
-                      </div>
-                      <button
-                        onClick={onOpenBot}
-                        className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-gold/10 text-gold hover:bg-gold/15 transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        Open bot
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {showCodeEntry ? (
-                  <div className="p-4 rounded-2xl border bg-foreground/2 border-foreground/6">
-                    <TelegramLinkFlow variant="embedded" />
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowCodeEntry(true)}
-                    className="w-full text-[11px] text-muted-foreground/80 hover:text-gold leading-relaxed text-center pt-1 transition-colors cursor-pointer"
-                  >
-                    Got a code from Telegram?{" "}
-                    <span className="text-gold/90">Enter the short code here →</span>
-                  </button>
-                )}
+                <TelegramConnectCard onOpenBot={onOpenBot} />
               </>
             )}
           </motion.div>

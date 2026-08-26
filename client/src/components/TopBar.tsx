@@ -25,7 +25,10 @@ export const navItems: {
 
 export function TopBar() {
   const pathname = usePathname();
-  const { isScreeningActive } = useScreeningStatus();
+  const { isScreeningActive, agentOnline } = useScreeningStatus();
+  // #136.5: never show "Watching" on configuration alone — the runtime must
+  // actually be polling. null (unknown) stays optimistic.
+  const agentOffline = isScreeningActive && agentOnline === false;
   const { queuedCount } = useActivityData();
 
   return (
@@ -38,18 +41,20 @@ export function TopBar() {
             data-tour="agent-status"
             className={clsx(
               "inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
-              isScreeningActive
-                ? "bg-safe/12 text-safe"
-                : "bg-foreground/6 text-muted-foreground"
+              agentOffline
+                ? "bg-watch/12 text-watch"
+                : isScreeningActive
+                  ? "bg-safe/12 text-safe"
+                  : "bg-foreground/6 text-muted-foreground"
             )}
           >
             <MaoAvatar
-              state={isScreeningActive ? "scanning" : "resting"}
+              state={isScreeningActive && !agentOffline ? "scanning" : "resting"}
               size={14}
               variant="solid"
               color="currentColor"
             />
-            {isScreeningActive ? "Watching" : "Paused"}
+            {agentOffline ? "Away" : isScreeningActive ? "Watching" : "Paused"}
           </div>
         </div>
       </header>

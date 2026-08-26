@@ -16,7 +16,8 @@ import { enqueueJob } from "./jobs.js";
 import { encodeWireValue } from "./jobsPolicy.js";
 import { getTransaction } from "../supabase/index.js";
 import { loadPolicySnapshot } from "../../agent/index.js";
-import { decodeSafeTxKind } from "../safe/kind.js";
+import { decodeSafeTxKind, type DecodedKind } from "../safe/kind.js";
+import { validateTransitionTx } from "../safe/transition.js";
 import { applyScreeningDecision, sendReviewNotifications } from "../screening/apply.js";
 import type { PendingTransaction } from "../../types.js";
 
@@ -34,8 +35,20 @@ export async function enqueueScreenJob(tx: PendingTransaction): Promise<boolean>
   try {
     const evaluatedAt = new Date();
     const snapshot = await loadPolicySnapshot(tx.safeAddress ?? "");
-    const decoded =
+    let decoded: DecodedKind | undefined =
       tx.txType === "safetx" && tx.safeTx ? decodeSafeTxKind(tx.safeTx, tx.safeAddress) : undefined;
+    if (decoded?.kind === "config") {
+      // Mark VALIDATED wallet-profile transitions so the engine auto-approves
+      // them (regardless of whether the proposer sent the wire flag) instead
+      // of scoring the Safe's own address as an unknown recipient. A config
+      // self-call that fails validation stays plain config → review-worthy.
+      try {
+        const target = await validateTransitionTx(tx);
+        decoded = { kind: "config", transition: { endState: target.endState, validated: true } };
+      } catch {
+        // Not a recognized transition — leave undecorated.
+      }
+    }
     const { data: row, error } = await supabase
       .from("transactions")
       .select("version")

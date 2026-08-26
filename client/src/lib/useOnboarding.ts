@@ -23,7 +23,7 @@ export function clearOnboardingCompleteCookie() {
 // during onboarding, but progress must persist from step 0.
 
 interface StoredState {
-  /** Current step: 0 = backup key, 1 = username, 2 = telegram, 3 = done */
+  /** Current step: 0 = wallet shape, 1 = telegram, 2 = username, 3 = done */
   step: number;
   /** Cached once confirmed by backend — avoids a round-trip on the same device */
   completed: boolean;
@@ -72,23 +72,28 @@ function patchStored(walletAddress: string, patch: Partial<StoredState>): Stored
 
 // ── Write helpers (used by onboarding page) ───────────────────────────────────
 
-/** Backup key linked → persist step 1 */
+/** Wallet shape committed → Telegram step */
 export function markOnboardingWalletLinked(walletAddress: string) {
   patchStored(walletAddress, { step: 1 });
 }
 
-/** Username skipped → persist step 2 */
-export function markOnboardingUsernameSkipped(walletAddress: string) {
-  patchStored(walletAddress, { step: 2 });
-}
-
-/** Username saved → persist step 2 */
-export function markOnboardingUsernameSet(walletAddress: string) {
-  patchStored(walletAddress, { step: 2 });
-}
-
-/** Telegram done or skipped → Done step reached, cache completed locally */
+/** Telegram done or skipped → username step */
 export function markOnboardingTelegramDone(walletAddress: string) {
+  patchStored(walletAddress, { step: 2 });
+}
+
+/** Username skipped → Done step reached, cache completed locally */
+export function markOnboardingUsernameSkipped(walletAddress: string) {
+  markOnboardingDone(walletAddress);
+}
+
+/** Username saved → Done step reached, cache completed locally */
+export function markOnboardingUsernameSet(walletAddress: string) {
+  markOnboardingDone(walletAddress);
+}
+
+/** Done step reached (also re-stamped at finish) → completed locally. */
+export function markOnboardingDone(walletAddress: string) {
   patchStored(walletAddress, { step: 3, completed: true });
   setOnboardingCompleteCookie();
 }
