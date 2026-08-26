@@ -166,7 +166,7 @@ export function ClaimBanner({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
             transition={{ duration: 0.3, type: "spring", bounce: 0.15 }}
-            className={`w-full relative overflow-hidden rounded-2xl text-left focus:outline-none group cursor-pointer ${className ?? "mx-4 lg:mx-0"}${hideWhenClaimed ? " mb-4" : ""}`}
+            className={`w-full relative overflow-hidden rounded-md text-left focus:outline-none group cursor-pointer ${className ?? "mx-4 lg:mx-0"}${hideWhenClaimed ? " mb-4" : ""}`}
             style={{
               background:
                 "linear-gradient(135deg, rgba(196,148,40,0.12) 0%, rgba(196,148,40,0.05) 50%, rgba(196,148,40,0.10) 100%)",
@@ -192,7 +192,7 @@ export function ClaimBanner({
 
             <div className="relative px-5 py-4 flex items-center gap-4">
               <div
-                className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+                className="w-11 h-11 rounded-md flex items-center justify-center shrink-0"
                 style={{
                   background: "rgba(196,148,40,0.15)",
                   boxShadow: "0 0 16px rgba(196,148,40,0.2)",
@@ -275,7 +275,7 @@ export function ClaimBanner({
                     return met ? (
                       <div
                         key={key}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-foreground/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)]"
+                        className="flex items-center gap-3 p-3 rounded-md bg-foreground/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)]"
                       >
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-claw/10 shadow-[0_0_8px_rgba(196,148,40,0.15)]">
                           <Icon className="h-4 w-4 text-claw" />
@@ -295,7 +295,7 @@ export function ClaimBanner({
                         key={key}
                         type="button"
                         onClick={handleTaskClick}
-                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-foreground/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] hover:bg-foreground/6 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] transition-colors text-left cursor-pointer"
+                        className="w-full flex items-center gap-3 p-3 rounded-md bg-foreground/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] hover:bg-foreground/6 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] transition-colors text-left cursor-pointer"
                       >
                         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-foreground/4">
                           <Icon className="h-4 w-4 text-muted-foreground/60" />
@@ -316,7 +316,7 @@ export function ClaimBanner({
 
             {/* Claimed state */}
             {alreadyClaimed && (
-              <div className="p-3 rounded-xl bg-claw/5 shadow-[0_0_0_1px_rgba(196,148,40,0.1)] text-center">
+              <div className="p-3 rounded-md bg-claw/5 shadow-[0_0_0_1px_rgba(196,148,40,0.1)] text-center">
                 <p className="text-sm font-medium text-claw">
                   {status!.userClaim!.token_amount
                     ? `${status!.userClaim!.token_amount} $ZHENTAN tokens claimed`
@@ -338,7 +338,7 @@ export function ClaimBanner({
                   type="button"
                   onClick={handleClaim}
                   disabled={claiming || !allTasksMet || noSpotsLeft}
-                  className="w-full py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-claw text-black hover:bg-claw/90 shadow-[0_0_20px_rgba(196,148,40,0.25)]"
+                  className="w-full py-3 rounded-md text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-claw text-black hover:bg-claw/90 shadow-[0_0_20px_rgba(196,148,40,0.25)]"
                 >
                   {claiming ? (
                     <span className="flex items-center justify-center gap-2">

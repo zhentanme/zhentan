@@ -50,14 +50,14 @@ export function Sidebar() {
                 {active && (
                   <motion.span
                     layoutId="sidebar-active"
-                    className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-pill bg-gold"
+                    className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-gold"
                     transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
                   />
                 )}
                 <item.icon className="h-4 w-4 shrink-0" />
                 <span className="flex-1">{item.label}</span>
                 {item.badge && queuedCount > 0 && (
-                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-pill bg-gold text-[10px] font-bold text-ink-900 leading-none">
+                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-gold text-[10px] font-bold text-ink-900 leading-none">
                     {queuedCount > 99 ? "99+" : queuedCount}
                   </span>
                 )}
@@ -93,7 +93,7 @@ export function Sidebar() {
           onClick={() => setAccountOpen(true)}
           className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-foreground/5 transition-colors cursor-pointer text-left"
         >
-          <div className="h-9 w-9 rounded-pill bg-gradient-to-br from-gold-light to-gold-500 flex items-center justify-center text-ink-900 font-bold text-sm shrink-0">
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-gold-light to-gold-500 flex items-center justify-center text-ink-900 font-bold text-sm shrink-0">
             {(user?.name || user?.email || "Z").charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
@@ -102,7 +102,7 @@ export function Sidebar() {
             </p>
             {safeAddress && (
               <p className="text-[11px] font-mono text-muted-foreground truncate">
-                {truncateAddress(safeAddress, 13)}
+                {truncateAddress(safeAddress)}
               </p>
             )}
           </div>

@@ -62,7 +62,7 @@ function SuccessSplash({ onDone }: { onDone: () => void }) {
       </p>
       <button
         onClick={onDone}
-        className="mt-6 px-5 py-2 text-xs font-semibold rounded-xl bg-safe/15 text-safe hover:bg-safe/20 transition-all cursor-pointer"
+        className="mt-6 px-5 py-2 text-xs font-semibold rounded-md bg-safe/15 text-safe hover:bg-safe/20 transition-all cursor-pointer"
       >
         Done
       </button>
@@ -114,9 +114,9 @@ export function ActivationDialog({
           >
             {telegramLinked ? (
               /* ── Connected: manage ── */
-              <div className="p-4 rounded-2xl border bg-safe/5 border-safe/20">
+              <div className="p-4 rounded-md border bg-safe/5 border-safe/20">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-safe/15 flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-10 h-10 rounded-md bg-safe/15 flex items-center justify-center shrink-0 overflow-hidden">
                     {photoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={photoUrl} alt="" className="w-full h-full object-cover" />

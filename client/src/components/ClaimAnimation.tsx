@@ -155,7 +155,7 @@ function CompleteScreen({ tokenAmount, tokenSymbol }: { tokenAmount: number; tok
         transition={{ type: "spring", damping: 14, stiffness: 120, delay: 0.1 }}
       >
         <motion.div
-          className="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6"
+          className="w-24 h-24 rounded-lg flex items-center justify-center mx-auto mb-6"
           style={{
             background: "rgba(196,148,40,0.15)",
             boxShadow: "0 0 0 1px rgba(196,148,40,0.25)",

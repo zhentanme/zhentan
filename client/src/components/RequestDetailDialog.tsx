@@ -84,7 +84,7 @@ function RequestAnalysisSection({
   const sev = riskScore != null ? severity(riskScore) : null;
 
   return (
-    <div className="rounded-2xl bg-foreground/6 overflow-hidden">
+    <div className="rounded-md bg-foreground/6 overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
@@ -125,9 +125,9 @@ function RequestAnalysisSection({
                       <span className="text-muted-foreground/60">/100</span>
                     </span>
                   </div>
-                  <div className="h-1.5 rounded-pill bg-foreground/10 overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-foreground/10 overflow-hidden">
                     <motion.span
-                      className={`block h-full rounded-pill ${sev.bg}`}
+                      className={`block h-full rounded-full ${sev.bg}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(100, Math.max(0, riskScore))}%` }}
                       transition={{ duration: 0.5, ease: "easeOut" }}
@@ -338,8 +338,8 @@ export function RequestDetailDialog({
         </AnimatePresence>
 
         {/* Hero amount — op icon + token avatar + amount (mirrors activity dialog) */}
-        <div className="rounded-2xl bg-foreground/6 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
+        <div className="rounded-md bg-foreground/6 p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-md bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
             {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
           </div>
           <TokenGlyph symbol={request.token} size={36} />
@@ -352,7 +352,7 @@ export function RequestDetailDialog({
 
         {/* Instruction from the agent (transfer requests) */}
         {request.description && (
-          <div className="rounded-2xl bg-foreground/4 p-3">
+          <div className="rounded-md bg-foreground/4 p-3">
             <p className="text-xs text-muted-foreground/80 mb-1">Instruction</p>
             <p className="text-sm text-foreground/80">{request.description}</p>
           </div>
@@ -399,7 +399,7 @@ export function RequestDetailDialog({
                 className="group inline-flex items-center gap-2 font-mono text-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline truncate"
               >
                 <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-foreground" />
-                <span className="truncate">{truncateAddress(request.to, 10)}</span>
+                <span className="truncate">{truncateAddress(request.to)}</span>
               </a>
             </dd>
           </div>
@@ -409,7 +409,7 @@ export function RequestDetailDialog({
         {isInvoice && request.services && request.services.length > 0 && (
           <div>
             <p className="text-xs text-muted-foreground/80 mb-2">Services</p>
-            <div className="rounded-2xl bg-foreground/4 overflow-x-auto scrollbar-hide -mx-1">
+            <div className="rounded-md bg-foreground/4 overflow-x-auto scrollbar-hide -mx-1">
               <table className="w-full text-sm min-w-[280px]">
                 <thead>
                   <tr className="text-left text-xs text-muted-foreground/80 border-b border-foreground/6">
@@ -462,7 +462,7 @@ export function RequestDetailDialog({
             href={`${BSC_EXPLORER_URL}/tx/${request.txHash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-md py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
@@ -477,7 +477,7 @@ export function RequestDetailDialog({
         {/* Action buttons (only for queued requests) */}
         {request.status === "queued" && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 rounded-2xl bg-gold/8 px-3 py-2.5 text-xs text-foreground/80">
+            <div className="flex items-center gap-2 rounded-md bg-gold/8 px-3 py-2.5 text-xs text-foreground/80">
               <ShieldCheck className="h-4 w-4 text-gold shrink-0" />
               <span>
                 Zhentan screens this payment before it&rsquo;s sent. You may need
@@ -499,7 +499,7 @@ export function RequestDetailDialog({
                   placeholder="Reason (optional)"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full rounded-2xl bg-foreground/6 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-danger/40 transition-all"
+                  className="w-full rounded-md bg-foreground/6 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-danger/40 transition-all"
                 />
                 <Button
                   variant="secondary"
@@ -604,8 +604,8 @@ function ScreeningView({
       </div>
 
       {/* Amount */}
-      <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-        <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+      <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
+        <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
           <Send className="h-5 w-5" />
         </div>
         <TokenGlyph symbol={request.token} size={24} />
@@ -627,14 +627,14 @@ function ScreeningView({
       </dl>
 
       {phase === "rejected" && resultReason && (
-        <div className="rounded-2xl bg-danger/10 p-3">
+        <div className="rounded-md bg-danger/10 p-3">
           <p className="text-xs text-danger/70 mb-1">Reason</p>
           <p className="text-sm text-danger">{resultReason}</p>
         </div>
       )}
 
       {phase === "error" && errorMsg && (
-        <div className="rounded-2xl bg-danger/10 p-3">
+        <div className="rounded-md bg-danger/10 p-3">
           <p className="text-sm text-danger">{errorMsg}</p>
         </div>
       )}

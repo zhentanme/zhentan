@@ -84,14 +84,12 @@ const config: Config = {
         },
       },
       borderRadius: {
+        /* The complete radius scale — do not add sizes or arbitrary values.
+           Pills/dots/avatars use the native `rounded-full`. */
         xs: "var(--r-xs)",        /* 4  — chips */
         sm: "var(--r-sm)",        /* 8  — small controls */
         md: "var(--r-md)",        /* 14 — buttons, inputs, tiles, cards */
         lg: "var(--r-lg)",        /* 22 — big panels / hero surfaces */
-        xl: "var(--r-md)",        /* 14 — collapsed: no overshoot past the card radius */
-        "2xl": "var(--r-md)",     /* 14 */
-        "3xl": "18px",
-        pill: "var(--r-pill)",    /* 999 — pills, dots, avatars */
       },
       fontFamily: {
         sans: ["var(--font-manrope)", "ui-sans-serif", "system-ui", "sans-serif"],

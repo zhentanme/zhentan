@@ -186,7 +186,7 @@ export function TelegramLinkFlow({
             autoComplete="one-time-code"
             spellCheck={false}
             maxLength={9}
-            className={`w-full text-center font-mono ${embedded ? "text-[17px]" : "text-[22px]"} tracking-[0.25em] uppercase rounded-2xl border border-foreground/10 bg-foreground/[0.035] px-4 ${embedded ? "py-2.5" : "py-3.5"} mb-3 outline-none focus:border-gold/50 placeholder:text-muted-foreground/30`}
+            className={`w-full text-center font-mono ${embedded ? "text-[17px]" : "text-[22px]"} tracking-[0.25em] uppercase rounded-md border border-foreground/10 bg-foreground/[0.035] px-4 ${embedded ? "py-2.5" : "py-3.5"} mb-3 outline-none focus:border-gold/50 placeholder:text-muted-foreground/30`}
           />
           {phase.error && (
             <p className="text-[12px] leading-relaxed text-danger mb-3">{phase.error}</p>
@@ -265,8 +265,8 @@ export function TelegramLinkFlow({
     <>
       {heading("Connect this Telegram?")}
 
-      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-foreground/[0.035] border border-foreground/8 mb-4 mt-1">
-        <span className="w-[38px] h-[38px] rounded-xl shrink-0 flex items-center justify-center bg-gold/12 overflow-hidden">
+      <div className="flex items-center gap-3 p-3.5 rounded-md bg-foreground/[0.035] border border-foreground/8 mb-4 mt-1">
+        <span className="w-[38px] h-[38px] rounded-md shrink-0 flex items-center justify-center bg-gold/12 overflow-hidden">
           {photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={photoUrl} alt="" className="w-full h-full object-cover" />
@@ -292,7 +292,7 @@ export function TelegramLinkFlow({
       </p>
 
       {phase.preview.relation === "linked_elsewhere" && (
-        <div className="rounded-2xl border border-watch/30 bg-watch/[0.06] p-3.5 mb-4">
+        <div className="rounded-md border border-watch/30 bg-watch/[0.06] p-3.5 mb-4">
           <div className="flex items-start gap-2.5">
             <AlertTriangle className="h-4 w-4 text-watch shrink-0 mt-0.5" />
             <p className="text-[12.5px] leading-relaxed text-muted-foreground">

@@ -133,11 +133,11 @@ function ProfilePageContent() {
           {/* Hero card */}
           <motion.section
             variants={staggerItem}
-            className="grid grid-cols-[auto_1fr] gap-6 sm:gap-7 items-center p-6 sm:p-7 rounded-3xl bg-card shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]"
+            className="grid grid-cols-[auto_1fr] gap-6 sm:gap-7 items-center p-6 sm:p-7 rounded-lg bg-card shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]"
           >
             {/* Portrait */}
             <div className="relative shrink-0">
-              <div className="w-[88px] h-[88px] sm:w-[104px] sm:h-[104px] rounded-[26px] border border-gold/25 bg-ink-950 flex items-center justify-center overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_40px_-24px_rgba(196,148,40,0.45)]">
+              <div className="w-[88px] h-[88px] sm:w-[104px] sm:h-[104px] rounded-lg border border-gold/25 bg-ink-950 flex items-center justify-center overflow-hidden shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_18px_40px_-24px_rgba(196,148,40,0.45)]">
                 {user?.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={user.image} alt="" className="w-full h-full object-cover" />
@@ -147,7 +147,7 @@ function ProfilePageContent() {
                   </span>
                 )}
               </div>
-              <div className="absolute -right-1.5 -bottom-1.5 w-8 h-8 rounded-[14px] bg-ink-900 border border-gold/30 flex items-center justify-center">
+              <div className="absolute -right-1.5 -bottom-1.5 w-8 h-8 rounded-md bg-ink-900 border border-gold/30 flex items-center justify-center">
                 <TwinTick size={16} halo="none" />
               </div>
             </div>
@@ -230,7 +230,7 @@ function ProfilePageContent() {
                     <Pencil className="h-3 w-3 text-muted-foreground/40 group-hover:text-gold transition-colors" />
                   </button>
                   {username && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-safe/12 text-safe font-mono uppercase tracking-wider text-[10px] font-semibold">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-safe/12 text-safe font-mono uppercase tracking-wider text-[10px] font-semibold">
                       <Check className="h-2.5 w-2.5" />
                       Verified
                     </span>
@@ -253,7 +253,7 @@ function ProfilePageContent() {
                     {signerDisplay.meta?.name && (
                       <span>{signerDisplay.meta.name} · </span>
                     )}
-                    <span className="font-mono">{truncateAddress(signerDisplay.address, 13)}</span>
+                    <span className="font-mono">{truncateAddress(signerDisplay.address)}</span>
                   </span>
                   <SignerMismatchInline />
                 </div>

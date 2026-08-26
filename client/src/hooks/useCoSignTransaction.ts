@@ -84,7 +84,7 @@ export function useCoSignTransaction() {
           setHint(
             `Connect your backup wallet${
               externalWalletAddress
-                ? ` (${truncateAddress(externalWalletAddress, 13)})`
+                ? ` (${truncateAddress(externalWalletAddress)})`
                 : ""
             }, then tap again.`
           );

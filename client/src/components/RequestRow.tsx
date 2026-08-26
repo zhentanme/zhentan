@@ -24,7 +24,7 @@ function RiskBadge({ score }: { score: number }) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center px-2 py-0.5 rounded-pill text-[10px] font-mono uppercase tracking-wide",
+        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wide",
         color
       )}
     >
@@ -51,7 +51,7 @@ function RequestStatusBadge({ status }: { status: QueuedRequest["status"] }) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center px-3 py-1 rounded-pill text-[11px] font-mono uppercase tracking-wider",
+        "inline-flex items-center px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider",
         styles[status]
       )}
     >
@@ -82,7 +82,7 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
         bounce: 0.15,
       }}
     >
-      <div className="w-10 h-10 rounded-xl bg-foreground/8 flex items-center justify-center shrink-0 text-gold transition-colors group-hover:bg-foreground/[0.12]">
+      <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center shrink-0 text-gold transition-colors group-hover:bg-foreground/[0.12]">
         {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
       </div>
 

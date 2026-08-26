@@ -32,10 +32,10 @@ export function WCSessionProposal() {
             <img
               src={icon}
               alt=""
-              className="w-16 h-16 rounded-2xl bg-foreground/10"
+              className="w-16 h-16 rounded-md bg-foreground/10"
             />
           ) : (
-            <div className="w-16 h-16 rounded-2xl bg-foreground/10 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-md bg-foreground/10 flex items-center justify-center">
               <ExternalLink className="h-8 w-8 text-muted-foreground" />
             </div>
           )}
@@ -53,7 +53,7 @@ export function WCSessionProposal() {
         </div>
 
         {/* Security note */}
-        <div className="flex items-start gap-3 rounded-xl bg-gold/[0.08] border border-gold/20 px-4 py-3 w-full">
+        <div className="flex items-start gap-3 rounded-md bg-gold/[0.08] border border-gold/20 px-4 py-3 w-full">
           <Shield className="h-5 w-5 text-gold shrink-0 mt-0.5" />
           <p className="text-xs text-foreground/80 leading-relaxed">
             Transactions from this DApp will be screened by your AI agent before execution.
@@ -62,7 +62,7 @@ export function WCSessionProposal() {
 
         {/* Requested permissions */}
         {(chains.length > 0 || methods.length > 0) && (
-          <div className="w-full rounded-xl bg-foreground/3 border border-foreground/6 px-4 py-3">
+          <div className="w-full rounded-md bg-foreground/3 border border-foreground/6 px-4 py-3">
             <p className="text-xs font-medium text-muted-foreground mb-2">Requested permissions</p>
             {chains.length > 0 && (
               <p className="text-xs text-muted-foreground/80">

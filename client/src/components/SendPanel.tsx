@@ -402,8 +402,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           <p className="text-sm font-semibold text-gold">Proposing transaction</p>
           <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Awaiting your signature</p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
           <TokenIcon token={selectedToken?.symbol ?? "USDC"} iconUrl={selectedToken?.iconUrl} />
@@ -447,8 +447,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           )}
           <span className="text-sm font-semibold text-watch">{statusLabel(tx.status)}</span>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
           <TokenIcon token={tx.token} iconUrl={tx.tokenIconUrl} />
@@ -505,7 +505,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+              className="flex items-center justify-center gap-2 w-full rounded-md py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
             >
               Sign in Safe app
               <ExternalLink className="h-3.5 w-3.5 opacity-60" />
@@ -543,8 +543,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             send it now — or come back anytime from your transaction history.
           </p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
           <TokenIcon token={tx.token} iconUrl={tx.tokenIconUrl} />
@@ -580,7 +580,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+          className="flex items-center justify-center gap-2 w-full rounded-md py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
         >
           Sign in Safe app
           <ExternalLink className="h-3.5 w-3.5 opacity-60" />
@@ -612,8 +612,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           <p className="text-sm font-semibold text-gold">Processing transaction</p>
           <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Sending on chain</p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
           <TokenIcon token={selectedToken?.symbol ?? "USDC"} iconUrl={selectedToken?.iconUrl} />
@@ -652,8 +652,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           <ExecutedAnimation size={80} />
           <span className="text-sm font-semibold text-safe">Executed</span>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
           <TokenIcon token={token} iconUrl={executedResult.tokenIconUrl} />
@@ -676,7 +676,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             href={explorerTxUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-md py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
           >
             <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
@@ -711,8 +711,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           <RejectedAnimation size={80} />
           <span className="text-sm font-semibold text-danger">Blocked</span>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+        <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
             <ArrowUpRight className="h-5 w-5" />
           </div>
           <TokenIcon token={tx.token} iconUrl={tx.tokenIconUrl} />
@@ -758,7 +758,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       sheetOnMobile
     >
       <div className="flex flex-col items-center gap-5 py-2">
-        <div className="w-16 h-16 rounded-2xl bg-gold/10 flex items-center justify-center">
+        <div className="w-16 h-16 rounded-md bg-gold/10 flex items-center justify-center">
           <MessageCircle className="h-8 w-8 text-gold" />
         </div>
         <div className="text-center space-y-2">
@@ -799,7 +799,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               (recipient.startsWith("0x") && recipient.length === 42 ? recipient : null);
             if (address) void submitTransaction(address);
           }}
-          className="w-full py-2.5 rounded-2xl border border-foreground/10 text-sm text-foreground/80 hover:bg-foreground/5 transition-colors cursor-pointer"
+          className="w-full py-2.5 rounded-md border border-foreground/10 text-sm text-foreground/80 hover:bg-foreground/5 transition-colors cursor-pointer"
         >
           Send anyway — alert me by email
         </button>
@@ -830,7 +830,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             placeholder="0.00"
             value={amountInputValue}
             onChange={(e) => setAmountInput(e.target.value)}
-            className="w-full bg-transparent border-0 rounded-2xl py-2 text-3xl sm:text-4xl md:text-5xl font-semibold text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 touch-manipulation"
+            className="w-full bg-transparent border-0 rounded-md py-2 text-3xl sm:text-4xl md:text-5xl font-semibold text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-0 touch-manipulation"
           />
         </div>
         {amountSecondary ? (
@@ -876,7 +876,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         <button
           type="button"
           onClick={() => setTokenSelectorOpen(true)}
-          className="w-full flex items-center gap-3 rounded-2xl bg-foreground/6 p-4 text-left hover:bg-foreground/8 transition-colors min-h-11 touch-manipulation cursor-pointer"
+          className="w-full flex items-center gap-3 rounded-md bg-foreground/6 p-4 text-left hover:bg-foreground/8 transition-colors min-h-11 touch-manipulation cursor-pointer"
         >
           {selectedToken ? (
             <>
@@ -949,7 +949,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           To
         </label>
         {resolvedAddress && !resolving ? (
-          <div className="w-full flex items-center gap-3 rounded-2xl bg-foreground/6 px-3.5 py-3 border border-foreground/[0.07]">
+          <div className="w-full flex items-center gap-3 rounded-md bg-foreground/6 px-3.5 py-3 border border-foreground/[0.07]">
             <span className="relative w-10 h-10 shrink-0 rounded-full overflow-hidden bg-foreground/10 flex items-center justify-center text-foreground/80">
               {resolvedAvatar ? (
                 <Image
@@ -1012,7 +1012,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               placeholder="Address, .eth, .bnb or Zhentan username"
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
-              className="w-full rounded-2xl bg-foreground/6 pl-4 pr-10 py-3.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-claw/40 focus:bg-foreground/8 transition-all min-h-11 touch-manipulation"
+              className="w-full rounded-md bg-foreground/6 pl-4 pr-10 py-3.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-claw/40 focus:bg-foreground/8 transition-all min-h-11 touch-manipulation"
             />
             {resolving && (
               <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/80">
@@ -1020,7 +1020,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               </span>
             )}
             {candidate && !resolving && (
-              <div className="absolute left-0 right-0 top-full mt-2 z-30 rounded-2xl bg-ink-900 border border-foreground/10 shadow-xl overflow-hidden">
+              <div className="absolute left-0 right-0 top-full mt-2 z-30 rounded-md bg-ink-900 border border-foreground/10 shadow-xl overflow-hidden">
                 <button
                   type="button"
                   onClick={selectCandidate}
@@ -1076,14 +1076,14 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         <button
           type="button"
           onClick={() => setForceExecute((v) => !v)}
-          className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-colors ${
+          className={`w-full flex items-center gap-3 rounded-md px-4 py-3 text-left transition-colors ${
             forceExecute
               ? "bg-gold/10 ring-1 ring-gold/30"
               : "bg-gold/[0.04] ring-1 ring-gold/15 hover:bg-gold/[0.07]"
           }`}
         >
           <span
-            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+            className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${
               forceExecute ? "bg-gold/20 text-gold" : "bg-foreground/8 text-muted-foreground"
             }`}
           >

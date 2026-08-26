@@ -47,7 +47,7 @@ function ProgressHeader({ step }: { step: number }) {
         <span
           key={i}
           className={clsx(
-            "h-1 rounded-pill transition-all duration-300",
+            "h-1 rounded-full transition-all duration-300",
             i === step ? "w-[30px] bg-gold" : i < step ? "w-4 bg-gold/40" : "w-4 bg-foreground/10"
           )}
         />
@@ -66,7 +66,7 @@ function Tick({ selected }: { selected: boolean }) {
   return (
     <span
       className={clsx(
-        "w-5 h-5 rounded-pill shrink-0 flex items-center justify-center mt-1.5 transition-all duration-200",
+        "w-5 h-5 rounded-full shrink-0 flex items-center justify-center mt-1.5 transition-all duration-200",
         selected ? "bg-gold" : "border-[1.5px] border-foreground/16"
       )}
     >
@@ -79,7 +79,7 @@ function Tick({ selected }: { selected: boolean }) {
  *  vault..." is progress — say so, keep auto-retrying, offer a manual kick. */
 function ResolutionErrorNote({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="mt-3 p-3 rounded-2xl bg-danger/[0.06] border border-danger/20 flex items-start gap-2.5">
+    <div className="mt-3 p-3 rounded-md bg-danger/[0.06] border border-danger/20 flex items-start gap-2.5">
       <AlertTriangle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" />
       <p className="flex-1 text-[11.5px] leading-relaxed text-danger/90">
         Can&apos;t reach Zhentan right now — retrying automatically. Your
@@ -98,7 +98,7 @@ function ResolutionErrorNote({ onRetry }: { onRetry: () => void }) {
 
 const optionClass = (selected: boolean) =>
   clsx(
-    "w-full text-left p-[15px] rounded-[18px] cursor-pointer transition-all duration-200 border",
+    "w-full text-left p-[15px] rounded-md cursor-pointer transition-all duration-200 border",
     selected
       ? "border-gold/45 bg-gold/[0.075] hover:bg-gold/10"
       : "border-foreground/8 bg-foreground/[0.025] hover:bg-foreground/[0.045]"
@@ -106,7 +106,7 @@ const optionClass = (selected: boolean) =>
 
 const segClass = (on: boolean) =>
   clsx(
-    "flex-1 py-[9px] rounded-[11px] text-xs font-semibold transition-all duration-200 cursor-pointer",
+    "flex-1 py-[9px] rounded-sm text-xs font-semibold transition-all duration-200 cursor-pointer",
     on ? "bg-gold/16 text-gold" : "text-muted-foreground hover:text-foreground"
   );
 
@@ -281,13 +281,13 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
           <div className="flex flex-col gap-2.5">
             <button type="button" onClick={pickGuarded} className={optionClass(guardedSelected)}>
               <span className="flex items-start gap-3">
-                <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-gold/12">
+                <span className="w-[34px] h-[34px] rounded-md shrink-0 flex items-center justify-center bg-gold/12">
                   <ShieldCheck className="h-[17px] w-[17px] text-gold" />
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="flex items-center gap-2 flex-wrap">
                     <span className="text-[14.5px] font-bold tracking-tight">AI screening on</span>
-                    <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] px-2 py-[3px] rounded-pill bg-gold/14 text-gold">
+                    <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] px-2 py-[3px] rounded-full bg-gold/14 text-gold">
                       Recommended
                     </span>
                   </span>
@@ -302,7 +302,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
 
             <button type="button" onClick={pickStarter} className={optionClass(starterSelected)}>
               <span className="flex items-start gap-3">
-                <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-foreground/6">
+                <span className="w-[34px] h-[34px] rounded-md shrink-0 flex items-center justify-center bg-foreground/6">
                   <KeyRound className="h-[17px] w-[17px] text-muted-foreground" />
                 </span>
                 <span className="flex-1 min-w-0">
@@ -346,8 +346,8 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
 
           {externalWalletAddress ? (
             /* Saved override key */
-            <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-safe/[0.07] border border-safe/20">
-              <span className="w-[30px] h-[30px] rounded-[10px] shrink-0 flex items-center justify-center bg-safe/14">
+            <div className="flex items-center gap-2.5 p-3.5 rounded-md bg-safe/[0.07] border border-safe/20">
+              <span className="w-[30px] h-[30px] rounded-sm shrink-0 flex items-center justify-center bg-safe/14">
                 <Check className="h-[15px] w-[15px] text-safe" strokeWidth={2.6} />
               </span>
               <span className="flex-1 min-w-0">
@@ -370,7 +370,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
             !skipped && (
               <div>
                 {/* Segmented: connect / enter address */}
-                <div className="flex gap-1 p-1 rounded-[14px] bg-foreground/4 mb-3">
+                <div className="flex gap-1 p-1 rounded-md bg-foreground/4 mb-3">
                   <button type="button" onClick={() => { setMode("connect"); cand.clearError(); }} className={segClass(mode === "connect")}>
                     Connect a wallet
                   </button>
@@ -384,9 +384,9 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                     type="button"
                     onClick={cand.connect}
                     disabled={cand.connecting}
-                    className="w-full flex items-center gap-3 text-left p-3.5 rounded-2xl border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
+                    className="w-full flex items-center gap-3 text-left p-3.5 rounded-md border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
                   >
-                    <span className="w-8 h-8 rounded-[10px] shrink-0 flex items-center justify-center bg-foreground/6">
+                    <span className="w-8 h-8 rounded-sm shrink-0 flex items-center justify-center bg-foreground/6">
                       {cand.connecting ? (
                         <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
                       ) : (
@@ -414,13 +414,13 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                         placeholder="0x address, name.eth or name.bnb"
                         spellCheck={false}
                         autoComplete="off"
-                        className="flex-1 min-w-0 bg-foreground/4 border border-foreground/10 rounded-[13px] px-3.5 py-[11px] font-mono text-[12.5px] text-foreground placeholder:font-sans placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
+                        className="flex-1 min-w-0 bg-foreground/4 border border-foreground/10 rounded-md px-3.5 py-[11px] font-mono text-[12.5px] text-foreground placeholder:font-sans placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
                       />
                       <button
                         type="button"
                         onClick={cand.resolveInput}
                         disabled={cand.resolving || !cand.input.trim()}
-                        className="shrink-0 px-[15px] rounded-[13px] border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-45 disabled:cursor-default cursor-pointer"
+                        className="shrink-0 px-[15px] rounded-md border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-45 disabled:cursor-default cursor-pointer"
                       >
                         {cand.resolving ? "Checking…" : "Use"}
                       </button>
@@ -441,7 +441,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
-                      className="mt-3 p-3.5 rounded-2xl border border-gold/25 bg-gold/[0.06]"
+                      className="mt-3 p-3.5 rounded-md border border-gold/25 bg-gold/[0.06]"
                     >
                       <p className="text-[13px] font-semibold">
                         {cand.candidate.label ?? "Pasted address"}
@@ -477,7 +477,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                className="mt-3 p-[15px] rounded-2xl bg-watch/[0.06] border border-watch/18"
+                className="mt-3 p-[15px] rounded-md bg-watch/[0.06] border border-watch/18"
               >
                 <p className="flex items-center gap-2 text-[13px] font-semibold text-watch mb-1.5">
                   <AlertTriangle className="h-3.5 w-3.5" />
@@ -496,7 +496,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                       setSkipPanel(false);
                       cand.clearCandidate();
                     }}
-                    className="flex-1 py-2.5 rounded-xl border border-watch/35 text-watch text-xs font-semibold hover:bg-watch/10 transition-colors cursor-pointer"
+                    className="flex-1 py-2.5 rounded-md border border-watch/35 text-watch text-xs font-semibold hover:bg-watch/10 transition-colors cursor-pointer"
                   >
                     Skip for now
                   </button>
@@ -506,7 +506,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                       setSkipPanel(false);
                       setSkipped(false);
                     }}
-                    className="flex-1 py-2.5 rounded-xl bg-gold text-ink-900 text-xs font-bold hover:bg-gold/90 transition-colors cursor-pointer"
+                    className="flex-1 py-2.5 rounded-md bg-gold text-ink-900 text-xs font-bold hover:bg-gold/90 transition-colors cursor-pointer"
                   >
                     Add a key
                   </button>
@@ -662,7 +662,7 @@ function UsernameStep({
           placeholder="alextan"
           maxLength={20}
           spellCheck={false}
-          className="w-full rounded-[15px] border border-foreground/10 bg-foreground/4 pl-[34px] pr-10 py-[13px] font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
+          className="w-full rounded-md border border-foreground/10 bg-foreground/4 pl-[34px] pr-10 py-[13px] font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
         />
         {isValid && (
           <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex">
@@ -758,9 +758,9 @@ function ConnectStep({ onFinish }: { onFinish: () => void }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ type: "spring", bounce: 0.1 }}
-            className="flex items-center gap-3 p-3.5 rounded-2xl bg-safe/[0.07] border border-safe/20"
+            className="flex items-center gap-3 p-3.5 rounded-md bg-safe/[0.07] border border-safe/20"
           >
-            <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-safe/14 overflow-hidden">
+            <span className="w-[34px] h-[34px] rounded-md shrink-0 flex items-center justify-center bg-safe/14 overflow-hidden">
               {photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photoUrl} alt="" className="w-full h-full object-cover" />
@@ -771,7 +771,7 @@ function ConnectStep({ onFinish }: { onFinish: () => void }) {
             <span className="flex-1 min-w-0">
               <span className="flex items-center gap-2">
                 <span className="text-[13.5px] font-semibold">Telegram</span>
-                <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] px-[7px] py-0.5 rounded-pill bg-safe/14 text-safe">
+                <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] px-[7px] py-0.5 rounded-full bg-safe/14 text-safe">
                   Connected
                 </span>
               </span>
@@ -800,9 +800,9 @@ function ConnectStep({ onFinish }: { onFinish: () => void }) {
               setOpened(true);
               openBot();
             }}
-            className="w-full flex items-center gap-3 text-left p-3.5 rounded-2xl border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
+            className="w-full flex items-center gap-3 text-left p-3.5 rounded-md border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
           >
-            <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-foreground/6">
+            <span className="w-[34px] h-[34px] rounded-md shrink-0 flex items-center justify-center bg-foreground/6">
               {/* Mao is already on watch — the sweep across his shades IS the
                   listening state; no spinner needed. */}
               <MaoAvatar state="scanning" size={30} variant="detail" />
@@ -824,7 +824,7 @@ function ConnectStep({ onFinish }: { onFinish: () => void }) {
 
       {!linked &&
         (showCodeEntry ? (
-          <div className="mt-3 p-3.5 rounded-2xl border border-foreground/8 bg-foreground/[0.035]">
+          <div className="mt-3 p-3.5 rounded-md border border-foreground/8 bg-foreground/[0.035]">
             <TelegramLinkFlow variant="embedded" />
           </div>
         ) : (
@@ -914,7 +914,7 @@ function DoneStep({
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.15, type: "spring", bounce: 0.4 }}
-        className="w-[60px] h-[60px] mx-auto mt-1.5 mb-5 rounded-pill bg-gold flex items-center justify-center shadow-[0_0_44px_rgba(196,148,40,0.35)]"
+        className="w-[60px] h-[60px] mx-auto mt-1.5 mb-5 rounded-full bg-gold flex items-center justify-center shadow-[0_0_44px_rgba(196,148,40,0.35)]"
       >
         <Check className="w-7 h-7 text-ink-900" strokeWidth={3.2} />
       </motion.div>
@@ -922,12 +922,12 @@ function DoneStep({
       <h2 className="text-[23px] font-bold tracking-tight mb-2">Your vault is ready</h2>
       <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5">{doneLine}</p>
 
-      <div className="flex flex-col gap-px rounded-2xl overflow-hidden bg-foreground/6 text-left mb-5">
+      <div className="flex flex-col gap-px rounded-md overflow-hidden bg-foreground/6 text-left mb-5">
         {rows.map((r) => (
           <div key={r.text} className="flex items-center gap-2.5 px-3.5 py-3 bg-card">
             <span
               className={clsx(
-                "w-5 h-5 rounded-pill shrink-0 flex items-center justify-center",
+                "w-5 h-5 rounded-full shrink-0 flex items-center justify-center",
                 r.on ? "bg-safe/14 text-safe" : "bg-foreground/6 text-muted-foreground/70"
               )}
             >
@@ -1091,7 +1091,7 @@ function OnboardingContent() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, type: "spring", bounce: 0.15 }}
-        className="w-full max-w-[436px] rounded-[26px] bg-card border border-border shadow-[0_34px_80px_-50px_rgba(0,0,0,0.9)] p-[30px] pb-[26px]"
+        className="w-full max-w-[436px] rounded-lg bg-card border border-border shadow-[0_34px_80px_-50px_rgba(0,0,0,0.9)] p-[30px] pb-[26px]"
       >
         <ProgressHeader step={step} />
 

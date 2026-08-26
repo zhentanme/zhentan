@@ -487,7 +487,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           <p className="text-sm font-semibold text-gold">{swapStatus}</p>
           <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Executing on chain</p>
         </div>
-        <div className="rounded-2xl bg-foreground/6 p-4 space-y-3">
+        <div className="rounded-md bg-foreground/6 p-4 space-y-3">
           <div className="flex items-center gap-3">
             <TokenIcon token={fromToken} />
             <span className="text-base font-semibold text-foreground">
@@ -544,7 +544,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             {caption}
           </p>
         </div>
-        <div className="rounded-2xl bg-foreground/6 p-4 space-y-3">
+        <div className="rounded-md bg-foreground/6 p-4 space-y-3">
           <div className="flex items-center gap-3">
             <TokenIcon token={fromToken} />
             <span className="text-base font-semibold text-foreground">
@@ -576,7 +576,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             href={`https://app.safe.global/transactions/queue?safe=bnb:${safeAddress}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-md py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
           >
             Sign in Safe app
           </a>
@@ -597,8 +597,8 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           <ExecutedAnimation size={80} />
           <span className="text-sm font-semibold text-safe">Executed</span>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-          <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold shrink-0">
+        <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
+          <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold shrink-0">
             <ArrowDownUp className="h-5 w-5" />
           </div>
           <TokenIcon token={fromToken} />
@@ -631,7 +631,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             href={explorerUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-md py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
           >
             <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
@@ -651,7 +651,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-2xl bg-danger/15 text-danger flex items-center justify-center">
+          <div className="w-20 h-20 rounded-md bg-danger/15 text-danger flex items-center justify-center">
             <ArrowDownUp className="h-10 w-10" />
           </div>
           <span className="text-sm font-semibold text-danger">Swap Failed</span>
@@ -722,7 +722,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             value={tokenSearch}
             onChange={(e) => handleTokenSearch(e.target.value)}
             placeholder="Search by name or address…"
-            className="w-full rounded-xl bg-foreground/6 border border-foreground/8 pl-9 pr-9 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-gold/30 focus:bg-foreground/8 transition-all"
+            className="w-full rounded-md bg-foreground/6 border border-foreground/8 pl-9 pr-9 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-gold/30 focus:bg-foreground/8 transition-all"
             autoFocus
           />
           {tokenSearch && (
@@ -792,7 +792,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
 
       <div className="flex flex-col gap-3">
         {/* Sell row */}
-        <div className="rounded-2xl bg-foreground/6 px-4 pt-3 pb-3">
+        <div className="rounded-md bg-foreground/6 px-4 pt-3 pb-3">
           <label className="block text-xs font-medium text-muted-foreground/80 mb-2">
             You&apos;re selling
           </label>
@@ -834,7 +834,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             <button
               type="button"
               onClick={() => setFromSelectorOpen(true)}
-              className="flex items-center gap-2 rounded-2xl bg-foreground/8 hover:bg-foreground/14 border border-foreground/8 px-3 py-2 transition-colors cursor-pointer shrink-0"
+              className="flex items-center gap-2 rounded-md bg-foreground/8 hover:bg-foreground/14 border border-foreground/8 px-3 py-2 transition-colors cursor-pointer shrink-0"
             >
               <TokenIcon token={fromToken} size="sm" />
               <span className="text-sm font-semibold text-foreground">
@@ -900,7 +900,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
         </div>
 
         {/* Buy row */}
-        <div className="rounded-2xl bg-foreground/4 px-4 pt-3 pb-3">
+        <div className="rounded-md bg-foreground/4 px-4 pt-3 pb-3">
           <label className="block text-xs font-medium text-muted-foreground/80 mb-2">
             You&apos;re buying
           </label>
@@ -919,7 +919,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             <button
               type="button"
               onClick={() => setToSelectorOpen(true)}
-              className="flex items-center gap-2 rounded-2xl bg-foreground/8 hover:bg-foreground/14 border border-foreground/8 px-3 py-2 transition-colors cursor-pointer shrink-0"
+              className="flex items-center gap-2 rounded-md bg-foreground/8 hover:bg-foreground/14 border border-foreground/8 px-3 py-2 transition-colors cursor-pointer shrink-0"
             >
               <TokenIcon token={toToken} size="sm" />
               <span className="text-sm font-semibold text-foreground">
@@ -941,7 +941,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
         {/* Quote info */}
         {quote && fromToken && toToken && (
           <motion.div
-            className="rounded-2xl bg-foreground/4 border border-foreground/6 px-4 py-3 space-y-2 text-sm"
+            className="rounded-md bg-foreground/4 border border-foreground/6 px-4 py-3 space-y-2 text-sm"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
           >

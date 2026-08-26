@@ -168,7 +168,7 @@ export function BackupAddressPicker({
       <button
         onClick={connect}
         disabled={connecting}
-        className="w-full flex items-center gap-3 rounded-xl px-4 py-3 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 hover:border-foreground/12 transition-all duration-200 disabled:opacity-60 disabled:cursor-default"
+        className="w-full flex items-center gap-3 rounded-md px-4 py-3 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 hover:border-foreground/12 transition-all duration-200 disabled:opacity-60 disabled:cursor-default"
       >
         <div className="w-8 h-8 rounded-lg bg-foreground/6 flex items-center justify-center shrink-0">
           {connecting
@@ -227,7 +227,7 @@ export function BackupAddressPicker({
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="rounded-xl border border-gold/25 bg-gold/[0.06] p-3.5 space-y-2.5"
+            className="rounded-md border border-gold/25 bg-gold/[0.06] p-3.5 space-y-2.5"
           >
             <div className="min-w-0">
               {candidate.label && (

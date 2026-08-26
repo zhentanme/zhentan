@@ -251,12 +251,12 @@ function Dashboard() {
                   }`}
                 >
                   {tab.label}
-                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-pill bg-foreground/[0.06] text-muted-foreground tabular-nums">
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full bg-foreground/[0.06] text-muted-foreground tabular-nums">
                     {tab.count}
                   </span>
                   {active && (
                     <motion.span
-                      className="absolute bottom-0 left-0 right-0 h-0.5 rounded-pill bg-gold"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-gold"
                       layoutId="tab-indicator"
                       transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
                     />

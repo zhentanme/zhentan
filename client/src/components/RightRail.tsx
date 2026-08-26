@@ -90,7 +90,7 @@ function LiveReadout({ isActive }: { isActive: boolean }) {
       <Link
         href="/settings"
         aria-label="Agent screening settings"
-        className="group relative flex-1 overflow-hidden rounded-xl bg-foreground/[0.03] border border-border transition-colors hover:bg-foreground/[0.05] hover:border-gold/25"
+        className="group relative flex-1 overflow-hidden rounded-md bg-foreground/[0.03] border border-border transition-colors hover:bg-foreground/[0.05] hover:border-gold/25"
       >
         {/* Gold top-edge accent */}
         <div
@@ -180,7 +180,7 @@ function PendingCard({
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
       className={clsx(
-        "relative overflow-hidden rounded-xl bg-foreground/[0.04] border border-border",
+        "relative overflow-hidden rounded-md bg-foreground/[0.04] border border-border",
         onClick &&
           "cursor-pointer transition-colors hover:bg-foreground/[0.06] hover:border-gold/25"
       )}
@@ -348,7 +348,7 @@ export function RightRail() {
             <p className="mt-0.5 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
               <span
                 className={clsx(
-                  "h-1.5 w-1.5 rounded-pill signal-dot",
+                  "h-1.5 w-1.5 rounded-full signal-dot",
                   agentOffline
                     ? "bg-watch"
                     : isScreeningActive
@@ -365,7 +365,7 @@ export function RightRail() {
           </div>
           <span
             className={clsx(
-              "shrink-0 font-mono uppercase tracking-wider text-[10px] font-semibold px-2.5 py-1 rounded-pill",
+              "shrink-0 font-mono uppercase tracking-wider text-[10px] font-semibold px-2.5 py-1 rounded-full",
               agentOffline
                 ? "bg-watch/10 text-watch"
                 : isScreeningActive
@@ -409,7 +409,7 @@ export function RightRail() {
                 time={lastQueued.queuedAt}
                 party={
                   lastQueued.billedFrom?.name ||
-                  truncateAddress(lastQueued.to, 16)
+                  truncateAddress(lastQueued.to)
                 }
                 meta={
                   lastQueued.invoiceNumber ||
@@ -432,7 +432,7 @@ export function RightRail() {
                 amount={lastReview.amount}
                 token={lastReview.token}
                 time={lastReview.proposedAt}
-                party={truncateAddress(lastReview.to, 16)}
+                party={truncateAddress(lastReview.to)}
                 meta={lastReview.reviewReason || undefined}
                 note={
                   lastReview.riskReasons?.[0] ||
@@ -486,7 +486,7 @@ export function RightRail() {
                 >
                   <span
                     className={clsx(
-                      "h-1.5 w-1.5 rounded-pill shrink-0 signal-dot",
+                      "h-1.5 w-1.5 rounded-full shrink-0 signal-dot",
                       rejected ? "bg-danger" : "bg-safe"
                     )}
                   />
@@ -496,7 +496,7 @@ export function RightRail() {
                       {formatTokenAmount(tx.amount)} {tx.token}
                     </p>
                     <p className="font-mono text-[11px] text-muted-foreground truncate mt-0.5">
-                      {truncateAddress(tx.to, 14)}
+                      {truncateAddress(tx.to)}
                     </p>
                   </div>
                   <span

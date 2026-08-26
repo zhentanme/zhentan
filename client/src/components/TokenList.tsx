@@ -31,7 +31,7 @@ export function TokenList({ tokens, loading, embedded }: TokenListProps) {
         <div className="space-y-0.5">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="flex items-center gap-3 px-4 sm:px-6 py-4">
-              <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+              <Skeleton className="h-10 w-10 rounded-md shrink-0" />
               <div className="flex-1 min-w-0 space-y-2">
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-3 w-28" />
@@ -50,7 +50,7 @@ export function TokenList({ tokens, loading, embedded }: TokenListProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.35 }}
         >
-          <div className="mb-4 w-12 h-12 rounded-2xl bg-foreground/6 flex items-center justify-center text-muted-foreground/80">
+          <div className="mb-4 w-12 h-12 rounded-md bg-foreground/6 flex items-center justify-center text-muted-foreground/80">
             <Coins className="h-6 w-6" />
           </div>
           <p className="text-sm font-medium text-muted-foreground">No tokens yet</p>

@@ -71,7 +71,7 @@ interface CustomTooltipProps {
 function CustomTooltip({ active, payload, label, period }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-card border border-foreground/10 rounded-xl px-3 py-2 text-xs shadow-lg">
+    <div className="bg-card border border-foreground/10 rounded-md px-3 py-2 text-xs shadow-lg">
       <p className="text-muted-foreground">{label != null ? formatChartDate(label, period) : ""}</p>
       <p className="text-foreground font-semibold mt-0.5">{formatPrice(payload[0].value)}</p>
     </div>
@@ -138,7 +138,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
     <Dialog open={open} onClose={onClose} className="max-w-md">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
-        <div className="w-11 h-11 rounded-xl bg-foreground/6 flex items-center justify-center shrink-0 overflow-hidden">
+        <div className="w-11 h-11 rounded-md bg-foreground/6 flex items-center justify-center shrink-0 overflow-hidden">
           {displayIcon ? (
             <Image src={displayIcon} alt="" width={44} height={44} className="object-cover w-full h-full" unoptimized />
           ) : (
@@ -174,7 +174,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
       {/* Chart */}
       <div className="mb-3">
         {loading && !currentChart ? (
-          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-md" />
         ) : error ? (
           <div className="h-40 flex items-center justify-center text-xs text-muted-foreground/80">{error}</div>
         ) : points.length > 0 ? (
@@ -248,7 +248,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
       {loading && !details ? (
         <div className="grid grid-cols-3 gap-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-foreground/4 rounded-xl p-3">
+            <div key={i} className="bg-foreground/4 rounded-md p-3">
               <Skeleton className="h-3 w-14 mb-2" />
               <Skeleton className="h-4 w-16" />
             </div>
@@ -261,7 +261,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
             { label: "FDV",         value: formatLargeUsd(details.marketData.fullyDilutedValuation) },
             { label: "Circulating", value: formatSupply(details.marketData.circulatingSupply) + ` ${displaySymbol}` },
           ].map(({ label, value }) => (
-            <div key={label} className="bg-foreground/4 rounded-xl p-3">
+            <div key={label} className="bg-foreground/4 rounded-md p-3">
               <p className="text-[10px] text-muted-foreground/80 uppercase tracking-wide mb-1">{label}</p>
               <p className="text-xs font-semibold text-foreground truncate">{value}</p>
             </div>

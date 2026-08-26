@@ -139,8 +139,8 @@ export default function LoginPage() {
           transition={{ duration: 0.55, type: "spring", bounce: 0.15 }}
         >
           {/* Agent-id badge — liveness from /health, never hardcoded (#136.5) */}
-          <span className="inline-flex items-center gap-3 px-3.5 py-2 rounded-pill bg-gold/[0.06] border border-gold/20 font-mono text-[11px] tracking-[0.14em] uppercase text-gold-300">
-            <span className="w-[18px] h-[18px] rounded-pill bg-gold/15 flex items-center justify-center p-0.5">
+          <span className="inline-flex items-center gap-3 px-3.5 py-2 rounded-full bg-gold/[0.06] border border-gold/20 font-mono text-[11px] tracking-[0.14em] uppercase text-gold-300">
+            <span className="w-[18px] h-[18px] rounded-full bg-gold/15 flex items-center justify-center p-0.5">
               <TwinTick size={13} halo="none" />
             </span>
             {agentOnline === null
@@ -151,8 +151,8 @@ export default function LoginPage() {
             <span
               className={
                 agentOnline
-                  ? "w-1.5 h-1.5 rounded-pill bg-gold-400 animate-signal-pulse"
-                  : "w-1.5 h-1.5 rounded-pill bg-gold-400/40"
+                  ? "w-1.5 h-1.5 rounded-full bg-gold-400 animate-signal-pulse"
+                  : "w-1.5 h-1.5 rounded-full bg-gold-400/40"
               }
             />
           </span>
@@ -172,7 +172,7 @@ export default function LoginPage() {
             type="button"
             onClick={handleGoogleLogin}
             disabled={busy}
-            className="mt-8 inline-flex items-center gap-3 px-6 py-3.5 rounded-pill bg-gradient-to-br from-gold-light to-gold-500 text-ink-900 font-semibold text-[15px] shadow-[0_14px_40px_-18px_rgba(196,148,40,0.8)] hover:brightness-[1.05] active:translate-y-px transition disabled:opacity-60 disabled:cursor-default cursor-pointer"
+            className="mt-8 inline-flex items-center gap-3 px-6 py-3.5 rounded-full bg-gradient-to-br from-gold-light to-gold-500 text-ink-900 font-semibold text-[15px] shadow-[0_14px_40px_-18px_rgba(196,148,40,0.8)] hover:brightness-[1.05] active:translate-y-px transition disabled:opacity-60 disabled:cursor-default cursor-pointer"
           >
             {busy ? (
               <>
@@ -207,8 +207,8 @@ export default function LoginPage() {
               className="flex items-center gap-1.5"
               title="MetaMask, Rabby & other wallets"
             >
-              <MetaMaskIcon className="h-[18px] w-[18px] rounded-[5px] object-contain" />
-              <RabbyIcon className="h-[18px] w-[18px] rounded-[5px] object-contain" />
+              <MetaMaskIcon className="h-[18px] w-[18px] rounded-xs object-contain" />
+              <RabbyIcon className="h-[18px] w-[18px] rounded-xs object-contain" />
             </div>
           </div>
 

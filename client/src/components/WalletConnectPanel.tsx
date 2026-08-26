@@ -62,7 +62,7 @@ export function WalletConnectPanel() {
             value={uri}
             onChange={(e) => setUri(e.target.value)}
             placeholder="Paste WalletConnect URI (wc:...)"
-            className="flex-1 rounded-xl bg-foreground/6 border border-foreground/8 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:ring-1 focus:ring-gold/50 transition-all"
+            className="flex-1 rounded-md bg-foreground/6 border border-foreground/8 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/80 focus:outline-none focus:ring-1 focus:ring-gold/50 transition-all"
             onKeyDown={(e) => e.key === "Enter" && handleConnect()}
           />
           <Button
@@ -111,7 +111,7 @@ export function WalletConnectPanel() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  className="flex items-center gap-3 rounded-xl bg-foreground/4 border border-foreground/6 px-4 py-3"
+                  className="flex items-center gap-3 rounded-md bg-foreground/4 border border-foreground/6 px-4 py-3"
                 >
                   {icon ? (
                     <img

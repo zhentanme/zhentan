@@ -175,7 +175,7 @@ function RequestsPageContent() {
               </p>
             </div>
             {queuedCount > 0 && (
-              <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill bg-watch/12 text-watch font-mono uppercase tracking-wider text-[11px]">
+              <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-watch/12 text-watch font-mono uppercase tracking-wider text-[11px]">
                 {queuedCount} Queued
               </span>
             )}
@@ -183,9 +183,9 @@ function RequestsPageContent() {
 
           {!loading && requests.length === 0 ? (
             <motion.div variants={staggerItem}>
-              <div className="py-16 rounded-2xl bg-foreground/2 border border-foreground/6">
+              <div className="py-16 rounded-md bg-foreground/2 border border-foreground/6">
                 <div className="flex flex-col items-center justify-center text-center">
-                  <div className="mb-4 w-12 h-12 rounded-2xl bg-foreground/6 flex items-center justify-center text-muted-foreground/80">
+                  <div className="mb-4 w-12 h-12 rounded-md bg-foreground/6 flex items-center justify-center text-muted-foreground/80">
                     <FileText className="h-6 w-6" />
                   </div>
                   <p className="text-sm font-medium text-muted-foreground">No requests yet</p>

@@ -58,7 +58,7 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
       transition={{ delay: index * 0.05, duration: 0.35, type: "spring", bounce: 0.1 }}
     >
       {/* Token icon */}
-      <div className="w-10 h-10 rounded-pill bg-foreground/6 flex items-center justify-center shrink-0 overflow-hidden">
+      <div className="w-10 h-10 rounded-full bg-foreground/6 flex items-center justify-center shrink-0 overflow-hidden">
         {token.iconUrl ? (
           <Image
             src={token.iconUrl}

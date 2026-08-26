@@ -165,7 +165,7 @@ export function UpgradeDialog({
             {!externalWalletAddress ? (
               <BackupAddressPicker onSelect={setBackupAddress} />
             ) : (
-              <div className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-safe/25 bg-safe/6">
+              <div className="w-full flex items-center gap-3 rounded-md px-4 py-3 border border-safe/25 bg-safe/6">
                 <Check className="h-4 w-4 text-safe shrink-0" />
                 <p className="text-xs text-muted-foreground font-mono truncate flex-1">
                   {externalWalletAddress}
@@ -201,7 +201,7 @@ export function UpgradeDialog({
             ) : flow === "starter" && skipWarning ? (
               /* Lockout disclosure — the same acknowledgment onboarding
                  requires before creating a guarded wallet (#136.8). */
-              <div className="w-full p-[15px] rounded-2xl bg-watch/[0.06] border border-watch/18">
+              <div className="w-full p-[15px] rounded-md bg-watch/[0.06] border border-watch/18">
                 <p className="flex items-center gap-2 text-[13px] font-semibold text-watch mb-1.5">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   Continue without a backup key?
@@ -215,14 +215,14 @@ export function UpgradeDialog({
                   <button
                     onClick={handleSkipBackup}
                     disabled={busy}
-                    className="flex-1 py-2.5 rounded-xl border border-watch/35 text-watch text-xs font-semibold hover:bg-watch/10 transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-md border border-watch/35 text-watch text-xs font-semibold hover:bg-watch/10 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     {busy ? "Enabling…" : "Enable anyway"}
                   </button>
                   <button
                     onClick={() => setSkipWarning(false)}
                     disabled={busy}
-                    className="flex-1 py-2.5 rounded-xl bg-gold text-ink-900 text-xs font-bold hover:bg-gold/90 transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-2.5 rounded-md bg-gold text-ink-900 text-xs font-bold hover:bg-gold/90 transition-colors cursor-pointer disabled:opacity-50"
                   >
                     Add a key
                   </button>
@@ -283,7 +283,7 @@ export function UpgradeDialog({
             subtitle="Screening needs a way to reach you — connect Telegram to approve or reject reviews from anywhere. Skipping keeps alerts on email only."
           >
             {telegramLinked ? (
-              <div className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-safe/25 bg-safe/6">
+              <div className="w-full flex items-center gap-3 rounded-md px-4 py-3 border border-safe/25 bg-safe/6">
                 <MaoAvatar state="cleared" size={22} variant="solid" />
                 <p className="text-xs text-muted-foreground flex-1">Telegram connected</p>
               </div>
@@ -361,7 +361,7 @@ function StepShell({
       transition={{ type: "spring", bounce: 0.15 }}
       className="flex flex-col items-center w-full"
     >
-      <div className="w-14 h-14 rounded-2xl bg-gold/10 flex items-center justify-center mb-5">
+      <div className="w-14 h-14 rounded-md bg-gold/10 flex items-center justify-center mb-5">
         {icon}
       </div>
       <h2 className="text-xl font-bold text-center mb-2">{title}</h2>

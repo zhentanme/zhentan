@@ -50,9 +50,9 @@ export function SignerMismatchBanner() {
           {active ? (
             <>
               You&apos;re connected with a non-signer account{" "}
-              <span className="font-mono text-danger">{truncateAddress(active, 13)}</span>.
+              <span className="font-mono text-danger">{truncateAddress(active)}</span>.
               Signing needs{" "}
-              <span className="font-mono">{truncateAddress(expected, 13)}</span>.
+              <span className="font-mono">{truncateAddress(expected)}</span>.
             </>
           ) : (
             <>{walletLabel} is locked or disconnected — signing is unavailable until it reconnects.</>
@@ -85,7 +85,7 @@ export function SignerMismatchInline({ compact = false }: { compact?: boolean })
   const { expected, active, walletName } = signerMismatch;
   const walletLabel = walletName ?? "your wallet";
   const title = active
-    ? `This account can't sign for your Safe — switch back to ${truncateAddress(expected, 13)}`
+    ? `This account can't sign for your Safe — switch back to ${truncateAddress(expected)}`
     : `${walletLabel} is locked or disconnected`;
 
   return (

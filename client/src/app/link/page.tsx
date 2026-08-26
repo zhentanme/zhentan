@@ -40,7 +40,7 @@ function LinkPageInner() {
           <BrandMark />
         </div>
 
-        <div className="rounded-3xl border border-foreground/8 bg-foreground/[0.02] p-6">
+        <div className="rounded-lg border border-foreground/8 bg-foreground/[0.02] p-6">
           {!authed && !authLoading ? (
             <>
               <h1 className="text-[19px] font-bold tracking-tight mb-2">Connect Telegram</h1>

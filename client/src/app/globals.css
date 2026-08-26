@@ -44,7 +44,6 @@
   --r-sm: 8px;
   --r-md: 14px;
   --r-lg: 22px;
-  --r-pill: 999px;
   --radius: 14px;
 
   /* Font families (bound by next/font in the root layout) */
@@ -74,6 +73,8 @@
   --ring: #c49428;
   --surface: #f3f1ea;
   --surface-light: #faf9f5;
+  /* Overlay scrim behind dialogs, tours, and takeovers */
+  --scrim: rgba(31, 36, 33, 0.4);
 }
 
 /* Dark mode — ink canvas, gold accent (canonical) */
@@ -99,6 +100,7 @@
   --ring: #c49428;
   --surface: var(--ink-800);
   --surface-light: var(--ink-700);
+  --scrim: rgba(0, 0, 0, 0.6);
 }
 
 @layer base {

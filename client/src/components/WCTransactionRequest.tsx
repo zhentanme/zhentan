@@ -98,8 +98,8 @@ export function WCTransactionRequest() {
 
   // Amount badge — matches SendPanel's "amount + icon" row
   const AmountBadge = () => (
-    <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-      <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+    <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
+      <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
         <ArrowUpRight className="h-5 w-5" />
       </div>
       <DappIcon />
@@ -151,7 +151,7 @@ export function WCTransactionRequest() {
         <div className="space-y-6">
           <div className="flex flex-col items-center gap-3">
             <motion.div
-              className="w-20 h-20 rounded-2xl bg-watch/15 text-watch flex items-center justify-center"
+              className="w-20 h-20 rounded-md bg-watch/15 text-watch flex items-center justify-center"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1, rotate: [0, 5, -5, 0] }}
               transition={{
@@ -195,7 +195,7 @@ export function WCTransactionRequest() {
       {requestStatus === "success" && requestTxHash && (
         <div className="space-y-6">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-20 h-20 rounded-2xl bg-gold/20 text-gold flex items-center justify-center">
+            <div className="w-20 h-20 rounded-md bg-gold/20 text-gold flex items-center justify-center">
               <CheckCircle2 className="h-10 w-10" />
             </div>
             <span className="text-sm font-semibold text-gold">Executed</span>
@@ -223,7 +223,7 @@ export function WCTransactionRequest() {
             href={`${BSC_EXPLORER_URL}/tx/${requestTxHash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-md py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
           >
             <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
@@ -240,7 +240,7 @@ export function WCTransactionRequest() {
       {requestStatus === "error" && (
         <div className="space-y-6">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-20 h-20 rounded-2xl bg-danger/15 text-danger flex items-center justify-center">
+            <div className="w-20 h-20 rounded-md bg-danger/15 text-danger flex items-center justify-center">
               <XCircle className="h-10 w-10" />
             </div>
             <span className="text-sm font-semibold text-danger">Failed</span>
@@ -264,10 +264,10 @@ export function WCTransactionRequest() {
                 <img
                   src={dapp.icons[0]}
                   alt=""
-                  className="w-10 h-10 rounded-xl bg-foreground/10 shrink-0"
+                  className="w-10 h-10 rounded-md bg-foreground/10 shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-xl bg-foreground/10 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-md bg-foreground/10 flex items-center justify-center shrink-0">
                   <ExternalLink className="h-5 w-5 text-muted-foreground" />
                 </div>
               )}
@@ -296,7 +296,7 @@ export function WCTransactionRequest() {
           </dl>
 
           {/* Security note */}
-          <div className="flex items-start gap-3 rounded-xl bg-gold/[0.08] border border-gold/20 px-4 py-3">
+          <div className="flex items-start gap-3 rounded-md bg-gold/[0.08] border border-gold/20 px-4 py-3">
             <Shield className="h-5 w-5 text-gold shrink-0 mt-0.5" />
             <p className="text-xs text-foreground/80 leading-relaxed">
               This transaction will be queued for AI screening before execution.

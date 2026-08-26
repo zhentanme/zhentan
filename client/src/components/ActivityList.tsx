@@ -58,7 +58,7 @@ export function ActivityList({ transactions, loading, embedded }: ActivityListPr
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.35 }}
         >
-          <div className="mb-4 w-12 h-12 rounded-2xl bg-foreground/6 flex items-center justify-center text-muted-foreground/80">
+          <div className="mb-4 w-12 h-12 rounded-md bg-foreground/6 flex items-center justify-center text-muted-foreground/80">
             <Activity className="h-6 w-6" />
           </div>
           <p className="text-sm font-medium text-muted-foreground">No activity yet</p>

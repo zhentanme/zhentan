@@ -101,10 +101,10 @@ export function UpgradeBanner({
                 className={
                   variant === "row"
                     ? "flex items-center gap-3.5 p-[18px] border-t border-border"
-                    : "rounded-xl border border-gold/25 bg-gold/[0.04] flex items-center gap-3 px-4 py-3.5"
+                    : "rounded-md border border-gold/25 bg-gold/[0.04] flex items-center gap-3 px-4 py-3.5"
                 }
               >
-                <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-md bg-gold/10 flex items-center justify-center shrink-0">
                   <Loader2 className="h-[17px] w-[17px] text-gold animate-spin" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -119,7 +119,7 @@ export function UpgradeBanner({
               /* ── Settings Protection-card row ── */
               isGuarded ? (
                 <div className="flex items-center gap-3.5 p-[18px] border-t border-border bg-watch/5">
-                  <div className="w-9 h-9 rounded-xl bg-watch/10 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-md bg-watch/10 flex items-center justify-center shrink-0">
                     <KeyRound className="h-[17px] w-[17px] text-watch" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -131,14 +131,14 @@ export function UpgradeBanner({
                   </div>
                   <button
                     onClick={() => setOpen(true)}
-                    className="shrink-0 px-3.5 py-2 rounded-xl bg-gold text-ink-900 text-xs font-semibold hover:bg-gold/90 transition-colors cursor-pointer"
+                    className="shrink-0 px-3.5 py-2 rounded-md bg-gold text-ink-900 text-xs font-semibold hover:bg-gold/90 transition-colors cursor-pointer"
                   >
                     Add key
                   </button>
                 </div>
               ) : (
                 <div className="flex items-center gap-3.5 p-[18px] border-t border-border">
-                  <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-md bg-gold/10 flex items-center justify-center shrink-0">
                     <ShieldCheck className="h-[17px] w-[17px] text-gold" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -149,7 +149,7 @@ export function UpgradeBanner({
                   </div>
                   <button
                     onClick={() => setOpen(true)}
-                    className="shrink-0 px-3.5 py-2 rounded-xl bg-gold text-ink-900 text-xs font-semibold hover:bg-gold/90 transition-colors cursor-pointer"
+                    className="shrink-0 px-3.5 py-2 rounded-md bg-gold text-ink-900 text-xs font-semibold hover:bg-gold/90 transition-colors cursor-pointer"
                   >
                     Activate
                   </button>
@@ -157,7 +157,7 @@ export function UpgradeBanner({
               )
             ) : isGuarded ? (
               /* ── Prominent lockout warning: agent on, no backup key ── */
-              <div className="rounded-xl border border-watch/30 bg-watch/[0.08] overflow-hidden">
+              <div className="rounded-md border border-watch/30 bg-watch/[0.08] overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3.5">
                   <div className="w-9 h-9 rounded-lg bg-watch/15 flex items-center justify-center shrink-0">
                     <AlertTriangle className="h-[18px] w-[18px] text-watch" />
@@ -182,7 +182,7 @@ export function UpgradeBanner({
               </div>
             ) : (
               /* ── Subtle nudge: no protection yet (starter) ── */
-              <div className="rounded-xl border border-border bg-foreground/[0.03] overflow-hidden">
+              <div className="rounded-md border border-border bg-foreground/[0.03] overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3">
                   <div className="w-8 h-8 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
                     <ShieldCheck className="h-4 w-4 text-gold" />

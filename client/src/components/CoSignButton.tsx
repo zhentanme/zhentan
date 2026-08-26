@@ -7,7 +7,7 @@ import { WalletBrandIcon } from "@/components/WalletBrandIcon";
 import { truncateAddress } from "@/lib/format";
 
 const BUTTON_CLASS =
-  "flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-gold/15 border border-gold/40 text-gold hover:bg-gold/20 transition-colors text-sm font-semibold cursor-pointer disabled:opacity-60";
+  "flex items-center justify-center gap-2 w-full rounded-md py-3 bg-gold/15 border border-gold/40 text-gold hover:bg-gold/20 transition-colors text-sm font-semibold cursor-pointer disabled:opacity-60";
 
 /**
  * The backup-key completion action for a queued screening-off SafeTx, shaped
@@ -46,7 +46,7 @@ export function CoSignButton({
             <>
               Sign with
               <WalletBrandIcon meta={backup.meta} className="h-4 w-4" />
-              <span className="font-mono text-[13px]">{truncateAddress(backup.address, 13)}</span>
+              <span className="font-mono text-[13px]">{truncateAddress(backup.address)}</span>
             </>
           )}
         </button>
@@ -55,15 +55,15 @@ export function CoSignButton({
           Change wallet
           <span className="inline-flex items-center gap-1.5 text-gold/70">
             <WalletBrandIcon meta={backup.meta} className="h-4 w-4" />
-            <span className="font-mono text-[13px]">{truncateAddress(backup.address, 13)}</span>
+            <span className="font-mono text-[13px]">{truncateAddress(backup.address)}</span>
           </span>
         </button>
       ) : (
         <button type="button" onClick={connectBackup} className={BUTTON_CLASS}>
           Connect wallet
           <span className="inline-flex items-center gap-1">
-            <Image src="/metamask.webp" alt="MetaMask" width={16} height={16} className="rounded-[3px]" />
-            <Image src="/rabby.png" alt="Rabby" width={16} height={16} className="rounded-[3px]" />
+            <Image src="/metamask.webp" alt="MetaMask" width={16} height={16} className="rounded-xs" />
+            <Image src="/rabby.png" alt="Rabby" width={16} height={16} className="rounded-xs" />
           </span>
         </button>
       )}

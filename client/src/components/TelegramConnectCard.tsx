@@ -24,15 +24,15 @@ export function TelegramConnectCard({ onOpenBot }: { onOpenBot: () => void }) {
 
   return (
     <div className="space-y-3 w-full">
-      <div className="p-4 rounded-2xl border bg-gold/5 border-gold/20">
+      <div className="p-4 rounded-md border bg-gold/5 border-gold/20">
         <div className="flex items-start gap-3">
           <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
             <motion.div
-              className="absolute inset-0 rounded-2xl border-2 border-gold/40"
+              className="absolute inset-0 rounded-md border-2 border-gold/40"
               animate={{ scale: [1, 1.25], opacity: [0.6, 0] }}
               transition={{ duration: 1.4, repeat: Infinity, ease: "easeOut" }}
             />
-            <div className="relative w-11 h-11 rounded-2xl bg-gold/10 flex items-center justify-center">
+            <div className="relative w-11 h-11 rounded-md bg-gold/10 flex items-center justify-center">
               {/* Mao is already on watch while this card is visible — the
                   sweep across his shades IS the listening state. */}
               <MaoAvatar state="scanning" size={34} variant="detail" />
@@ -60,7 +60,7 @@ export function TelegramConnectCard({ onOpenBot }: { onOpenBot: () => void }) {
       </div>
 
       {showCodeEntry ? (
-        <div className="p-4 rounded-2xl border bg-foreground/2 border-foreground/6">
+        <div className="p-4 rounded-md border bg-foreground/2 border-foreground/6">
           <TelegramLinkFlow variant="embedded" />
         </div>
       ) : (

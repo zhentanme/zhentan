@@ -70,7 +70,7 @@ function SettingsRow({
 }) {
   const inner = (
     <>
-      <div className={clsx("w-9 h-9 rounded-xl flex items-center justify-center shrink-0", iconTint)}>
+      <div className={clsx("w-9 h-9 rounded-md flex items-center justify-center shrink-0", iconTint)}>
         {icon}
       </div>
       <div className="flex-1 min-w-0">
@@ -131,7 +131,7 @@ function BackupKeyRow() {
         desc={
           <>
             <span className="font-mono text-[11px] truncate block" title={externalWalletAddress}>
-              {truncateAddress(externalWalletAddress, 13)}
+              {truncateAddress(externalWalletAddress)}
             </span>
             {pendingSwap && (
               <span className="block text-[11px] text-watch/90 mt-0.5">
@@ -145,7 +145,7 @@ function BackupKeyRow() {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
+            className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-md border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
           >
             Change
           </button>
@@ -164,7 +164,7 @@ function BackupKeyRow() {
             Swaps your override key on-chain at the same vault address: the new
             key replaces{" "}
             <span className="font-mono text-foreground/75">
-              {truncateAddress(externalWalletAddress, 13)}
+              {truncateAddress(externalWalletAddress)}
             </span>{" "}
             as an owner. Pick a wallet you control — it never signs during this
             step.
@@ -209,7 +209,7 @@ function DetachZhentanCard() {
   return (
     <motion.div variants={staggerItem}>
       <SectionHeader label="Danger zone" danger />
-      <div className="rounded-2xl bg-card border border-danger/15 overflow-hidden">
+      <div className="rounded-md bg-card border border-danger/15 overflow-hidden">
         <SettingsRow
           icon={<LogOut className="h-[17px] w-[17px]" />}
           iconTint="bg-danger/10 text-danger"
@@ -237,7 +237,7 @@ function DetachZhentanCard() {
                 }
               }}
               disabled={busy}
-              className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-danger/40 text-danger text-xs font-semibold hover:bg-danger/10 transition-colors disabled:opacity-60 cursor-pointer"
+              className="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-md border border-danger/40 text-danger text-xs font-semibold hover:bg-danger/10 transition-colors disabled:opacity-60 cursor-pointer"
             >
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               {busy ? "Detaching..." : confirming ? "Yes, detach permanently" : "Detach"}
@@ -408,7 +408,7 @@ function SettingsPageContent() {
               {/* PROTECTION — guard, alerts, and the backup-key nudge, one card */}
               <motion.div variants={staggerItem}>
                 <SectionHeader label="Protection" />
-                <div data-tour="guard-card" className="rounded-2xl bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
+                <div data-tour="guard-card" className="rounded-md bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
                   <SettingsRow
                     icon={
                       <MaoAvatar
@@ -427,11 +427,11 @@ function SettingsPageContent() {
                         <h3 className="text-sm font-semibold">Zhentan Guard</h3>
                         <span
                           className={clsx(
-                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-pill text-[10px] font-mono font-medium uppercase tracking-wider",
+                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium uppercase tracking-wider",
                             isScreeningActive ? "bg-safe/12 text-safe" : "bg-foreground/8 text-muted-foreground"
                           )}
                         >
-                          <span className={clsx("h-1.5 w-1.5 rounded-pill", isScreeningActive ? "bg-safe" : "bg-muted-foreground")} />
+                          <span className={clsx("h-1.5 w-1.5 rounded-full", isScreeningActive ? "bg-safe" : "bg-muted-foreground")} />
                           {isScreeningActive ? "Active" : "Paused"}
                         </span>
                       </>
@@ -472,7 +472,7 @@ function SettingsPageContent() {
                               : "No agent on this wallet"
                         }
                         className={clsx(
-                          "relative w-12 h-6 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default",
+                          "relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer disabled:cursor-default",
                           isScreeningActive ? "bg-gold" : "bg-foreground/12"
                         )}
                       >
@@ -483,7 +483,7 @@ function SettingsPageContent() {
                         ) : (
                           <span
                             className={clsx(
-                              "absolute top-0.5 w-5 h-5 rounded-pill bg-ink-0 shadow-md transition-all",
+                              "absolute top-0.5 w-5 h-5 rounded-full bg-ink-0 shadow-md transition-all",
                               isScreeningActive ? "left-6" : "left-0.5"
                             )}
                           />
@@ -522,7 +522,7 @@ function SettingsPageContent() {
                       </span>
                     }
                     action={
-                      <span className="shrink-0 px-3.5 py-2 rounded-xl border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors">
+                      <span className="shrink-0 px-3.5 py-2 rounded-md border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors">
                         {fullyActivated ? "Manage" : "Activate"}
                       </span>
                     }
@@ -554,7 +554,7 @@ function SettingsPageContent() {
               {/* APP — wallet, network, force-execute, explorer, tour: one card */}
               <motion.div variants={staggerItem}>
                 <SectionHeader label="App" />
-                <div data-tour="wallet-card" className="rounded-2xl bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
+                <div data-tour="wallet-card" className="rounded-md bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
                   <SettingsRow
                     icon={<LayoutGrid className="h-[18px] w-[18px]" />}
                     iconTint="bg-gold/10 text-gold"
@@ -572,7 +572,7 @@ function SettingsPageContent() {
                           href={`https://app.safe.global/home?safe=bnb:${safeAddress}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors"
+                          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors"
                         >
                           Open Safe
                           <ExternalLink className="h-3 w-3" />
@@ -596,13 +596,13 @@ function SettingsPageContent() {
                         onClick={() => setForceExecuteEnabled(!forceExecuteEnabled)}
                         aria-label="Toggle force-execute"
                         className={clsx(
-                          "relative w-12 h-6 rounded-pill transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer",
+                          "relative w-12 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-gold/30 shrink-0 cursor-pointer",
                           forceExecuteEnabled ? "bg-gold" : "bg-foreground/12"
                         )}
                       >
                         <span
                           className={clsx(
-                            "absolute top-0.5 w-5 h-5 rounded-pill bg-ink-0 shadow-md transition-all",
+                            "absolute top-0.5 w-5 h-5 rounded-full bg-ink-0 shadow-md transition-all",
                             forceExecuteEnabled ? "left-6" : "left-0.5"
                           )}
                         />
@@ -629,7 +629,7 @@ function SettingsPageContent() {
                                 : mainTour(safeAddress)
                             )
                           }
-                          className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-xl border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
+                          className="shrink-0 inline-flex items-center px-3 py-1.5 rounded-md border border-border text-[13px] font-medium text-foreground hover:border-gold/30 hover:text-gold transition-colors cursor-pointer"
                         >
                           Replay
                         </button>
@@ -647,7 +647,7 @@ function SettingsPageContent() {
                 <SectionHeader label="Upgrade" />
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Advanced Plan */}
-                  <div className="p-[18px] rounded-2xl bg-card opacity-60 pointer-events-none">
+                  <div className="p-[18px] rounded-md bg-card opacity-60 pointer-events-none">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-md bg-gold/[0.08] flex items-center justify-center">
@@ -655,7 +655,7 @@ function SettingsPageContent() {
                         </div>
                         <h4 className="text-sm font-semibold text-foreground">Advanced</h4>
                       </div>
-                      <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-pill bg-gold/[0.08] text-gold">
+                      <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-gold/[0.08] text-gold">
                         Soon
                       </span>
                     </div>
@@ -665,7 +665,7 @@ function SettingsPageContent() {
                   </div>
 
                   {/* Self-hosted Plan */}
-                  <div className="p-[18px] rounded-2xl bg-card opacity-60 pointer-events-none">
+                  <div className="p-[18px] rounded-md bg-card opacity-60 pointer-events-none">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-md bg-foreground/[0.05] flex items-center justify-center">
@@ -673,7 +673,7 @@ function SettingsPageContent() {
                         </div>
                         <h4 className="text-sm font-semibold text-foreground">Self-hosted</h4>
                       </div>
-                      <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-pill bg-gold/[0.08] text-gold">
+                      <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full bg-gold/[0.08] text-gold">
                         Soon
                       </span>
                     </div>

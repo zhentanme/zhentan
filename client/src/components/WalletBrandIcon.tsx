@@ -31,7 +31,7 @@ export function WalletBrandIcon({
       <img
         src={src}
         alt={meta?.name ?? ""}
-        className={clsx("rounded-[3px] object-contain shrink-0", className)}
+        className={clsx("rounded-xs object-contain shrink-0", className)}
       />
     );
   }

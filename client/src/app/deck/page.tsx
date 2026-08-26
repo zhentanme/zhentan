@@ -30,7 +30,7 @@ function StatCard({
     <motion.div
       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
       transition={{ delay, type: "spring" }}
-      className="relative rounded-2xl px-5 py-4 overflow-hidden text-center"
+      className="relative rounded-md px-5 py-4 overflow-hidden text-center"
       style={{ background: "rgba(196,148,40,0.06)", border: "1px solid rgba(196,148,40,0.20)" }}>
       <GoldLine />
       <div className="text-2xl sm:text-3xl font-black gradient-text leading-none mb-1">{value}</div>
@@ -157,7 +157,7 @@ function SlidePhilosophy() {
         ].map((p, i) => (
           <motion.div key={p.title} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 + i * 0.13, type: "spring" }}
-            className="relative rounded-2xl p-5 overflow-hidden"
+            className="relative rounded-md p-5 overflow-hidden"
             style={{ background: "rgba(196,148,40,0.05)", border: "1px solid rgba(196,148,40,0.15)" }}>
             <GoldLine />
             <div className="text-4xl mb-3">{p.emoji}</div>
@@ -169,7 +169,7 @@ function SlidePhilosophy() {
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.65, type: "spring" }}
-        className="w-full max-w-lg rounded-2xl px-6 py-4 text-center"
+        className="w-full max-w-lg rounded-md px-6 py-4 text-center"
         style={{ background: "rgba(196,148,40,0.07)", border: "1px solid rgba(196,148,40,0.22)" }}>
         <p className="text-sm text-foreground/80 font-medium leading-relaxed">
           Zhentan is a <span className="gradient-text font-bold">personalized onchain detective</span> — it learns your behavior,
@@ -223,7 +223,7 @@ function SlideHowItWorks() {
             <motion.div
               initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.18 + i * 0.14, type: "spring" }}
-              className="relative rounded-2xl p-5 w-full overflow-hidden flex-1"
+              className="relative rounded-md p-5 w-full overflow-hidden flex-1"
               style={{ background: s.bg, border: `1px solid ${s.border}` }}>
               <div className="absolute top-0 left-0 right-0 h-px"
                 style={{ background: `linear-gradient(90deg, transparent, ${s.color}80, transparent)` }} />
@@ -285,7 +285,7 @@ function SlideProduct() {
           <motion.div key={s.l}
             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.15 + i * 0.07, type: "spring" }}
-            className="relative rounded-xl px-4 py-3 text-center overflow-hidden"
+            className="relative rounded-md px-4 py-3 text-center overflow-hidden"
             style={{ background: "rgba(196,148,40,0.06)", border: "1px solid rgba(196,148,40,0.20)", minWidth: 90 }}>
             <GoldLine />
             <div className="text-lg font-black gradient-text leading-none">{s.v}</div>
@@ -298,7 +298,7 @@ function SlideProduct() {
         {stack.map((s, i) => (
           <motion.div key={s.name} initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.32 + i * 0.06, type: "spring" }}
-            className="rounded-xl p-3.5" style={{ background: s.color, border: `1px solid ${s.border}` }}>
+            className="rounded-md p-3.5" style={{ background: s.color, border: `1px solid ${s.border}` }}>
             <div className="text-xs font-bold text-foreground mb-0.5">{s.name}</div>
             <div className="text-[10px] text-muted-foreground/80">{s.note}</div>
           </motion.div>
@@ -354,7 +354,7 @@ function SlideTraction() {
         ].map((t, i) => (
           <motion.div key={t.handle} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.55 + i * 0.1, type: "spring" }}
-            className="relative rounded-2xl p-4 overflow-hidden"
+            className="relative rounded-md p-4 overflow-hidden"
             style={{ background: "rgba(196,148,40,0.05)", border: "1px solid rgba(196,148,40,0.18)" }}>
             <GoldLine />
             <div className="flex items-center gap-2 mb-1">
@@ -422,11 +422,11 @@ function SlideMarket() {
           return (
             <motion.div key={a.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.48 + i * 0.12, type: "spring" }}
-              className="relative rounded-2xl p-4 overflow-hidden"
+              className="relative rounded-md p-4 overflow-hidden"
               style={{ background: a.bg, border: `1px solid ${a.border}` }}>
               <div className="absolute top-0 left-0 right-0 h-px"
                 style={{ background: `linear-gradient(90deg, transparent, ${a.color}88, transparent)` }} />
-              <div className="w-7 h-7 rounded-xl flex items-center justify-center mb-2"
+              <div className="w-7 h-7 rounded-md flex items-center justify-center mb-2"
                 style={{ background: `${a.color}18` }}>
                 <Icon className="w-3.5 h-3.5" style={{ color: a.color }} />
               </div>
@@ -491,7 +491,7 @@ function SlideRevenue() {
         {tiers.map((t, i) => (
           <motion.div key={t.name} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 + i * 0.1, type: "spring" }}
-            className="relative rounded-2xl p-5 overflow-hidden"
+            className="relative rounded-md p-5 overflow-hidden"
             style={{ background: t.color, border: `1px solid ${t.border}` }}>
             <div className="absolute top-0 left-0 right-0 h-px"
               style={{ background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)` }} />
@@ -541,7 +541,7 @@ function SlideRoadmap() {
         {items.map((m, i) => (
           <motion.div key={m.v} initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.18 + i * 0.11, type: "spring" }}
-            className="relative flex items-center gap-4 rounded-2xl px-5 py-4 overflow-hidden"
+            className="relative flex items-center gap-4 rounded-md px-5 py-4 overflow-hidden"
             style={{
               background: m.done ? "rgba(196,148,40,0.08)" : "rgba(255,255,255,0.03)",
               border: m.done ? "1px solid rgba(196,148,40,0.30)" : "1px solid rgba(255,255,255,0.08)",

@@ -154,8 +154,8 @@ function HeroAmount({
   // these rows move no funds, so no token avatar or amount.
   if (tx.txKind) {
     return (
-      <div className="rounded-2xl bg-foreground/6 p-4 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-2xl bg-gold/10 flex items-center justify-center shrink-0 text-gold">
+      <div className="rounded-md bg-foreground/6 p-4 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-md bg-gold/10 flex items-center justify-center shrink-0 text-gold">
           <Icon className="h-5 w-5" />
         </div>
         <div className="flex-1 min-w-0">
@@ -173,7 +173,7 @@ function HeroAmount({
   // Trade: dual-token layout — [sent] → [received]
   if (op === "trade" && tx.tradeReceived) {
     return (
-      <div className="rounded-2xl bg-foreground/6 p-4">
+      <div className="rounded-md bg-foreground/6 p-4">
         {/* Op label */}
         <div className={`flex items-center gap-1.5 mb-3 ${iconColor}`}>
           <Icon className="h-4 w-4" />
@@ -214,9 +214,9 @@ function HeroAmount({
 
   // Standard layout: [op icon] [token avatar] [amount]
   return (
-    <div className="rounded-2xl bg-foreground/6 p-4 flex items-center gap-3">
+    <div className="rounded-md bg-foreground/6 p-4 flex items-center gap-3">
       {/* Op icon */}
-      <div className={`w-10 h-10 rounded-2xl bg-foreground/[0.08] flex items-center justify-center shrink-0 ${iconColor}`}>
+      <div className={`w-10 h-10 rounded-md bg-foreground/[0.08] flex items-center justify-center shrink-0 ${iconColor}`}>
         <Icon className="h-5 w-5" />
       </div>
 
@@ -272,7 +272,7 @@ function RiskDetailsSection({
   const sev = riskScore != null ? severity(riskScore) : null;
 
   return (
-    <div className="rounded-2xl bg-foreground/6 overflow-hidden">
+    <div className="rounded-md bg-foreground/6 overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
@@ -313,9 +313,9 @@ function RiskDetailsSection({
                       <span className="text-muted-foreground/60">/100</span>
                     </span>
                   </div>
-                  <div className="h-1.5 rounded-pill bg-foreground/10 overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-foreground/10 overflow-hidden">
                     <motion.span
-                      className={`block h-full rounded-pill ${sev.bg}`}
+                      className={`block h-full rounded-full ${sev.bg}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(100, Math.max(0, riskScore))}%` }}
                       transition={{ duration: 0.5, ease: "easeOut" }}
@@ -404,7 +404,7 @@ function CoSignSection({ tx }: { tx: TransactionWithStatus }) {
         href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+        className="flex items-center justify-center gap-2 w-full rounded-md py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
       >
@@ -533,7 +533,7 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
                   className="group inline-flex items-center gap-2 font-mono text-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline truncate"
                 >
                   <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-foreground" />
-                  <span className="truncate">{truncateAddress(tx.to, 10)}</span>
+                  <span className="truncate">{truncateAddress(tx.to)}</span>
                 </a>
               </dd>
             </div>
@@ -637,7 +637,7 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
             href={explorerTxUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-2 w-full rounded-md py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >

@@ -52,7 +52,7 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
         {/* ── Identity (profile hero, condensed) ── */}
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
-            <div className="w-16 h-16 rounded-[18px] border border-gold/25 bg-ink-950 flex items-center justify-center overflow-hidden">
+            <div className="w-16 h-16 rounded-md border border-gold/25 bg-ink-950 flex items-center justify-center overflow-hidden">
               {user?.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={user.image} alt="" className="w-full h-full object-cover" />
@@ -62,7 +62,7 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
                 </span>
               )}
             </div>
-            <div className="absolute -right-1 -bottom-1 w-6 h-6 rounded-[10px] bg-ink-900 border border-gold/30 flex items-center justify-center">
+            <div className="absolute -right-1 -bottom-1 w-6 h-6 rounded-sm bg-ink-900 border border-gold/30 flex items-center justify-center">
               <TwinTick size={12} halo="none" />
             </div>
           </div>
@@ -81,7 +81,7 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
                 {username ? `@${username}` : ""}
               </span>
               {username && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-pill bg-safe/12 text-safe font-mono uppercase tracking-wider text-[9px] font-semibold">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-safe/12 text-safe font-mono uppercase tracking-wider text-[9px] font-semibold">
                   <Check className="h-2.5 w-2.5" />
                   Verified
                 </span>
@@ -101,7 +101,7 @@ export function AccountDialog({ open, onClose }: { open: boolean; onClose: () =>
                   {signerDisplay.meta?.name && (
                     <span className="text-foreground/90">{signerDisplay.meta.name} · </span>
                   )}
-                  <span className="font-mono">{truncateAddress(signerDisplay.address, 13)}</span>
+                  <span className="font-mono">{truncateAddress(signerDisplay.address)}</span>
                 </span>
                 <SignerMismatchInline compact />
               </div>
