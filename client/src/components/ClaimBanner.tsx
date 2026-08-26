@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Loader2, AtSign, MessageCircle, Sparkles, ChevronRight } from "lucide-react";
+import { Check, Loader2, AtSign, MessageCircle, Gift, ChevronRight } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Dialog } from "@/components/ui/Dialog";
@@ -166,7 +166,7 @@ export function ClaimBanner({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, height: 0, marginBottom: 0 }}
             transition={{ duration: 0.3, type: "spring", bounce: 0.15 }}
-            className={`w-full relative overflow-hidden rounded-md text-left focus:outline-none group cursor-pointer ${className ?? "mx-4 lg:mx-0"}${hideWhenClaimed ? " mb-4" : ""}`}
+            className={`w-full relative overflow-hidden rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 group cursor-pointer ${className ?? "mx-4 lg:mx-0"}${hideWhenClaimed ? " mb-4" : ""}`}
             style={{
               background:
                 "linear-gradient(135deg, rgba(196,148,40,0.12) 0%, rgba(196,148,40,0.05) 50%, rgba(196,148,40,0.10) 100%)",
@@ -210,9 +210,9 @@ export function ClaimBanner({
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-bold text-foreground">Celebrating Flap India Meetup</p>
-                  <Sparkles className="h-3 w-3 text-claw/70" />
+                  <Gift className="h-3 w-3 text-gold/70" />
                 </div>
-                <p className="text-xs text-claw/60 mt-0.5">
+                <p className="text-xs text-gold/60 mt-0.5">
                   {alreadyClaimed
                     ? "Claimed"
                     : status
@@ -222,11 +222,11 @@ export function ClaimBanner({
               </div>
 
               {alreadyClaimed ? (
-                <span className="text-[11px] font-semibold text-claw bg-claw/15 px-2.5 py-1 rounded-full border border-claw/20 shrink-0">
+                <span className="text-[11px] font-semibold text-gold bg-gold/15 px-2.5 py-1 rounded-full border border-gold/20 shrink-0">
                   Claimed
                 </span>
               ) : (
-                <span className="text-[11px] font-semibold text-black bg-claw px-3 py-1.5 rounded-full shrink-0 shadow-[0_0_12px_rgba(196,148,40,0.4)] group-hover:bg-claw/90 transition-colors">
+                <span className="text-[11px] font-semibold text-primary-foreground bg-gold px-3 py-1.5 rounded-full shrink-0 shadow-[0_0_12px_rgba(196,148,40,0.4)] group-hover:bg-gold/90 transition-colors">
                   Claim
                 </span>
               )}
@@ -242,7 +242,7 @@ export function ClaimBanner({
         onPhaseChange={handleAnimPhaseChange}
       />
 
-      <Dialog open={open} onClose={() => setOpen(false)} title="Claim Rewards">
+      <Dialog open={open} onClose={() => setOpen(false)} title="Claim rewards">
         {loading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-5 w-5 text-muted-foreground/80 animate-spin" />
@@ -259,7 +259,7 @@ export function ClaimBanner({
 
             {/* Tasks */}
             <div className="space-y-2">
-              <p className="text-[11px] font-medium text-muted-foreground/80 uppercase tracking-widest px-1">
+              <p className="eyebrow text-muted-foreground/80 px-1">
                 Tasks
               </p>
               {status &&
@@ -275,10 +275,10 @@ export function ClaimBanner({
                     return met ? (
                       <div
                         key={key}
-                        className="flex items-center gap-3 p-3 rounded-md bg-foreground/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)]"
+                        className="flex items-center gap-3 p-3 rounded-md bg-foreground/4 border border-border"
                       >
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-claw/10 shadow-[0_0_8px_rgba(196,148,40,0.15)]">
-                          <Icon className="h-4 w-4 text-claw" />
+                        <div className="w-8 h-8 rounded-sm flex items-center justify-center shrink-0 bg-gold/10 shadow-[0_0_8px_rgba(196,148,40,0.15)]">
+                          <Icon className="h-4 w-4 text-gold" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-foreground">{def?.label ?? key}</p>
@@ -288,16 +288,16 @@ export function ClaimBanner({
                             </p>
                           )}
                         </div>
-                        <Check className="h-4 w-4 text-claw shrink-0" />
+                        <Check className="h-4 w-4 text-gold shrink-0" />
                       </div>
                     ) : (
                       <button
                         key={key}
                         type="button"
                         onClick={handleTaskClick}
-                        className="w-full flex items-center gap-3 p-3 rounded-md bg-foreground/4 shadow-[0_0_0_1px_rgba(255,255,255,0.05)] hover:bg-foreground/6 hover:shadow-[0_0_0_1px_rgba(255,255,255,0.08)] transition-colors text-left cursor-pointer"
+                        className="w-full flex items-center gap-3 p-3 rounded-md bg-foreground/4 border border-border hover:bg-foreground/6 hover:border-foreground/15 transition-colors text-left cursor-pointer"
                       >
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-foreground/4">
+                        <div className="w-8 h-8 rounded-sm flex items-center justify-center shrink-0 bg-foreground/4">
                           <Icon className="h-4 w-4 text-muted-foreground/60" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -316,8 +316,8 @@ export function ClaimBanner({
 
             {/* Claimed state */}
             {alreadyClaimed && (
-              <div className="p-3 rounded-md bg-claw/5 shadow-[0_0_0_1px_rgba(196,148,40,0.1)] text-center">
-                <p className="text-sm font-medium text-claw">
+              <div className="p-3 rounded-md bg-gold/5 shadow-[0_0_0_1px_rgba(196,148,40,0.1)] text-center">
+                <p className="text-sm font-medium text-gold">
                   {status!.userClaim!.token_amount
                     ? `${status!.userClaim!.token_amount} $ZHENTAN tokens claimed`
                     : "Tokens claimed"}
@@ -338,7 +338,7 @@ export function ClaimBanner({
                   type="button"
                   onClick={handleClaim}
                   disabled={claiming || !allTasksMet || noSpotsLeft}
-                  className="w-full py-3 rounded-md text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-claw text-black hover:bg-claw/90 shadow-[0_0_20px_rgba(196,148,40,0.25)]"
+                  className="w-full py-3 rounded-md text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer bg-gold text-primary-foreground hover:bg-gold/90 shadow-[0_0_20px_rgba(196,148,40,0.25)]"
                 >
                   {claiming ? (
                     <span className="flex items-center justify-center gap-2">
@@ -350,7 +350,7 @@ export function ClaimBanner({
                   ) : !allTasksMet ? (
                     "Complete tasks to claim"
                   ) : (
-                    "Claim Tokens"
+                    "Claim tokens"
                   )}
                 </button>
               </>

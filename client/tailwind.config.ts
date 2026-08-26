@@ -76,13 +76,6 @@ const config: Config = {
         watch: "#f0b33c",
         danger: "#e5524f",
 
-        /* Backward-compatible alias → gold */
-        claw: {
-          DEFAULT: "#c49428",
-          400: "#f5d060",
-          500: "#c49428",
-          600: "#7a5c18",
-        },
       },
       borderRadius: {
         /* The complete radius scale — do not add sizes or arbitrary values.

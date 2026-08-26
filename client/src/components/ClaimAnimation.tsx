@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createPortal } from "react-dom";
-import { Sparkles } from "lucide-react";
+import { Gift } from "lucide-react";
 
 export type ClaimAnimationPhase = "idle" | "counting" | "burst" | "complete";
 
@@ -37,7 +37,7 @@ function BurstEffect() {
         return (
           <motion.div
             key={`p-${i}`}
-            className="absolute w-2 h-2 rounded-full bg-claw"
+            className="absolute w-2 h-2 rounded-full bg-gold"
             initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
             animate={{ x: Math.cos(rad) * 160, y: Math.sin(rad) * 160, opacity: 0, scale: 0 }}
             transition={{ duration: 1, delay: 0.1 + i * 0.05, ease: "easeOut" }}
@@ -113,7 +113,7 @@ function TokenCounter({
           Claim reward
         </motion.p>
         <motion.div
-          className="text-[96px] leading-none font-bold text-claw tabular-nums"
+          className="text-[96px] leading-none font-bold text-gold tabular-nums"
           animate={{ scale: [1, 1.06, 1] }}
           transition={{ duration: 0.35, repeat: Infinity, ease: "easeInOut" }}
           style={{ textShadow: "0 0 60px rgba(196,148,40,0.5)" }}
@@ -169,16 +169,16 @@ function CompleteScreen({ tokenAmount, tokenSymbol }: { tokenAmount: number; tok
           }}
           transition={{ duration: 1.6, repeat: Infinity }}
         >
-          <Sparkles className="w-10 h-10 text-claw" />
+          <Gift className="w-10 h-10 text-gold" />
         </motion.div>
         <motion.div
-          className="text-6xl font-bold text-claw mb-2"
+          className="text-6xl font-bold text-gold mb-2"
           style={{ textShadow: "0 0 40px rgba(196,148,40,0.6)" }}
         >
           {tokenAmount.toLocaleString()}
         </motion.div>
         <div className="text-2xl font-semibold text-foreground mb-2">{tokenSymbol}</div>
-        <div className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+        <div className="text-sm" style={{ color: "var(--muted-foreground)" }}>
           Claimed
         </div>
       </motion.div>
@@ -225,7 +225,7 @@ export function ClaimAnimation({ phase, tokenAmount, tokenSymbol, onPhaseChange 
   return createPortal(
     <motion.div
       className="fixed inset-0"
-      style={{ zIndex: 99999, backdropFilter: "blur(14px)", background: "rgba(0,0,0,0.82)" }}
+      style={{ zIndex: 60, backdropFilter: "blur(14px)", background: "var(--scrim-strong)" }}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
