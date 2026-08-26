@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;family=JetBrains+Mono:wght@500;600&amp;display=swap">
+  <style>
+    body { margin: 0; background: #0a0d0e; color: #fbfbf7; font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif; }
+    a { color: #e8b93a; } a:hover { color: #f5d060; }
+  </style>
+</helmet>
+<div style="width: 560px; background: #0a0d0e; padding: 36px 40px 40px 40px; display: flex; flex-direction: column; gap: 24px; box-sizing: border-box;">
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #8e938a;">Alternate · B</div>
+    <div style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em;">Squared micro-tags</div>
+    <div style="font-size: 12.5px; line-height: 1.55; color: #8e938a;">Keeps the tinted-color scan pattern but shrinks and squares it — a code-editor label, not a capsule. Closest to today.</div>
+  </div>
+
+  <div style="background: #14181a; border: 1px solid rgba(255,255,255,0.06); border-radius: 22px; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+      <span style="display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 4px; background: rgba(63,190,118,0.1); border: 1px solid rgba(63,190,118,0.2); color: #3fbe76; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;">Executed</span>
+      <span style="display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 4px; background: rgba(240,179,60,0.1); border: 1px solid rgba(240,179,60,0.2); color: #f0b33c; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;">Queued</span>
+      <span style="display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 4px; background: rgba(229,82,79,0.1); border: 1px solid rgba(229,82,79,0.2); color: #e5524f; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;">Blocked</span>
+      <span style="display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 4px; background: rgba(196,148,40,0.1); border: 1px solid rgba(196,148,40,0.22); color: #e8b93a; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;">Recommended</span>
+      <span style="display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 4px; background: rgba(251,251,247,0.05); border: 1px solid rgba(255,255,255,0.08); color: #8e938a; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;">Paused</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05);">
+      <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;"><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(251,251,247,0.9);">↗ 250 USDC</span><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8e938a;">0x7a4f…c918</span></div>
+      <span style="display: inline-flex; align-items: center; padding: 3px 7px; border-radius: 4px; background: rgba(63,190,118,0.1); border: 1px solid rgba(63,190,118,0.2); color: #3fbe76; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;">Approved</span>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 1.55; color: #8e938a;">
+    <div><span style="color: #3fbe76; font-weight: 700;">For:</span> instant color scanning survives; smaller footprint than today.</div>
+    <div><span style="color: #e5524f; font-weight: 700;">Against:</span> still a colored block per row — the noise problem shrinks but stays.</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

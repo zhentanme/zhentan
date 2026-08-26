@@ -1,4 +1,5 @@
 import type { ApiFetchFn } from "./client";
+import { apiError } from "./client";
 import type { QueuedRequest, RequestStatus, RequestType, InvoiceParty, InvoiceService } from "@/types";
 
 export interface CreateRequestBody {
@@ -30,7 +31,7 @@ export function requestsApi(req: ApiFetchFn) {
   return {
     async list(): Promise<{ requests: QueuedRequest[] }> {
       const res = await req("/requests");
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t load requests");
       return res.json();
     },
 
@@ -40,7 +41,7 @@ export function requestsApi(req: ApiFetchFn) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t create the request");
       return res.json();
     },
 
@@ -50,7 +51,7 @@ export function requestsApi(req: ApiFetchFn) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t update the request");
       return res.json();
     },
   };

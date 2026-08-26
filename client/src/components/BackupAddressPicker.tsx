@@ -7,6 +7,8 @@ import { useConnectWallet } from "@privy-io/react-auth";
 import { getAddress, isAddress } from "viem";
 
 import { useAuth } from "@/app/context/AuthContext";
+import { Button } from "@/components/ui/Button";
+import { InlineError } from "@/components/ui/InlineError";
 import { useApiClient } from "@/lib/api/client";
 
 export interface BackupCandidate {
@@ -113,7 +115,7 @@ export function useBackupCandidate() {
       const result = await api.resolve.resolve(value);
       // Zhentan usernames resolve to a Safe (a contract) — not a signer key.
       if (result.source === "zhentan") {
-        setError("Zhentan usernames point to a vault, not a wallet — use a .eth/.bnb name or an address.");
+        setError("Zhentan usernames point to a wallet, not a signing key — use a .eth/.bnb name or an address.");
         return;
       }
       if (!isAddress(result.address)) {
@@ -122,7 +124,7 @@ export function useBackupCandidate() {
       }
       propose(result.address, value);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not resolve that name.");
+      setError("Couldn’t resolve that name.");
     } finally {
       setResolving(false);
     }
@@ -168,9 +170,9 @@ export function BackupAddressPicker({
       <button
         onClick={connect}
         disabled={connecting}
-        className="w-full flex items-center gap-3 rounded-xl px-4 py-3 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 hover:border-foreground/12 transition-all duration-200 disabled:opacity-60 disabled:cursor-default"
+        className="w-full flex items-center gap-3 rounded-md px-4 py-3 border border-foreground/8 bg-foreground/4 hover:bg-foreground/6 hover:border-foreground/12 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <div className="w-8 h-8 rounded-lg bg-foreground/6 flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-sm bg-foreground/6 flex items-center justify-center shrink-0">
           {connecting
             ? <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
             : <Wallet className="h-4 w-4 text-muted-foreground" />}
@@ -178,7 +180,7 @@ export function BackupAddressPicker({
         <div className="flex-1 text-left">
           <p className="text-sm font-semibold text-foreground">Connect a wallet</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {connecting ? "Opening wallet..." : "Read-only — no signature asked"}
+            {connecting ? "Opening wallet…" : "Read-only — no signature asked"}
           </p>
         </div>
       </button>
@@ -186,7 +188,7 @@ export function BackupAddressPicker({
       {/* Divider */}
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-border" aria-hidden />
-        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">or</span>
+        <span className="eyebrow text-muted-foreground/60">or</span>
         <span className="h-px flex-1 bg-border" aria-hidden />
       </div>
 
@@ -202,23 +204,21 @@ export function BackupAddressPicker({
           placeholder="0x address, name.eth or name.bnb"
           spellCheck={false}
           autoComplete="off"
-          className="flex-1 min-w-0 bg-foreground/6 border border-border rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:font-sans placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
+          className="flex-1 min-w-0 bg-foreground/6 border border-border rounded-md px-3 py-2 text-sm font-mono text-foreground placeholder:font-sans placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
         />
-        <button
+        <Button
+          variant="outline"
+          size="sm"
+          loading={resolving}
+          disabled={!input.trim()}
           onClick={resolveInput}
-          disabled={resolving || !input.trim()}
-          className="shrink-0 px-3.5 py-2 rounded-md border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-50 disabled:cursor-default"
+          className="shrink-0"
         >
-          {resolving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Use"}
-        </button>
+          Use
+        </Button>
       </div>
 
-      {error && (
-        <p className="flex items-start gap-1.5 text-xs text-danger">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          {error}
-        </p>
-      )}
+      {error && <InlineError>{error}</InlineError>}
 
       {/* Preview + explicit confirm */}
       <AnimatePresence>
@@ -227,7 +227,7 @@ export function BackupAddressPicker({
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="rounded-xl border border-gold/25 bg-gold/[0.06] p-3.5 space-y-2.5"
+            className="rounded-md border border-gold/25 bg-gold/[0.06] p-3.5 space-y-2.5"
           >
             <div className="min-w-0">
               {candidate.label && (
@@ -238,17 +238,12 @@ export function BackupAddressPicker({
               </p>
             </div>
             <p className="text-[11px] text-watch/90 leading-relaxed">
-              Make sure you control this wallet. It becomes an owner of your
-              vault and is your override key — it can&apos;t be casually changed
-              later. Zhentan never asks it to sign during setup.
+              Make sure you control this wallet — it becomes a permanent owner.
             </p>
-            <button
-              onClick={() => onSelect(candidate.address)}
-              className="w-full flex items-center justify-center gap-2 rounded-md py-2 bg-gold text-ink-900 text-xs font-semibold hover:bg-gold/90 transition-colors"
-            >
+            <Button size="sm" onClick={() => onSelect(candidate.address)} className="w-full">
               <Check className="h-3.5 w-3.5" />
-              Use as my backup key
-            </button>
+              Use as backup key
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>

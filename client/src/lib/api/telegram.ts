@@ -1,4 +1,5 @@
 import type { ApiFetchFn } from "./client";
+import { apiError } from "./client";
 
 /** Public identity of the Telegram bound (or about to be bound) to an account. */
 export interface TelegramIdentity {
@@ -40,7 +41,7 @@ export function telegramApi(req: ApiFetchFn) {
     /** Current binding for the caller's account. */
     async get(): Promise<TelegramLinkState> {
       const res = await req("/telegram");
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t check the Telegram link");
       return res.json();
     },
 
@@ -55,7 +56,7 @@ export function telegramApi(req: ApiFetchFn) {
         const data = await res.json().catch(() => ({}));
         return { status: "rate_limited", retryAfter: data?.retry_after };
       }
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t link Telegram");
       return res.json();
     },
 
@@ -70,14 +71,14 @@ export function telegramApi(req: ApiFetchFn) {
         body: JSON.stringify({ ...credential, confirmRelink }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok && !data?.status) throw new Error(data?.error ?? "Link failed");
+      if (!res.ok && !data?.status) throw new Error(data?.error ?? "Couldn’t link Telegram");
       return data;
     },
 
     /** Atomic server-side unlink (binding + screening consequence together). */
     async unlink(): Promise<UnlinkResult> {
       const res = await req("/telegram/unlink", { method: "POST" });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t unlink Telegram");
       return res.json();
     },
 

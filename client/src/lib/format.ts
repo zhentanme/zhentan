@@ -23,9 +23,32 @@ export function formatTokenAmount(
   return s || "0";
 }
 
-export function truncateAddress(addr: string, length = 22): string {
-  if (addr.length <= length) return addr;
-  return `${addr.slice(0, length / 2)}...${addr.slice(-length / 2)}`;
+/**
+ * Truncate an address to the `0x1234…abcd` convention (6 leading chars
+ * including 0x, 4 trailing) used by Safe, Etherscan, and most wallets.
+ */
+export function truncateAddress(addr: string, lead = 6, tail = 4): string {
+  if (addr.length <= lead + tail + 1) return addr;
+  return `${addr.slice(0, lead)}…${addr.slice(-tail)}`;
+}
+
+/** Truncate a long hex blob (calldata, hashes) to `0xabcdef12…deadbeef`. */
+export function truncateHex(hex: string, lead = 10, tail = 8): string {
+  if (hex.length <= lead + tail + 1) return hex;
+  return `${hex.slice(0, lead)}…${hex.slice(-tail)}`;
+}
+
+export type RiskSeverity = "safe" | "watch" | "danger";
+
+/**
+ * Map a risk score to its signal color/tone. Thresholds mirror the screening
+ * core: APPROVE < 40, REVIEW 40–70, BLOCK > 70.
+ */
+export function riskSeverity(score: number | null | undefined): RiskSeverity | null {
+  if (score == null || !Number.isFinite(score)) return null;
+  if (score < 40) return "safe";
+  if (score <= 70) return "watch";
+  return "danger";
 }
 
 export function formatDate(iso: string): string {
@@ -72,7 +95,7 @@ export function statusLabel(status: TransactionStatus): string {
     case "pending":
       return "Pending";
     case "in_review":
-      return "In Review";
+      return "In review";
     case "confirming":
       return "Confirming";
     case "rejecting":

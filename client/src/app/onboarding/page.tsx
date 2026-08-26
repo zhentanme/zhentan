@@ -17,6 +17,8 @@ import {
   X,
 } from "lucide-react";
 import { clsx } from "clsx";
+import { Pill } from "@/components/ui/Pill";
+import { InlineError } from "@/components/ui/InlineError";
 import { Button } from "@/components/ui/Button";
 import { AuthGuard } from "@/components/AuthGuard";
 import { useBackupCandidate } from "@/components/BackupAddressPicker";
@@ -47,15 +49,13 @@ function ProgressHeader({ step }: { step: number }) {
         <span
           key={i}
           className={clsx(
-            "h-1 rounded-pill transition-all duration-300",
+            "h-1 rounded-full transition-all duration-300",
             i === step ? "w-[30px] bg-gold" : i < step ? "w-4 bg-gold/40" : "w-4 bg-foreground/10"
           )}
         />
       ))}
       <span className="flex-1" />
-      <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/70">
-        Step {step + 1} of 4
-      </span>
+      <span className="eyebrow text-muted-foreground/70">Step {step + 1} of 4</span>
     </div>
   );
 }
@@ -66,7 +66,7 @@ function Tick({ selected }: { selected: boolean }) {
   return (
     <span
       className={clsx(
-        "w-5 h-5 rounded-pill shrink-0 flex items-center justify-center mt-1.5 transition-all duration-200",
+        "w-5 h-5 rounded-full shrink-0 flex items-center justify-center mt-1.5 transition-all duration-200",
         selected ? "bg-gold" : "border-[1.5px] border-foreground/16"
       )}
     >
@@ -79,11 +79,10 @@ function Tick({ selected }: { selected: boolean }) {
  *  vault..." is progress — say so, keep auto-retrying, offer a manual kick. */
 function ResolutionErrorNote({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="mt-3 p-3 rounded-2xl bg-danger/[0.06] border border-danger/20 flex items-start gap-2.5">
+    <div className="mt-3 p-3 rounded-md bg-danger/[0.06] border border-danger/20 flex items-start gap-2.5">
       <AlertTriangle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" />
       <p className="flex-1 text-[11.5px] leading-relaxed text-danger/90">
-        Can&apos;t reach Zhentan right now — retrying automatically. Your
-        wallet isn&apos;t affected.
+        Can&apos;t reach Zhentan — retrying automatically.
       </p>
       <button
         type="button"
@@ -98,7 +97,7 @@ function ResolutionErrorNote({ onRetry }: { onRetry: () => void }) {
 
 const optionClass = (selected: boolean) =>
   clsx(
-    "w-full text-left p-[15px] rounded-[18px] cursor-pointer transition-all duration-200 border",
+    "w-full text-left p-4 rounded-md cursor-pointer transition-all duration-200 border",
     selected
       ? "border-gold/45 bg-gold/[0.075] hover:bg-gold/10"
       : "border-foreground/8 bg-foreground/[0.025] hover:bg-foreground/[0.045]"
@@ -106,7 +105,7 @@ const optionClass = (selected: boolean) =>
 
 const segClass = (on: boolean) =>
   clsx(
-    "flex-1 py-[9px] rounded-[11px] text-xs font-semibold transition-all duration-200 cursor-pointer",
+    "flex-1 py-2 rounded-sm text-xs font-semibold transition-all duration-200 cursor-pointer",
     on ? "bg-gold/16 text-gold" : "text-muted-foreground hover:text-foreground"
   );
 
@@ -235,26 +234,26 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
 
   const protectCta: Cta = hasExistingWallet
     ? derived
-      ? { label: "Continue with my vault", enabled: true, onClick: onContinue }
-      : { label: "Loading your vault...", enabled: false, onClick: () => {} }
+      ? { label: "Continue with my wallet", enabled: true, onClick: onContinue }
+      : { label: "Loading your wallet…", enabled: false, onClick: () => {} }
     : !pendingProfile
       ? { label: "Choose an option", enabled: false, onClick: () => {} }
       : starterSelected
         ? starterReady
           ? { label: "Create my wallet", enabled: true, onClick: onContinue }
-          : { label: "Creating your vault...", enabled: false, onClick: () => {} }
+          : { label: "Creating your wallet…", enabled: false, onClick: () => {} }
         : { label: "Turn on screening", enabled: true, onClick: () => setScreen("backup") };
 
-  const creating: Cta = { label: "Creating your vault...", enabled: false, onClick: () => {} };
+  const creating: Cta = { label: "Creating your wallet…", enabled: false, onClick: () => {} };
   const backupCta: Cta = cand.candidate
-    ? { label: "Use this key & create my vault", enabled: true, onClick: confirmCandidate }
+    ? { label: "Create wallet with this key", enabled: true, onClick: confirmCandidate }
     : externalWalletAddress
       ? advancePending || !protectedReady
         ? creating
-        : { label: "Create my vault", enabled: true, onClick: onContinue }
+        : { label: "Create my wallet", enabled: true, onClick: onContinue }
       : skipped
         ? guardedReady
-          ? { label: "Create vault anyway", enabled: true, onClick: onContinue }
+          ? { label: "Create wallet anyway", enabled: true, onClick: onContinue }
           : creating
         : { label: "Add a key", enabled: false, onClick: () => {} };
 
@@ -270,30 +269,28 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
       {screen === "protect" ? (
         /* ── 1a: how should this wallet be protected? ── */
         <>
-          <h2 className="text-[23px] font-bold tracking-tight mb-2">
+          <h2 className="text-xl font-semibold tracking-tight mb-2">
             How should this wallet be protected?
           </h2>
           <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5">
-            Pick one now — you can switch anytime in Settings and your wallet
-            address never changes.
+            Pick one now. Switch anytime in Settings — your address never
+            changes.
           </p>
 
           <div className="flex flex-col gap-2.5">
             <button type="button" onClick={pickGuarded} className={optionClass(guardedSelected)}>
               <span className="flex items-start gap-3">
-                <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-gold/12">
+                <span className="w-9 h-9 rounded-md shrink-0 flex items-center justify-center bg-gold/12">
                   <ShieldCheck className="h-[17px] w-[17px] text-gold" />
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="flex items-center gap-2 flex-wrap">
-                    <span className="text-[14.5px] font-bold tracking-tight">AI screening on</span>
-                    <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] px-2 py-[3px] rounded-pill bg-gold/14 text-gold">
-                      Recommended
-                    </span>
+                    <span className="text-[14.5px] font-bold tracking-tight">Screening on</span>
+                    <Pill tone="gold" size="sm" strong>Recommended</Pill>
                   </span>
                   <span className="block text-xs leading-relaxed text-muted-foreground mt-1">
                     Zhentan reviews and co-signs every transaction, catching
-                    scams and mistakes before they land.
+                    scams before they land.
                   </span>
                 </span>
                 <Tick selected={guardedSelected} />
@@ -302,14 +299,14 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
 
             <button type="button" onClick={pickStarter} className={optionClass(starterSelected)}>
               <span className="flex items-start gap-3">
-                <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-foreground/6">
+                <span className="w-9 h-9 rounded-md shrink-0 flex items-center justify-center bg-foreground/6">
                   <KeyRound className="h-[17px] w-[17px] text-muted-foreground" />
                 </span>
                 <span className="flex-1 min-w-0">
                   <span className="text-[14.5px] font-bold tracking-tight">Just my key</span>
                   <span className="block text-xs leading-relaxed text-muted-foreground mt-1">
-                    A standard wallet with no screening. Zhentan still relays
-                    your transactions gas-free.
+                    A standard wallet, no screening. Zhentan still relays your
+                    sends gas-free.
                   </span>
                 </span>
                 <Tick selected={starterSelected} />
@@ -321,15 +318,14 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
           {safeError && <ResolutionErrorNote onRetry={refreshSafe} />}
           {hasExistingWallet ? (
             <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
-              This wallet was already created with the protection shown above —
-              its address never changes. You can adjust protection any time in
-              Settings.
+              Protection was set when this wallet was created. Adjust it
+              anytime in Settings.
             </p>
           ) : (
             starterSelected && (
               <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
-                Your vault address is minted on creation — adding protection
-                later never changes it.
+                Your address is fixed at creation — adding protection later
+                never changes it.
               </p>
             )
           )}
@@ -337,21 +333,21 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
       ) : (
         /* ── 1b: add the override key ── */
         <>
-          <h2 className="text-[23px] font-bold tracking-tight mb-2">Add your override key</h2>
+          <h2 className="text-xl font-semibold tracking-tight mb-2">Add your backup key</h2>
           <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-[18px]">
-            A second wallet you control, so you can always move funds yourself
-            at <span className="text-foreground/75">app.safe.global</span> — even
-            if Zhentan is offline. It is never asked to sign during setup.
+            A second wallet you control. Move funds yourself at{" "}
+            <span className="text-foreground/75">app.safe.global</span>, even if
+            Zhentan is offline.
           </p>
 
           {externalWalletAddress ? (
             /* Saved override key */
-            <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-safe/[0.07] border border-safe/20">
-              <span className="w-[30px] h-[30px] rounded-[10px] shrink-0 flex items-center justify-center bg-safe/14">
+            <div className="flex items-center gap-2.5 p-3.5 rounded-md bg-safe/[0.07] border border-safe/20">
+              <span className="w-8 h-8 rounded-sm shrink-0 flex items-center justify-center bg-safe/14">
                 <Check className="h-[15px] w-[15px] text-safe" strokeWidth={2.6} />
               </span>
               <span className="flex-1 min-w-0">
-                <span className="block text-[13px] font-semibold">Override key set</span>
+                <span className="block text-[13px] font-semibold">Backup key set</span>
                 <span className="block font-mono text-[11px] text-muted-foreground mt-0.5 truncate">
                   {externalWalletAddress}
                 </span>
@@ -370,7 +366,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
             !skipped && (
               <div>
                 {/* Segmented: connect / enter address */}
-                <div className="flex gap-1 p-1 rounded-[14px] bg-foreground/4 mb-3">
+                <div className="flex gap-1 p-1 rounded-md bg-foreground/4 mb-3">
                   <button type="button" onClick={() => { setMode("connect"); cand.clearError(); }} className={segClass(mode === "connect")}>
                     Connect a wallet
                   </button>
@@ -384,9 +380,9 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                     type="button"
                     onClick={cand.connect}
                     disabled={cand.connecting}
-                    className="w-full flex items-center gap-3 text-left p-3.5 rounded-2xl border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
+                    className="w-full flex items-center gap-3 text-left p-3.5 rounded-md border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
                   >
-                    <span className="w-8 h-8 rounded-[10px] shrink-0 flex items-center justify-center bg-foreground/6">
+                    <span className="w-8 h-8 rounded-sm shrink-0 flex items-center justify-center bg-foreground/6">
                       {cand.connecting ? (
                         <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
                       ) : (
@@ -414,23 +410,20 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                         placeholder="0x address, name.eth or name.bnb"
                         spellCheck={false}
                         autoComplete="off"
-                        className="flex-1 min-w-0 bg-foreground/4 border border-foreground/10 rounded-[13px] px-3.5 py-[11px] font-mono text-[12.5px] text-foreground placeholder:font-sans placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
+                        className="flex-1 min-w-0 bg-foreground/4 border border-foreground/10 rounded-md px-3.5 py-2.5 font-mono text-[12.5px] text-foreground placeholder:font-sans placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
                       />
-                      <button
-                        type="button"
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        loading={cand.resolving}
+                        disabled={!cand.input.trim()}
                         onClick={cand.resolveInput}
-                        disabled={cand.resolving || !cand.input.trim()}
-                        className="shrink-0 px-[15px] rounded-[13px] border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-45 disabled:cursor-default cursor-pointer"
+                        className="shrink-0"
                       >
-                        {cand.resolving ? "Checking…" : "Use"}
-                      </button>
+                        Use
+                      </Button>
                     </div>
-                    {cand.error && (
-                      <p className="flex items-start gap-1.5 text-[11.5px] leading-relaxed text-danger mt-2">
-                        <AlertTriangle className="h-[13px] w-[13px] shrink-0 mt-0.5" />
-                        {cand.error}
-                      </p>
-                    )}
+                    {cand.error && <InlineError className="mt-2">{cand.error}</InlineError>}
                   </div>
                 )}
 
@@ -441,7 +434,7 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -6 }}
-                      className="mt-3 p-3.5 rounded-2xl border border-gold/25 bg-gold/[0.06]"
+                      className="mt-3 p-3.5 rounded-md border border-gold/25 bg-gold/[0.06]"
                     >
                       <p className="text-[13px] font-semibold">
                         {cand.candidate.label ?? "Pasted address"}
@@ -451,9 +444,8 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                       </p>
                       <div className="flex items-start gap-2.5 mt-2.5">
                         <p className="flex-1 text-[11.5px] leading-relaxed text-muted-foreground/90">
-                          Confirm you control this wallet. It becomes a permanent
-                          owner of your vault and can&apos;t be swapped casually
-                          later.
+                          Confirm you control this wallet — it becomes a
+                          permanent owner.
                         </p>
                         <button
                           type="button"
@@ -477,39 +469,39 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                className="mt-3 p-[15px] rounded-2xl bg-watch/[0.06] border border-watch/18"
+                className="mt-3 p-4 rounded-md bg-watch/[0.06] border border-watch/20"
               >
                 <p className="flex items-center gap-2 text-[13px] font-semibold text-watch mb-1.5">
                   <AlertTriangle className="h-3.5 w-3.5" />
-                  Continue without an override key?
+                  Continue without a backup key?
                 </p>
                 <p className="text-xs leading-relaxed text-watch/85 mb-3">
-                  Zhentan must co-sign every transaction. If its agent is ever
-                  offline, your funds sit safe but wait. Adding a key later
-                  takes one tap in Settings.
+                  Zhentan must co-sign every transaction — if it&apos;s offline,
+                  your funds wait. Add a key later in Settings.
                 </p>
                 <div className="flex gap-2">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
                     onClick={() => {
                       setSkipped(true);
                       setSkipPanel(false);
                       cand.clearCandidate();
                     }}
-                    className="flex-1 py-2.5 rounded-xl border border-watch/35 text-watch text-xs font-semibold hover:bg-watch/10 transition-colors cursor-pointer"
                   >
                     Skip for now
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1"
                     onClick={() => {
                       setSkipPanel(false);
                       setSkipped(false);
                     }}
-                    className="flex-1 py-2.5 rounded-xl bg-gold text-ink-900 text-xs font-bold hover:bg-gold/90 transition-colors cursor-pointer"
                   >
                     Add a key
-                  </button>
+                  </Button>
                 </div>
               </motion.div>
             )}
@@ -522,8 +514,8 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
           {(cand.candidate || externalWalletAddress || skipped) && (
             <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-3">
               {skipped && !cand.candidate && !externalWalletAddress
-                ? "Your vault address is minted on creation — adding an override key later never changes it."
-                : "Creating your vault makes this key a permanent owner — changing it later is an on-chain owner swap in Settings."}
+                ? "Your address is fixed at creation — a backup key added later never changes it."
+                : "Creating your wallet makes this key a permanent owner. Changing it later is an on-chain owner swap."}
             </p>
           )}
 
@@ -548,10 +540,9 @@ function ProtectionStep({ onContinue }: { onContinue: () => void }) {
           </div>
 
           <p className="text-[11px] leading-relaxed text-muted-foreground/60 text-center mt-[18px]">
-            With an override key your vault is a 2-of-3 Safe — your key, your
-            override key, the screening agent. Any two move funds, so
-            you&apos;re never locked out and Zhentan alone can never move a
-            cent.
+            With a backup key your wallet is a 2-of-3 Safe: your key, your
+            backup key, the agent. Any two move funds — Zhentan alone never
+            can.
           </p>
         </>
       )}
@@ -613,7 +604,7 @@ function UsernameStep({
     try {
       await onSave(username.trim());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save username");
+      setError("Couldn’t save username");
       setSaving(false);
     }
   };
@@ -645,10 +636,10 @@ function UsernameStep({
       transition={{ type: "spring", bounce: 0.15 }}
       className="w-full"
     >
-      <h2 className="text-[23px] font-bold tracking-tight mb-2">Claim your username</h2>
+      <h2 className="text-xl font-semibold tracking-tight mb-2">Claim your username</h2>
       <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5">
-        Friends can send to <span className="font-mono text-foreground/75">@you</span> instead
-        of a 42-character address. Change it anytime.
+        Get paid at <span className="font-mono text-foreground/75">@you</span> instead of a
+        42-character address. Change it anytime.
       </p>
 
       <div className="relative">
@@ -662,7 +653,7 @@ function UsernameStep({
           placeholder="alextan"
           maxLength={20}
           spellCheck={false}
-          className="w-full rounded-[15px] border border-foreground/10 bg-foreground/4 pl-[34px] pr-10 py-[13px] font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-gold/50"
+          className="w-full rounded-md border border-foreground/10 bg-foreground/4 pl-9 pr-10 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-gold/40"
         />
         {isValid && (
           <span className="absolute right-3.5 top-1/2 -translate-y-1/2 flex">
@@ -678,18 +669,9 @@ function UsernameStep({
       </div>
       <p className={clsx("text-[11.5px] mt-2 min-h-4", hintColor)}>{hint}</p>
 
-      <Button onClick={handleSave} disabled={!available || saving} className="w-full mt-4">
-        {saving ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Saving...
-          </>
-        ) : (
-          <>
-            Continue
-            <ArrowRight className="w-4 h-4" />
-          </>
-        )}
+      <Button onClick={handleSave} loading={saving} disabled={!available} className="w-full mt-4">
+        Continue
+        {!saving && <ArrowRight className="w-4 h-4" />}
       </Button>
       <button
         type="button"
@@ -744,10 +726,10 @@ function ConnectStep({ onFinish }: { onFinish: () => void }) {
       transition={{ type: "spring", bounce: 0.15 }}
       className="w-full"
     >
-      <h2 className="text-[23px] font-bold tracking-tight mb-2">Get alerts on Telegram</h2>
+      <h2 className="text-xl font-semibold tracking-tight mb-2">Get alerts on Telegram</h2>
       <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5">
-        Say hi to the Zhentan bot and it replies with your personal secure
-        link — one tap and this chat can approve or reject from anywhere.
+        Message the bot and tap the link it replies with — then approve or
+        reject from anywhere.
       </p>
 
       <AnimatePresence mode="wait">
@@ -758,9 +740,9 @@ function ConnectStep({ onFinish }: { onFinish: () => void }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ type: "spring", bounce: 0.1 }}
-            className="flex items-center gap-3 p-3.5 rounded-2xl bg-safe/[0.07] border border-safe/20"
+            className="flex items-center gap-3 p-3.5 rounded-md bg-safe/[0.07] border border-safe/20"
           >
-            <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-safe/14 overflow-hidden">
+            <span className="w-9 h-9 rounded-md shrink-0 flex items-center justify-center bg-safe/14 overflow-hidden">
               {photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photoUrl} alt="" className="w-full h-full object-cover" />
@@ -771,22 +753,21 @@ function ConnectStep({ onFinish }: { onFinish: () => void }) {
             <span className="flex-1 min-w-0">
               <span className="flex items-center gap-2">
                 <span className="text-[13.5px] font-semibold">Telegram</span>
-                <span className="font-mono text-[9.5px] uppercase tracking-[0.1em] px-[7px] py-0.5 rounded-pill bg-safe/14 text-safe">
-                  Connected
-                </span>
+                <Pill tone="safe" size="sm">Connected</Pill>
               </span>
               <span className="block font-mono text-[11.5px] text-muted-foreground mt-1 truncate">
                 {tgLabel}
               </span>
             </span>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
+              loading={unlinking}
               onClick={handleDisconnect}
-              disabled={unlinking}
-              className="shrink-0 p-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer disabled:opacity-60"
+              className="shrink-0"
             >
-              {unlinking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Disconnect"}
-            </button>
+              Unlink
+            </Button>
           </motion.div>
         ) : (
           <motion.button
@@ -800,9 +781,9 @@ function ConnectStep({ onFinish }: { onFinish: () => void }) {
               setOpened(true);
               openBot();
             }}
-            className="w-full flex items-center gap-3 text-left p-3.5 rounded-2xl border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
+            className="w-full flex items-center gap-3 text-left p-3.5 rounded-md border border-foreground/8 bg-foreground/[0.035] hover:bg-foreground/6 hover:border-foreground/14 transition-all duration-200 disabled:opacity-60 disabled:cursor-default cursor-pointer"
           >
-            <span className="w-[34px] h-[34px] rounded-xl shrink-0 flex items-center justify-center bg-foreground/6">
+            <span className="w-9 h-9 rounded-md shrink-0 flex items-center justify-center bg-foreground/6">
               {/* Mao is already on watch — the sweep across his shades IS the
                   listening state; no spinner needed. */}
               <MaoAvatar state="scanning" size={30} variant="detail" />
@@ -824,7 +805,7 @@ function ConnectStep({ onFinish }: { onFinish: () => void }) {
 
       {!linked &&
         (showCodeEntry ? (
-          <div className="mt-3 p-3.5 rounded-2xl border border-foreground/8 bg-foreground/[0.035]">
+          <div className="mt-3 p-3.5 rounded-md border border-foreground/8 bg-foreground/[0.035]">
             <TelegramLinkFlow variant="embedded" />
           </div>
         ) : (
@@ -833,15 +814,15 @@ function ConnectStep({ onFinish }: { onFinish: () => void }) {
             onClick={() => setShowCodeEntry(true)}
             className="w-full text-[11px] text-muted-foreground/80 hover:text-gold leading-relaxed text-center mt-2.5 transition-colors cursor-pointer"
           >
-            Got a code from Telegram?{" "}
-            <span className="text-gold/90">Enter the short code here →</span>
+            Have a code from the bot?{" "}
+            <span className="text-gold/90">Enter it here →</span>
           </button>
         ))}
 
       {!linked && guardedCreation && (
         <p className="text-[11px] leading-relaxed text-watch/90 text-center mt-3.5">
-          Screening stays on either way — without Telegram, review alerts
-          reach your email and dashboard only.
+          Screening stays on. Without Telegram, review alerts reach email
+          only.
         </p>
       )}
       <Button onClick={onFinish} className={clsx("w-full", linked || guardedCreation ? "mt-3.5" : "mt-4")}>
@@ -878,23 +859,23 @@ function DoneStep({
   };
 
   const doneLine = !screeningOn
-    ? "A standard wallet, ready to use. Turn on screening whenever you like."
+    ? "A standard wallet, ready to use. Turn on screening anytime."
     : backupSet
-      ? "You're on a 2-of-3 Safe — fully protected and never locked out."
-      : "Screening is on. Add an override key any time in Settings.";
+      ? "You're on a 2-of-3 Safe — fully protected."
+      : "Screening is on. Add a backup key anytime in Settings.";
 
   const rows = [
     {
       on: screeningOn,
       text: screeningOn
-        ? "AI screening on — every transaction reviewed"
+        ? "Screening on — every transaction reviewed"
         : "Screening off — you sign, Zhentan relays gas-free",
     },
     {
       on: backupSet,
       text: backupSet
-        ? "Override key set — move funds yourself anytime"
-        : "No override key yet — add one in Settings",
+        ? "Backup key set — move funds yourself anytime"
+        : "No backup key yet — add one in Settings",
     },
     {
       on: tgLinked,
@@ -914,20 +895,20 @@ function DoneStep({
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.15, type: "spring", bounce: 0.4 }}
-        className="w-[60px] h-[60px] mx-auto mt-1.5 mb-5 rounded-pill bg-gold flex items-center justify-center shadow-[0_0_44px_rgba(196,148,40,0.35)]"
+        className="w-[60px] h-[60px] mx-auto mt-1.5 mb-5 rounded-full bg-gold flex items-center justify-center shadow-[0_0_44px_rgba(196,148,40,0.35)]"
       >
         <Check className="w-7 h-7 text-ink-900" strokeWidth={3.2} />
       </motion.div>
 
-      <h2 className="text-[23px] font-bold tracking-tight mb-2">Your vault is ready</h2>
+      <h2 className="text-xl font-semibold tracking-tight mb-2">Your wallet is ready</h2>
       <p className="text-[13.5px] leading-relaxed text-muted-foreground mb-5">{doneLine}</p>
 
-      <div className="flex flex-col gap-px rounded-2xl overflow-hidden bg-foreground/6 text-left mb-5">
+      <div className="flex flex-col gap-px rounded-md overflow-hidden bg-foreground/6 text-left mb-5">
         {rows.map((r) => (
           <div key={r.text} className="flex items-center gap-2.5 px-3.5 py-3 bg-card">
             <span
               className={clsx(
-                "w-5 h-5 rounded-pill shrink-0 flex items-center justify-center",
+                "w-5 h-5 rounded-full shrink-0 flex items-center justify-center",
                 r.on ? "bg-safe/14 text-safe" : "bg-foreground/6 text-muted-foreground/70"
               )}
             >
@@ -942,18 +923,9 @@ function DoneStep({
         ))}
       </div>
 
-      <Button onClick={handleGo} disabled={finishing} className="w-full">
-        {finishing ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Finishing...
-          </>
-        ) : (
-          <>
-            Go to my wallet
-            <ArrowRight className="w-4 h-4" />
-          </>
-        )}
+      <Button onClick={handleGo} loading={finishing} className="w-full">
+        Go to my wallet
+        {!finishing && <ArrowRight className="w-4 h-4" />}
       </Button>
     </motion.div>
   );
@@ -1091,7 +1063,7 @@ function OnboardingContent() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15, type: "spring", bounce: 0.15 }}
-        className="w-full max-w-[436px] rounded-[26px] bg-card border border-border shadow-[0_34px_80px_-50px_rgba(0,0,0,0.9)] p-[30px] pb-[26px]"
+        className="w-full max-w-[436px] rounded-lg bg-card border border-border shadow-[0_34px_80px_-50px_rgba(0,0,0,0.9)] p-7 pb-6"
       >
         <ProgressHeader step={step} />
 
@@ -1115,7 +1087,7 @@ function OnboardingContent() {
               className="flex flex-col items-center gap-3 py-10"
             >
               <MaoAvatar state="thinking" size={44} />
-              <p className="text-xs text-muted-foreground">Preparing your vault…</p>
+              <p className="text-xs text-muted-foreground">Preparing your wallet…</p>
             </motion.div>
           )}
           {step === 3 && (

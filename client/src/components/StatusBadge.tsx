@@ -1,29 +1,27 @@
-import { clsx } from "clsx";
 import type { TransactionStatus } from "@/types";
 import { statusLabel } from "@/lib/format";
+import { Pill, type PillTone } from "@/components/ui/Pill";
 
 interface StatusBadgeProps {
   status: TransactionStatus;
+  size?: "md" | "sm";
 }
 
-const styleMap: Record<TransactionStatus, string> = {
-  pending: "bg-watch/15 text-watch",
-  in_review: "bg-watch/15 text-watch",
-  confirming: "bg-safe/10 text-safe",
-  rejecting: "bg-danger/10 text-danger",
-  executed: "bg-safe/15 text-safe",
-  rejected: "bg-danger/15 text-danger",
+const toneMap: Record<TransactionStatus, PillTone> = {
+  pending: "watch",
+  in_review: "watch",
+  confirming: "safe",
+  rejecting: "danger",
+  executed: "safe",
+  rejected: "danger",
 };
 
-export function StatusBadge({ status }: StatusBadgeProps) {
+const STRONG: TransactionStatus[] = ["in_review", "rejecting", "rejected"];
+
+export function StatusBadge({ status, size = "md" }: StatusBadgeProps) {
   return (
-    <span
-      className={clsx(
-        "inline-flex items-center px-3 py-1 rounded-pill text-[11px] font-mono uppercase tracking-wider",
-        styleMap[status]
-      )}
-    >
+    <Pill tone={toneMap[status]} size={size} strong={STRONG.includes(status)}>
       {statusLabel(status)}
-    </span>
+    </Pill>
   );
 }

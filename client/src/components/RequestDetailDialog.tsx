@@ -4,11 +4,13 @@ import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import type { QueuedRequest } from "@/types";
-import { truncateAddress, formatDate } from "@/lib/format";
+import { truncateAddress, formatDate, riskSeverity } from "@/lib/format";
 import { useApiClient } from "@/lib/api/client";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
+import { Input } from "./ui/Input";
+import { SEVERITY_CLASSES, LINK_BUTTON_NEUTRAL } from "./txPresentation";
 import { TokenGlyph } from "./TokenGlyph";
 import {
   FileText,
@@ -59,15 +61,10 @@ function StatusAnimation({ status }: { status: QueuedRequest["status"] }) {
   }
 }
 
-/** Severity bucket → tailwind text/bg classes (mirrors TransactionDetailDialog). */
-function severity(score: number): { tone: "safe" | "watch" | "danger"; text: string; bg: string; label: string } {
-  if (score >= 70) return { tone: "danger", text: "text-danger", bg: "bg-danger", label: "High" };
-  if (score >= 40) return { tone: "watch", text: "text-watch", bg: "bg-watch", label: "Medium" };
-  return { tone: "safe", text: "text-safe", bg: "bg-safe", label: "Low" };
-}
+const SEVERITY_LABEL = { safe: "Low", watch: "Medium", danger: "High" } as const;
 
 /**
- * Expandable "View analysis" panel — same treatment as the activity dialog,
+ * Expandable screening panel — same treatment as the activity dialog,
  * adapted to request fields (riskScore + free-text riskNotes, plus the
  * rejection reason for blocked requests).
  */
@@ -81,10 +78,11 @@ function RequestAnalysisSection({
   rejectReason?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const sev = riskScore != null ? severity(riskScore) : null;
+  const sevTone = riskSeverity(riskScore);
+  const sev = sevTone ? { ...SEVERITY_CLASSES[sevTone], label: SEVERITY_LABEL[sevTone] } : null;
 
   return (
-    <div className="rounded-2xl bg-foreground/6 overflow-hidden">
+    <div className="rounded-md bg-foreground/6 overflow-hidden">
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
@@ -92,7 +90,7 @@ function RequestAnalysisSection({
         className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-foreground/6 transition-colors cursor-pointer"
       >
         <ShieldAlert className="h-4 w-4 text-watch/90 shrink-0" />
-        <span className="text-sm font-medium text-foreground flex-1">View analysis</span>
+        <span className="text-sm font-medium text-foreground flex-1">Screening details</span>
         {sev && (
           <span className={`font-mono text-xs font-semibold ${sev.text}`}>
             {riskScore}
@@ -125,9 +123,9 @@ function RequestAnalysisSection({
                       <span className="text-muted-foreground/60">/100</span>
                     </span>
                   </div>
-                  <div className="h-1.5 rounded-pill bg-foreground/10 overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-foreground/10 overflow-hidden">
                     <motion.span
-                      className={`block h-full rounded-pill ${sev.bg}`}
+                      className={`block h-full rounded-full ${sev.bg}`}
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(100, Math.max(0, riskScore))}%` }}
                       transition={{ duration: 0.5, ease: "easeOut" }}
@@ -170,7 +168,7 @@ function RequestAnalysisSection({
 }
 
 const statusLabels: Record<QueuedRequest["status"], string> = {
-  queued: "Queued for Review",
+  queued: "Queued for review",
   approved: "Approved",
   executed: "Executed",
   rejected: "Rejected",
@@ -338,8 +336,8 @@ export function RequestDetailDialog({
         </AnimatePresence>
 
         {/* Hero amount — op icon + token avatar + amount (mirrors activity dialog) */}
-        <div className="rounded-2xl bg-foreground/6 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
+        <div className="rounded-md bg-foreground/6 p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-md bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
             {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
           </div>
           <TokenGlyph symbol={request.token} size={36} />
@@ -352,7 +350,7 @@ export function RequestDetailDialog({
 
         {/* Instruction from the agent (transfer requests) */}
         {request.description && (
-          <div className="rounded-2xl bg-foreground/4 p-3">
+          <div className="rounded-md bg-foreground/4 p-3">
             <p className="text-xs text-muted-foreground/80 mb-1">Instruction</p>
             <p className="text-sm text-foreground/80">{request.description}</p>
           </div>
@@ -368,13 +366,13 @@ export function RequestDetailDialog({
           )}
           {request.issueDate && (
             <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground/80">Issue Date</dt>
+              <dt className="text-muted-foreground/80">Issued</dt>
               <dd className="text-foreground/80">{request.issueDate}</dd>
             </div>
           )}
           {request.dueDate && (
             <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground/80">Due Date</dt>
+              <dt className="text-muted-foreground/80">Due</dt>
               <dd className="text-foreground/80">{request.dueDate}</dd>
             </div>
           )}
@@ -399,7 +397,7 @@ export function RequestDetailDialog({
                 className="group inline-flex items-center gap-2 font-mono text-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline truncate"
               >
                 <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-foreground" />
-                <span className="truncate">{truncateAddress(request.to, 10)}</span>
+                <span className="truncate">{truncateAddress(request.to)}</span>
               </a>
             </dd>
           </div>
@@ -409,7 +407,7 @@ export function RequestDetailDialog({
         {isInvoice && request.services && request.services.length > 0 && (
           <div>
             <p className="text-xs text-muted-foreground/80 mb-2">Services</p>
-            <div className="rounded-2xl bg-foreground/4 overflow-x-auto scrollbar-hide -mx-1">
+            <div className="rounded-md bg-foreground/4 overflow-x-auto scrollbar-hide -mx-1">
               <table className="w-full text-sm min-w-[280px]">
                 <thead>
                   <tr className="text-left text-xs text-muted-foreground/80 border-b border-foreground/6">
@@ -456,65 +454,55 @@ export function RequestDetailDialog({
           />
         )}
 
-        {/* BSCScan explorer link — executed requests */}
+        {/* BscScan explorer link — executed requests */}
         {request.txHash && (
-          <motion.a
+          <a
             href={`${BSC_EXPLORER_URL}/tx/${request.txHash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-2xl py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            className={LINK_BUTTON_NEUTRAL}
           >
             <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
             </span>
-            View on BSC Explorer
+            View on BscScan
             <ExternalLink className="h-3.5 w-3.5 opacity-50" />
-          </motion.a>
+          </a>
         )}
 
         {/* Action buttons (only for queued requests) */}
         {request.status === "queued" && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 rounded-2xl bg-gold/8 px-3 py-2.5 text-xs text-foreground/80">
+            <div className="flex items-center gap-2 rounded-md bg-gold/8 px-3 py-2.5 text-xs text-foreground/80">
               <ShieldCheck className="h-4 w-4 text-gold shrink-0" />
-              <span>
-                Zhentan screens this payment before it&rsquo;s sent. You may need
-                to confirm in Telegram.
-              </span>
+              <span>Screened before sending. You may need to confirm in Telegram.</span>
             </div>
-            <Button
-              onClick={handleApprove}
-              disabled={rejecting}
-              className="w-full py-3.5"
-            >
-              Approve &amp; Send
+            <Button onClick={handleApprove} disabled={rejecting} className="w-full">
+              Approve &amp; send
             </Button>
 
             {showRejectInput ? (
               <div className="space-y-2">
-                <input
+                <Input
                   type="text"
                   placeholder="Reason (optional)"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  className="w-full rounded-2xl bg-foreground/6 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-danger/40 transition-all"
                 />
                 <Button
-                  variant="secondary"
+                  variant="danger"
                   onClick={handleReject}
                   loading={rejecting}
-                  className="w-full py-3 text-danger hover:text-danger"
+                  className="w-full"
                 >
-                  Confirm Reject
+                  Confirm rejection
                 </Button>
               </div>
             ) : (
               <Button
-                variant="ghost"
+                variant="danger"
                 onClick={() => setShowRejectInput(true)}
-                className="w-full py-3 text-danger hover:text-danger"
+                className="w-full"
               >
                 Reject
               </Button>
@@ -556,7 +544,7 @@ function ScreeningView({
     },
     screening: {
       title: "Screening payment",
-      subtitle: "Zhentan is analyzing this transaction",
+      subtitle: "Zhentan is screening this payment",
     },
     review: {
       title: "Pending review",
@@ -564,7 +552,7 @@ function ScreeningView({
     },
     executed: { title: "Payment sent", subtitle: "Executed on BNB Chain" },
     rejected: { title: "Payment blocked", subtitle: "Screening rejected this payment" },
-    error: { title: "Couldn’t propose payment", subtitle: "Please try again" },
+    error: { title: "Couldn’t propose payment", subtitle: "Nothing was sent" },
   };
 
   const isLoading = phase === "proposing" || phase === "screening";
@@ -604,8 +592,8 @@ function ScreeningView({
       </div>
 
       {/* Amount */}
-      <div className="flex items-center gap-3 rounded-2xl bg-foreground/6 p-4">
-        <div className="w-10 h-10 rounded-2xl bg-foreground/8 flex items-center justify-center text-gold">
+      <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
+        <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
           <Send className="h-5 w-5" />
         </div>
         <TokenGlyph symbol={request.token} size={24} />
@@ -627,14 +615,14 @@ function ScreeningView({
       </dl>
 
       {phase === "rejected" && resultReason && (
-        <div className="rounded-2xl bg-danger/10 p-3">
+        <div className="rounded-md bg-danger/10 p-3">
           <p className="text-xs text-danger/70 mb-1">Reason</p>
           <p className="text-sm text-danger">{resultReason}</p>
         </div>
       )}
 
       {phase === "error" && errorMsg && (
-        <div className="rounded-2xl bg-danger/10 p-3">
+        <div className="rounded-md bg-danger/10 p-3">
           <p className="text-sm text-danger">{errorMsg}</p>
         </div>
       )}
@@ -652,27 +640,19 @@ function ScreeningView({
 
       {phase === "error" ? (
         <div className="space-y-2">
-          <Button onClick={onRetry} className="w-full py-3.5">
+          <Button onClick={onRetry} className="w-full">
             Try again
           </Button>
-          <Button
-            variant="ghost"
-            onClick={onDone}
-            className="w-full py-3 text-muted-foreground hover:text-foreground"
-          >
+          <Button variant="ghost" onClick={onDone} className="w-full">
             Close
           </Button>
         </div>
       ) : isLoading ? (
-        <Button
-          variant="ghost"
-          onClick={onDone}
-          className="w-full py-3 text-muted-foreground hover:text-foreground"
-        >
+        <Button variant="ghost" onClick={onDone} className="w-full">
           Close
         </Button>
       ) : (
-        <Button onClick={onDone} className="w-full py-3.5">
+        <Button onClick={onDone} className="w-full">
           Done
         </Button>
       )}

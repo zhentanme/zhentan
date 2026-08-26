@@ -39,21 +39,21 @@ export function TopBar() {
           <BrandMark href="/home" size="sm" priority />
           <div
             data-tour="agent-status"
-            className={clsx(
-              "inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
-              agentOffline
-                ? "bg-watch/12 text-watch"
-                : isScreeningActive
-                  ? "bg-safe/12 text-safe"
-                  : "bg-foreground/6 text-muted-foreground"
-            )}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-foreground/[0.03] px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-[0.08em] text-foreground/70 transition-colors"
           >
-            <MaoAvatar
-              state={isScreeningActive && !agentOffline ? "scanning" : "resting"}
-              size={14}
-              variant="solid"
-              color="currentColor"
-            />
+            <span
+              className={clsx(
+                "inline-flex",
+                agentOffline ? "text-watch" : isScreeningActive ? "text-safe" : "text-muted-foreground"
+              )}
+            >
+              <MaoAvatar
+                state={isScreeningActive && !agentOffline ? "scanning" : "resting"}
+                size={14}
+                variant="solid"
+                color="currentColor"
+              />
+            </span>
             {agentOffline ? "Away" : isScreeningActive ? "Watching" : "Paused"}
           </div>
         </div>
@@ -61,7 +61,7 @@ export function TopBar() {
 
       {/* Mobile bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 sm:hidden safe-area-bottom">
-        <div className="mx-3 mb-2 rounded-2xl bg-card/90 backdrop-blur-2xl border border-border shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.5)]">
+        <div className="mx-3 mb-2 rounded-md bg-card/90 backdrop-blur-2xl border border-border shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.5)]">
           <div className="flex items-center justify-around h-16 px-2">
             {navItems.map((item) => {
               const active = pathname === item.href;
@@ -71,7 +71,7 @@ export function TopBar() {
                   href={item.href}
                   data-tour={item.tour}
                   className={clsx(
-                    "relative flex flex-col items-center justify-center gap-2 flex-1 py-2 rounded-xl transition-all touch-manipulation",
+                    "relative flex flex-col items-center justify-center gap-2 flex-1 py-2 rounded-md transition-all touch-manipulation",
                     active ? "text-gold" : "text-muted-foreground"
                   )}
                 >
@@ -85,7 +85,7 @@ export function TopBar() {
                     {item.label}
                   </span>
                   {item.badge && queuedCount > 0 && (
-                    <span className="absolute top-1 right-1/4 flex items-center justify-center min-w-[16px] h-[16px] px-1 rounded-pill bg-gold text-[9px] font-bold text-ink-900 leading-none">
+                    <span className="absolute top-1 right-1/4 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-gold text-[10px] font-bold text-ink-900 leading-none">
                       {queuedCount > 99 ? "99+" : queuedCount}
                     </span>
                   )}

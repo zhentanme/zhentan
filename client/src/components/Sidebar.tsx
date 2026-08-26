@@ -18,7 +18,8 @@ import { truncateAddress } from "@/lib/format";
 export function Sidebar() {
   const pathname = usePathname();
   const { safeAddress, user } = useAuth();
-  const { isScreeningActive } = useScreeningStatus();
+  const { isScreeningActive, agentOnline } = useScreeningStatus();
+  const agentOffline = isScreeningActive && agentOnline === false;
   const { queuedCount } = useActivityData();
   const [accountOpen, setAccountOpen] = useState(false);
 
@@ -26,7 +27,7 @@ export function Sidebar() {
     <aside className="fixed inset-y-0 left-0 z-40 hidden lg:flex w-64 flex-col border-r border-border bg-card/30 backdrop-blur-xl">
       {/* Brand */}
       <div className="px-6 h-16 flex items-center">
-        <BrandMark href="/home" size="md" halo="#0a0d0e" />
+        <BrandMark href="/home" size="md" />
       </div>
 
       {/* Nav */}
@@ -50,14 +51,14 @@ export function Sidebar() {
                 {active && (
                   <motion.span
                     layoutId="sidebar-active"
-                    className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-pill bg-gold"
+                    className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-gold"
                     transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
                   />
                 )}
                 <item.icon className="h-4 w-4 shrink-0" />
                 <span className="flex-1">{item.label}</span>
                 {item.badge && queuedCount > 0 && (
-                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-pill bg-gold text-[10px] font-bold text-ink-900 leading-none">
+                  <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-gold text-[10px] font-bold text-ink-900 leading-none">
                     {queuedCount > 99 ? "99+" : queuedCount}
                   </span>
                 )}
@@ -69,20 +70,40 @@ export function Sidebar() {
 
       {/* Screening status */}
       <div className="px-3">
-        <div
-          className={clsx(
-            "flex items-center gap-2 px-3 py-2.5 rounded-md text-xs font-mono uppercase tracking-wider",
-            isScreeningActive ? "bg-safe/10 text-safe" : "bg-foreground/5 text-muted-foreground"
-          )}
-        >
-          <MaoAvatar
-            state={isScreeningActive ? "scanning" : "resting"}
-            size={14}
-            variant="solid"
-            color="currentColor"
-          />
+        <div className="flex items-center gap-2 px-3 py-2.5 rounded-md border border-border bg-foreground/[0.03] text-[10px] font-mono uppercase tracking-[0.08em] text-foreground/70">
+          <span
+            className={clsx(
+              "inline-flex",
+              agentOffline ? "text-watch" : isScreeningActive ? "text-safe" : "text-muted-foreground"
+            )}
+          >
+            <MaoAvatar
+              state={isScreeningActive && !agentOffline ? "scanning" : "resting"}
+              size={14}
+              variant="solid"
+              color="currentColor"
+            />
+          </span>
           <span className="flex-1">Screening</span>
-          <span className="font-semibold">{isScreeningActive ? "On" : "Off"}</span>
+          <span
+            className={clsx(
+              "font-semibold inline-flex items-center gap-1.5",
+              agentOffline ? "text-watch" : isScreeningActive ? "text-foreground/70" : "text-muted-foreground"
+            )}
+          >
+            <span
+              className={clsx(
+                "h-1.5 w-1.5 rounded-full",
+                agentOffline
+                  ? "text-watch bg-current signal-dot"
+                  : isScreeningActive
+                    ? "text-safe bg-current signal-dot animate-signal-pulse"
+                    : "bg-muted-foreground/80"
+              )}
+              aria-hidden
+            />
+            {agentOffline ? "Away" : isScreeningActive ? "Watching" : "Paused"}
+          </span>
         </div>
       </div>
 
@@ -93,7 +114,7 @@ export function Sidebar() {
           onClick={() => setAccountOpen(true)}
           className="w-full flex items-center gap-3 px-2 py-2 rounded-md hover:bg-foreground/5 transition-colors cursor-pointer text-left"
         >
-          <div className="h-9 w-9 rounded-pill bg-gradient-to-br from-gold-light to-gold-500 flex items-center justify-center text-ink-900 font-bold text-sm shrink-0">
+          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-gold-light to-gold-500 flex items-center justify-center text-ink-900 font-bold text-sm shrink-0">
             {(user?.name || user?.email || "Z").charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
@@ -102,7 +123,7 @@ export function Sidebar() {
             </p>
             {safeAddress && (
               <p className="text-[11px] font-mono text-muted-foreground truncate">
-                {truncateAddress(safeAddress, 13)}
+                {truncateAddress(safeAddress)}
               </p>
             )}
           </div>

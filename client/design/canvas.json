@@ -1,0 +1,11 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1120, "h": 1560, "title": "Signal chips — recommended" },
+    { "file": "TintedTags.dc.html", "x": 1240, "y": 0, "w": 560, "h": 540 },
+    { "file": "BareTerminal.dc.html", "x": 1240, "y": 680, "w": 560, "h": 520 }
+  ],
+  "annotations": [
+    { "id": "recommendation", "x": 1240, "y": -150, "w": 300, "text": "Recommendation: Signal chips (Main).\nQuiet dot-carried state matches the hairline/mono system; 'strong' emphasis reserved for Blocked / In review / high risk.\nB and C are the runners-up on either side of it: B keeps color blocks, C drops the container entirely." }
+  ],
+  "launch": { "view": "canvas" }
+}

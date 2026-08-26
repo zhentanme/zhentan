@@ -53,6 +53,7 @@ const config: Config = {
           300: "#e8b93a",
           400: "#f5d060",
           500: "#c49428",
+          600: "#9a7526",
           700: "#7a5c18",
           900: "#3a2b0b",
         },
@@ -75,23 +76,14 @@ const config: Config = {
         watch: "#f0b33c",
         danger: "#e5524f",
 
-        /* Backward-compatible alias → gold */
-        claw: {
-          DEFAULT: "#c49428",
-          400: "#f5d060",
-          500: "#c49428",
-          600: "#7a5c18",
-        },
       },
       borderRadius: {
+        /* The complete radius scale — do not add sizes or arbitrary values.
+           Pills/dots/avatars use the native `rounded-full`. */
         xs: "var(--r-xs)",        /* 4  — chips */
         sm: "var(--r-sm)",        /* 8  — small controls */
         md: "var(--r-md)",        /* 14 — buttons, inputs, tiles, cards */
         lg: "var(--r-lg)",        /* 22 — big panels / hero surfaces */
-        xl: "var(--r-md)",        /* 14 — collapsed: no overshoot past the card radius */
-        "2xl": "var(--r-md)",     /* 14 */
-        "3xl": "18px",
-        pill: "var(--r-pill)",    /* 999 — pills, dots, avatars */
       },
       fontFamily: {
         sans: ["var(--font-manrope)", "ui-sans-serif", "system-ui", "sans-serif"],

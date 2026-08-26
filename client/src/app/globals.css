@@ -14,8 +14,15 @@
   --gold-300: #e8b93a;
   --gold-400: #f5d060;
   --gold-500: #c49428;
+  --gold-600: #9a7526;
   --gold-700: #7a5c18;
   --gold-900: #3a2b0b;
+
+  /* Wordmark/logo gradient stops — the ONE definition; BrandMark,
+     .gradient-text and .logo-text all reference these. */
+  --gold-grad-a: #f7d978;
+  --gold-grad-b: #ecc24a;
+  --gold-grad-c: #c8992c;
 
   /* Ink ramp (neutrals) */
   --ink-0: #fbfbf7;
@@ -44,7 +51,6 @@
   --r-sm: 8px;
   --r-md: 14px;
   --r-lg: 22px;
-  --r-pill: 999px;
   --radius: 14px;
 
   /* Font families (bound by next/font in the root layout) */
@@ -74,6 +80,10 @@
   --ring: #c49428;
   --surface: #f3f1ea;
   --surface-light: #faf9f5;
+  /* Overlay scrims: --scrim behind dialogs, --scrim-strong for
+     spotlight/celebration takeovers */
+  --scrim: rgba(31, 36, 33, 0.4);
+  --scrim-strong: rgba(31, 36, 33, 0.6);
 }
 
 /* Dark mode — ink canvas, gold accent (canonical) */
@@ -99,6 +109,8 @@
   --ring: #c49428;
   --surface: var(--ink-800);
   --surface-light: var(--ink-700);
+  --scrim: rgba(0, 0, 0, 0.6);
+  --scrim-strong: rgba(10, 13, 14, 0.82);
 }
 
 @layer base {
@@ -175,7 +187,7 @@
   .gradient-text,
   .text-gold-gradient {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #f7d978 0%, #ecc24a 50%, #c8992c 100%);
+    background-image: linear-gradient(135deg, var(--gold-grad-a) 0%, var(--gold-grad-b) 50%, var(--gold-grad-c) 100%);
   }
 
   /* Wordmark text — bright on dark, deep on light */
@@ -183,7 +195,7 @@
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    background-image: linear-gradient(135deg, #f7d978 0%, #ecc24a 50%, #c8992c 100%);
+    background-image: linear-gradient(135deg, var(--gold-grad-a) 0%, var(--gold-grad-b) 50%, var(--gold-grad-c) 100%);
     font-weight: 700;
     letter-spacing: -0.01em;
   }

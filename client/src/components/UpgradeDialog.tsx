@@ -8,10 +8,10 @@ import {
   ArrowRight,
   Check,
   KeyRound,
-  Loader2,
   ShieldCheck,
 } from "lucide-react";
 import { Dialog } from "@/components/ui/Dialog";
+import { InlineError } from "@/components/ui/InlineError";
 import { Button } from "@/components/ui/Button";
 import { BackupAddressPicker } from "@/components/BackupAddressPicker";
 import { MaoAvatar } from "@/components/MaoAvatar";
@@ -137,8 +137,8 @@ export function UpgradeDialog({
           <StepShell
             key="agent"
             icon={<ShieldCheck className="w-7 h-7 text-gold" />}
-            title="Enable AI screening"
-            subtitle="Zhentan reviews every transaction before it executes — catching scams and mistakes. Next you can add a backup key so you always keep control."
+            title="Enable screening"
+            subtitle="Zhentan reviews every transaction before it executes. Next: add a backup key so you always keep control."
           >
             <Button
               onClick={() => setStep(telegramLinked ? "backup" : "telegram")}
@@ -148,8 +148,7 @@ export function UpgradeDialog({
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <p className="text-[11px] text-muted-foreground/70 text-center leading-relaxed">
-              Same wallet address throughout — you can stop at any step and
-              upgrade the rest later.
+              Same address throughout. Stop at any step.
             </p>
           </StepShell>
         )}
@@ -160,94 +159,84 @@ export function UpgradeDialog({
             key="backup"
             icon={<KeyRound className="w-7 h-7 text-gold" />}
             title="Add a backup key"
-            subtitle="A second key you control — your override. With it you can always move funds yourself at app.safe.global, even if Zhentan is ever offline."
+            subtitle="A second key you control. Move funds yourself at app.safe.global, even if Zhentan is offline."
           >
             {!externalWalletAddress ? (
               <BackupAddressPicker onSelect={setBackupAddress} />
             ) : (
-              <div className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-safe/25 bg-safe/6">
+              <div className="w-full flex items-center gap-3 rounded-md px-4 py-3 border border-safe/25 bg-safe/6">
                 <Check className="h-4 w-4 text-safe shrink-0" />
                 <p className="text-xs text-muted-foreground font-mono truncate flex-1">
                   {externalWalletAddress}
                 </p>
                 <button
                   onClick={() => setBackupAddress(null)}
-                  className="shrink-0 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="shrink-0 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
                   Change
                 </button>
               </div>
             )}
 
-            {error && <p className="text-xs text-danger">{error}</p>}
+            {error && <InlineError>{error}</InlineError>}
 
             {externalWalletAddress ? (
               /* Address confirmed → a single enabled CTA (no dead disabled button). */
-              <Button onClick={handleActivateWithBackup} disabled={busy} className="w-full">
-                {busy ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Upgrading...
-                  </>
-                ) : (
-                  <>
-                    {flow === "starter"
-                      ? "Activate full protection"
-                      : "Upgrade to full protection"}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
+              <Button onClick={handleActivateWithBackup} loading={busy} className="w-full">
+                {flow === "starter" ? "Activate full protection" : "Upgrade to full protection"}
+                {!busy && <ArrowRight className="h-4 w-4" />}
               </Button>
             ) : flow === "starter" && skipWarning ? (
               /* Lockout disclosure — the same acknowledgment onboarding
                  requires before creating a guarded wallet (#136.8). */
-              <div className="w-full p-[15px] rounded-2xl bg-watch/[0.06] border border-watch/18">
+              <div className="w-full p-4 rounded-md bg-watch/[0.06] border border-watch/20">
                 <p className="flex items-center gap-2 text-[13px] font-semibold text-watch mb-1.5">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   Continue without a backup key?
                 </p>
                 <p className="text-xs leading-relaxed text-watch/85 mb-3">
-                  Zhentan must co-sign every transaction. If its agent is ever
-                  offline, your funds sit safe but wait. Adding a key later
-                  takes one tap in Settings.
+                  Zhentan must co-sign every transaction — if it&apos;s offline,
+                  your funds wait. Add a key later in Settings.
                 </p>
                 <div className="flex gap-2">
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={busy}
                     onClick={handleSkipBackup}
-                    disabled={busy}
-                    className="flex-1 py-2.5 rounded-xl border border-watch/35 text-watch text-xs font-semibold hover:bg-watch/10 transition-colors cursor-pointer disabled:opacity-50"
+                    className="flex-1"
                   >
-                    {busy ? "Enabling…" : "Enable anyway"}
-                  </button>
-                  <button
-                    onClick={() => setSkipWarning(false)}
-                    disabled={busy}
-                    className="flex-1 py-2.5 rounded-xl bg-gold text-ink-900 text-xs font-bold hover:bg-gold/90 transition-colors cursor-pointer disabled:opacity-50"
-                  >
+                    Enable anyway
+                  </Button>
+                  <Button size="sm" disabled={busy} onClick={() => setSkipWarning(false)} className="flex-1">
                     Add a key
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => (flow === "starter" ? setSkipWarning(true) : onClose())}
+              <Button
+                variant="ghost"
+                size="sm"
                 disabled={busy}
-                className="w-full text-xs text-muted-foreground/60 hover:text-muted-foreground py-1.5 transition-colors disabled:opacity-50"
+                onClick={() => (flow === "starter" ? setSkipWarning(true) : onClose())}
+                className="w-full"
               >
                 {flow === "starter"
                   ? "Skip — enable the agent without a backup key"
-                  : "Maybe later"}
-              </button>
+                  : "Skip for now"}
+              </Button>
             )}
 
             {flow === "starter" && (
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setStep(telegramLinked ? "agent" : "telegram")}
-                className="w-full inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground py-1 transition-colors"
+                className="w-full"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Back
-              </button>
+              </Button>
             )}
           </StepShell>
         )}
@@ -265,8 +254,8 @@ export function UpgradeDialog({
             <MaoAvatar state="thinking" size={64} />
             <h3 className="mt-4 text-lg font-semibold text-foreground">Upgrading your wallet</h3>
             <p className="text-xs text-muted-foreground mt-1.5 text-center max-w-xs leading-relaxed">
-              The transition is signed and queued — it completes automatically
-              in a moment. You can close this; your wallet updates on its own.
+              Signed and queued. Your wallet updates on its own — you can close
+              this.
             </p>
             <Button onClick={onClose} className="mt-6 w-full max-w-xs">
               Close
@@ -280,10 +269,10 @@ export function UpgradeDialog({
             key="telegram"
             icon={<MaoAvatar state="scanning" size={30} variant="detail" />}
             title="Connect Telegram"
-            subtitle="Screening needs a way to reach you — connect Telegram to approve or reject reviews from anywhere. Skipping keeps alerts on email only."
+            subtitle="Approve or reject reviews from anywhere. Skip, and alerts stay on email."
           >
             {telegramLinked ? (
-              <div className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 border border-safe/25 bg-safe/6">
+              <div className="w-full flex items-center gap-3 rounded-md px-4 py-3 border border-safe/25 bg-safe/6">
                 <MaoAvatar state="cleared" size={22} variant="solid" />
                 <p className="text-xs text-muted-foreground flex-1">Telegram connected</p>
               </div>
@@ -296,13 +285,10 @@ export function UpgradeDialog({
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             {flow === "starter" && (
-              <button
-                onClick={() => setStep("agent")}
-                className="w-full inline-flex items-center justify-center gap-1.5 text-xs text-muted-foreground/50 hover:text-muted-foreground py-1 transition-colors"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setStep("agent")} className="w-full">
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Back
-              </button>
+              </Button>
             )}
           </StepShell>
         )}
@@ -328,8 +314,7 @@ export function UpgradeDialog({
             </div>
             <h3 className="text-lg font-semibold text-foreground">Wallet upgraded</h3>
             <p className="text-xs text-muted-foreground mt-1.5 text-center max-w-xs">
-              Your Safe is at the same address — every transaction now runs through
-              Zhentan.
+              Same address. Every transaction now runs through Zhentan.
             </p>
             <Button onClick={onClose} className="mt-6 w-full max-w-xs">
               Done
@@ -361,10 +346,10 @@ function StepShell({
       transition={{ type: "spring", bounce: 0.15 }}
       className="flex flex-col items-center w-full"
     >
-      <div className="w-14 h-14 rounded-2xl bg-gold/10 flex items-center justify-center mb-5">
+      <div className="w-14 h-14 rounded-md bg-gold/10 flex items-center justify-center mb-5">
         {icon}
       </div>
-      <h2 className="text-xl font-bold text-center mb-2">{title}</h2>
+      <h2 className="text-lg font-semibold text-center mb-2">{title}</h2>
       <p className="text-sm text-muted-foreground text-center mb-6 max-w-xs">
         {subtitle}
       </p>

@@ -2,8 +2,9 @@
 
 import { motion } from "framer-motion";
 import type { QueuedRequest } from "@/types";
-import { truncateAddress } from "@/lib/format";
+import { truncateAddress, riskSeverity } from "@/lib/format";
 import { TokenGlyph } from "./TokenGlyph";
+import { Pill, type PillTone } from "./ui/Pill";
 import { FileText, ArrowUpRight } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -14,49 +15,33 @@ interface RequestRowProps {
 }
 
 function RiskBadge({ score }: { score: number }) {
-  const color =
-    score < 40
-      ? "bg-safe/15 text-safe"
-      : score <= 70
-        ? "bg-watch/15 text-watch"
-        : "bg-danger/15 text-danger";
-
+  const sev = riskSeverity(score) ?? "neutral";
   return (
-    <span
-      className={clsx(
-        "inline-flex items-center px-2 py-0.5 rounded-pill text-[10px] font-mono uppercase tracking-wide",
-        color
-      )}
-    >
+    <Pill tone={sev} size="sm" strong={sev === "watch" || sev === "danger"}>
       Risk {score}
-    </span>
+    </Pill>
   );
 }
 
+const REQUEST_STATUS_TONE: Record<QueuedRequest["status"], PillTone> = {
+  queued: "watch",
+  approved: "safe",
+  executed: "safe",
+  rejected: "danger",
+};
+
+const REQUEST_STATUS_LABEL: Record<QueuedRequest["status"], string> = {
+  queued: "Queued",
+  approved: "Approved",
+  executed: "Executed",
+  rejected: "Rejected",
+};
+
 function RequestStatusBadge({ status }: { status: QueuedRequest["status"] }) {
-  const styles: Record<QueuedRequest["status"], string> = {
-    queued: "bg-watch/15 text-watch",
-    approved: "bg-safe/15 text-safe",
-    executed: "bg-safe/15 text-safe",
-    rejected: "bg-danger/15 text-danger",
-  };
-
-  const labels: Record<QueuedRequest["status"], string> = {
-    queued: "Queued",
-    approved: "Approved",
-    executed: "Executed",
-    rejected: "Rejected",
-  };
-
   return (
-    <span
-      className={clsx(
-        "inline-flex items-center px-3 py-1 rounded-pill text-[11px] font-mono uppercase tracking-wider",
-        styles[status]
-      )}
-    >
-      {labels[status]}
-    </span>
+    <Pill tone={REQUEST_STATUS_TONE[status]} strong={status === "rejected"}>
+      {REQUEST_STATUS_LABEL[status]}
+    </Pill>
   );
 }
 
@@ -70,7 +55,7 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
       className={clsx(
-        "group flex items-center gap-3 sm:gap-4 px-1 py-3.5 hover:bg-foreground/[0.035] transition-colors min-h-[3.5rem] touch-manipulation",
+        "group flex items-center gap-3 sm:gap-4 px-2 sm:px-3 py-3.5 hover:bg-foreground/[0.035] transition-colors min-h-[3.5rem] touch-manipulation",
         onClick && "cursor-pointer"
       )}
       initial={{ opacity: 0, y: 12 }}
@@ -82,7 +67,7 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
         bounce: 0.15,
       }}
     >
-      <div className="w-10 h-10 rounded-xl bg-foreground/8 flex items-center justify-center shrink-0 text-gold transition-colors group-hover:bg-foreground/[0.12]">
+      <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center shrink-0 text-gold transition-colors group-hover:bg-foreground/[0.12]">
         {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
       </div>
 

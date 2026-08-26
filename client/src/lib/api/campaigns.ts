@@ -1,4 +1,5 @@
 import type { ApiFetchFn } from "./client";
+import { apiError } from "./client";
 
 export interface Campaign {
   id: string;
@@ -30,7 +31,7 @@ export function campaignsApi(req: ApiFetchFn) {
   return {
     async get(id: string, safeAddress: string): Promise<CampaignStatus> {
       const res = await req(`/campaigns/${id}?safe=${safeAddress}`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t load the claim status");
       return res.json();
     },
 
@@ -42,7 +43,7 @@ export function campaignsApi(req: ApiFetchFn) {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "Claim failed");
+        throw new Error(body.error ?? "Couldn’t claim rewards");
       }
       const data = await res.json();
       return data.claim;

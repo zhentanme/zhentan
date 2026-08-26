@@ -40,7 +40,7 @@ export function ThemeLoaderSpinner({
 
 /** Full-screen loader — calm "pulse" Twin Tick with message + subtext. */
 export function ThemeLoader({
-  message = "Loading...",
+  message = "Loading…",
   subtext = "Securing your session",
 }: ThemeLoaderProps) {
   return (

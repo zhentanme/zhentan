@@ -105,16 +105,16 @@ export function mainTour(safeAddress: string, profile?: string | null): TourDefi
   const starter = profile === "starter";
   return {
     key: "main",
-    finishLabel: "Let's go",
+    finishLabel: "Got it",
     onClose: () => markTourSeen("main", safeAddress),
     steps: [
       {
         id: "welcome",
         brand: true,
-        title: starter ? "Welcome to Zhentan" : "Meet your co-signer",
+        title: starter ? "Welcome to Zhentan" : "Meet your agent",
         body: starter
-          ? "Your wallet is ready — sends relay gas-free, and AI screening is one tap away whenever you want it. Here's the thirty-second lay of the land."
-          : "Zhentan screens every transaction before it moves your money. Here's your wallet in thirty seconds.",
+          ? "Your wallet is ready. Sends relay gas-free, and screening is one tap away. Here’s the tour."
+          : "Zhentan screens every transaction before it moves your money. Here’s your wallet in thirty seconds.",
       },
       {
         id: "requests",
@@ -128,33 +128,33 @@ export function mainTour(safeAddress: string, profile?: string | null): TourDefi
         targets: ['[data-tour="agent-rail"]', '[data-tour="agent-status"]'],
         title: starter ? "Your agent lives here" : "Your agent, live",
         body: starter
-          ? "This is where screening decisions will stream once you activate protection — approvals, reviews, and blocks in real time."
-          : "Screening decisions and co-signs stream in here as they happen — approvals, reviews, and blocks in real time.",
+          ? "Screening decisions stream here once you activate protection."
+          : "Approvals, reviews, and blocks stream in here as they happen.",
         fallbackBody: starter
           ? "This pill becomes your agent's heartbeat once protection is on."
-          : "This pill is your agent's heartbeat — Watching means every signature gets screened before it executes.",
+          : "Watching means every signature is screened before it executes.",
       },
       {
         id: "fund",
         route: "/home",
         targets: ['[data-tour="receive"]'],
-        title: "Fund your vault",
-        body: "Receive holds your address and QR — send BNB Chain assets there and they appear right below.",
+        title: "Fund your wallet",
+        body: "Receive holds your address and QR. Assets you send appear right below.",
       },
       {
         id: "settings",
         targets: ['[data-tour="nav-settings"]'],
         title: "You're always in control",
         body: starter
-          ? "Activate protection, add keys, claim your username — Zhentan Guard lives in Settings."
-          : "Pause screening, manage your keys, or detach entirely — Zhentan Guard lives in Settings.",
+          ? "Activate protection, add keys, claim your username — all in Settings."
+          : "Pause screening, manage your keys, or detach entirely — all in Settings.",
       },
       {
         id: "done",
         brand: true,
         title: starter ? "You're set" : "You're guarded",
         body: starter
-          ? "Fund your vault and make your first transfer — and turn on AI screening any time from Settings."
+          ? "Fund your wallet and make your first transfer. Turn on screening anytime in Settings."
           : "Your agent is watching. Make your first transfer whenever you're ready.",
       },
     ],
@@ -173,14 +173,14 @@ export function upgradeTour(safeAddress: string): TourDefinition {
         route: "/settings",
         targets: ['[data-tour="guard-card"]'],
         title: "Your wallet has three keys now",
-        body: "The agent still screens by default — but with your backup key on the account, you can pause screening or override any decision.",
+        body: "With your backup key on the account, you can pause screening or override any decision.",
       },
       {
         id: "wallet",
         route: "/settings",
         targets: ['[data-tour="wallet-card"]'],
         title: "Agent & key management live here",
-        body: "Your owner set, the screening toggle, and the Safe app override are all managed from Settings — including Detach, if you ever want out.",
+        body: "Owners, the screening toggle, and Detach all live in Settings.",
       },
     ],
   };

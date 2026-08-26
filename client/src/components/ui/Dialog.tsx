@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
@@ -16,6 +16,17 @@ interface DialogProps {
   sheetOnMobile?: boolean;
 }
 
+/* Dialogs can nest (e.g. token picker inside Send). The stack keeps the body
+   scroll lock held until the LAST dialog closes, and routes Escape to the
+   topmost dialog only. */
+const dialogStack: symbol[] = [];
+
+function removeFromStack(id: symbol) {
+  const i = dialogStack.indexOf(id);
+  if (i !== -1) dialogStack.splice(i, 1);
+  if (dialogStack.length === 0) document.body.style.overflow = "";
+}
+
 export function Dialog({
   open,
   onClose,
@@ -25,26 +36,32 @@ export function Dialog({
   sheetOnMobile = true,
 }: DialogProps) {
   const isExitingRef = useRef(false);
+  const idRef = useRef<symbol | null>(null);
+  if (!idRef.current) idRef.current = Symbol("dialog");
   // Portal target only exists on the client; gate rendering until mounted.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const handleEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose]
-  );
-
   useEffect(() => {
+    const id = idRef.current!;
     if (open) {
       isExitingRef.current = false;
+      dialogStack.push(id);
       document.body.style.overflow = "hidden";
-      document.addEventListener("keydown", handleEscape);
-      return () => document.removeEventListener("keydown", handleEscape);
+      const handleKey = (e: KeyboardEvent) => {
+        if (e.key === "Escape" && dialogStack[dialogStack.length - 1] === id) onClose();
+      };
+      document.addEventListener("keydown", handleKey);
+      return () => document.removeEventListener("keydown", handleKey);
     }
     isExitingRef.current = true;
-  }, [open, handleEscape]);
+  }, [open, onClose]);
+
+  // If the dialog unmounts while open (no exit animation), release its lock.
+  useEffect(() => {
+    const id = idRef.current!;
+    return () => removeFromStack(id);
+  }, []);
 
   // Render into document.body so `position: fixed` is relative to the viewport,
   // not a transformed ancestor (framer-motion parents would otherwise clip it).
@@ -64,7 +81,7 @@ export function Dialog({
           <motion.button
             type="button"
             aria-label="Close"
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-[var(--scrim)] backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -82,8 +99,8 @@ export function Dialog({
               "bg-card shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)]",
               "flex flex-col",
               sheetOnMobile
-                ? "max-h-[90vh] sm:max-h-[85vh] rounded-t-2xl sm:rounded-2xl p-4 sm:p-6"
-                : "max-h-[85vh] sm:max-h-[90vh] rounded-2xl p-4 sm:p-6",
+                ? "max-h-[90vh] sm:max-h-[85vh] rounded-t-md sm:rounded-md p-4 sm:p-6"
+                : "max-h-[85vh] sm:max-h-[90vh] rounded-md p-4 sm:p-6",
               className
             )}
             initial={sheetOnMobile ? { y: "100%" } : { opacity: 0, scale: 0.96 }}
@@ -97,7 +114,7 @@ export function Dialog({
             onClick={(e) => e.stopPropagation()}
             onAnimationComplete={() => {
               if (isExitingRef.current) {
-                document.body.style.overflow = "";
+                removeFromStack(idRef.current!);
                 isExitingRef.current = false;
               }
             }}
@@ -122,7 +139,7 @@ export function Dialog({
                 aria-label="Close"
                 onClick={onClose}
                 className={clsx(
-                  "p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-colors",
+                  "p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-colors cursor-pointer",
                   title ? "absolute right-0 top-1/2 -translate-y-1/2" : "ml-auto"
                 )}
               >

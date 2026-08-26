@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AlertTriangle, ArrowRightLeft } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import { clsx } from "clsx";
 
 import { useAuth } from "@/app/context/AuthContext";
@@ -50,9 +51,9 @@ export function SignerMismatchBanner() {
           {active ? (
             <>
               You&apos;re connected with a non-signer account{" "}
-              <span className="font-mono text-danger">{truncateAddress(active, 13)}</span>.
+              <span className="font-mono text-danger">{truncateAddress(active)}</span>.
               Signing needs{" "}
-              <span className="font-mono">{truncateAddress(expected, 13)}</span>.
+              <span className="font-mono">{truncateAddress(expected)}</span>.
             </>
           ) : (
             <>{walletLabel} is locked or disconnected — signing is unavailable until it reconnects.</>
@@ -62,15 +63,10 @@ export function SignerMismatchBanner() {
           )}
         </p>
         {active && (
-          <button
-            type="button"
-            onClick={trySwitch}
-            disabled={busy}
-            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-danger/35 text-xs font-semibold text-danger hover:bg-danger/[0.08] transition-colors cursor-pointer disabled:opacity-60"
-          >
-            <ArrowRightLeft className="h-3 w-3" />
-            {busy ? "Check your wallet..." : "Switch account"}
-          </button>
+          <Button variant="danger" size="sm" loading={busy} onClick={trySwitch} className="shrink-0">
+            {!busy && <ArrowRightLeft className="h-3 w-3" />}
+            {busy ? "Check your wallet…" : "Switch account"}
+          </Button>
         )}
       </div>
     </div>
@@ -85,7 +81,7 @@ export function SignerMismatchInline({ compact = false }: { compact?: boolean })
   const { expected, active, walletName } = signerMismatch;
   const walletLabel = walletName ?? "your wallet";
   const title = active
-    ? `This account can't sign for your Safe — switch back to ${truncateAddress(expected, 13)}`
+    ? `This account can't sign for your Safe — switch back to ${truncateAddress(expected)}`
     : `${walletLabel} is locked or disconnected`;
 
   return (
@@ -99,11 +95,11 @@ export function SignerMismatchInline({ compact = false }: { compact?: boolean })
           onClick={trySwitch}
           disabled={busy}
           className={clsx(
-            "inline-flex items-center rounded-md border border-danger/35 font-semibold text-danger hover:bg-danger/[0.08] transition-colors cursor-pointer disabled:opacity-60",
+            "inline-flex items-center rounded-md border border-danger/40 font-semibold text-danger hover:bg-danger/10 transition-colors cursor-pointer disabled:opacity-50",
             compact ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]"
           )}
         >
-          {busy ? "Check wallet..." : manualHint ? `Switch in ${walletLabel}` : "Switch"}
+          {busy ? "Check your wallet…" : manualHint ? `Switch in ${walletLabel}` : "Switch"}
         </button>
       )}
     </span>

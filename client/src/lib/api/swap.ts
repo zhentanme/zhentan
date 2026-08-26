@@ -16,7 +16,7 @@ export function swapApi(req: ApiFetchFn) {
       const res = await req(`/swap?${qs}`);
       const data = await res.json();
       if (!res.ok || !data.status) {
-        throw new Error(data.error || "Failed to fetch swap quote");
+        throw new Error(data.error || "Couldn’t fetch a swap quote");
       }
       return { ...(data.quote as SwapQuote), slippage: data.slippage ?? 0.05 };
     },

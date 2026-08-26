@@ -69,7 +69,7 @@ export async function proposeDappTransaction({
 
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || "Failed to queue transaction");
+    throw new Error(err.error || "Couldn’t queue the transaction");
   }
 
   return pendingTx;

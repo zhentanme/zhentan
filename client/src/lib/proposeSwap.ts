@@ -108,7 +108,7 @@ export async function proposeSwap({
 
   if (!res.ok) {
     const err = await res.json();
-    throw new Error(err.error || "Failed to queue swap transaction");
+    throw new Error(err.error || "Couldn’t queue the swap");
   }
 
   return pendingTx;

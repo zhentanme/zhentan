@@ -1,96 +1,15 @@
 "use client";
 
-import Image from "next/image";
 import { motion } from "framer-motion";
 import type { TransactionWithStatus } from "@/types";
 import { truncateAddress, formatTokenAmount, timeAgo } from "@/lib/format";
 import { StatusBadge } from "./StatusBadge";
 import {
-  ArrowUpRight,
-  ArrowDownLeft,
-  Repeat2,
-  ShieldCheck,
-  Sparkles,
-  Settings2,
-  Zap,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  type LucideIcon,
-} from "lucide-react";
-
-// ── Operation config ─────────────────────────────────────────────────────────
-
-interface OpConfig {
-  Icon: LucideIcon;
-  label: string;
-  /** "+", "-", or "" for no sign */
-  sign: "+" | "-" | "";
-  /** Tailwind color class for the inline icon */
-  iconColor: string;
-}
-
-const OP_CONFIG: Record<string, OpConfig> = {
-  receive:  { Icon: ArrowDownLeft,   label: "Receive",  sign: "+", iconColor: "text-safe"   },
-  send:     { Icon: ArrowUpRight,    label: "Send",     sign: "-", iconColor: "text-danger" },
-  trade:    { Icon: Repeat2,         label: "Trade",    sign: "+", iconColor: "text-watch"  },
-  approve:  { Icon: ShieldCheck,     label: "Approve",  sign: "",  iconColor: "text-gold"   },
-  execute:  { Icon: Zap,             label: "Execute",  sign: "",  iconColor: "text-gold"   },
-  deposit:  { Icon: ArrowDownToLine, label: "Deposit",  sign: "-", iconColor: "text-danger" },
-  withdraw: { Icon: ArrowUpFromLine, label: "Withdraw", sign: "+", iconColor: "text-safe"   },
-  borrow:   { Icon: ArrowDownLeft,   label: "Borrow",   sign: "+", iconColor: "text-safe"   },
-  repay:    { Icon: ArrowUpRight,    label: "Repay",    sign: "-", iconColor: "text-danger" },
-  mint:     { Icon: ArrowDownLeft,   label: "Mint",     sign: "+", iconColor: "text-safe"   },
-  burn:     { Icon: ArrowUpRight,    label: "Burn",     sign: "-", iconColor: "text-danger" },
-};
-
-const FALLBACK_CONFIG: OpConfig = {
-  Icon: ArrowUpRight, label: "Transaction", sign: "", iconColor: "text-muted-foreground",
-};
-
-function getConfig(tx: TransactionWithStatus): OpConfig {
-  // Wallet events (Safe creation, owner/config transitions) — not transfers.
-  if (tx.txKind) {
-    return {
-      Icon: tx.txKind === "creation" ? Sparkles : Settings2,
-      label:
-        tx.kindLabel ?? (tx.txKind === "creation" ? "Safe account created" : "Wallet configuration"),
-      sign: "",
-      iconColor: "text-gold",
-    };
-  }
-  const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
-  return OP_CONFIG[op] ?? FALLBACK_CONFIG;
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatUsd(n?: number): string {
-  if (!n || n === 0) return "";
-  if (n < 0.01) return `$${n.toPrecision(3)}`;
-  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function TokenAvatar({ iconUrl, symbol }: { iconUrl?: string | null; symbol?: string }) {
-  if (iconUrl) {
-    return (
-      <Image
-        src={iconUrl}
-        alt=""
-        width={40}
-        height={40}
-        className="object-cover w-full h-full"
-        unoptimized
-      />
-    );
-  }
-  return (
-    <span className="text-[11px] font-bold text-muted-foreground leading-none">
-      {(symbol || "?").slice(0, 4)}
-    </span>
-  );
-}
+  getOpConfig,
+  formatUsd,
+  TokenAvatar,
+  type OpConfig,
+} from "./txPresentation";
 
 interface AmountProps {
   tx: TransactionWithStatus;
@@ -154,7 +73,7 @@ interface TransactionRowProps {
 }
 
 export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) {
-  const config = getConfig(tx);
+  const config = getOpConfig(tx);
   const { Icon, label, iconColor } = config;
   const time = timeAgo(tx.proposedAt);
 

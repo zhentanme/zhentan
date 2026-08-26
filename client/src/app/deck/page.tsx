@@ -5,13 +5,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
+  Check,
   ChevronLeft,
   ChevronRight,
   Shield,
+  ShieldOff,
   Users,
   Code2,
   TrendingUp,
   DollarSign,
+  Timer,
+  Bot,
+  Layers,
+  Search,
+  Zap,
+  type LucideIcon,
 } from "lucide-react";
 
 /* ─── Shared visual helpers ─────────────────────────────────────────── */
@@ -30,7 +38,7 @@ function StatCard({
     <motion.div
       initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
       transition={{ delay, type: "spring" }}
-      className="relative rounded-2xl px-5 py-4 overflow-hidden text-center"
+      className="relative rounded-md px-5 py-4 overflow-hidden text-center"
       style={{ background: "rgba(196,148,40,0.06)", border: "1px solid rgba(196,148,40,0.20)" }}>
       <GoldLine />
       <div className="text-2xl sm:text-3xl font-black gradient-text leading-none mb-1">{value}</div>
@@ -111,15 +119,17 @@ function SlideProblem() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-        {[
-          { icon: "⛔", t: "No Guardrails", d: "Standard wallets confirm what you sign — they don't screen it." },
-          { icon: "🐢", t: "Multisigs Are Too Slow", d: "Institutional co-signers can't match real-time DeFi speed." },
-          { icon: "🤖", t: "AI Is Ready", d: "Agents are finally capable enough to fill this gap autonomously." },
-        ].map((p, i) => (
+        {([
+          { icon: ShieldOff, t: "No guardrails", d: "Standard wallets confirm what you sign — they don't screen it." },
+          { icon: Timer, t: "Multisigs are too slow", d: "Institutional co-signers can't match real-time DeFi speed." },
+          { icon: Bot, t: "AI is ready", d: "Agents are finally capable enough to fill this gap autonomously." },
+        ] as { icon: LucideIcon; t: string; d: string }[]).map((p, i) => (
           <motion.div key={p.t} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 + i * 0.1, type: "spring" }}
             className="glass-card p-4 flex gap-3 items-start">
-            <span className="text-xl shrink-0">{p.icon}</span>
+            <span className="w-8 h-8 rounded-sm bg-gold/10 flex items-center justify-center shrink-0 text-gold">
+              <p.icon className="h-4 w-4" />
+            </span>
             <div>
               <div className="text-xs font-bold text-foreground mb-0.5">{p.t}</div>
               <div className="text-muted-foreground/80 text-[11px] leading-relaxed">{p.d}</div>
@@ -150,17 +160,19 @@ function SlidePhilosophy() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-        {[
-          { emoji: "🧬", title: "Agents as Trust Layers",   desc: "An autonomous layer that lives beside the user, not between them and the chain." },
-          { emoji: "🕵️", title: "Personalized Detective",   desc: "Learns your recipients, amounts, timing, limits. Flags anything outside your normal." },
-          { emoji: "⚡", title: "Real-Time Action",         desc: "Auto-approve safe flows, flag borderline ones via Telegram, block threats outright." },
-        ].map((p, i) => (
+        {([
+          { icon: Layers, title: "Agents as trust layers",  desc: "An autonomous layer that lives beside the user, not between them and the chain." },
+          { icon: Search, title: "Personalized detective",  desc: "Learns your recipients, amounts, timing, limits. Flags anything outside your normal." },
+          { icon: Zap,    title: "Real-time action",        desc: "Auto-approve safe flows, flag borderline ones via Telegram, block threats outright." },
+        ] as { icon: LucideIcon; title: string; desc: string }[]).map((p, i) => (
           <motion.div key={p.title} initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.25 + i * 0.13, type: "spring" }}
-            className="relative rounded-2xl p-5 overflow-hidden"
+            className="relative rounded-md p-5 overflow-hidden"
             style={{ background: "rgba(196,148,40,0.05)", border: "1px solid rgba(196,148,40,0.15)" }}>
             <GoldLine />
-            <div className="text-4xl mb-3">{p.emoji}</div>
+            <div className="w-10 h-10 rounded-sm bg-gold/12 flex items-center justify-center text-gold mb-3">
+              <p.icon className="h-5 w-5" />
+            </div>
             <div className="text-sm font-bold text-foreground mb-2">{p.title}</div>
             <p className="text-muted-foreground text-xs leading-relaxed">{p.desc}</p>
           </motion.div>
@@ -169,7 +181,7 @@ function SlidePhilosophy() {
 
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.65, type: "spring" }}
-        className="w-full max-w-lg rounded-2xl px-6 py-4 text-center"
+        className="w-full max-w-lg rounded-md px-6 py-4 text-center"
         style={{ background: "rgba(196,148,40,0.07)", border: "1px solid rgba(196,148,40,0.22)" }}>
         <p className="text-sm text-foreground/80 font-medium leading-relaxed">
           Zhentan is a <span className="gradient-text font-bold">personalized onchain detective</span> — it learns your behavior,
@@ -194,13 +206,13 @@ function SlideHowItWorks() {
       num: "02", title: "Zhentan Screens",
       desc: "Agent scores 0–100 against behavioral profile + GoPlus / Honeypot.is / De.fi scanners.",
       sub: "< 200ms decision",
-      color: "#6366f1", bg: "rgba(99,102,241,0.07)", border: "rgba(99,102,241,0.25)",
+      color: "var(--gold-400)", bg: "rgba(196,148,40,0.07)", border: "rgba(196,148,40,0.25)",
     },
     {
       num: "03", title: "Execute or Block",
       desc: "APPROVE auto-executed. REVIEW sent to Telegram. BLOCK denied with instant alert.",
       sub: "Safe 2-of-2 multisig",
-      color: "#10b981", bg: "rgba(16,185,129,0.07)", border: "rgba(16,185,129,0.25)",
+      color: "var(--safe)", bg: "rgba(63,190,118,0.07)", border: "rgba(63,190,118,0.25)",
     },
   ];
 
@@ -223,7 +235,7 @@ function SlideHowItWorks() {
             <motion.div
               initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.18 + i * 0.14, type: "spring" }}
-              className="relative rounded-2xl p-5 w-full overflow-hidden flex-1"
+              className="relative rounded-md p-5 w-full overflow-hidden flex-1"
               style={{ background: s.bg, border: `1px solid ${s.border}` }}>
               <div className="absolute top-0 left-0 right-0 h-px"
                 style={{ background: `linear-gradient(90deg, transparent, ${s.color}80, transparent)` }} />
@@ -256,12 +268,12 @@ function SlideHowItWorks() {
 
 function SlideProduct() {
   const stack = [
-    { name: "Safe Multisig",  note: "2-of-2 smart account · $100B+ secured",  color: "rgba(16,185,129,0.10)", border: "rgba(16,185,129,0.28)" },
-    { name: "ERC-4337",       note: "Account abstraction · 40M+ smart accounts", color: "rgba(99,102,241,0.10)", border: "rgba(99,102,241,0.28)" },
-    { name: "ERC-7579",       note: "Module extensibility standard",           color: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.28)" },
+    { name: "Safe Multisig",  note: "2-of-2 smart account · $100B+ secured",  color: "rgba(63,190,118,0.10)", border: "rgba(63,190,118,0.28)" },
+    { name: "ERC-4337",       note: "Account abstraction · 40M+ smart accounts", color: "rgba(196,148,40,0.10)", border: "rgba(196,148,40,0.28)" },
+    { name: "ERC-7579",       note: "Module extensibility standard",           color: "rgba(196,148,40,0.10)", border: "rgba(196,148,40,0.28)" },
     { name: "ERC-8004",       note: "Agent identity on-chain",                 color: "rgba(196,148,40,0.10)", border: "rgba(196,148,40,0.28)" },
     { name: "NanoBot/Hermes",       note: "Qwen3-235B + Claude Sonnet agent",        color: "rgba(196,148,40,0.15)", border: "rgba(196,148,40,0.30)" },
-    { name: "Pimlico",        note: "Gasless bundler + paymaster",             color: "rgba(168,85,247,0.10)", border: "rgba(168,85,247,0.25)" },
+    { name: "Pimlico",        note: "Gasless bundler + paymaster",             color: "rgba(196,148,40,0.10)", border: "rgba(196,148,40,0.25)" },
   ];
 
   return (
@@ -285,7 +297,7 @@ function SlideProduct() {
           <motion.div key={s.l}
             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.15 + i * 0.07, type: "spring" }}
-            className="relative rounded-xl px-4 py-3 text-center overflow-hidden"
+            className="relative rounded-md px-4 py-3 text-center overflow-hidden"
             style={{ background: "rgba(196,148,40,0.06)", border: "1px solid rgba(196,148,40,0.20)", minWidth: 90 }}>
             <GoldLine />
             <div className="text-lg font-black gradient-text leading-none">{s.v}</div>
@@ -298,7 +310,7 @@ function SlideProduct() {
         {stack.map((s, i) => (
           <motion.div key={s.name} initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.32 + i * 0.06, type: "spring" }}
-            className="rounded-xl p-3.5" style={{ background: s.color, border: `1px solid ${s.border}` }}>
+            className="rounded-md p-3.5" style={{ background: s.color, border: `1px solid ${s.border}` }}>
             <div className="text-xs font-bold text-foreground mb-0.5">{s.name}</div>
             <div className="text-[10px] text-muted-foreground/80">{s.note}</div>
           </motion.div>
@@ -354,7 +366,7 @@ function SlideTraction() {
         ].map((t, i) => (
           <motion.div key={t.handle} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.55 + i * 0.1, type: "spring" }}
-            className="relative rounded-2xl p-4 overflow-hidden"
+            className="relative rounded-md p-4 overflow-hidden"
             style={{ background: "rgba(196,148,40,0.05)", border: "1px solid rgba(196,148,40,0.18)" }}>
             <GoldLine />
             <div className="flex items-center gap-2 mb-1">
@@ -381,7 +393,7 @@ function SlideMarket() {
     {
       Icon: Users, title: "Individual BNB Users",
       desc: "486M+ addresses on BNB Chain. Protection without complexity — one-click setup, silent AI screening.",
-      color: "#10b981", bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.25)",
+      color: "var(--safe)", bg: "rgba(63,190,118,0.08)", border: "rgba(63,190,118,0.25)",
     },
     {
       Icon: Shield, title: "DAOs & Treasuries",
@@ -391,7 +403,7 @@ function SlideMarket() {
     {
       Icon: Code2, title: "Safe Developers",
       desc: "10,000+ Safe devs. Security & screening SDK with its own developer integration surface.",
-      color: "#6366f1", bg: "rgba(99,102,241,0.08)", border: "rgba(99,102,241,0.25)",
+      color: "var(--gold-400)", bg: "rgba(196,148,40,0.08)", border: "rgba(196,148,40,0.25)",
     },
   ];
 
@@ -422,11 +434,11 @@ function SlideMarket() {
           return (
             <motion.div key={a.title} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.48 + i * 0.12, type: "spring" }}
-              className="relative rounded-2xl p-4 overflow-hidden"
+              className="relative rounded-md p-4 overflow-hidden"
               style={{ background: a.bg, border: `1px solid ${a.border}` }}>
               <div className="absolute top-0 left-0 right-0 h-px"
                 style={{ background: `linear-gradient(90deg, transparent, ${a.color}88, transparent)` }} />
-              <div className="w-7 h-7 rounded-xl flex items-center justify-center mb-2"
+              <div className="w-7 h-7 rounded-md flex items-center justify-center mb-2"
                 style={{ background: `${a.color}18` }}>
                 <Icon className="w-3.5 h-3.5" style={{ color: a.color }} />
               </div>
@@ -463,14 +475,14 @@ function SlideRevenue() {
       target: "DAOs · institutions · Safe devs",
       desc: "Co-signer licensing, white-label agent deployment, Safe developer integrations.",
       metric: "→ High-ACV contracts",
-      color: "rgba(99,102,241,0.08)", border: "rgba(99,102,241,0.28)", accent: "#6366f1",
+      color: "rgba(196,148,40,0.08)", border: "rgba(196,148,40,0.28)", accent: "var(--gold-400)",
     },
     {
       name: "Enterprise",
       target: "Protocols · treasuries",
       desc: "Custom integrations, managed agent infra, SLAs, on-premise deployment.",
       metric: "→ Enterprise ARR",
-      color: "rgba(168,85,247,0.08)", border: "rgba(168,85,247,0.28)", accent: "#a855f7",
+      color: "rgba(196,148,40,0.08)", border: "rgba(196,148,40,0.28)", accent: "var(--gold-500)",
     },
   ];
 
@@ -491,7 +503,7 @@ function SlideRevenue() {
         {tiers.map((t, i) => (
           <motion.div key={t.name} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 + i * 0.1, type: "spring" }}
-            className="relative rounded-2xl p-5 overflow-hidden"
+            className="relative rounded-md p-5 overflow-hidden"
             style={{ background: t.color, border: `1px solid ${t.border}` }}>
             <div className="absolute top-0 left-0 right-0 h-px"
               style={{ background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)` }} />
@@ -541,7 +553,7 @@ function SlideRoadmap() {
         {items.map((m, i) => (
           <motion.div key={m.v} initial={{ opacity: 0, x: -24 }} animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.18 + i * 0.11, type: "spring" }}
-            className="relative flex items-center gap-4 rounded-2xl px-5 py-4 overflow-hidden"
+            className="relative flex items-center gap-4 rounded-md px-5 py-4 overflow-hidden"
             style={{
               background: m.done ? "rgba(196,148,40,0.08)" : "rgba(255,255,255,0.03)",
               border: m.done ? "1px solid rgba(196,148,40,0.30)" : "1px solid rgba(255,255,255,0.08)",
@@ -561,7 +573,7 @@ function SlideRoadmap() {
             </div>
             {m.done && (
               <div className="shrink-0 w-5 h-5 rounded-full bg-gold/20 flex items-center justify-center">
-                <span className="text-gold text-[10px]">✓</span>
+                <Check className="h-3 w-3 text-gold" strokeWidth={3} />
               </div>
             )}
           </motion.div>
@@ -609,8 +621,7 @@ function SlideVision() {
         transition={{ delay: 0.52, type: "spring" }}
         className="flex flex-col sm:flex-row gap-3 items-center">
         <a href="https://zhentan.me" target="_blank" rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm text-black transition-opacity hover:opacity-90"
-          style={{ background: "linear-gradient(90deg, #f5d060, #c49428)" }}>
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm text-primary-foreground bg-gradient-to-r from-gold-light to-gold-500 transition-opacity hover:opacity-90">
           Try zhentan.me →
         </a>
       </motion.div>

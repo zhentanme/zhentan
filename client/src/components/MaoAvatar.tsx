@@ -106,13 +106,16 @@ interface MaoAvatarProps {
   "aria-label"?: string;
 }
 
-/* ── Palette (mirrors the brand tokens in globals.css) ─────────────── */
-const GOLD = "#c49428";
-const GOLD_LIGHT = "#e8b93a";
+/* ── Palette ───────────────────────────────────────────────────────
+   Brand values resolve through the tokens in globals.css. The ink-on-gold
+   artwork colors (whiskers, inner ears, lens glass below) are part of the
+   mark itself and stay fixed across themes. */
+const GOLD = "var(--gold-500, #c49428)";
+const GOLD_LIGHT = "var(--gold-300, #e8b93a)";
 const SAFE = "var(--safe, #3fbe76)";
 const DANGER = "var(--danger, #e5524f)";
 const MUTED = "var(--ink-300, #8e938a)";
-const INK = "#0a0d0e";
+const INK = "var(--ink-900, #0a0d0e)";
 const INK_SOFT = "rgba(10,13,14,0.5)"; //  whiskers on the gold head
 const INK_FAINT = "rgba(10,13,14,0.34)"; // inner ears
 

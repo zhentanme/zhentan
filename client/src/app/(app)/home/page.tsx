@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { BalanceCard } from "@/components/BalanceCard";
 import { SendPanel } from "@/components/SendPanel";
@@ -17,6 +17,7 @@ import { ThemeLoader } from "@/components/ThemeLoader";
 import { ClaimBanner } from "@/components/ClaimBanner";
 import { UpgradeBanner } from "@/components/UpgradeBanner";
 import { useAuth } from "@/app/context/AuthContext";
+import { useToast } from "@/components/ui/Toast";
 import { useApiClient } from "@/lib/api/client";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { padTokensWithFallbacks } from "@/lib/tokenFallbacks";
@@ -25,6 +26,9 @@ import type { TransactionWithStatus, StatusResponse, TokenPosition, PortfolioRes
 function Dashboard() {
   const { user, safeAddress, safeLoading } = useAuth();
   const api = useApiClient();
+  const toast = useToast();
+  // Surface a refresh failure once per failure streak, not on every poll tick.
+  const fetchFailedRef = useRef({ portfolio: false, tx: false });
 
   const [username, setUsername] = useState<string | null>(null);
   const [portfolioTotalUsd, setPortfolioTotalUsd] = useState<number | null>(null);
@@ -47,24 +51,32 @@ function Dashboard() {
       setPortfolioTotalUsd(data.totalUsd);
       setPortfolioPercentChange24h(data.percentChange24h ?? null);
       setTokens(padTokensWithFallbacks(data.tokens ?? []));
+      fetchFailedRef.current.portfolio = false;
     } catch {
-      // silent
+      if (!fetchFailedRef.current.portfolio) {
+        fetchFailedRef.current.portfolio = true;
+        toast("Couldn’t refresh balances", "danger");
+      }
     } finally {
       setBalanceLoading(false);
     }
-  }, [safeAddress, api]);
+  }, [safeAddress, api, toast]);
 
   const fetchTransactions = useCallback(async () => {
     if (!safeAddress) return;
     try {
       const data = await api.transactions.list(safeAddress);
       setTransactions(data.transactions);
+      fetchFailedRef.current.tx = false;
     } catch {
-      // silent
+      if (!fetchFailedRef.current.tx) {
+        fetchFailedRef.current.tx = true;
+        toast("Couldn’t refresh activity", "danger");
+      }
     } finally {
       setTxLoading(false);
     }
-  }, [safeAddress, api]);
+  }, [safeAddress, api, toast]);
 
   const fetchStatus = useCallback(async () => {
     if (!safeAddress) return;
@@ -72,7 +84,7 @@ function Dashboard() {
       const data: StatusResponse = await api.status.get(safeAddress);
       setScreeningMode(data.screeningMode);
     } catch {
-      // silent
+      // Silent by design: the pill keeps its last known value until the next poll.
     }
   }, [safeAddress, api]);
 
@@ -111,7 +123,7 @@ function Dashboard() {
     return (
       <ThemeLoader
         variant="auth"
-        message="Preparing your wallet..."
+        message="Preparing your wallet…"
         subtext="Securing your session"
       />
     );
@@ -199,7 +211,7 @@ function Dashboard() {
           />
         </Dialog>
 
-        <Dialog open={receiveOpen} onClose={() => setReceiveOpen(false)}>
+        <Dialog open={receiveOpen} onClose={() => setReceiveOpen(false)} title="Receive">
           <ReceivePanel safeAddress={safeAddress} />
         </Dialog>
 
@@ -220,7 +232,7 @@ function Dashboard() {
           />
         </Dialog>
 
-        <Dialog open={connectOpen} onClose={() => setConnectOpen(false)} title="Connect DApp">
+        <Dialog open={connectOpen} onClose={() => setConnectOpen(false)} title="Connect dApp">
           <WalletConnectPanel />
         </Dialog>
 
@@ -251,12 +263,12 @@ function Dashboard() {
                   }`}
                 >
                   {tab.label}
-                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-pill bg-foreground/[0.06] text-muted-foreground tabular-nums">
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full bg-foreground/[0.06] text-muted-foreground tabular-nums">
                     {tab.count}
                   </span>
                   {active && (
                     <motion.span
-                      className="absolute bottom-0 left-0 right-0 h-0.5 rounded-pill bg-gold"
+                      className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full bg-gold"
                       layoutId="tab-indicator"
                       transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
                     />

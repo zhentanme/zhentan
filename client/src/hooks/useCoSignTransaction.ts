@@ -82,16 +82,16 @@ export function useCoSignTransaction() {
         if (!account) {
           // Session evaporated between render and click — reconnect first.
           setHint(
-            `Connect your backup wallet${
+            `Connect your backup key${
               externalWalletAddress
-                ? ` (${truncateAddress(externalWalletAddress, 13)})`
+                ? ` (${truncateAddress(externalWalletAddress)})`
                 : ""
             }, then tap again.`
           );
           connectWallet();
           return null;
         }
-        if (!tx.safeTx) throw new Error("Transaction payload unavailable");
+        if (!tx.safeTx) throw new Error("Prepared transaction is unavailable");
         const signature = await signSafeTx(account, tx.safeAddress as Address, tx.safeTx);
 
         let execution: { status?: string; txHash?: string; error?: string };

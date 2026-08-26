@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Skeleton } from "./ui/Skeleton";
+import { EmptyState } from "./ui/EmptyState";
 import { TokenRow } from "./TokenRow";
 import { TokenDetailDialog } from "./TokenDetailDialog";
 import { Coins } from "lucide-react";
@@ -31,7 +32,7 @@ export function TokenList({ tokens, loading, embedded }: TokenListProps) {
         <div className="space-y-0.5">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="flex items-center gap-3 px-4 sm:px-6 py-4">
-              <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
+              <Skeleton className="h-10 w-10 rounded-full shrink-0" />
               <div className="flex-1 min-w-0 space-y-2">
                 <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-3 w-28" />
@@ -45,18 +46,11 @@ export function TokenList({ tokens, loading, embedded }: TokenListProps) {
         </div>
       ) : tokens.length === 0 ? (
         <motion.div
-          className="flex flex-col items-center justify-center text-center py-16"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.35 }}
         >
-          <div className="mb-4 w-12 h-12 rounded-2xl bg-foreground/6 flex items-center justify-center text-muted-foreground/80">
-            <Coins className="h-6 w-6" />
-          </div>
-          <p className="text-sm font-medium text-muted-foreground">No tokens yet</p>
-          <p className="mt-1 text-xs text-muted-foreground/60">
-            Deposit assets on BNB Chain to get started
-          </p>
+          <EmptyState icon={Coins} title="No tokens yet" hint="Deposit assets on BNB Chain" />
         </motion.div>
       ) : (
         <motion.div

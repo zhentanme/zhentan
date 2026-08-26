@@ -14,6 +14,7 @@ import {
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
 import { truncateAddress, timeAgo, formatTokenAmount } from "@/lib/format";
+import { Pill } from "@/components/ui/Pill";
 import { MaoAvatar } from "@/components/MaoAvatar";
 import { TransactionDetailDialog } from "@/components/TransactionDetailDialog";
 import { RequestDetailDialog } from "@/components/RequestDetailDialog";
@@ -26,7 +27,7 @@ const IDLE_MESSAGES: { text: string; em: string | null }[] = [
   { text: "All clear. Nothing suspicious in the last hour.", em: null },
   { text: "Every signature goes through me before it lands.", em: null },
   { text: "Watching the mempool.", em: "Nothing gets past." },
-  { text: "Your vault is clean.", em: "I'll tell you if that changes." },
+  { text: "Your wallet is clean.", em: "I'll tell you if that changes." },
   { text: "No unusual activity detected.", em: "Staying sharp." },
   { text: "I screen every transaction — even the boring ones.", em: null },
   { text: "On duty.", em: "24 / 7, no days off." },
@@ -34,7 +35,7 @@ const IDLE_MESSAGES: { text: string; em: string | null }[] = [
 ];
 
 const PAUSED_MESSAGES: { text: string; em: string | null }[] = [
-  { text: "Screening is off.", em: "Transactions skip AI review." },
+  { text: "Screening is off.", em: "Transactions skip screening." },
   { text: "I'm standing down.", em: "Re-enable me in settings." },
   { text: "Guard paused — nothing is being checked.", em: null },
 ];
@@ -90,7 +91,7 @@ function LiveReadout({ isActive }: { isActive: boolean }) {
       <Link
         href="/settings"
         aria-label="Agent screening settings"
-        className="group relative flex-1 overflow-hidden rounded-xl bg-foreground/[0.03] border border-border transition-colors hover:bg-foreground/[0.05] hover:border-gold/25"
+        className="group relative flex-1 overflow-hidden rounded-md bg-foreground/[0.03] border border-border transition-colors hover:bg-foreground/[0.05] hover:border-gold/25"
       >
         {/* Gold top-edge accent */}
         <div
@@ -166,8 +167,8 @@ function PendingCard({
 }) {
   const isQueued = kind === "queued";
   const accentRgba = isQueued
-    ? "rgba(245,158,11,0.65)"
-    : "rgba(196,148,40,0.65)";
+    ? "rgba(240, 179, 60, 0.65)" /* --watch */
+    : "rgba(196, 148, 40, 0.65)"; /* --gold-500 */
   const lowRisk = (risk ?? 100) < 40;
 
   return (
@@ -180,7 +181,7 @@ function PendingCard({
       onClick={onClick}
       onKeyDown={onClick ? (e) => e.key === "Enter" && onClick() : undefined}
       className={clsx(
-        "relative overflow-hidden rounded-xl bg-foreground/[0.04] border border-border",
+        "relative overflow-hidden rounded-md bg-foreground/[0.04] border border-border",
         onClick &&
           "cursor-pointer transition-colors hover:bg-foreground/[0.06] hover:border-gold/25"
       )}
@@ -249,7 +250,7 @@ function PendingCard({
           <Link
             href="/requests"
             onClick={(e) => e.stopPropagation()}
-            className="mt-3 w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold transition-colors bg-watch/[0.13] text-watch hover:bg-watch/20"
+            className="mt-3 w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-md text-xs font-semibold transition-colors bg-watch/[0.13] text-watch hover:bg-watch/20"
           >
             Screen &amp; accept
             <ArrowRight className="h-3.5 w-3.5" />
@@ -344,11 +345,11 @@ export function RightRail() {
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground">Zhentan Agent</p>
+            <p className="text-sm font-semibold text-foreground">Zhentan agent</p>
             <p className="mt-0.5 flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
               <span
                 className={clsx(
-                  "h-1.5 w-1.5 rounded-pill signal-dot",
+                  "h-1.5 w-1.5 rounded-full signal-dot",
                   agentOffline
                     ? "bg-watch"
                     : isScreeningActive
@@ -359,22 +360,18 @@ export function RightRail() {
               {agentOffline
                 ? "Agent offline · screening delayed"
                 : isScreeningActive
-                  ? "Monitoring · screening on"
+                  ? "Watching · screening on"
                   : "Paused · screening off"}
             </p>
           </div>
-          <span
-            className={clsx(
-              "shrink-0 font-mono uppercase tracking-wider text-[10px] font-semibold px-2.5 py-1 rounded-pill",
-              agentOffline
-                ? "bg-watch/10 text-watch"
-                : isScreeningActive
-                  ? "bg-safe/10 text-safe"
-                  : "bg-foreground/8 text-muted-foreground"
-            )}
+          <Pill
+            tone={agentOffline ? "watch" : isScreeningActive ? "safe" : "neutral"}
+            size="sm"
+            pulse={isScreeningActive && !agentOffline}
+            className="shrink-0"
           >
-            {agentOffline ? "Away" : isScreeningActive ? "Live" : "Off"}
-          </span>
+            {agentOffline ? "Away" : isScreeningActive ? "Watching" : "Paused"}
+          </Pill>
         </div>
       </Link>
 
@@ -409,7 +406,7 @@ export function RightRail() {
                 time={lastQueued.queuedAt}
                 party={
                   lastQueued.billedFrom?.name ||
-                  truncateAddress(lastQueued.to, 16)
+                  truncateAddress(lastQueued.to)
                 }
                 meta={
                   lastQueued.invoiceNumber ||
@@ -432,7 +429,7 @@ export function RightRail() {
                 amount={lastReview.amount}
                 token={lastReview.token}
                 time={lastReview.proposedAt}
-                party={truncateAddress(lastReview.to, 16)}
+                party={truncateAddress(lastReview.to)}
                 meta={lastReview.reviewReason || undefined}
                 note={
                   lastReview.riskReasons?.[0] ||
@@ -486,7 +483,7 @@ export function RightRail() {
                 >
                   <span
                     className={clsx(
-                      "h-1.5 w-1.5 rounded-pill shrink-0 signal-dot",
+                      "h-1.5 w-1.5 rounded-full shrink-0 signal-dot",
                       rejected ? "bg-danger" : "bg-safe"
                     )}
                   />
@@ -496,17 +493,12 @@ export function RightRail() {
                       {formatTokenAmount(tx.amount)} {tx.token}
                     </p>
                     <p className="font-mono text-[11px] text-muted-foreground truncate mt-0.5">
-                      {truncateAddress(tx.to, 14)}
+                      {truncateAddress(tx.to)}
                     </p>
                   </div>
-                  <span
-                    className={clsx(
-                      "font-mono uppercase tracking-wide text-[10px] shrink-0",
-                      rejected ? "text-danger" : "text-safe"
-                    )}
-                  >
+                  <Pill tone={rejected ? "danger" : "safe"} size="sm" strong={rejected} className="shrink-0">
                     {rejected ? "Blocked" : "Approved"}
-                  </span>
+                  </Pill>
                 </motion.button>
               );
             })}

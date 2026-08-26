@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Skeleton } from "./ui/Skeleton";
+import { IconButton } from "./ui/IconButton";
 import { clsx } from "clsx";
 import {
   ArrowUpRight,
@@ -99,20 +100,14 @@ export function BalanceCard({
             {greeting}
           </span>
           {onRefresh && (
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={loading}
-              aria-label="Refresh"
-              className="p-2 -mr-2 rounded-md text-muted-foreground/70 hover:text-foreground hover:bg-foreground/8 transition-colors disabled:opacity-40 cursor-pointer disabled:cursor-default"
-            >
+            <IconButton label="Refresh" onClick={onRefresh} disabled={loading} className="-mr-2">
               <RefreshCw className={clsx("h-4 w-4", loading && "animate-spin")} />
-            </button>
+            </IconButton>
           )}
         </motion.div>
 
         {loading ? (
-          <Skeleton className="mt-3.5 h-14 w-56 rounded-lg" />
+          <Skeleton className="mt-3.5 h-14 w-56" />
         ) : (
           <motion.div
             className="mt-3 flex items-end leading-[0.95] tracking-[-0.04em]"
@@ -143,7 +138,7 @@ export function BalanceCard({
             transition={{ delay: 0.25 }}
           >
             <ArrowDownLeft className="h-3.5 w-3.5" />
-            Fund your vault — tap Receive for your deposit address
+            Tap Receive to fund your wallet
           </motion.button>
         )}
         {hasDelta && (

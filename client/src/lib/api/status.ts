@@ -1,4 +1,5 @@
 import type { ApiFetchFn } from "./client";
+import { apiError } from "./client";
 import type { StatusResponse } from "@/types/index";
 
 export interface StatusPatch {
@@ -21,7 +22,7 @@ export function statusApi(req: ApiFetchFn) {
   return {
     async get(safeAddress: string): Promise<StatusResponse> {
       const res = await req(`/status?safe=${encodeURIComponent(safeAddress)}`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t load screening status");
       return res.json();
     },
 
@@ -31,7 +32,7 @@ export function statusApi(req: ApiFetchFn) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw await apiError(res, "Couldn’t update screening");
       return res.json();
     },
 

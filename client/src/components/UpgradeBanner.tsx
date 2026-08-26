@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 
 import { useAuth } from "@/app/context/AuthContext";
 import { useSafeTransitions } from "@/lib/useSafeUpgrade";
@@ -100,66 +101,59 @@ export function UpgradeBanner({
               <div
                 className={
                   variant === "row"
-                    ? "flex items-center gap-3.5 p-[18px] border-t border-border"
-                    : "rounded-xl border border-gold/25 bg-gold/[0.04] flex items-center gap-3 px-4 py-3.5"
+                    ? "flex items-center gap-3.5 p-4 border-t border-border"
+                    : "rounded-md border border-gold/25 bg-gold/[0.04] flex items-center gap-3 px-4 py-3.5"
                 }
               >
-                <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-md bg-gold/10 flex items-center justify-center shrink-0">
                   <Loader2 className="h-[17px] w-[17px] text-gold animate-spin" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[13px] font-semibold text-foreground">Upgrade in progress</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                    Your transition is signed and executing — this updates by
-                    itself in a moment.
+                    Signed and executing. This updates on its own.
                   </p>
                 </div>
               </div>
             ) : variant === "row" ? (
               /* ── Settings Protection-card row ── */
               isGuarded ? (
-                <div className="flex items-center gap-3.5 p-[18px] border-t border-border bg-watch/5">
-                  <div className="w-9 h-9 rounded-xl bg-watch/10 flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-3.5 p-4 border-t border-border bg-watch/5">
+                  <div className="w-9 h-9 rounded-md bg-watch/10 flex items-center justify-center shrink-0">
                     <KeyRound className="h-[17px] w-[17px] text-watch" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">Add a backup key</p>
                     <p className="text-xs text-muted-foreground/85 mt-1 leading-relaxed">
-                      Zhentan must approve every transaction. If the agent goes
-                      offline, your funds wait until you add a key you control.
+                      Zhentan must approve every transaction. Add a key you
+                      control so your funds never wait.
                     </p>
                   </div>
-                  <button
-                    onClick={() => setOpen(true)}
-                    className="shrink-0 px-3.5 py-2 rounded-xl bg-gold text-ink-900 text-xs font-semibold hover:bg-gold/90 transition-colors cursor-pointer"
-                  >
-                    Add key
-                  </button>
+                  <Button size="sm" onClick={() => setOpen(true)} className="shrink-0">
+                    Add a key
+                  </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-3.5 p-[18px] border-t border-border">
-                  <div className="w-9 h-9 rounded-xl bg-gold/10 flex items-center justify-center shrink-0">
+                <div className="flex items-center gap-3.5 p-4 border-t border-border">
+                  <div className="w-9 h-9 rounded-md bg-gold/10 flex items-center justify-center shrink-0">
                     <ShieldCheck className="h-[17px] w-[17px] text-gold" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">Activate Zhentan protection</p>
                     <p className="text-xs text-muted-foreground/85 mt-1 leading-relaxed">
-                      Add AI screening — and a backup key you control.
+                      Adds screening and a backup key you control.
                     </p>
                   </div>
-                  <button
-                    onClick={() => setOpen(true)}
-                    className="shrink-0 px-3.5 py-2 rounded-xl bg-gold text-ink-900 text-xs font-semibold hover:bg-gold/90 transition-colors cursor-pointer"
-                  >
+                  <Button size="sm" onClick={() => setOpen(true)} className="shrink-0">
                     Activate
-                  </button>
+                  </Button>
                 </div>
               )
             ) : isGuarded ? (
               /* ── Prominent lockout warning: agent on, no backup key ── */
-              <div className="rounded-xl border border-watch/30 bg-watch/[0.08] overflow-hidden">
+              <div className="rounded-md border border-watch/30 bg-watch/[0.08] overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3.5">
-                  <div className="w-9 h-9 rounded-lg bg-watch/15 flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-md bg-watch/15 flex items-center justify-center shrink-0">
                     <AlertTriangle className="h-[18px] w-[18px] text-watch" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -167,24 +161,20 @@ export function UpgradeBanner({
                       Add a backup key to stay in control
                     </p>
                     <p className="text-[11px] text-watch/90 mt-0.5 leading-relaxed">
-                      Zhentan must approve every transaction. If the agent is ever
-                      offline, your funds wait until you add a backup key you
-                      control.
+                      Zhentan must approve every transaction. Add a key you
+                      control so your funds never wait.
                     </p>
                   </div>
-                  <button
-                    onClick={() => setOpen(true)}
-                    className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-watch/40 text-watch text-xs font-semibold hover:bg-watch/10 transition-colors"
-                  >
-                    Add key
-                  </button>
+                  <Button size="sm" onClick={() => setOpen(true)} className="shrink-0">
+                    Add a key
+                  </Button>
                 </div>
               </div>
             ) : (
               /* ── Subtle nudge: no protection yet (starter) ── */
-              <div className="rounded-xl border border-border bg-foreground/[0.03] overflow-hidden">
+              <div className="rounded-md border border-border bg-foreground/[0.03] overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3">
-                  <div className="w-8 h-8 rounded-lg bg-gold/10 flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-md bg-gold/10 flex items-center justify-center shrink-0">
                     <ShieldCheck className="h-4 w-4 text-gold" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -192,15 +182,12 @@ export function UpgradeBanner({
                       Activate Zhentan protection
                     </p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                      Add AI screening — and a backup key you control.
+                      Adds screening and a backup key you control.
                     </p>
                   </div>
-                  <button
-                    onClick={() => setOpen(true)}
-                    className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md border border-gold/30 text-gold text-xs font-semibold hover:bg-gold/10 transition-colors"
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="shrink-0">
                     Activate
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}

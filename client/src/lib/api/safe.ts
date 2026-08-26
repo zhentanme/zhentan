@@ -18,7 +18,7 @@ export function safeApi(req: ApiFetchFn) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error((data as { error?: string }).error || "Safe deploy failed");
+        throw new Error((data as { error?: string }).error || "Couldn’t deploy the wallet");
       }
       return data as DeployResult;
     },
@@ -28,7 +28,7 @@ export function safeApi(req: ApiFetchFn) {
       const res = await req(`/safe/nonce?safe=${safeAddress}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error || "Failed to fetch Safe nonce");
+        throw new Error((data as { error?: string }).error || "Couldn’t read the wallet nonce");
       }
       const data = (await res.json()) as { nonce: number };
       return data.nonce;

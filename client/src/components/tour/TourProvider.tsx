@@ -247,7 +247,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.35, type: "spring", bounce: 0.15 }}
-      className="rounded-2xl bg-card border border-gold/25 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.8)] p-5"
+      className="rounded-md bg-card border border-gold/25 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.8)] p-4 sm:p-5"
     >
       {step.brand && (
         <div className="flex justify-center mb-3">
@@ -267,13 +267,9 @@ export function TourProvider({ children }: { children: ReactNode }) {
         {isLast ? (
           <span className="w-12" aria-hidden />
         ) : (
-          <button
-            type="button"
-            onClick={end}
-            className="text-xs font-medium text-muted-foreground/70 hover:text-foreground transition-colors cursor-pointer"
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={end}>
             Skip tour
-          </button>
+          </Button>
         )}
         <div className="flex items-center gap-1.5" aria-hidden>
           {def?.steps.map((s, i) => (
@@ -281,17 +277,13 @@ export function TourProvider({ children }: { children: ReactNode }) {
               key={s.id}
               type="button"
               onClick={() => goTo(i)}
-              className={`h-1.5 rounded-pill transition-all cursor-pointer ${
+              className={`h-1.5 rounded-full transition-all cursor-pointer ${
                 i === stepIndex ? "w-4 bg-gold" : "w-1.5 bg-foreground/20 hover:bg-foreground/40"
               }`}
             />
           ))}
         </div>
-        <Button
-          type="button"
-          onClick={() => goTo(stepIndex + 1)}
-          className="!px-4 !py-2 !min-h-0 !text-sm"
-        >
+        <Button type="button" size="sm" onClick={() => goTo(stepIndex + 1)}>
           {isLast ? def?.finishLabel ?? "Done" : "Next"}
         </Button>
       </div>
@@ -318,14 +310,14 @@ export function TourProvider({ children }: { children: ReactNode }) {
                 initial={false}
                 animate={{ left: spot.x, top: spot.y, width: spot.w, height: spot.h }}
                 transition={{ type: "spring", bounce: 0.18, duration: 0.55 }}
-                className="absolute rounded-xl border-2 border-gold/60 pointer-events-none"
+                className="absolute rounded-md border-2 border-gold/60 pointer-events-none"
                 style={{
                   boxShadow:
-                    "0 0 0 9999px rgba(10,13,14,0.8), 0 0 0 1px rgba(196,148,40,0.25), 0 0 32px rgba(196,148,40,0.3)",
+                    "0 0 0 9999px var(--scrim-strong), 0 0 0 1px rgba(196,148,40,0.25), 0 0 32px rgba(196,148,40,0.3)",
                 }}
               />
             ) : (
-              <div className="absolute inset-0 bg-[rgba(10,13,14,0.85)]" />
+              <div className="absolute inset-0 bg-[var(--scrim-strong)]" />
             )}
 
             {/* Step card: floating on desktop, sheet on phones. */}
