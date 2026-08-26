@@ -9,7 +9,8 @@
  * account demands an explicit, non-defaulted confirmation.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, Loader2, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { InlineError } from "./ui/InlineError";
 import { Button } from "@/components/ui/Button";
 import { MaoAvatar } from "@/components/MaoAvatar";
 import { useApiClient } from "@/lib/api/client";
@@ -140,7 +141,7 @@ export function TelegramLinkFlow({
     embedded ? (
       <h4 className="text-sm font-semibold tracking-tight mb-1.5">{text}</h4>
     ) : (
-      <h1 className="text-[19px] font-bold tracking-tight mb-2">{text}</h1>
+      <h1 className="text-lg font-semibold tracking-tight mb-2">{text}</h1>
     );
   const bodyText = embedded
     ? "text-[12px] leading-relaxed text-muted-foreground"
@@ -169,8 +170,8 @@ export function TelegramLinkFlow({
         )}
         {!embedded && heading("Connect Telegram")}
         <p className={`${bodyText} ${embedded ? "mb-3" : "mb-5"}`}>
-          Enter the code the Zhentan bot showed you — say hi to the bot on
-          Telegram if you don&apos;t have one yet.
+          Enter the code the bot showed you. No code? Message the bot on
+          Telegram.
         </p>
         <form
           onSubmit={(e) => {
@@ -186,11 +187,9 @@ export function TelegramLinkFlow({
             autoComplete="one-time-code"
             spellCheck={false}
             maxLength={9}
-            className={`w-full text-center font-mono ${embedded ? "text-[17px]" : "text-[22px]"} tracking-[0.25em] uppercase rounded-md border border-foreground/10 bg-foreground/[0.035] px-4 ${embedded ? "py-2.5" : "py-3.5"} mb-3 outline-none focus:border-gold/50 placeholder:text-muted-foreground/30`}
+            className={`w-full text-center font-mono ${embedded ? "text-[17px]" : "text-[22px]"} tracking-[0.25em] uppercase rounded-md border border-foreground/10 bg-foreground/[0.035] px-4 ${embedded ? "py-2.5" : "py-3.5"} mb-3 outline-none focus:ring-2 focus:ring-gold/40 placeholder:text-muted-foreground/30`}
           />
-          {phase.error && (
-            <p className="text-[12px] leading-relaxed text-danger mb-3">{phase.error}</p>
-          )}
+          {phase.error && <InlineError className="mb-3">{phase.error}</InlineError>}
           <Button type="submit" className="w-full" disabled={!entryValue.trim()}>
             Continue
           </Button>
@@ -208,8 +207,7 @@ export function TelegramLinkFlow({
         </div>
         {heading("Link expired")}
         <p className={`${bodyText} mb-4`}>
-          This link was already used or has expired. Message the bot on
-          Telegram and it will send you a fresh one.
+          Already used or expired. Message the bot for a fresh one.
         </p>
         <button
           type="button"
@@ -252,8 +250,8 @@ export function TelegramLinkFlow({
         {heading(phase.already ? "Already connected" : "Telegram connected")}
         <p className={`${bodyText} ${doneAction ? "mb-5" : "mb-1"}`}>
           {phase.already
-            ? "This Telegram is already linked to your account — nothing to do."
-            : "You'll get transaction alerts in your chat and can approve or reject reviews from there."}
+            ? "This Telegram is already linked to your account."
+            : "Alerts arrive in your chat. Approve or reject reviews from there."}
         </p>
         {doneAction}
       </div>
@@ -285,10 +283,9 @@ export function TelegramLinkFlow({
       </div>
 
       <p className={`${embedded ? "text-[12px]" : "text-[13px]"} leading-relaxed text-muted-foreground mb-4`}>
-        Once connected, this Telegram will <b className="text-foreground">receive alerts</b> for
-        your account and can <b className="text-foreground">approve or reject transactions</b>{" "}
-        that Zhentan flags for review. Only continue if this is your own chat — if you didn&apos;t
-        ask the bot for this code, stop here.
+        This Telegram will <b className="text-foreground">receive alerts</b> and can{" "}
+        <b className="text-foreground">approve or reject</b> flagged transactions. If you
+        didn&apos;t request this code, stop here.
       </p>
 
       {phase.preview.relation === "linked_elsewhere" && (
@@ -297,11 +294,9 @@ export function TelegramLinkFlow({
             <AlertTriangle className="h-4 w-4 text-watch shrink-0 mt-0.5" />
             <p className="text-[12.5px] leading-relaxed text-muted-foreground">
               <b className="text-foreground">
-                {tgDisplay(phase.preview.telegram)} is currently connected to a different
-                Zhentan account.
+                {tgDisplay(phase.preview.telegram)} is connected to another Zhentan account.
               </b>{" "}
-              Relinking moves it here: it will stop receiving alerts and lose approval access
-              for the other account.
+              Relinking moves it here and cuts the other account off.
             </p>
           </div>
           <label className="flex items-start gap-2.5 mt-3 cursor-pointer select-none">
@@ -309,7 +304,7 @@ export function TelegramLinkFlow({
               type="checkbox"
               checked={relinkConfirmed}
               onChange={(e) => setRelinkConfirmed(e.target.checked)}
-              className="mt-0.5 accent-[#c49428]"
+              className="mt-0.5 accent-gold"
             />
             <span className="text-[12.5px] leading-relaxed text-foreground">
               I understand — disconnect it from the other account and link it to this one.
@@ -320,20 +315,15 @@ export function TelegramLinkFlow({
 
       <Button
         onClick={complete}
-        disabled={
-          submitting || (phase.preview.relation === "linked_elsewhere" && !relinkConfirmed)
-        }
+        loading={submitting}
+        disabled={phase.preview.relation === "linked_elsewhere" && !relinkConfirmed}
         className="w-full"
       >
-        {submitting ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : phase.preview.relation === "linked_elsewhere" ? (
-          "Move connection to this account"
-        ) : phase.preview.relation === "already_linked" ? (
-          "Confirm (already connected)"
-        ) : (
-          "Connect Telegram"
-        )}
+        {phase.preview.relation === "linked_elsewhere"
+          ? "Move connection to this account"
+          : phase.preview.relation === "already_linked"
+            ? "Confirm"
+            : "Connect Telegram"}
       </Button>
     </>
   );

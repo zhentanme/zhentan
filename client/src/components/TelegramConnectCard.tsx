@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ExternalLink } from "lucide-react";
+import { Button } from "./ui/Button";
 import { TELEGRAM_BOT_USERNAME } from "@/lib/constants";
 import { MaoAvatar } from "./MaoAvatar";
 import { TelegramLinkFlow } from "./TelegramLinkFlow";
@@ -41,20 +42,16 @@ export function TelegramConnectCard({ onOpenBot }: { onOpenBot: () => void }) {
           <div className="flex-1 min-w-0 flex flex-row justify-between items-start gap-3">
             <div className="flex flex-col gap-1">
               <h4 className="text-sm font-semibold text-foreground">
-                Say hi to @{TELEGRAM_BOT_USERNAME}
+                Message @{TELEGRAM_BOT_USERNAME}
               </h4>
               <div className="text-[11px] text-muted-foreground leading-relaxed max-w-56">
-                Send any message, then tap the secure link the bot replies
-                with — this connects the moment you do.
+                Send any message, then tap the link the bot replies with.
               </div>
             </div>
-            <button
-              onClick={onOpenBot}
-              className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-gold/10 text-gold hover:bg-gold/15 transition-all cursor-pointer inline-flex items-center gap-1.5 shrink-0"
-            >
+            <Button variant="outline" size="sm" onClick={onOpenBot} className="shrink-0">
               <ExternalLink className="h-3 w-3" />
               Open bot
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -69,8 +66,8 @@ export function TelegramConnectCard({ onOpenBot }: { onOpenBot: () => void }) {
           onClick={() => setShowCodeEntry(true)}
           className="w-full text-[11px] text-muted-foreground/80 hover:text-gold leading-relaxed text-center pt-1 transition-colors cursor-pointer"
         >
-          Got a code from Telegram?{" "}
-          <span className="text-gold/90">Enter the short code here →</span>
+          Have a code from the bot?{" "}
+          <span className="text-gold/90">Enter it here →</span>
         </button>
       )}
     </div>
