@@ -27,7 +27,7 @@ const IDLE_MESSAGES: { text: string; em: string | null }[] = [
   { text: "All clear. Nothing suspicious in the last hour.", em: null },
   { text: "Every signature goes through me before it lands.", em: null },
   { text: "Watching the mempool.", em: "Nothing gets past." },
-  { text: "Your vault is clean.", em: "I'll tell you if that changes." },
+  { text: "Your wallet is clean.", em: "I'll tell you if that changes." },
   { text: "No unusual activity detected.", em: "Staying sharp." },
   { text: "I screen every transaction — even the boring ones.", em: null },
   { text: "On duty.", em: "24 / 7, no days off." },
@@ -35,7 +35,7 @@ const IDLE_MESSAGES: { text: string; em: string | null }[] = [
 ];
 
 const PAUSED_MESSAGES: { text: string; em: string | null }[] = [
-  { text: "Screening is off.", em: "Transactions skip AI review." },
+  { text: "Screening is off.", em: "Transactions skip screening." },
   { text: "I'm standing down.", em: "Re-enable me in settings." },
   { text: "Guard paused — nothing is being checked.", em: null },
 ];

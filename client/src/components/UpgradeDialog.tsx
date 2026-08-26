@@ -137,7 +137,7 @@ export function UpgradeDialog({
           <StepShell
             key="agent"
             icon={<ShieldCheck className="w-7 h-7 text-gold" />}
-            title="Enable AI screening"
+            title="Enable screening"
             subtitle="Zhentan reviews every transaction before it executes. Next: add a backup key so you always keep control."
           >
             <Button
