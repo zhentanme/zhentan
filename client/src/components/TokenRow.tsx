@@ -133,7 +133,11 @@ export function TokenRow({ token, index = 0, selected, onClick, hideZeroBalance 
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className="w-full text-left">
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-md"
+      >
         {row}
       </button>
     );

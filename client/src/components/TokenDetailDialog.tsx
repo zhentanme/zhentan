@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { Dialog } from "@/components/ui/Dialog";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { InlineError } from "@/components/ui/InlineError";
 import { useApiClient } from "@/lib/api/client";
 import type { TokenPosition, TokenDetails, TokenChartData, ChartPeriod } from "@/types";
 
@@ -71,7 +72,7 @@ interface CustomTooltipProps {
 function CustomTooltip({ active, payload, label, period }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-card border border-foreground/10 rounded-md px-3 py-2 text-xs shadow-lg">
+    <div className="bg-card border border-border rounded-md px-3 py-2 text-xs shadow-lg">
       <p className="text-muted-foreground">{label != null ? formatChartDate(label, period) : ""}</p>
       <p className="text-foreground font-semibold mt-0.5">{formatPrice(payload[0].value)}</p>
     </div>
@@ -100,8 +101,8 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
       const { tokenDetails, tokenChartData } = await api.tokens.getDetails(token.tokenId);
       setDetails(tokenDetails);
       setChartData(tokenChartData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load token data");
+    } catch {
+      setError("Couldn’t load token data");
     } finally {
       setLoading(false);
     }
@@ -127,7 +128,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
     : null;
 
   const isUp = priceChange == null ? null : priceChange >= 0;
-  const chartColor = isUp === false ? "#e5524f" : "#c49428";
+  const chartColor = isUp === false ? "var(--danger)" : "var(--gold-500)";
 
   const displayPrice = details?.marketData?.price ?? token?.price ?? null;
   const displayName  = details?.name  ?? token?.name  ?? "";
@@ -135,7 +136,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
   const displaySymbol = details?.symbol ?? token?.symbol ?? "";
 
   return (
-    <Dialog open={open} onClose={onClose} className="max-w-md">
+    <Dialog open={open} onClose={onClose} title="Token details" className="max-w-md">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <div className="w-11 h-11 rounded-md bg-foreground/6 flex items-center justify-center shrink-0 overflow-hidden">
@@ -176,7 +177,9 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
         {loading && !currentChart ? (
           <Skeleton className="h-40 w-full rounded-md" />
         ) : error ? (
-          <div className="h-40 flex items-center justify-center text-xs text-muted-foreground/80">{error}</div>
+          <div className="h-40 flex items-center justify-center">
+            <InlineError onRetry={load}>{error}</InlineError>
+          </div>
         ) : points.length > 0 ? (
           <motion.div
             key={period}
@@ -195,7 +198,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
                 <XAxis
                   dataKey="timestamp"
                   tickFormatter={(v) => formatChartDate(v, period)}
-                  tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }}
+                  tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
                   tickLine={false}
                   axisLine={false}
                   interval="preserveStartEnd"
@@ -203,7 +206,7 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
                 />
                 <YAxis
                   domain={["auto", "auto"]}
-                  tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }}
+                  tick={{ fontSize: 9, fill: "var(--muted-foreground)" }}
                   tickLine={false}
                   axisLine={false}
                   width={52}
@@ -232,8 +235,9 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
         {PERIODS.map(({ key, label }) => (
           <button
             key={key}
+            type="button"
             onClick={() => setPeriod(key)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+            className={`flex-1 py-1.5 rounded-sm text-xs font-semibold transition-colors cursor-pointer ${
               period === key
                 ? "bg-gold/15 text-gold"
                 : "text-muted-foreground/80 hover:text-foreground/80 hover:bg-foreground/5"
@@ -257,12 +261,12 @@ export function TokenDetailDialog({ open, onClose, token }: Props) {
       ) : details?.marketData ? (
         <div className="grid grid-cols-3 gap-2">
           {[
-            { label: "Market Cap",  value: formatLargeUsd(details.marketData.marketCap) },
+            { label: "Market cap",  value: formatLargeUsd(details.marketData.marketCap) },
             { label: "FDV",         value: formatLargeUsd(details.marketData.fullyDilutedValuation) },
             { label: "Circulating", value: formatSupply(details.marketData.circulatingSupply) + ` ${displaySymbol}` },
           ].map(({ label, value }) => (
             <div key={label} className="bg-foreground/4 rounded-md p-3">
-              <p className="text-[10px] text-muted-foreground/80 uppercase tracking-wide mb-1">{label}</p>
+              <p className="eyebrow text-muted-foreground/80 mb-1">{label}</p>
               <p className="text-xs font-semibold text-foreground truncate">{value}</p>
             </div>
           ))}
