@@ -3,11 +3,11 @@
    the agent's co-signs second (bright). One duration, scaled by --tt-spd. */
 
 .wrap {
-  --tt-acc: #e8b93a;
-  --tt-accB: #f5d060;
-  --tt-ghost: #9a7526;
-  --tt-ring: rgba(196, 148, 40, 0.22);
-  --tt-ink: #0a0d0e;
+  --tt-acc: var(--gold-300, #e8b93a);
+  --tt-accB: var(--gold-400, #f5d060);
+  --tt-ghost: var(--gold-600, #9a7526);
+  --tt-ring: var(--gold-line, rgba(196, 148, 40, 0.22));
+  --tt-ink: var(--ink-900, #0a0d0e);
   --tt-spd: 1;
   display: inline-flex;
   align-items: center;

@@ -65,7 +65,7 @@
   transition: color 0.35s ease;
 }
 
-.statusDanger { color: #E5524F; }
+.statusDanger { color: var(--danger); }
 
 .statusDot {
   width: 6px;
@@ -283,9 +283,9 @@
   transform: scale(1);
 }
 
-.pass { background: rgba(63, 190, 118, 0.12); color: #3FBE76; }
-.warn { background: rgba(240, 179, 60,  0.12); color: #F0B33C; }
-.fail { background: rgba(229, 82,  79,  0.12); color: #E5524F; }
+.pass { background: rgba(63, 190, 118, 0.12); color: var(--safe); }
+.warn { background: rgba(240, 179, 60,  0.12); color: var(--watch); }
+.fail { background: rgba(229, 82,  79,  0.12); color: var(--danger); }
 
 /* ── Verdict bar ── */
 .verdict {
@@ -324,8 +324,8 @@
   letter-spacing: 0.12em;
 }
 
-.verdictSafe   .verdictLabel, .verdictSafe   .verdictDot { color: #3FBE76; }
-.verdictDanger .verdictLabel, .verdictDanger .verdictDot { color: #E5524F; }
+.verdictSafe   .verdictLabel, .verdictSafe   .verdictDot { color: var(--safe); }
+.verdictDanger .verdictLabel, .verdictDanger .verdictDot { color: var(--danger); }
 
 .verdictMsg {
   flex: 1;
@@ -349,8 +349,8 @@
 }
 
 .execIn     { opacity: 1; transform: translateY(0); }
-.execSafe   { color: #3FBE76; }
-.execDanger { color: #E5524F; }
+.execSafe   { color: var(--safe); }
+.execDanger { color: var(--danger); }
 
 /* ── Spinner ── */
 @keyframes spin {

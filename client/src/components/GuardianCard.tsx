@@ -7,7 +7,7 @@ import s from "./GuardianCard.module.css";
 
 function SwapIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f5d060" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold-400, #f5d060)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17 3l4 4-4 4" />
       <path d="M21 7H7" />
       <path d="M7 21l-4-4 4-4" />
@@ -18,7 +18,7 @@ function SwapIcon() {
 
 function ContractIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E5524F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger, #e5524f)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
       <path d="M14 3v5h5" />
       <path d="M9 13h6M9 17h6M9 9h2" />
@@ -86,14 +86,14 @@ function Spinner() {
   return (
     <svg className={s.spinSvg} width="15" height="15" viewBox="0 0 15 15" fill="none">
       <circle cx="7.5" cy="7.5" r="5.5" stroke="rgba(245,208,96,0.15)" strokeWidth="2" />
-      <circle cx="7.5" cy="7.5" r="5.5" stroke="#f5d060" strokeWidth="2"
+      <circle cx="7.5" cy="7.5" r="5.5" stroke="var(--gold-400, #f5d060)" strokeWidth="2"
         strokeDasharray="8 26" strokeLinecap="round" />
     </svg>
   );
 }
 
 function Check({ result }: { result: "pass" | "warn" | "fail" }) {
-  const c = result === "pass" ? "#3FBE76" : result === "warn" ? "#F0B33C" : "#E5524F";
+  const c = result === "pass" ? "var(--safe)" : result === "warn" ? "var(--watch)" : "var(--danger)";
   const f = result === "pass" ? "rgba(63,190,118,0.12)" : result === "warn" ? "rgba(240,179,60,0.12)" : "rgba(229,82,79,0.12)";
   return (
     <svg className={s.checkSvg} width="15" height="15" viewBox="0 0 15 15" fill="none">

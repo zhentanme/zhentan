@@ -7,135 +7,27 @@ import type { TransactionWithStatus } from "@/types";
 import { useLiveTransaction } from "@/hooks/useLiveTransaction";
 import { CoSignButton } from "@/components/CoSignButton";
 import { useAuth } from "@/app/context/AuthContext";
-import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
+import { truncateAddress, formatDate, statusLabel, formatTokenAmount, riskSeverity } from "@/lib/format";
 import { Dialog } from "./ui/Dialog";
 import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
 import { MaoAvatar } from "./MaoAvatar";
 import {
   ArrowUpRight,
-  ArrowDownLeft,
-  Repeat2,
-  ShieldCheck,
-  Zap,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Clock,
-  Search,
-  XCircle,
   ExternalLink,
   ChevronDown,
   ChevronUp,
   ShieldAlert,
-  ShieldOff,
-  Sparkles,
-  Settings2,
-  KeyRound,
-  RefreshCw,
-  Users,
-  type LucideIcon,
 } from "lucide-react";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
-
-// ── Operation config (mirrors TransactionRow) ─────────────────────────────────
-
-interface OpConfig {
-  Icon: LucideIcon;
-  label: string;
-  sign: "+" | "-" | "";
-  iconColor: string;
-}
-
-const OP_CONFIG: Record<string, OpConfig> = {
-  receive:  { Icon: ArrowDownLeft,   label: "Receive",  sign: "+", iconColor: "text-safe" },
-  send:     { Icon: ArrowUpRight,    label: "Send",     sign: "-", iconColor: "text-muted-foreground"   },
-  trade:    { Icon: Repeat2,         label: "Trade",    sign: "+", iconColor: "text-muted-foreground"  },
-  approve:  { Icon: ShieldCheck,     label: "Approve",  sign: "",  iconColor: "text-gold"        },
-  execute:  { Icon: Zap,             label: "Execute",  sign: "",  iconColor: "text-gold"        },
-  deposit:  { Icon: ArrowDownToLine, label: "Deposit",  sign: "-", iconColor: "text-muted-foreground"   },
-  withdraw: { Icon: ArrowUpFromLine, label: "Withdraw", sign: "+", iconColor: "text-safe" },
-  borrow:   { Icon: ArrowDownLeft,   label: "Borrow",   sign: "+", iconColor: "text-safe" },
-  repay:    { Icon: ArrowUpRight,    label: "Repay",    sign: "-", iconColor: "text-muted-foreground"   },
-  mint:     { Icon: ArrowDownLeft,   label: "Mint",     sign: "+", iconColor: "text-safe" },
-  burn:     { Icon: ArrowUpRight,    label: "Burn",     sign: "-", iconColor: "text-muted-foreground"   },
-};
-
-const FALLBACK_CONFIG: OpConfig = {
-  Icon: ArrowUpRight, label: "Transaction", sign: "", iconColor: "text-muted-foreground",
-};
-
-// ── Wallet events (txKind rows) — one icon + explainer per server label ──────
-// Labels are the server's hardcoded contract (server/src/lib/safe/txKind.ts +
-// the synthesized creation row); unknown labels fall back by kind.
-
-const KIND_ICONS: Record<string, LucideIcon> = {
-  "Safe account created": Sparkles,
-  "Protection activated": ShieldCheck,
-  "Screening agent enabled": ShieldCheck,
-  "Backup key added": KeyRound,
-  "Backup key changed": RefreshCw,
-  "Screening agent removed": ShieldOff,
-  "Owners changed": Users,
-  "Wallet configuration": Settings2,
-};
-
-const KIND_DESCRIPTIONS: Record<string, string> = {
-  "Safe account created": "Your vault was deployed on-chain at its permanent address",
-  "Protection activated": "Backup key and screening agent added as owners of your vault",
-  "Screening agent enabled": "The screening agent was added as an owner — screening is on",
-  "Backup key added": "A key you control was added as an owner — your override at app.safe.global",
-  "Backup key changed": "Your backup key was swapped for a new one at the same address",
-  "Screening agent removed": "The agent was removed as an owner — a stock Safe from here on",
-  "Owners changed": "The owner set of your vault changed",
-  "Wallet configuration": "A configuration call on your vault — no funds moved",
-};
-
-function kindConfig(tx: TransactionWithStatus): OpConfig & { description?: string } {
-  const label =
-    tx.kindLabel ?? (tx.txKind === "creation" ? "Safe account created" : "Wallet configuration");
-  return {
-    Icon: KIND_ICONS[label] ?? (tx.txKind === "creation" ? Sparkles : Settings2),
-    label,
-    sign: "",
-    iconColor: "text-gold",
-    description: KIND_DESCRIPTIONS[label],
-  };
-}
-
-function getConfig(tx: TransactionWithStatus): OpConfig & { description?: string } {
-  if (tx.txKind) return kindConfig(tx);
-  const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
-  return OP_CONFIG[op] ?? FALLBACK_CONFIG;
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function formatUsd(n?: number): string {
-  if (!n || n === 0) return "";
-  if (n < 0.01) return `$${n.toPrecision(3)}`;
-  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function TokenAvatar({ iconUrl, symbol, size = 40 }: { iconUrl?: string | null; symbol?: string; size?: number }) {
-  if (iconUrl) {
-    return (
-      <Image
-        src={iconUrl}
-        alt=""
-        width={size}
-        height={size}
-        className="object-cover w-full h-full"
-        unoptimized
-      />
-    );
-  }
-  return (
-    <span className="text-[11px] font-bold text-muted-foreground leading-none">
-      {(symbol || "?").slice(0, 4)}
-    </span>
-  );
-}
+import {
+  getOpConfig,
+  formatUsd,
+  TokenAvatar,
+  SEVERITY_CLASSES,
+  LINK_BUTTON_GOLD,
+  LINK_BUTTON_NEUTRAL,
+  type OpConfig,
+} from "./txPresentation";
 
 // ── Hero amount card ──────────────────────────────────────────────────────────
 
@@ -248,13 +140,6 @@ function HeroAmount({
 
 // ── Risk section ──────────────────────────────────────────────────────────────
 
-/** Severity bucket → tailwind text/bg classes. */
-function severity(score: number): { tone: "safe" | "watch" | "danger"; text: string; bg: string } {
-  if (score >= 70) return { tone: "danger", text: "text-danger", bg: "bg-danger" };
-  if (score >= 40) return { tone: "watch", text: "text-watch", bg: "bg-watch" };
-  return { tone: "safe", text: "text-safe", bg: "bg-safe" };
-}
-
 function RiskDetailsSection({
   riskScore,
   riskVerdict,
@@ -269,7 +154,8 @@ function RiskDetailsSection({
   rejectReason?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const sev = riskScore != null ? severity(riskScore) : null;
+  const sevTone = riskSeverity(riskScore);
+  const sev = sevTone ? SEVERITY_CLASSES[sevTone] : null;
 
   return (
     <div className="rounded-md bg-foreground/6 overflow-hidden">
@@ -280,7 +166,7 @@ function RiskDetailsSection({
         className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-foreground/6 transition-colors cursor-pointer"
       >
         <ShieldAlert className="h-4 w-4 text-watch/90 shrink-0" />
-        <span className="text-sm font-medium text-foreground flex-1">View analysis</span>
+        <span className="text-sm font-medium text-foreground flex-1">Screening details</span>
         {sev && (
           <span className={`font-mono text-xs font-semibold ${sev.text}`}>
             {riskScore}
@@ -391,26 +277,24 @@ function RiskDetailsSection({
 function CoSignSection({ tx }: { tx: TransactionWithStatus }) {
   const caption =
     tx.status === "in_review"
-      ? "Flagged for your review — signing with your backup key executes it anyway."
+      ? "Flagged for review. Signing with your backup key executes it anyway."
       : tx.screeningDisabled
         ? `Waiting for your backup key — ${1 + (tx.userSignatures?.length ?? 0)} of ${tx.threshold} signatures.`
-        : "Zhentan is screening — signing with your backup key executes it right away.";
+        : "Zhentan is screening. Your backup key can execute it now.";
   // On success, useLiveTransaction flips the dialog to executed in place.
   return (
     <div className="space-y-2.5">
       <p className="text-xs text-muted-foreground/80 text-center">{caption}</p>
       <CoSignButton tx={tx} />
-      <motion.a
+      <a
         href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 w-full rounded-md py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        className={LINK_BUTTON_GOLD}
       >
         Sign in Safe app
         <ExternalLink className="h-3.5 w-3.5 opacity-60" />
-      </motion.a>
+      </a>
     </div>
   );
 }
@@ -462,7 +346,7 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
   // Freshest record wins; fall back to the passed-in copy before the first poll.
   const tx = live ?? txProp;
 
-  const config = getConfig(tx);
+  const config = getOpConfig(tx);
   const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
   const explorerTxUrl = tx.txHash ? `${BSC_EXPLORER_URL}/tx/${tx.txHash}` : null;
 
@@ -631,22 +515,20 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
             <CoSignSection tx={tx} />
           )}
 
-        {/* BSCScan explorer link */}
+        {/* BscScan explorer link */}
         {explorerTxUrl && (
-          <motion.a
+          <a
             href={explorerTxUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-md py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            className={LINK_BUTTON_NEUTRAL}
           >
             <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
             </span>
-            View on BSC Explorer
+            View on BscScan
             <ExternalLink className="h-3.5 w-3.5 opacity-50" />
-          </motion.a>
+          </a>
         )}
       </div>
     </Dialog>

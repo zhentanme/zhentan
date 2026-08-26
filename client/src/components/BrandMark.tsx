@@ -18,9 +18,9 @@ export function BrandMarkSprite() {
     <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
       <defs>
         <linearGradient id="ztgb" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#f7d978" />
-          <stop offset="0.5" stopColor="#ecc24a" />
-          <stop offset="1" stopColor="#c8992c" />
+          <stop offset="0" style={{ stopColor: "var(--gold-grad-a, #f7d978)" }} />
+          <stop offset="0.5" style={{ stopColor: "var(--gold-grad-b, #ecc24a)" }} />
+          <stop offset="1" style={{ stopColor: "var(--gold-grad-c, #c8992c)" }} />
         </linearGradient>
       </defs>
     </svg>
@@ -43,7 +43,7 @@ interface TwinTickProps {
 /** The bare Twin Tick glyph. */
 export function TwinTick({
   size = 32,
-  halo = "#0a0d0e",
+  halo = "var(--background, #0a0d0e)",
   className,
   style,
 }: TwinTickProps) {
@@ -61,7 +61,7 @@ export function TwinTick({
       <path
         d="M22 56 L44 76 L82 30"
         fill="none"
-        stroke="#9a7526"
+        stroke="var(--gold-600, #9a7526)"
         strokeWidth="13"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -131,7 +131,7 @@ export function BrandMark({
   iconClassName,
   textClassName,
   className,
-  halo = "#0a0d0e",
+  halo = "var(--background, #0a0d0e)",
   iconOnly,
   glow,
 }: BrandMarkProps) {

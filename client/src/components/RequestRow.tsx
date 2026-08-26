@@ -2,8 +2,9 @@
 
 import { motion } from "framer-motion";
 import type { QueuedRequest } from "@/types";
-import { truncateAddress } from "@/lib/format";
+import { truncateAddress, riskSeverity } from "@/lib/format";
 import { TokenGlyph } from "./TokenGlyph";
+import { Pill, type PillTone } from "./ui/Pill";
 import { FileText, ArrowUpRight } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -14,50 +15,29 @@ interface RequestRowProps {
 }
 
 function RiskBadge({ score }: { score: number }) {
-  const color =
-    score < 40
-      ? "bg-safe/15 text-safe"
-      : score <= 70
-        ? "bg-watch/15 text-watch"
-        : "bg-danger/15 text-danger";
-
   return (
-    <span
-      className={clsx(
-        "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wide",
-        color
-      )}
-    >
+    <Pill tone={riskSeverity(score) ?? "neutral"} size="sm">
       Risk {score}
-    </span>
+    </Pill>
   );
 }
 
+const REQUEST_STATUS_TONE: Record<QueuedRequest["status"], PillTone> = {
+  queued: "watch",
+  approved: "safe",
+  executed: "safe",
+  rejected: "danger",
+};
+
+const REQUEST_STATUS_LABEL: Record<QueuedRequest["status"], string> = {
+  queued: "Queued",
+  approved: "Approved",
+  executed: "Executed",
+  rejected: "Rejected",
+};
+
 function RequestStatusBadge({ status }: { status: QueuedRequest["status"] }) {
-  const styles: Record<QueuedRequest["status"], string> = {
-    queued: "bg-watch/15 text-watch",
-    approved: "bg-safe/15 text-safe",
-    executed: "bg-safe/15 text-safe",
-    rejected: "bg-danger/15 text-danger",
-  };
-
-  const labels: Record<QueuedRequest["status"], string> = {
-    queued: "Queued",
-    approved: "Approved",
-    executed: "Executed",
-    rejected: "Rejected",
-  };
-
-  return (
-    <span
-      className={clsx(
-        "inline-flex items-center px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider",
-        styles[status]
-      )}
-    >
-      {labels[status]}
-    </span>
-  );
+  return <Pill tone={REQUEST_STATUS_TONE[status]}>{REQUEST_STATUS_LABEL[status]}</Pill>;
 }
 
 export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
