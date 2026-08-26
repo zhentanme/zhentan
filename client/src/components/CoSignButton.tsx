@@ -4,10 +4,9 @@ import Image from "next/image";
 
 import { useCoSignTransaction, type CoSignableTx } from "@/hooks/useCoSignTransaction";
 import { WalletBrandIcon } from "@/components/WalletBrandIcon";
+import { Button } from "@/components/ui/Button";
+import { InlineError } from "@/components/ui/InlineError";
 import { truncateAddress } from "@/lib/format";
-
-const BUTTON_CLASS =
-  "flex items-center justify-center gap-2 w-full rounded-md py-3 bg-gold/15 border border-gold/40 text-gold hover:bg-gold/20 transition-colors text-sm font-semibold cursor-pointer disabled:opacity-60";
 
 /**
  * The backup-key completion action for a queued screening-off SafeTx, shaped
@@ -31,44 +30,37 @@ export function CoSignButton({
   return (
     <div className="space-y-2">
       {backup.kind === "ready" ? (
-        <button
-          type="button"
-          disabled={busy}
+        <Button
+          loading={busy}
           onClick={async () => {
             const result = await coSign(tx);
             if (result) onExecuted?.(result);
           }}
-          className={BUTTON_CLASS}
+          className="w-full"
         >
-          {busy ? (
-            "Signing..."
-          ) : (
-            <>
-              Sign with
-              <WalletBrandIcon meta={backup.meta} className="h-4 w-4" />
-              <span className="font-mono text-[13px]">{truncateAddress(backup.address)}</span>
-            </>
-          )}
-        </button>
+          Sign with
+          <WalletBrandIcon meta={backup.meta} className="h-4 w-4" />
+          <span className="font-mono text-[13px]">{truncateAddress(backup.address)}</span>
+        </Button>
       ) : backup.kind === "wrong" ? (
-        <button type="button" onClick={connectBackup} className={BUTTON_CLASS}>
+        <Button variant="outline" disabled={busy} onClick={connectBackup} className="w-full">
           Change wallet
           <span className="inline-flex items-center gap-1.5 text-gold/70">
             <WalletBrandIcon meta={backup.meta} className="h-4 w-4" />
             <span className="font-mono text-[13px]">{truncateAddress(backup.address)}</span>
           </span>
-        </button>
+        </Button>
       ) : (
-        <button type="button" onClick={connectBackup} className={BUTTON_CLASS}>
+        <Button variant="outline" disabled={busy} onClick={connectBackup} className="w-full">
           Connect wallet
           <span className="inline-flex items-center gap-1">
             <Image src="/metamask.webp" alt="MetaMask" width={16} height={16} className="rounded-xs" />
             <Image src="/rabby.png" alt="Rabby" width={16} height={16} className="rounded-xs" />
           </span>
-        </button>
+        </Button>
       )}
       {hint && <p className="text-xs text-muted-foreground text-center">{hint}</p>}
-      {error && <p className="text-xs text-danger text-center break-all">{error}</p>}
+      {error && <InlineError className="justify-center">{error}</InlineError>}
     </div>
   );
 }

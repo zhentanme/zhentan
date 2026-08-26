@@ -15,12 +15,15 @@ import { UsdcIcon } from "./icons/UsdcIcon";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
 import { ExecutedAnimation, ReviewAnimation, RejectedAnimation } from "./animations/StatusAnimation";
 import { MaoAvatar } from "./MaoAvatar";
-import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Clock, Coins, Loader2, MessageCircle, X, UserRound, Zap } from "lucide-react";
+import { ChevronDown, ArrowUpRight, CheckCircle2, ExternalLink, Loader2, MessageCircle, X, UserRound, Zap } from "lucide-react";
 import { useForceExecuteSetting } from "@/lib/useForceExecute";
 import { truncateAddress, formatDate, statusLabel, formatTokenAmount } from "@/lib/format";
 import { BSC_EXPLORER_URL, TELEGRAM_BOT_URL, TELEGRAM_BOT_USERNAME } from "@/lib/constants";
 import { useApiClient, apiFetch } from "@/lib/api/client";
 import { Dialog } from "./ui/Dialog";
+import { EmptyState } from "./ui/EmptyState";
+import { InlineError } from "./ui/InlineError";
+import { LINK_BUTTON_GOLD, LINK_BUTTON_NEUTRAL } from "./txPresentation";
 import { TokenRow } from "./TokenRow";
 import type { TransactionWithStatus, TokenPosition } from "@/types";
 import { useTokenAmountInput } from "@/lib/useTokenAmountInput";
@@ -201,7 +204,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
       const message =
         err instanceof Error && err.message
           ? err.message
-          : "Invalid name (Supported: .eth, .bnb or Zhentan names)";
+          : "Name not found. Try .eth, .bnb, or a Zhentan username";
       setResolveError(message);
     } finally {
       setResolving(false);
@@ -244,7 +247,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         selectCandidate();
         return;
       }
-      setError(resolveError || "Enter a valid wallet address or ENS name");
+      setError(resolveError || "Enter a valid address or name");
       return;
     }
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -257,7 +260,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     }
 
     if (!user || !wallet) {
-      setError("Please log in first");
+      setError("Sign in first");
       return;
     }
 
@@ -368,8 +371,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
   }
 
   const canSubmit = resolvedAddress || (recipient.startsWith("0x") && recipient.length === 42);
-  const recipientAddressLabel = (address: string) =>
-    address.length > 20 ? `${address.slice(0, 10)}...${address.slice(-6)}` : address;
+  const recipientAddressLabel = (address: string) => truncateAddress(address);
   const applyMaxAmount = () => {
     if (!selectedToken) return;
     const raw = selectedToken.balance ?? "0";
@@ -378,8 +380,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
   };
   const submitLabel = canSubmit
     ? screeningMode
-      ? "Propose Transaction"
-      : "Send Now"
+      ? "Propose transaction"
+      : "Send now"
     : "Select recipient";
 
   const clearRecipient = () => {
@@ -400,7 +402,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         <div className="flex flex-col items-center gap-4">
           <ThemeLoaderSpinner motion="scan" />
           <p className="text-sm font-semibold text-gold">Proposing transaction</p>
-          <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Awaiting your signature</p>
+          <p className="text-xs text-muted-foreground/80">Awaiting your signature</p>
         </div>
         <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
           <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
@@ -418,7 +420,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           </div>
         </dl>
         {onClose && (
-          <Button type="button" variant="ghost" onClick={onClose} className="w-full py-3 text-muted-foreground hover:text-foreground">
+          <Button type="button" variant="ghost" onClick={onClose} className="w-full">
             Close
           </Button>
         )}
@@ -474,18 +476,18 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         </dl>
         {agentOnline === false && tx.status !== "in_review" && (
           <p className="text-xs text-watch/90 text-center leading-relaxed">
-            The screening agent is offline right now — your transaction stays
-            safely queued and screens the moment it&apos;s back.
+            Agent offline. Your transaction stays queued and screens when
+            it&apos;s back.
           </p>
         )}
         {canCoSign && (
           <div className="space-y-2.5">
             <p className="text-xs text-muted-foreground/80 text-center">
               {tx.status === "in_review"
-                ? "Flagged for your review — signing with your backup key executes it anyway."
+                ? "Flagged for review. Signing with your backup key executes it anyway."
                 : agentOnline === false
-                  ? "No need to wait — signing with your backup key executes it right away."
-                  : "Zhentan is screening — signing with your backup key executes it right away."}
+                  ? "Signing with your backup key executes it right away."
+                  : "Zhentan is screening. Your backup key can execute it now."}
             </p>
             <CoSignButton
               tx={tx}
@@ -505,7 +507,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full rounded-md py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+              className={LINK_BUTTON_GOLD}
             >
               Sign in Safe app
               <ExternalLink className="h-3.5 w-3.5 opacity-60" />
@@ -521,7 +523,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             resetAmount();
             onSuccess();
           }}
-          className="w-full py-3.5"
+          className="w-full"
         >
           Done
         </Button>
@@ -539,8 +541,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           <ReviewAnimation size={80} />
           <span className="text-sm font-semibold text-watch">Awaiting your backup key</span>
           <p className="text-xs text-muted-foreground/80 text-center leading-relaxed max-w-xs">
-            Queued at 1 of {tx.threshold} signatures. Sign with your backup key to
-            send it now — or come back anytime from your transaction history.
+            Queued at 1 of {tx.threshold} signatures. Sign with your backup key
+            to send now, or finish later from your history.
           </p>
         </div>
         <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
@@ -580,7 +582,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
           href={`https://app.safe.global/transactions/queue?safe=bnb:${tx.safeAddress}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full rounded-md py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+          className={LINK_BUTTON_GOLD}
         >
           Sign in Safe app
           <ExternalLink className="h-3.5 w-3.5 opacity-60" />
@@ -594,7 +596,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             resetAmount();
             onSuccess();
           }}
-          className="w-full py-3.5"
+          className="w-full"
         >
           Done
         </Button>
@@ -608,9 +610,9 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-col items-center gap-4">
-          <ThemeLoaderSpinner variant="transaction" />
+          <ThemeLoaderSpinner motion="scan" />
           <p className="text-sm font-semibold text-gold">Processing transaction</p>
-          <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Sending on chain</p>
+          <p className="text-xs text-muted-foreground/80">Sending on chain</p>
         </div>
         <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
           <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
@@ -634,7 +636,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             type="button"
             variant="ghost"
             onClick={onClose}
-            className="w-full py-3 text-muted-foreground hover:text-foreground"
+            className="w-full"
           >
             Close
           </Button>
@@ -676,13 +678,12 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             href={explorerTxUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-md py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
+            className={LINK_BUTTON_NEUTRAL}
           >
             <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
             </span>
-           
-            View on BSC Explorer
+            View on BscScan
           </a>
         )}
         <Button
@@ -694,7 +695,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             resetAmount();
             onSuccess();
           }}
-          className="w-full py-3.5"
+          className="w-full"
         >
           Done
         </Button>
@@ -741,7 +742,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             resetAmount();
             onSuccess();
           }}
-          className="w-full py-3.5"
+          className="w-full"
         >
           Done
         </Button>
@@ -763,12 +764,11 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         </div>
         <div className="text-center space-y-2">
           <p className="text-sm text-foreground/80 leading-relaxed">
-            AI screening is on, but Telegram isn&apos;t connected — if this
-            transaction needs your review, the alert reaches you by email and
-            the dashboard only, so approving it can be slower.
+            Screening is on, but Telegram isn&apos;t connected. Review alerts
+            reach you by email only, which is slower.
           </p>
           <p className="text-xs text-muted-foreground/80">
-            Say hi to{" "}
+            Message{" "}
             <a
               href={TELEGRAM_BOT_URL}
               target="_blank"
@@ -777,12 +777,12 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             >
               @{TELEGRAM_BOT_USERNAME}
             </a>{" "}
-            and tap the secure link it replies with.
+            and tap the link it replies with.
           </p>
         </div>
         <Button
           type="button"
-          className="w-full py-3.5"
+          className="w-full"
           onClick={() => {
             setShowTgRequiredModal(false);
             router.push("/settings");
@@ -790,8 +790,10 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         >
           Connect Telegram
         </Button>
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          className="w-full"
           onClick={() => {
             setShowTgRequiredModal(false);
             const address =
@@ -799,17 +801,17 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               (recipient.startsWith("0x") && recipient.length === 42 ? recipient : null);
             if (address) void submitTransaction(address);
           }}
-          className="w-full py-2.5 rounded-md border border-foreground/10 text-sm text-foreground/80 hover:bg-foreground/5 transition-colors cursor-pointer"
         >
           Send anyway — alert me by email
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => setShowTgRequiredModal(false)}
-          className="text-xs text-muted-foreground/80 hover:text-foreground/80 transition-colors cursor-pointer"
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </Dialog>
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -860,11 +862,11 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
             disabled={!selectedToken || balanceNum <= 0}
             className="px-2.5 py-1 rounded-md bg-gold/15 border border-gold/35 text-xs font-semibold text-gold hover:bg-gold/20 hover:border-gold/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
-            MAX
+            Max
           </button>
         </div>
         {insufficientFunds && (
-          <p className="text-sm text-danger mt-1">Insufficient funds</p>
+          <InlineError className="mt-1.5">Insufficient funds</InlineError>
         )}
       </div>
 
@@ -917,14 +919,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         title="Select token"
         sheetOnMobile
       >
-        <div className="flex items-center gap-2 mb-4">
-          <Coins className="h-4 w-4 text-gold" />
-          <h2 className="text-sm font-semibold text-foreground tracking-wide">
-            <span className="text-gold">›</span> Tokens
-          </h2>
-        </div>
         {sendableTokens.length === 0 ? (
-          <p className="text-sm text-muted-foreground/80 text-center py-8">No sendable tokens on BNB Chain</p>
+          <EmptyState compact title="No sendable tokens on BNB Chain" />
         ) : (
           <div className="space-y-1 -mx-1">
             {sendableTokens.map((t, i) => (
@@ -972,10 +968,10 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
                       {resolvedName ?? recipient}
                     </p>
                     {resolveSource === "zhentan" && (
-                      <span className="relative inline-flex group text-claw">
+                      <span className="relative inline-flex group text-gold">
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex items-center gap-1.5 rounded-md bg-ink-900 text-foreground border border-foreground/10 px-2 py-1 text-[10px] whitespace-nowrap z-20 shadow-lg">
-                          Zhentan User
+                        <span className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 hidden group-hover:flex items-center gap-1.5 rounded-md bg-popover text-popover-foreground border border-border px-2 py-1 text-[10px] whitespace-nowrap z-20 shadow-lg">
+                          Zhentan user
                         </span>
                       </span>
                     )}
@@ -1012,7 +1008,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               placeholder="Address, .eth, .bnb or Zhentan username"
               value={recipient}
               onChange={(e) => setRecipient(e.target.value)}
-              className="w-full rounded-md bg-foreground/6 pl-4 pr-10 py-3.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-claw/40 focus:bg-foreground/8 transition-all min-h-11 touch-manipulation"
+              className="w-full rounded-md bg-foreground/6 pl-4 pr-10 py-3.5 text-base sm:text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-gold/40 focus:bg-foreground/8 transition-all min-h-11 touch-manipulation"
             />
             {resolving && (
               <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/80">
@@ -1020,7 +1016,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               </span>
             )}
             {candidate && !resolving && (
-              <div className="absolute left-0 right-0 top-full mt-2 z-30 rounded-md bg-ink-900 border border-foreground/10 shadow-xl overflow-hidden">
+              <div className="absolute left-0 right-0 top-full mt-2 z-30 rounded-md bg-popover border border-border shadow-xl overflow-hidden">
                 <button
                   type="button"
                   onClick={selectCandidate}
@@ -1046,7 +1042,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
                         {candidate.name}
                       </span>
                       {candidate.source === "zhentan" && (
-                        <span className="inline-flex text-claw" title="Zhentan User">
+                        <span className="inline-flex text-gold" title="Zhentan user">
                           <CheckCircle2 className="h-3.5 w-3.5" />
                         </span>
                       )}
@@ -1068,18 +1064,16 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         )}
       </div>
 
-      {error && (
-        <p className="text-sm text-danger">{error}</p>
-      )}
+      {error && <InlineError>{error}</InlineError>}
 
       {forceExecuteEnabled && nonceBlocked && (
         <button
           type="button"
           onClick={() => setForceExecute((v) => !v)}
-          className={`w-full flex items-center gap-3 rounded-md px-4 py-3 text-left transition-colors ${
+          className={`w-full flex items-center gap-3 rounded-md px-4 py-3 text-left transition-colors cursor-pointer border ${
             forceExecute
-              ? "bg-gold/10 ring-1 ring-gold/30"
-              : "bg-gold/[0.04] ring-1 ring-gold/15 hover:bg-gold/[0.07]"
+              ? "bg-gold/10 border-gold/30"
+              : "bg-gold/[0.04] border-gold/15 hover:bg-gold/[0.07]"
           }`}
         >
           <span
@@ -1094,8 +1088,8 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
               Force execute (skip the queue)
             </span>
             <span className="block text-xs text-muted-foreground/80 mt-0.5">
-              A pending transaction is holding the queue — force takes the current
-              nonce and replaces it, so this send executes now.
+              A pending transaction holds the queue. Force replaces it so this
+              send executes now.
             </span>
           </span>
           <span
@@ -1110,7 +1104,7 @@ export function SendPanel({ onSuccess, onClose, onRefreshActivities, tokens, scr
         type="submit"
         loading={loading}
         disabled={!canSubmit || !amount || amountNum <= 0 || insufficientFunds || !selectedToken}
-        className="w-full py-3.5"
+        className="w-full"
       >
         {submitLabel}
       </Button>

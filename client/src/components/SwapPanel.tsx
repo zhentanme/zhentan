@@ -9,6 +9,10 @@ import { TokenRow } from "./TokenRow";
 import { useAuth } from "@/app/context/AuthContext";
 import { ThemeLoaderSpinner } from "./ThemeLoader";
 import { TickButtonSpinner } from "./TwinTickLoader";
+import { EmptyState } from "./ui/EmptyState";
+import { InlineError } from "./ui/InlineError";
+import { Skeleton } from "./ui/Skeleton";
+import { LINK_BUTTON_GOLD, LINK_BUTTON_NEUTRAL } from "./txPresentation";
 import { ExecutedAnimation, ReviewAnimation } from "./animations/StatusAnimation";
 import { MaoAvatar } from "./MaoAvatar";
 import { CoSignButton } from "@/components/CoSignButton";
@@ -227,7 +231,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
       setExecutedAt(liveQueued.executedAt ?? new Date().toISOString());
       setPhase("success");
     } else if (liveQueued.status === "rejected" || liveQueued.status === "rejecting") {
-      setError(liveQueued.rejectReason || "Swap rejected by Zhentan");
+      setError(liveQueued.rejectReason || "Blocked by screening");
       setPhase("error");
     } else if (liveQueued.status === "in_review") {
       // Agent flagged it — keep the queued screen but reflect the update.
@@ -483,9 +487,9 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-col items-center gap-4">
-          <ThemeLoaderSpinner variant="transaction" />
+          <ThemeLoaderSpinner motion="scan" />
           <p className="text-sm font-semibold text-gold">{swapStatus}</p>
-          <p className="text-xs text-muted-foreground/80 uppercase tracking-widest">Executing on chain</p>
+          <p className="text-xs text-muted-foreground/80">Executing on chain</p>
         </div>
         <div className="rounded-md bg-foreground/6 p-4 space-y-3">
           <div className="flex items-center gap-3">
@@ -523,12 +527,12 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
       ? "Awaiting your backup key"
       : statusLabel(queuedTx?.status ?? "pending");
     const caption = screeningOff
-      ? "Swap queued. Sign with your backup key to execute it now — the quote may expire if it waits too long."
+      ? "Queued. Sign with your backup key before the quote expires."
       : inReview
-        ? "Flagged for your review — signing with your backup key executes it anyway."
+        ? "Flagged for review. Signing with your backup key executes it anyway."
         : canCoSign
-          ? "Zhentan is screening your swap — signing with your backup key executes it right away."
-          : "Zhentan is screening your swap — it executes automatically once approved.";
+          ? "Zhentan is screening. Your backup key can execute it now."
+          : "Zhentan is screening. It executes automatically once approved.";
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center gap-3">
@@ -576,12 +580,12 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             href={`https://app.safe.global/transactions/queue?safe=bnb:${safeAddress}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-md py-3 border border-gold/30 text-gold hover:bg-gold/10 transition-colors text-sm font-medium"
+            className={LINK_BUTTON_GOLD}
           >
             Sign in Safe app
           </a>
         )}
-        <Button type="button" onClick={() => { reset(); onSuccess(); }} className="w-full py-3.5">
+        <Button type="button" onClick={() => { reset(); onSuccess(); }} className="w-full">
           Done
         </Button>
       </div>
@@ -631,15 +635,15 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             href={explorerUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full rounded-md py-3 bg-foreground/8 text-foreground/80 hover:text-foreground hover:bg-foreground/12 transition-colors text-sm font-medium"
+            className={LINK_BUTTON_NEUTRAL}
           >
             <span className="relative w-[18px] h-[18px] shrink-0">
               <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
             </span>
-            View on BSC Explorer
+            View on BscScan
           </a>
         )}
-        <Button type="button" onClick={() => { reset(); onSuccess(); }} className="w-full py-3.5">
+        <Button type="button" onClick={() => { reset(); onSuccess(); }} className="w-full">
           Done
         </Button>
       </div>
@@ -654,14 +658,14 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           <div className="w-20 h-20 rounded-md bg-danger/15 text-danger flex items-center justify-center">
             <ArrowDownUp className="h-10 w-10" />
           </div>
-          <span className="text-sm font-semibold text-danger">Swap Failed</span>
-          {error && <p className="text-xs text-muted-foreground/80 text-center">Swap Failed, Please try again</p>}
+          <span className="text-sm font-semibold text-danger">Swap failed</span>
+          {error && <p className="text-xs text-muted-foreground/80 text-center">{error}</p>}
         </div>
-        <Button type="button" variant="secondary" onClick={reset} className="w-full py-3.5">
-          Try Again
+        <Button type="button" variant="secondary" onClick={reset} className="w-full">
+          Try again
         </Button>
         {onClose && (
-          <Button type="button" variant="ghost" onClick={onClose} className="w-full py-3">
+          <Button type="button" variant="ghost" onClick={onClose} className="w-full">
             Close
           </Button>
         )}
@@ -679,14 +683,8 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
         title="Sell token"
         sheetOnMobile
       >
-        <div className="flex items-center gap-2 mb-4">
-          <Coins className="h-4 w-4 text-gold" />
-          <h2 className="text-sm font-semibold text-foreground tracking-wide">
-            <span className="text-gold">›</span> Your tokens
-          </h2>
-        </div>
         {sellableTokens.length === 0 ? (
-          <p className="text-sm text-muted-foreground/80 text-center py-8">No tokens with balance</p>
+          <EmptyState compact title="No tokens with balance" />
         ) : (
           <div className="space-y-1 -mx-1">
             {sellableTokens.map((t, i) => (
@@ -729,7 +727,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             <button
               type="button"
               onClick={() => handleTokenSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/80 hover:text-foreground/80 transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-xs text-muted-foreground/80 hover:text-foreground transition-colors cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -743,7 +741,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           </div>
         ) : tokenSearch.trim() ? (
           searchResults.length === 0 ? (
-            <p className="text-sm text-muted-foreground/80 text-center py-10">No tokens found</p>
+            <EmptyState compact title="No tokens found" />
           ) : (
             <div className="space-y-1 -mx-1">
               {searchResults.map((t, i) => (
@@ -764,12 +762,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           )
         ) : (
           <>
-            <div className="flex items-center gap-2 mb-3">
-              <Coins className="h-4 w-4 text-gold" />
-              <h2 className="text-sm font-semibold text-foreground tracking-wide">
-                <span className="text-gold">›</span> Popular on BNB Chain
-              </h2>
-            </div>
+            <p className="eyebrow text-muted-foreground/80 mb-3">Popular on BNB Chain</p>
             <div className="space-y-1 -mx-1">
               {buyTokens.map((t, i) => (
                 <TokenRow
@@ -846,7 +839,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           {fromToken && (
             <div className="flex items-center justify-between mt-2">
               <div className="flex items-center gap-1">
-                {[{ label: "50%", num: 1n, den: 2n }, { label: "75%", num: 3n, den: 4n }, { label: "MAX", num: 1n, den: 1n }].map(({ label, num, den }) => (
+                {[{ label: "50%", num: 1n, den: 2n }, { label: "75%", num: 3n, den: 4n }, { label: "Max", num: 1n, den: 1n }].map(({ label, num, den }) => (
                   <button
                     key={label}
                     type="button"
@@ -870,7 +863,8 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
                         }
                       }
                     }}
-                    className="px-1.5 py-0.5 rounded text-xs font-semibold text-gold hover:text-gold-light transition-colors cursor-pointer"
+                    disabled={parseFloat(fromToken.balance ?? "0") <= 0}
+                    className="px-2.5 py-1 rounded-md bg-gold/15 border border-gold/35 text-xs font-semibold text-gold hover:bg-gold/20 hover:border-gold/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     {label}
                   </button>
@@ -907,7 +901,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               {quoteLoading ? (
-                <span className="text-3xl font-semibold text-muted-foreground/60 animate-pulse">…</span>
+                <Skeleton className="h-9 w-28" />
               ) : buyAmountFormatted && toToken ? (
                 <span className="text-3xl font-semibold text-foreground/80">
                   ~{parseFloat(buyAmountFormatted).toFixed(4)}
@@ -971,7 +965,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
           </motion.div>
         )}
 
-        {error && <p className="text-sm text-danger">{error}</p>}
+        {error && <InlineError>{error}</InlineError>}
 
         <Button
           type="button"
@@ -987,7 +981,7 @@ export function SwapPanel({ onSuccess, onClose, tokens }: SwapPanelProps) {
             !!quoteError ||
             quoteLoading
           }
-          className="w-full py-3.5"
+          className="w-full"
         >
           {!fromToken
             ? "Select token to sell"
