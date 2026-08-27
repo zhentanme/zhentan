@@ -28,6 +28,7 @@ import { assertSponsorGas } from "./lib/chain/sponsor.js";
 import { editNotification } from "./notify.js";
 import { assertOwnsTx, requireCallerSafe } from "./lib/authz.js";
 import { getUserDetails } from "./lib/supabase/index.js";
+import { getPortfolioForAddress } from "./lib/zerion.js";
 import { getLinkBySafe } from "./lib/telegram/binding.js";
 import { buildAuthRequiredEnvelope, issueLinkCode, relinkRelayText } from "./lib/telegram/linking.js";
 import { classifyTelegramCaller, telegramMetaFromBody } from "./lib/telegram/gate.js";
@@ -205,6 +206,21 @@ app.get("/me", auth, async (req, res) => {
     });
   } catch (err) {
     console.error("GET /me failed:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// GET /me/portfolio — the caller's own Safe portfolio (#142). The public
+// /portfolio route is address-keyed for the client; this one resolves the
+// address from the verified principal so the agent never handles addresses.
+app.get("/me/portfolio", auth, async (req, res) => {
+  const safe = requireCallerSafe(req, res);
+  if (!safe) return;
+  try {
+    const portfolio = await getPortfolioForAddress(safe);
+    res.json(portfolio);
+  } catch (err) {
+    console.error("GET /me/portfolio failed:", err);
     res.status(500).json({ error: "Internal error" });
   }
 });

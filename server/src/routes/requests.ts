@@ -1,10 +1,10 @@
 import { Router, Request, Response, type IRouter } from "express";
-import type { RequestStatus, RequestType, RequestKind, QueuedRequest, PendingTransaction } from "../types.js";
+import type { RequestStatus, RequestType, QueuedRequest, PendingTransaction } from "../types.js";
 import { getRequests, getRequest, createRequest, updateRequest, updateTransaction, getTransaction } from "../lib/supabase/index.js";
 import { requireCallerSafe, sameAddress } from "../lib/authz.js";
 import { evaluateRequest, loadPolicySnapshot } from "../agent/index.js";
 import { agentProposeFromRequest } from "../lib/safe/agentPropose.js";
-import type { DecodedKind } from "../lib/safe/kind.js";
+import { getKind, VALID_KINDS, type KindDefinition } from "../lib/safe/kinds.js";
 import { randomUUID } from "crypto";
 
 const VALID_STATUSES: RequestStatus[] = [
@@ -15,7 +15,62 @@ const VALID_STATUSES: RequestStatus[] = [
 ];
 
 const VALID_TYPES: RequestType[] = ["invoice", "transfer"];
-const VALID_KINDS: RequestKind[] = ["transfer", "swap"];
+
+/**
+ * Kind resolution + field validation shared by POST / and POST /quote.
+ * Writes the HTTP error response itself and returns null when invalid.
+ */
+function parseKindRequest(
+  req: Request,
+  res: Response
+): { def: KindDefinition<unknown>; params: unknown; safeAddress: string } | null {
+  const body = req.body ?? {};
+
+  const def = getKind(body.kind);
+  if (!def) {
+    res.status(400).json({ error: `Invalid kind: ${body.kind}. Valid: ${VALID_KINDS.join(", ")}` });
+    return null;
+  }
+
+  // `kind` is settlement, `type` is presentation: an invoice is always a
+  // transfer with billing metadata — there is no such thing as paying an
+  // invoice with a swap.
+  if (!def.allowsInvoiceMeta) {
+    const hasInvoiceMeta = Boolean(
+      req.body.type === "invoice" ||
+        body.invoiceNumber ||
+        body.billedFrom ||
+        body.billedTo ||
+        (body.services && body.services.length) ||
+        body.dueDate
+    );
+    if (hasInvoiceMeta) {
+      res.status(400).json({
+        error: `${def.kind[0].toUpperCase()}${def.kind.slice(1)} requests cannot carry invoice fields — invoices settle as transfers`,
+      });
+      return null;
+    }
+  }
+
+  const parsed = def.parse(body);
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return null;
+  }
+
+  // The request is scoped to the caller's own Safe — resolved in auth(),
+  // never from the body, so an agent call can't queue into another user's
+  // dashboard.
+  const safeAddress = req.callerSafe;
+  if (!safeAddress) {
+    res.status(403).json({
+      error: "Could not resolve request owner. Provide a valid callerId (telegram:<id>) for a registered user.",
+    });
+    return null;
+  }
+
+  return { def, params: parsed.params, safeAddress };
+}
 
 /**
  * Requests — incoming payment asks routed through the agent: parsed invoices
@@ -29,50 +84,17 @@ export function createRequestsRouter(): IRouter {
   router.post("/", async (req: Request, res: Response) => {
     try {
       const body = req.body ?? {};
-      const { type, kind, to, amount, token, fromToken, toToken, slippage, description, invoiceNumber, issueDate, dueDate, billedFrom, billedTo, services, riskScore, riskNotes, sourceChannel } = body;
-
-      if (kind !== undefined && !VALID_KINDS.includes(kind)) {
-        res.status(400).json({ error: `Invalid kind: ${kind}. Valid: ${VALID_KINDS.join(", ")}` });
-        return;
-      }
-      const requestKind: RequestKind = kind ?? "transfer";
+      const { type, description, invoiceNumber, issueDate, dueDate, billedFrom, billedTo, services, riskScore, riskNotes, sourceChannel } = body;
 
       if (type !== undefined && !VALID_TYPES.includes(type)) {
         res.status(400).json({ error: `Invalid type: ${type}. Valid: ${VALID_TYPES.join(", ")}` });
         return;
       }
 
-      // `kind` is settlement, `type` is presentation: an invoice is always a
-      // transfer with billing metadata — there is no such thing as paying an
-      // invoice with a swap.
-      if (requestKind === "swap") {
-        const hasInvoiceMeta = Boolean(
-          type === "invoice" || invoiceNumber || billedFrom || billedTo || (services && services.length) || dueDate
-        );
-        if (hasInvoiceMeta) {
-          res.status(400).json({ error: "Swap requests cannot carry invoice fields — invoices settle as transfers" });
-          return;
-        }
-        if (!fromToken || !toToken || !amount) {
-          res.status(400).json({ error: "Swap requests require fromToken, toToken, amount (sell amount)" });
-          return;
-        }
-      } else if (!to || !amount || !token) {
-        res.status(400).json({ error: "Missing required fields: to, amount, token" });
-        return;
-      }
-
-      // The request is scoped to the caller's own Safe — resolved in auth(),
-      // never from the body, so an agent call can't queue into another user's
-      // dashboard.
-      const safeAddress = req.callerSafe;
-
-      if (!safeAddress) {
-        res.status(403).json({
-          error: "Could not resolve request owner. Provide a valid callerId (telegram:<id>) for a registered user.",
-        });
-        return;
-      }
+      const kindReq = parseKindRequest(req, res);
+      if (!kindReq) return;
+      const { def, params, safeAddress } = kindReq;
+      const view = def.scoringView(params);
 
       // Explicit type wins; otherwise infer: invoice-ish fields → invoice, else transfer.
       const hasInvoiceFields = Boolean(invoiceNumber || billedFrom || billedTo || (services && services.length) || dueDate);
@@ -95,27 +117,8 @@ export function createRequestsRouter(): IRouter {
 
       try {
         const patterns = await loadPolicySnapshot(safeAddress);
-        const synthTx = {
-          to: to ?? "",
-          amount: String(amount),
-          token: token ?? fromToken,
-        } as unknown as PendingTransaction;
-        // Swap scoring matches what the swap builder produces by
-        // construction: a known router (LI.FI first, PancakeSwap fallback)
-        // and an exact-amount approval — so only the amount/velocity/time
-        // factors contribute.
-        const syntheticDecoded: DecodedKind | undefined =
-          requestKind === "swap"
-            ? {
-                kind: "swap",
-                router: "",
-                routerName: "LI.FI / PancakeSwap",
-                sellTokenAddress: null,
-                sellAmountWei: 0n,
-                approval: null,
-              }
-            : undefined;
-        const engine = evaluateRequest(synthTx, patterns, syntheticDecoded);
+        const synthTx = view as unknown as PendingTransaction;
+        const engine = evaluateRequest(synthTx, patterns, def.syntheticDecoded(params));
         finalRiskScore = Math.max(engine.riskScore, agentScore ?? 0);
         const engineNotes = `${engine.verdict}: ${engine.reasons.join("; ")}`;
         finalRiskNotes =
@@ -132,31 +135,25 @@ export function createRequestsRouter(): IRouter {
 
       // Draft path: the agent builds the SafeTx as a DRAFT row (no nonce, no
       // signatures — see agentPropose.ts) the user completes with one
-      // signature. Transfers get a draft only when the score clears the
-      // user's APPROVE threshold (riskier ones fall back to the client's own
-      // propose flow, which re-screens). Swaps get a draft whenever the score
-      // is below the BLOCK threshold — the client has no swap builder to fall
-      // back to, and the user still explicitly signs. Best-effort: if the
-      // draft can't be built, the request queues normally.
+      // signature. The kind's draftBand picks the gate: "approve" kinds get a
+      // draft only when the score clears the user's APPROVE threshold
+      // (riskier ones fall back to the client's own propose flow, which
+      // re-screens); "block" kinds draft below the BLOCK threshold (no client
+      // fallback builder exists, and the user still explicitly signs).
+      // Best-effort: if the draft can't be built, the request queues normally.
       let draftTxId: string | undefined;
       try {
         const patterns = await loadPolicySnapshot(safeAddress);
         const { riskThresholdApprove, riskThresholdBlock } = patterns.globalLimits;
         const score = finalRiskScore ?? 100;
         const shouldDraft =
-          requestKind === "swap" ? score < riskThresholdBlock : score < riskThresholdApprove;
+          score < (def.draftBand === "block" ? riskThresholdBlock : riskThresholdApprove);
         if (shouldDraft) {
           draftTxId =
             (await agentProposeFromRequest({
-              kind: requestKind,
+              kind: def.kind,
               safeAddress,
-              to,
-              amount: String(amount),
-              token,
-              fromToken,
-              toToken,
-              sellAmount: String(amount),
-              slippage: slippage != null ? Number(slippage) : undefined,
+              params,
               riskScore: finalRiskScore ?? 0,
               riskVerdict:
                 score < riskThresholdApprove ? "APPROVE" : "REVIEW",
@@ -167,28 +164,23 @@ export function createRequestsRouter(): IRouter {
         console.error("Request draft build failed (queuing normally):", err);
       }
 
-      // Swap display fields: the draft knows the router + label; a draft-less
-      // swap request (build failed) shows the pair label with no recipient.
+      // Display fields: the draft knows the real target (e.g. a swap's
+      // router + pair label); a draft-less request falls back to the kind's
+      // own display.
       const draftTx = draftTxId ? await getTransaction(draftTxId).catch(() => null) : null;
-      const displayTo = requestKind === "swap" ? draftTx?.to ?? "" : to;
-      const displayToken =
-        requestKind === "swap"
-          ? draftTx?.token ?? `${String(fromToken).toUpperCase()} → ${String(toToken).toUpperCase()}`
-          : token;
+      const fallback = def.displayFallback(params);
+      const displayTo = draftTx?.to ?? fallback.to;
+      const displayToken = draftTx?.token ?? fallback.token;
 
       const request: QueuedRequest = {
         id: `req-${randomUUID().slice(0, 8)}`,
         type: requestType,
-        kind: requestKind,
+        kind: def.kind,
         safeAddress,
         to: displayTo,
-        amount: String(amount),
+        amount: view.amount,
         token: displayToken,
-        ...(requestKind === "swap" && {
-          fromToken: String(fromToken),
-          toToken: String(toToken),
-          ...(slippage != null && { slippage: Number(slippage) }),
-        }),
+        ...def.requestFields(params),
         description: description ?? undefined,
         invoiceNumber: invoiceNumber ?? undefined,
         issueDate: issueDate ?? undefined,
@@ -218,6 +210,48 @@ export function createRequestsRouter(): IRouter {
       });
       await createRequest(request);
       res.status(201).json({ status: "queued", id: request.id, type: request.type, kind: request.kind, to: request.to, amount: request.amount, token: request.token, ...(draftTxId && { txId: draftTxId, presigned: true }) });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // POST /requests/quote — READ-ONLY preview of a request's outcome (#142).
+  // Same body as POST / (settlement fields only); runs the kind's quote()
+  // (balance/token resolution, live route pricing) plus the same request
+  // risk engine, so the agent can tell the user what would happen — and
+  // whether it would auto-approve — BEFORE queueing. Never writes anything.
+  router.post("/quote", async (req: Request, res: Response) => {
+    try {
+      const kindReq = parseKindRequest(req, res);
+      if (!kindReq) return;
+      const { def, params, safeAddress } = kindReq;
+
+      const quote = await def.quote(params, { safeAddress });
+
+      // Risk preview mirrors POST /'s engine call (same synthetic inputs →
+      // same score the real queue would get, engine-availability aside).
+      let riskPreview: {
+        score: number;
+        verdict: string;
+        reasons: string[];
+        wouldAutoExecute: boolean;
+      } | null = null;
+      try {
+        const patterns = await loadPolicySnapshot(safeAddress);
+        const synthTx = def.scoringView(params) as unknown as PendingTransaction;
+        const engine = evaluateRequest(synthTx, patterns, def.syntheticDecoded(params));
+        riskPreview = {
+          score: engine.riskScore,
+          verdict: engine.verdict,
+          reasons: engine.reasons,
+          wouldAutoExecute: engine.riskScore < patterns.globalLimits.riskThresholdApprove,
+        };
+      } catch (err) {
+        console.error("Quote risk preview failed:", err instanceof Error ? err.message : err);
+      }
+
+      res.json({ kind: def.kind, quote, riskPreview });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       res.status(500).json({ error: message });

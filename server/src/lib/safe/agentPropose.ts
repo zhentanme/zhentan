@@ -25,7 +25,8 @@
  */
 import { randomUUID } from "crypto";
 
-import { KIND_BUILDERS, buildSafeTxFromCalls, type BuiltCalls } from "./builders.js";
+import { buildSafeTxFromCalls, type BuiltCalls } from "./builders.js";
+import { KINDS } from "./kinds.js";
 import { finalizeDraft } from "./finalizeDraft.js";
 import { isSafeDeployed } from "./deploy.js";
 import { getAgentAddress } from "./relayer.js";
@@ -35,20 +36,8 @@ import type { PendingTransaction, RequestKind } from "../../types.js";
 export interface AgentProposeInput {
   kind: RequestKind;
   safeAddress: string;
-  /** transfer: recipient address. Ignored for swaps (display shows the router). */
-  to?: string;
-  /** transfer: human-readable amount. */
-  amount?: string;
-  /** transfer: token symbol. */
-  token?: string;
-  /** swap: sell-token symbol. */
-  fromToken?: string;
-  /** swap: buy-token symbol. */
-  toToken?: string;
-  /** swap: human-readable sell amount. */
-  sellAmount?: string;
-  /** swap: slippage fraction (0.005 = 0.5%). */
-  slippage?: number;
+  /** Kind-typed build params, produced by the kind's own parse() in kinds.ts. */
+  params: unknown;
   riskScore: number;
   riskVerdict?: "APPROVE" | "REVIEW" | "BLOCK";
   riskReasons: string[];
@@ -71,25 +60,7 @@ export async function agentProposeFromRequest(
     if (!embedded) return null; // no known user owner to co-sign later
     if (!record?.safe_deployed && !(await isSafeDeployed(safeAddress))) return null;
 
-    let built: BuiltCalls | null = null;
-    if (kind === "swap") {
-      if (!input.fromToken || !input.toToken || !input.sellAmount) return null;
-      built = await KIND_BUILDERS.swap({
-        safeAddress,
-        fromToken: input.fromToken,
-        toToken: input.toToken,
-        sellAmount: input.sellAmount,
-        slippage: input.slippage,
-      });
-    } else {
-      if (!input.to || !input.amount || !input.token) return null;
-      built = await KIND_BUILDERS.transfer({
-        safeAddress,
-        to: input.to,
-        amount: input.amount,
-        token: input.token,
-      });
-    }
+    const built: BuiltCalls | null = await KINDS[kind].buildCalls(input.params, { safeAddress });
     if (!built) return null;
 
     // Placeholder nonce — replaced at finalize time; the stored hash-less

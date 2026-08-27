@@ -5,8 +5,10 @@
  * The shared buildSafeTx below (server port of the client builder in
  * client/src/lib/safe/safeTx.ts — keep the encodings in lockstep) turns the
  * calls into a standard SafeTx: single call → plain CALL, several calls →
- * MultiSendCallOnly batch. Adding a new agent-initiable kind = one entry
- * here + a decoder case in kind.ts + a risk strategy in risk.ts.
+ * MultiSendCallOnly batch. This module holds the low-level encoders only —
+ * the pipeline-facing surface per kind (validation, scoring inputs, draft
+ * gating, preview) is the KINDS registry in kinds.ts (#142); add new kinds
+ * there.
  */
 import {
   encodeFunctionData,
@@ -65,9 +67,13 @@ export interface SwapBuildParams {
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
-interface ServerSwapQuote {
+export interface ServerSwapQuote {
   transaction: { to: string; value: string; data: string };
   approvalAddress: string;
+  buyAmount: string;
+  buyAmountUSD: string;
+  sellAmountUSD: string;
+  tool?: { key: string; name: string };
 }
 
 /**
@@ -78,13 +84,13 @@ interface ServerSwapQuote {
  * slippage builds calldata that reverts on exactly the pairs users actually
  * trade (fee-on-transfer / low-liquidity tokens).
  */
-async function fetchServerSwapQuote(params: {
+export async function fetchServerSwapQuote(params: {
   fromTokenAddress: string;
   toTokenAddress: string;
   amountWei: bigint;
   safeAddress: string;
   slippage?: number;
-}): Promise<ServerSwapQuote | null> {
+}): Promise<{ quote: ServerSwapQuote; slippage: number } | null> {
   const port = Number(process.env.PORT) || 3001;
   const qs = new URLSearchParams({
     fromToken: params.fromTokenAddress,
@@ -99,8 +105,9 @@ async function fetchServerSwapQuote(params: {
       headers: { ...(agentSecret && { Authorization: `Bearer ${agentSecret}` }) },
     });
     if (!res.ok) return null;
-    const body = (await res.json()) as { quote?: ServerSwapQuote };
-    return body.quote ?? null;
+    const body = (await res.json()) as { quote?: ServerSwapQuote; slippage?: number };
+    if (!body.quote) return null;
+    return { quote: body.quote, slippage: body.slippage ?? params.slippage ?? 0.05 };
   } catch {
     return null;
   }
@@ -165,14 +172,15 @@ async function buildSwapCalls(params: SwapBuildParams): Promise<BuiltCalls | nul
   const to = { address: toAddress };
 
   const sellAmountWei = parseUnits(sellAmount, from.decimals);
-  const quote = await fetchServerSwapQuote({
+  const quoted = await fetchServerSwapQuote({
     fromTokenAddress: from.address,
     toTokenAddress: to.address,
     amountWei: sellAmountWei,
     safeAddress,
     slippage: params.slippage,
   });
-  if (!quote) return null;
+  if (!quoted) return null;
+  const { quote } = quoted;
 
   const isNativeSell =
     from.address.toLowerCase() === NATIVE_TOKEN_ADDRESS.toLowerCase();

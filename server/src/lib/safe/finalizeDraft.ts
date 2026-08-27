@@ -27,11 +27,12 @@ import {
 import { readSafeNonce } from "./onchain.js";
 import { getAgentAddress } from "./relayer.js";
 import { requestAgentSignature } from "../runtime/signing.js";
-import { KIND_BUILDERS, buildSafeTxFromCalls } from "./builders.js";
+import { buildSafeTxFromCalls } from "./builders.js";
+import { getKind } from "./kinds.js";
 import { getRequestByTxId, updateTransaction } from "../supabase/index.js";
 import type { PendingTransaction } from "../../types.js";
 
-/** Swap re-quote failed — the caller should tell the user to re-queue. */
+/** Stale-calldata rebuild (swap re-quote) failed — the caller should tell the user to re-queue. */
 export class SwapRefreshError extends Error {}
 
 export async function finalizeDraft(
@@ -50,28 +51,25 @@ export async function finalizeDraft(
   if (tx.userSignature) return tx;
   if (!tx.safeTx) throw new Error("Draft has no safeTx payload");
 
+  // Stale-calldata kinds (per the KINDS registry — swaps today) are rebuilt
+  // fresh at approval time from their linked request row.
   const linkedRequest = await getRequestByTxId(tx.id).catch(() => null);
-  const swapRequest =
-    linkedRequest?.kind === "swap" && linkedRequest.fromToken && linkedRequest.toToken
-      ? linkedRequest
+  const kindDef = linkedRequest ? getKind(linkedRequest.kind) : null;
+  const refreshParams =
+    freshQuote && kindDef?.staleCalldata && linkedRequest
+      ? kindDef.paramsFromRequest(linkedRequest)
       : null;
 
   // Already finalized and there is nothing to refresh → done. (An
   // eager-finalized SWAP does get refreshed at approval: its queue-time
   // quote is stale by now, and re-proposing the fresh payload at the SAME
   // nonce supersedes the stale service proposal.)
-  if (tx.safeTxHash && (!freshQuote || !swapRequest)) return tx;
+  if (tx.safeTxHash && !refreshParams) return tx;
 
   let safeTxBase = tx.safeTx;
   let display: { to?: string; toTokenAddress?: string } = {};
-  if (swapRequest && freshQuote) {
-    const rebuilt = await KIND_BUILDERS.swap({
-      safeAddress: tx.safeAddress,
-      fromToken: swapRequest.fromToken!,
-      toToken: swapRequest.toToken!,
-      sellAmount: swapRequest.amount,
-      slippage: swapRequest.slippage,
-    });
+  if (refreshParams && kindDef) {
+    const rebuilt = await kindDef.buildCalls(refreshParams, { safeAddress: tx.safeAddress });
     if (!rebuilt) {
       throw new SwapRefreshError(
         "Swap route could not be refreshed — ask Zhentan to queue the swap again"

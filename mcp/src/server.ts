@@ -5,6 +5,7 @@ import { registerScreeningTools } from "./tools/screening.js";
 import { registerProfileTools } from "./tools/profile.js";
 import { registerResolveTools } from "./tools/resolve.js";
 import { registerRuleTools } from "./tools/rules.js";
+import { registerWalletTools } from "./tools/wallet.js";
 
 /**
  * Build the Zhentan MCP server with all tools registered.
@@ -25,6 +26,7 @@ export function buildServer(): McpServer {
   registerProfileTools(server);
   registerResolveTools(server);
   registerRuleTools(server);
+  registerWalletTools(server);
 
   return server;
 }
