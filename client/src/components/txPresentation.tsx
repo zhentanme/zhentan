@@ -76,6 +76,26 @@ export const KIND_DESCRIPTIONS: Record<string, string> = {
   "Wallet configuration": "Configuration call. No funds moved",
 };
 
+/**
+ * Zhentan-built swap rows carry no Zerion operationType until enrichment —
+ * the server stamps the pair label ("USDC → WBNB", a server contract from
+ * builders.ts display) and the buy-token address. Parse the pair so trades
+ * render as trades BEFORE execution/enrichment, not as sends of a garbage
+ * "USDC → WBNB" token.
+ */
+export function swapPair(tx: TransactionWithStatus): { sell: string; buy: string } | null {
+  if (tx.txKind || !tx.token?.includes("→")) return null;
+  const [sell, buy] = tx.token.split("→").map((s) => s.trim());
+  return sell && buy ? { sell, buy } : null;
+}
+
+/** The ONE operation derivation shared by row + dialog (avatar, layout, labels). */
+export function getOp(tx: TransactionWithStatus): string {
+  return (
+    tx.operationType ?? (swapPair(tx) ? "trade" : tx.direction === "receive" ? "receive" : "send")
+  );
+}
+
 export function getOpConfig(tx: TransactionWithStatus): OpConfig & { description?: string } {
   if (tx.txKind) {
     const label =
@@ -88,8 +108,7 @@ export function getOpConfig(tx: TransactionWithStatus): OpConfig & { description
       description: KIND_DESCRIPTIONS[label],
     };
   }
-  const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
-  return OP_CONFIG[op] ?? FALLBACK_CONFIG;
+  return OP_CONFIG[getOp(tx)] ?? FALLBACK_CONFIG;
 }
 
 /* ── Shared helpers ── */

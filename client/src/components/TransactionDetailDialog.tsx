@@ -15,6 +15,8 @@ import { ArrowUpRight, ExternalLink } from "lucide-react";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
 import {
   getOpConfig,
+  getOp,
+  swapPair,
   formatUsd,
   TokenAvatar,
   LINK_BUTTON_GOLD,
@@ -32,7 +34,7 @@ function HeroAmount({
   config: OpConfig & { description?: string };
 }) {
   const { Icon, label, sign, iconColor } = config;
-  const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
+  const op = getOp(tx);
   const usd = formatUsd(tx.valueUSD);
 
   // Wallet event (creation / config): gold event tile + label + explainer —
@@ -55,8 +57,14 @@ function HeroAmount({
     );
   }
 
-  // Trade: dual-token layout — [sent] → [received]
-  if (op === "trade" && tx.tradeReceived) {
+  // Trade: dual-token layout — [sent] → [received]. Enriched rows carry the
+  // real received amount; un-enriched zhentan swap rows (pending / just
+  // executed) know the pair from the server's label, so the layout is the
+  // same and the received amount fills in once Zerion indexes it.
+  const pair = op === "trade" ? swapPair(tx) : null;
+  if (op === "trade" && (tx.tradeReceived || pair)) {
+    const sellSymbol = pair?.sell ?? tx.token;
+    const buySymbol = tx.tradeReceived?.symbol ?? pair?.buy;
     return (
       <div className="rounded-md bg-foreground/6 p-4">
         {/* Op label */}
@@ -69,11 +77,11 @@ function HeroAmount({
           {/* Sent side */}
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <div className="w-10 h-10 rounded-full bg-foreground/8 flex items-center justify-center shrink-0 overflow-hidden">
-              <TokenAvatar iconUrl={tx.tokenIconUrl} symbol={tx.token} size={40} />
+              <TokenAvatar iconUrl={tx.tokenIconUrl} symbol={sellSymbol} size={40} />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground truncate">
-                -{formatTokenAmount(tx.amount)} {tx.token}
+                -{formatTokenAmount(tx.amount)} {sellSymbol}
               </p>
               {usd && <p className="text-xs text-muted-foreground/80 mt-0.5">{usd}</p>}
             </div>
@@ -83,13 +91,19 @@ function HeroAmount({
           {/* Received side */}
           <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
             <div className="min-w-0 text-right">
-              <p className="text-sm font-semibold text-safe truncate">
-                +{formatTokenAmount(tx.tradeReceived.amount)} {tx.tradeReceived.symbol}
-              </p>
-              {usd && <p className="text-xs text-muted-foreground/80 mt-0.5">{usd}</p>}
+              {tx.tradeReceived ? (
+                <>
+                  <p className="text-sm font-semibold text-safe truncate">
+                    +{formatTokenAmount(tx.tradeReceived.amount)} {tx.tradeReceived.symbol}
+                  </p>
+                  {usd && <p className="text-xs text-muted-foreground/80 mt-0.5">{usd}</p>}
+                </>
+              ) : (
+                <p className="text-sm font-semibold text-safe truncate">{buySymbol}</p>
+              )}
             </div>
             <div className="w-10 h-10 rounded-full bg-foreground/8 flex items-center justify-center shrink-0 overflow-hidden">
-              <TokenAvatar iconUrl={tx.tradeReceived.iconUrl} symbol={tx.tradeReceived.symbol} size={40} />
+              <TokenAvatar iconUrl={tx.tradeReceived?.iconUrl} symbol={buySymbol} size={40} />
             </div>
           </div>
         </div>
@@ -215,7 +229,7 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
   const tx = live ?? txProp;
 
   const config = getOpConfig(tx);
-  const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
+  const op = getOp(tx);
   const explorerTxUrl = tx.txHash ? `${BSC_EXPLORER_URL}/tx/${tx.txHash}` : null;
 
   // Whether this is a zhentan-tracked tx (has our metadata)
@@ -223,7 +237,13 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
   // Whether counterparty address is meaningful for this op
   const showCounterparty = !!tx.to && op !== "execute" && op !== "approve";
   const counterpartyLabel =
-    op === "receive" ? "From" : op === "send" ? "To" : "Interacted with";
+    op === "receive"
+      ? "From"
+      : op === "send"
+        ? "To"
+        : op === "trade" && swapPair(tx)
+          ? "Router"
+          : "Interacted with";
 
   // Analysis section: any zhentan tx that carries screening data, regardless of
   // status — so executed / rejected decisions show their analysis too.

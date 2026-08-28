@@ -6,6 +6,8 @@ import { truncateAddress, formatTokenAmount, timeAgo } from "@/lib/format";
 import { StatusBadge } from "./StatusBadge";
 import {
   getOpConfig,
+  getOp,
+  swapPair,
   formatUsd,
   TokenAvatar,
   type OpConfig,
@@ -18,7 +20,7 @@ interface AmountProps {
 
 function AmountDisplay({ tx, config }: AmountProps) {
   const { sign } = config;
-  const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
+  const op = getOp(tx);
 
   // Approve — show "Unlimited TOKEN" or the amount
   if (op === "approve") {
@@ -52,6 +54,20 @@ function AmountDisplay({ tx, config }: AmountProps) {
     );
   }
 
+  // Trade before enrichment (zhentan swap row): received amount is unknown
+  // until execution — show the buy token on top, sold amount below.
+  const pair = op === "trade" ? swapPair(tx) : null;
+  if (pair) {
+    return (
+      <div className="text-right tabular-nums font-mono">
+        <p className="text-sm font-semibold text-safe">{pair.buy}</p>
+        <p className="text-xs text-muted-foreground/80 mt-0.5">
+          -{formatTokenAmount(tx.amount)} {pair.sell}
+        </p>
+      </div>
+    );
+  }
+
   // Standard amount line
   const usd = formatUsd(tx.valueUSD);
   return (
@@ -79,7 +95,7 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
 
   // Counterparty address — skip for ops where it's not meaningful, and for
   // wallet events (the "counterparty" is the Safe itself).
-  const op = tx.operationType ?? (tx.direction === "receive" ? "receive" : "send");
+  const op = getOp(tx);
   const showAddress = !tx.txKind && !!tx.to && op !== "execute" && op !== "approve";
   const addressPrefix = tx.direction === "receive" ? "from" : "to";
 
@@ -103,7 +119,7 @@ export function TransactionRow({ tx, index = 0, onClick }: TransactionRowProps) 
         </div>
       ) : (
         <div className="w-10 h-10 rounded-full bg-foreground/8 flex items-center justify-center shrink-0 overflow-hidden">
-          <TokenAvatar iconUrl={tx.tokenIconUrl} symbol={tx.token} />
+          <TokenAvatar iconUrl={tx.tokenIconUrl} symbol={swapPair(tx)?.sell ?? tx.token} />
         </div>
       )}
 
