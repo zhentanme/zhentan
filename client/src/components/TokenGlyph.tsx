@@ -6,19 +6,41 @@ import { clsx } from "clsx";
 import { findFallbackTokenBySymbol } from "@/lib/tokenFallbacks";
 
 /**
+ * Runtime icon registry — populated from live portfolio data wherever it is
+ * fetched (home, requests, useRequestActions), so a symbol-only surface
+ * (request rows/dialog) resolves the same Zerion icon the portfolio shows,
+ * without persisting display metadata anywhere. Module-level on purpose:
+ * registration happens inside setState-driven fetches, so consumers
+ * re-render and re-resolve after it fills.
+ */
+const RUNTIME_ICONS = new Map<string, string>();
+
+export function registerTokenIcons(
+  tokens: { symbol?: string | null; iconUrl?: string | null }[]
+): void {
+  for (const t of tokens) {
+    const sym = t.symbol?.trim().toUpperCase();
+    if (sym && t.iconUrl) RUNTIME_ICONS.set(sym, t.iconUrl);
+  }
+}
+
+/**
  * THE uniform token-icon resolution (#142), shared by every surface
  * (activity rows, dialogs, request rows):
  *   1. explicit iconUrl (portfolio/Zerion data) — always wins
- *   2. known BNB Chain token table by symbol (findFallbackTokenBySymbol)
- *   3. local BNB asset
- *   4. null → the caller renders neutral initials, NEVER another token's mark
+ *   2. local BNB asset
+ *   3. runtime registry (live portfolio icons, registered above)
+ *   4. known BNB Chain token table by symbol (findFallbackTokenBySymbol)
+ *   5. null → the caller renders neutral initials, NEVER another token's mark
  */
 export function resolveTokenIconUrl(symbol?: string, iconUrl?: string | null): string | null {
   if (iconUrl) return iconUrl;
   const sym = (symbol || "").trim();
   if (!sym) return null;
   if (sym.toUpperCase() === "BNB") return "/bsc-yellow.png";
-  return findFallbackTokenBySymbol(sym)?.iconUrl ?? null;
+  return (
+    RUNTIME_ICONS.get(sym.toUpperCase()) ?? findFallbackTokenBySymbol(sym)?.iconUrl ?? null
+  );
 }
 
 interface TokenGlyphProps {

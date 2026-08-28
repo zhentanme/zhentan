@@ -7,6 +7,7 @@ import { useActivityData } from "@/app/context/ActivityDataContext";
 import { proposeTransaction } from "@/lib/propose";
 import { signSafeTx } from "@/lib/safe/safeTx";
 import { findFallbackTokenBySymbol } from "@/lib/tokenFallbacks";
+import { registerTokenIcons } from "@/components/TokenGlyph";
 import type { Address } from "viem";
 import type { QueuedRequest, TokenPosition } from "@/types";
 
@@ -26,6 +27,7 @@ export function useRequestActions() {
     if (!safeAddress) return;
     try {
       const data = await api.portfolio.get(safeAddress);
+      registerTokenIcons(data.tokens);
       setTokens(data.tokens);
     } catch {
       // silent — resolveToken falls back to known BNB Chain tokens

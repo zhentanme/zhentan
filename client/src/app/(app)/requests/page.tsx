@@ -13,6 +13,7 @@ import { proposeTransaction } from "@/lib/propose";
 import { signSafeTx } from "@/lib/safe/safeTx";
 import { useApiClient } from "@/lib/api/client";
 import { findFallbackTokenBySymbol } from "@/lib/tokenFallbacks";
+import { registerTokenIcons } from "@/components/TokenGlyph";
 import type { Address } from "viem";
 import type { QueuedRequest, TokenPosition } from "@/types";
 import { FileText } from "lucide-react";
@@ -47,6 +48,7 @@ function RequestsPageContent() {
     if (!safeAddress) return;
     try {
       const data = await api.portfolio.get(safeAddress);
+      registerTokenIcons(data.tokens);
       setTokens(data.tokens);
     } catch {
       // silent
