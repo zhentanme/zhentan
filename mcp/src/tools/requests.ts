@@ -51,7 +51,16 @@ export function registerRequestTools(server: McpServer) {
           .optional()
           .describe("Swaps only: slippage as a fraction (0.005 = 0.5%). Default 0.005."),
         callerId: CALLER_ID.describe("Required — resolves which user's Safe owns this request"),
-        description: z.string().max(500).optional().describe("For transfers: the user's instruction in one sentence"),
+        description: z
+          .string()
+          .min(1)
+          .max(500)
+          .describe(
+            "REQUIRED for every kind (transfer, swap, invoice): the user's instruction in their own " +
+              'words, as close to verbatim as possible — e.g. "send all my USDC to alice.eth", ' +
+              '"swap 10 USDC for WBNB", "pay this invoice from Acme". Shown to the user as the ' +
+              "Instruction on the request.",
+          ),
         invoiceNumber: z.string().optional(),
         issueDate: z.string().optional(),
         dueDate: z.string().optional(),
