@@ -6,6 +6,7 @@ import {
 } from "../supabase/index.js";
 import { learnFromExecution, recordOutcome } from "../../agent/index.js";
 import { notify } from "../../notifications/index.js";
+import { settlementKind } from "../../notifications/events.js";
 import type { PendingTransaction } from "../../types.js";
 
 /**
@@ -60,6 +61,7 @@ export async function finishExecution(
         txId: tx.id,
         amount: tx.amount,
         token: tx.token || "USDC",
+        kind: settlementKind(tx),
         tokenLogoUrl: tx.tokenIconUrl ?? undefined,
         amountUsd: tx.amountUSD ? `$${tx.amountUSD}` : undefined,
         toAddress: tx.to,

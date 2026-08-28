@@ -17,6 +17,19 @@ function shortAddr(addr: string) {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+/**
+ * Settlement kind for notification copy (#142). Explicit marker first
+ * (swap rows carry the buy-token address); the pair label ("USDC → WBNB")
+ * is the server's own display contract for swap rows, so it is a safe
+ * fallback for callers holding narrow row selections.
+ */
+export function settlementKind(tx: {
+  toTokenAddress?: string | null;
+  token?: string | null;
+}): "transfer" | "swap" {
+  return tx.toTokenAddress || tx.token?.includes("→") ? "swap" : "transfer";
+}
+
 // ─── Payloads ─────────────────────────────────────────────────────────────────
 
 export interface OnboardingCompletedPayload {
@@ -26,7 +39,10 @@ export interface OnboardingCompletedPayload {
 export interface TxSentPayload {
   txId: string;
   amount: string;
+  /** For swaps this is the pair label, e.g. "USDC → WBNB". */
   token: string;
+  /** Settlement kind — copy says Swapped/Router instead of Sent/To (#142). */
+  kind?: "transfer" | "swap";
   tokenLogoUrl?: string;
   amountUsd?: string;
   toAddress: string;
@@ -39,7 +55,10 @@ export interface TxSentPayload {
 export interface TxReviewNeededPayload {
   txId: string;
   amount: string;
+  /** For swaps this is the pair label, e.g. "USDC → WBNB". */
   token: string;
+  /** Settlement kind — copy says swap/Router instead of transfer/To (#142). */
+  kind?: "transfer" | "swap";
   tokenLogoUrl?: string;
   amountUsd?: string;
   toAddress: string;
@@ -50,7 +69,10 @@ export interface TxReviewNeededPayload {
 export interface TxBlockedPayload {
   txId: string;
   amount: string;
+  /** For swaps this is the pair label, e.g. "USDC → WBNB". */
   token: string;
+  /** Settlement kind — copy says swap/Router instead of transfer/To (#142). */
+  kind?: "transfer" | "swap";
   tokenLogoUrl?: string;
   amountUsd?: string;
   toAddress: string;
@@ -61,7 +83,10 @@ export interface TxBlockedPayload {
 export interface TxRejectedPayload {
   txId: string;
   amount: string;
+  /** For swaps this is the pair label, e.g. "USDC → WBNB". */
   token: string;
+  /** Settlement kind — copy says swap/Router instead of transfer/To (#142). */
+  kind?: "transfer" | "swap";
   tokenLogoUrl?: string;
   amountUsd?: string;
   toAddress: string;
@@ -122,20 +147,26 @@ export const EVENTS = {
   tx_sent: {
     name: "tx_sent",
 
-    telegram: (_user, payload) => ({
-      text:
-        `✅ *Sent* — ${payload.amount} ${payload.token}\n` +
-        `To: \`${payload.toAddress}\`\n` +
-        (payload.riskScore != null ? `Risk: ${payload.riskScore}/100\n` : "") +
-        `[View on BSCScan](${BSC_EXPLORER}/${payload.txHash})`,
-    }),
+    telegram: (_user, payload) => {
+      const swap = payload.kind === "swap";
+      return {
+        text:
+          `✅ *${swap ? "Swapped" : "Sent"}* — ${payload.amount} ${payload.token}\n` +
+          `${swap ? "Via router" : "To"}: \`${payload.toAddress}\`\n` +
+          (payload.riskScore != null ? `Risk: ${payload.riskScore}/100\n` : "") +
+          `[View on BSCScan](${BSC_EXPLORER}/${payload.txHash})`,
+      };
+    },
 
     email: (_user, payload) => ({
-      subject: `✓ Sent — ${payload.amount} ${payload.token} executed`,
+      subject:
+        payload.kind === "swap"
+          ? `✓ Swap executed — ${payload.amount} ${payload.token}`
+          : `✓ Sent — ${payload.amount} ${payload.token} executed`,
       html: buildEmailHtml({
         variant: "gold",
         badgeText: payload.autoApproved ? "Auto-Approved" : "Executed",
-        title: "Transaction executed",
+        title: payload.kind === "swap" ? "Swap executed" : "Transaction executed",
         subtitle: payload.autoApproved
           ? "Auto-approved by your personal detective and sent on-chain."
           : "Approved by you and your agent co-signer, and sent on-chain.",
@@ -146,8 +177,12 @@ export const EVENTS = {
         amountNegative: true,
         amountGold: true,
         kvRows: [
-          { key: "Action", value: "Transfer" },
-          { key: "To", value: shortAddr(payload.toAddress), mono: true },
+          { key: "Action", value: payload.kind === "swap" ? "Swap" : "Transfer" },
+          {
+            key: payload.kind === "swap" ? "Router" : "To",
+            value: shortAddr(payload.toAddress),
+            mono: true,
+          },
           ...(payload.riskScore != null
             ? [{ key: "Risk score", value: "", riskScore: payload.riskScore }]
             : []),
@@ -176,21 +211,24 @@ export const EVENTS = {
     // TG handled by notifyTelegram in queue.ts (keyboard buttons + messageId tracking)
 
     email: (_user, payload) => ({
-      subject: `⏱ Review needed — outbound transfer ${payload.amount} ${payload.token}`,
+      subject: `⏱ Review needed — ${payload.kind === "swap" ? "swap" : "outbound transfer"} ${payload.amount} ${payload.token}`,
       html: buildEmailHtml({
         variant: "warn",
         badgeText: "Review Needed",
-        title: "A transaction needs your approval",
-        subtitle:
-          "Zhentan paused this transfer because it triggered policy review. Approve or reject from your Telegram bot or the app.",
+        title: payload.kind === "swap" ? "A swap needs your approval" : "A transaction needs your approval",
+        subtitle: `Zhentan paused this ${payload.kind === "swap" ? "swap" : "transfer"} because it triggered policy review. Approve or reject from your Telegram bot or the app.`,
         amount: payload.amount,
         token: payload.token,
         tokenLogoUrl: payload.tokenLogoUrl,
         amountUsd: payload.amountUsd,
         amountNegative: true,
         kvRows: [
-          { key: "Action", value: "Transfer" },
-          { key: "To", value: shortAddr(payload.toAddress), mono: true },
+          { key: "Action", value: payload.kind === "swap" ? "Swap" : "Transfer" },
+          {
+            key: payload.kind === "swap" ? "Router" : "To",
+            value: shortAddr(payload.toAddress),
+            mono: true,
+          },
           { key: "Risk score", value: "", riskScore: payload.riskScore },
           { key: "Status", value: "Review", colorVariant: "warn" },
         ],
@@ -216,13 +254,12 @@ export const EVENTS = {
     // TG handled by notifyTelegram in queue.ts (keyboard buttons + messageId tracking)
 
     email: (_user, payload) => ({
-      subject: `✕ Transaction blocked — ${payload.amount} ${payload.token} held`,
+      subject: `✕ ${payload.kind === "swap" ? "Swap" : "Transaction"} blocked — ${payload.amount} ${payload.token} held`,
       html: buildEmailHtml({
         variant: "danger",
         badgeText: "Auto-Blocked",
-        title: "Transaction blocked",
-        subtitle:
-          "Zhentan blocked this transfer. Your funds did not move and are safe in your Safe.",
+        title: payload.kind === "swap" ? "Swap blocked" : "Transaction blocked",
+        subtitle: `Zhentan blocked this ${payload.kind === "swap" ? "swap" : "transfer"}. Your funds did not move and are safe in your Safe.`,
         amount: payload.amount,
         token: payload.token,
         tokenLogoUrl: payload.tokenLogoUrl,
@@ -230,8 +267,12 @@ export const EVENTS = {
         amountNegative: true,
         amountStrikethrough: true,
         kvRows: [
-          { key: "Action", value: "Transfer" },
-          { key: "Attempted to", value: shortAddr(payload.toAddress), mono: true },
+          { key: "Action", value: payload.kind === "swap" ? "Swap" : "Transfer" },
+          {
+            key: payload.kind === "swap" ? "Router" : "Attempted to",
+            value: shortAddr(payload.toAddress),
+            mono: true,
+          },
           { key: "Risk score", value: "", riskScore: payload.riskScore },
           { key: "Policy", value: "Auto-block", colorVariant: "danger" },
         ],
@@ -257,13 +298,12 @@ export const EVENTS = {
     // TG handled by notify-resolve editing the original review message
 
     email: (_user, payload) => ({
-      subject: `✕ Transfer rejected — ${payload.amount} ${payload.token} held`,
+      subject: `✕ ${payload.kind === "swap" ? "Swap" : "Transfer"} rejected — ${payload.amount} ${payload.token} held`,
       html: buildEmailHtml({
         variant: "danger",
         badgeText: "Rejected",
-        title: "Transaction rejected",
-        subtitle:
-          "This transfer was rejected. Your funds did not move and are safe in your Safe.",
+        title: payload.kind === "swap" ? "Swap rejected" : "Transaction rejected",
+        subtitle: `This ${payload.kind === "swap" ? "swap" : "transfer"} was rejected. Your funds did not move and are safe in your Safe.`,
         amount: payload.amount,
         token: payload.token,
         tokenLogoUrl: payload.tokenLogoUrl,
@@ -271,8 +311,12 @@ export const EVENTS = {
         amountNegative: true,
         amountStrikethrough: true,
         kvRows: [
-          { key: "Action", value: "Transfer" },
-          { key: "Attempted to", value: shortAddr(payload.toAddress), mono: true },
+          { key: "Action", value: payload.kind === "swap" ? "Swap" : "Transfer" },
+          {
+            key: payload.kind === "swap" ? "Router" : "Attempted to",
+            value: shortAddr(payload.toAddress),
+            mono: true,
+          },
           ...(payload.rejectReason
             ? [{ key: "Reason", value: payload.rejectReason }]
             : []),

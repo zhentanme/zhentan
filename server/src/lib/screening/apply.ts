@@ -22,6 +22,7 @@ import { recordOutcome, noteReviewOutcome, type RiskResult } from "../../agent/i
 import { runExecutionById } from "../execution/execute.js";
 import { notifyTelegram } from "../../notify.js";
 import { notify } from "../../notifications/index.js";
+import { settlementKind } from "../../notifications/events.js";
 import { classifyProfile } from "../safe/profiles.js";
 import { getAgentAddress } from "../safe/relayer.js";
 import { isRejectionActive } from "../safe/rejectionState.js";
@@ -158,6 +159,8 @@ export async function sendReviewNotifications(
     to: string;
     amount: string;
     token?: string;
+    /** Swap marker — pair-label fallback covers narrow row selections. */
+    toTokenAddress?: string | null;
     tokenIconUrl?: string | null;
     amountUSD?: string;
     safeAddress: string;
@@ -167,6 +170,7 @@ export async function sendReviewNotifications(
   opts: { includeEmail: boolean }
 ): Promise<void> {
   const txId = tx.id;
+  const kind = settlementKind(tx);
   const shortTo = `${tx.to.slice(0, 6)}...${tx.to.slice(-4)}`;
   const chatId = await getTelegramChatId(tx.safeAddress ?? "");
   const reviewButtons = [
@@ -190,9 +194,15 @@ export async function sendReviewNotifications(
   }
 
   const header = risk.verdict === "REVIEW" ? "🔍 REVIEW NEEDED" : "🚫 BLOCKED";
+  // Swaps: the token field already IS the pair ("USDC → WBNB"), and `to` is
+  // the DEX router — "10 USDC → WBNB → 0xRouter" read as a transfer chain.
+  const summaryLine =
+    kind === "swap"
+      ? `Swap ${tx.amount} ${tx.token}\nVia router: ${shortTo}\n`
+      : `${tx.amount} ${tx.token || "USDC"} → ${shortTo}\n`;
   notifyTelegram(
     `${header} — ${txId}:\n` +
-      `${tx.amount} ${tx.token || "USDC"} → ${shortTo}\n` +
+      summaryLine +
       `Risk: ${risk.riskScore}/100\n` +
       `Reasons: ${risk.reasons.join(", ")}` +
       overrideLine,
@@ -209,6 +219,7 @@ export async function sendReviewNotifications(
         txId,
         amount: tx.amount,
         token: tx.token || "USDC",
+        kind,
         tokenLogoUrl: tx.tokenIconUrl ?? undefined,
         amountUsd: tx.amountUSD ? `$${tx.amountUSD}` : undefined,
         toAddress: tx.to,

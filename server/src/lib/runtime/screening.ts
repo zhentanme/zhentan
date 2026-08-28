@@ -243,7 +243,7 @@ export async function screeningReconcilerPass(): Promise<{
   // this converges instead of spamming.
   const { data: unnotified, error: unnotifiedError } = await supabase
     .from("transactions")
-    .select("id, to_address, amount, token, token_icon_url, amount_usd, safe_address, tx_type, risk_score, risk_verdict, risk_reasons")
+    .select("id, to_address, amount, token, to_token_address, token_icon_url, amount_usd, safe_address, tx_type, risk_score, risk_verdict, risk_reasons")
     .eq("in_review", true)
     .is("executed_at", null)
     .eq("rejected", false)
@@ -252,6 +252,7 @@ export async function screeningReconcilerPass(): Promise<{
     .returns<
       {
         id: string; to_address: string; amount: string; token: string | null;
+        to_token_address: string | null;
         token_icon_url: string | null; amount_usd: string | null; safe_address: string;
         tx_type: string | null; risk_score: number | null; risk_verdict: string | null;
         risk_reasons: string[] | null;
@@ -268,6 +269,7 @@ export async function screeningReconcilerPass(): Promise<{
     await sendReviewNotifications(
       {
         id: row.id, to: row.to_address, amount: row.amount, token: row.token ?? undefined,
+        toTokenAddress: row.to_token_address,
         tokenIconUrl: row.token_icon_url, amountUSD: row.amount_usd ?? undefined,
         safeAddress: row.safe_address, txType: row.tx_type ?? undefined,
       },
