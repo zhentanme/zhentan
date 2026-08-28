@@ -94,19 +94,19 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
             /* Swap: sell → buy pair, mirroring the activity trade row */
             <>
               <span className="text-sm font-medium text-foreground truncate inline-flex items-center gap-1.5">
-                <TokenGlyph symbol={request.fromToken} size={16} />
+                <TokenGlyph symbol={request.fromToken} iconUrl={request.tokenIconUrl} size={16} />
                 {formatTokenAmount(request.amount)} {request.fromToken.toUpperCase()}
               </span>
               <span className="text-muted-foreground/60">→</span>
               <span className="text-sm text-muted-foreground truncate inline-flex items-center gap-1.5">
-                <TokenGlyph symbol={request.toToken} size={16} />
+                <TokenGlyph symbol={request.toToken} iconUrl={request.toTokenIconUrl} size={16} />
                 {request.toToken.toUpperCase()}
               </span>
             </>
           ) : (
             <>
               <span className="text-sm font-medium text-foreground truncate inline-flex items-center gap-1.5">
-                <TokenGlyph symbol={request.token} size={16} />
+                <TokenGlyph symbol={request.token} iconUrl={request.tokenIconUrl} size={16} />
                 {formatTokenAmount(request.amount)} {request.token}
               </span>
               <span className="text-muted-foreground/60">{isInvoice ? "←" : "→"}</span>

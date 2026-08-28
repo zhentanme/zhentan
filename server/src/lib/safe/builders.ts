@@ -28,7 +28,7 @@ import {
   NATIVE_TOKEN_ADDRESS,
 } from "../constants.js";
 import { fetchTokenPositions } from "../zerion.js";
-import { findFallbackAddressBySymbol } from "../token-fallbacks.js";
+import { findFallbackAddressBySymbol, getTokenFallback } from "../token-fallbacks.js";
 import type { SafeTxData } from "../../types.js";
 
 export interface SafeCall {
@@ -45,7 +45,9 @@ export interface BuiltCalls {
     amount: string;
     token: string;
     tokenAddress: string;
+    tokenIconUrl?: string;
     toTokenAddress?: string;
+    toTokenIconUrl?: string;
   };
 }
 
@@ -113,20 +115,34 @@ export async function fetchServerSwapQuote(params: {
   }
 }
 
-/** Resolve a token symbol → { address, decimals } from the Safe's holdings. */
+/**
+ * Resolve a token symbol → { address, decimals, iconUrl } from the Safe's
+ * holdings. The icon rides along so builds stamp an explicit URL on the row
+ * (#142) — the client's uniform resolution prefers it over symbol lookup.
+ */
 export async function resolveTokenBySymbol(
   safeAddress: string,
   symbol: string
-): Promise<{ address: string; decimals: number } | null> {
+): Promise<{ address: string; decimals: number; iconUrl?: string } | null> {
   if (symbol.toUpperCase() === "BNB") {
-    return { address: NATIVE_TOKEN_ADDRESS, decimals: 18 };
+    return {
+      address: NATIVE_TOKEN_ADDRESS,
+      decimals: 18,
+      iconUrl: getTokenFallback(NATIVE_TOKEN_ADDRESS)?.iconUrl,
+    };
   }
   try {
     const { tokens } = await fetchTokenPositions(safeAddress);
     const t = tokens.find(
       (x) => x.address && x.symbol?.toUpperCase() === symbol.toUpperCase()
     );
-    if (t?.address) return { address: t.address, decimals: t.decimals };
+    if (t?.address) {
+      return {
+        address: t.address,
+        decimals: t.decimals,
+        iconUrl: t.iconUrl ?? getTokenFallback(t.address)?.iconUrl,
+      };
+    }
   } catch {
     /* fall through */
   }
@@ -153,7 +169,7 @@ async function buildTransferCalls(params: TransferBuildParams): Promise<BuiltCal
       };
   return {
     calls: [call],
-    display: { to, amount, token, tokenAddress: tk.address },
+    display: { to, amount, token, tokenAddress: tk.address, tokenIconUrl: tk.iconUrl },
   };
 }
 
@@ -211,7 +227,9 @@ async function buildSwapCalls(params: SwapBuildParams): Promise<BuiltCalls | nul
       amount: sellAmount,
       token: `${fromToken.toUpperCase()} → ${toToken.toUpperCase()}`,
       tokenAddress: from.address,
+      tokenIconUrl: from.iconUrl,
       toTokenAddress: to.address,
+      toTokenIconUrl: toHeld?.iconUrl ?? getTokenFallback(to.address)?.iconUrl,
     },
   };
 }

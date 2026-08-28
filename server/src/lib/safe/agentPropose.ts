@@ -81,7 +81,9 @@ export async function agentProposeFromRequest(
       amount: built.display.amount,
       token: built.display.token,
       tokenAddress: built.display.tokenAddress,
+      ...(built.display.tokenIconUrl && { tokenIconUrl: built.display.tokenIconUrl }),
       ...(built.display.toTokenAddress && { toTokenAddress: built.display.toTokenAddress }),
+      ...(built.display.toTokenIconUrl && { toTokenIconUrl: built.display.toTokenIconUrl }),
       proposedBy: embedded, // the eventual user signer (owner #1)
       // userSignature left undefined → awaiting the user
       signatures: [],

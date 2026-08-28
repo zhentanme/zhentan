@@ -181,8 +181,9 @@ export function createRequestsRouter(): IRouter {
       }
 
       // Display fields: the draft knows the real target (e.g. a swap's
-      // router + pair label); a draft-less request falls back to the kind's
-      // own display.
+      // router + pair label) and the resolved token icons; a draft-less
+      // request falls back to the kind's own display, and the client's
+      // symbol-table lookup covers its icons.
       const draftTx = draftTxId ? await getTransaction(draftTxId).catch(() => null) : null;
       const fallback = def.displayFallback(params);
       const displayTo = draftTx?.to ?? fallback.to;
@@ -196,6 +197,8 @@ export function createRequestsRouter(): IRouter {
         to: displayTo,
         amount: view.amount,
         token: displayToken,
+        ...(draftTx?.tokenIconUrl && { tokenIconUrl: draftTx.tokenIconUrl }),
+        ...(draftTx?.toTokenIconUrl && { toTokenIconUrl: draftTx.toTokenIconUrl }),
         ...def.requestFields(params),
         description: description ?? undefined,
         invoiceNumber: invoiceNumber ?? undefined,

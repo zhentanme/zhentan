@@ -62,6 +62,8 @@ export interface PendingTransaction {
   tokenIconUrl?: string | null;
   /** Swap rows: the token being bought (the analysis target server-side). */
   toTokenAddress?: string;
+  /** Swap rows: buy-token icon, stamped at build time (#142). */
+  toTokenIconUrl?: string | null;
   /**
    * Agent-proposed row awaiting the user's decision. Drafts have no nonce or
    * safeTxHash yet — call /transactions/:id/finalize before signing.
@@ -350,6 +352,10 @@ export interface QueuedRequest {
   billedFrom?: InvoiceParty;
   billedTo?: InvoiceParty;
   services?: InvoiceService[];
+  /** Sell/settlement token icon, stamped from the draft build (#142). */
+  tokenIconUrl?: string | null;
+  /** Swap requests: buy-token icon, stamped from the draft build (#142). */
+  toTokenIconUrl?: string | null;
   riskScore?: number;
   /** Flattened notes ("VERDICT: reason1; reason2 | Agent: …") — legacy rows only. */
   riskNotes?: string;
