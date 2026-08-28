@@ -1,4 +1,3 @@
-import Image from "next/image";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import type { TransactionWithStatus } from "@/types";
 import type { RiskSeverity } from "@/lib/format";
+import { TokenGlyph } from "./TokenGlyph";
 
 /* ── Operation presentation — the ONE map shared by the activity row and the
    detail dialog, so a transaction never changes look between the two.
@@ -142,6 +142,11 @@ export function ScreeningNote({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Token avatar for transaction surfaces — delegates to TokenGlyph so every
+ * surface shares ONE resolution order (#142): explicit iconUrl → known-token
+ * table by symbol → BNB local asset → neutral initials.
+ */
 export function TokenAvatar({
   iconUrl,
   symbol,
@@ -151,21 +156,5 @@ export function TokenAvatar({
   symbol?: string;
   size?: number;
 }) {
-  if (iconUrl) {
-    return (
-      <Image
-        src={iconUrl}
-        alt=""
-        width={size}
-        height={size}
-        className="object-cover w-full h-full"
-        unoptimized
-      />
-    );
-  }
-  return (
-    <span className="text-[11px] font-bold text-muted-foreground leading-none">
-      {(symbol || "?").slice(0, 4)}
-    </span>
-  );
+  return <TokenGlyph symbol={symbol ?? ""} iconUrl={iconUrl} size={size} />;
 }
