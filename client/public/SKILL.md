@@ -125,9 +125,10 @@ in the app.
 **Swaps**: for "swap 10 USDC for WBNB" call `queue_request` with
 `kind: "swap"`, `fromToken`/`toToken` (symbols), and `amount` = the sell
 amount. Do not set `to`, `token`, or any invoice field — swaps have no
-recipient and never carry invoice metadata. The server scores swaps itself
-(amount, velocity, route); as with transfers, add `riskScore`/`riskNotes`
-only for contextual red flags.
+recipient and never carry invoice metadata (`description` is NOT invoice
+metadata — always include it). The server scores swaps itself (amount,
+velocity, route); as with transfers, add `riskScore`/`riskNotes` only for
+contextual red flags.
 
 **Previewing**: `quote_request` takes the same settlement fields as
 `queue_request` and returns what WOULD happen — resolved tokens, balance
@@ -168,7 +169,11 @@ between), re-fetch before queueing — balances move.
 2. Extract fields:
    - `type`: `"invoice"` for invoice documents, `"transfer"` for send/pay instructions
    - `to` (address, required), `amount` (required), `token` (default "USDC")
-   - transfers: `description` — the instruction in one sentence
+   - `description` — REQUIRED on EVERY request, all kinds: the user's
+     instruction in their own words, as close to verbatim as possible
+     ("send all my USDC to alice.eth", "swap 10 USDC for WBNB", "pay this
+     invoice from Acme"). It is shown to the user as the Instruction on the
+     request — never omit it, never paraphrase away the user's intent.
    - invoices: `invoiceNumber`, `issueDate`, `dueDate`, `billedFrom`/`billedTo`,
      `services` `[{description, qty, rate, total}]`
 3. **Do NOT score behavioral factors — the server does.** Every request is
