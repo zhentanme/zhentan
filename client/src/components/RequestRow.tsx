@@ -2,10 +2,10 @@
 
 import { motion } from "framer-motion";
 import type { QueuedRequest } from "@/types";
-import { truncateAddress, riskSeverity } from "@/lib/format";
+import { truncateAddress, riskSeverity, formatTokenAmount, tokenSymbolLabel } from "@/lib/format";
 import { TokenGlyph } from "./TokenGlyph";
 import { Pill, type PillTone } from "./ui/Pill";
-import { FileText, ArrowUpRight } from "lucide-react";
+import { FileText, ArrowUpRight, Repeat2 } from "lucide-react";
 import { clsx } from "clsx";
 
 interface RequestRowProps {
@@ -14,11 +14,21 @@ interface RequestRowProps {
   onClick?: () => void;
 }
 
-function RiskBadge({ score }: { score: number }) {
-  const sev = riskSeverity(score) ?? "neutral";
+/**
+ * Risk pill — aligned with the transaction treatment (#142): the structured
+ * verdict enum when the server stamped one, the bare score for legacy rows.
+ */
+function RiskBadge({ score, verdict }: { score?: number; verdict?: QueuedRequest["riskVerdict"] }) {
+  const tone: PillTone = verdict
+    ? verdict === "APPROVE"
+      ? "safe"
+      : verdict === "BLOCK"
+        ? "danger"
+        : "watch"
+    : (riskSeverity(score) ?? "neutral");
   return (
-    <Pill tone={sev} size="sm" strong={sev === "watch" || sev === "danger"}>
-      Risk {score}
+    <Pill tone={tone} size="sm" strong={tone === "watch" || tone === "danger"}>
+      {verdict ? `${verdict.charAt(0)}${verdict.slice(1).toLowerCase()} · ${score}` : `Risk ${score}`}
     </Pill>
   );
 }
@@ -47,6 +57,7 @@ function RequestStatusBadge({ status }: { status: QueuedRequest["status"] }) {
 
 export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
   const isInvoice = request.type === "invoice";
+  const isSwap = request.kind === "swap";
 
   return (
     <motion.div
@@ -68,19 +79,42 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
       }}
     >
       <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center shrink-0 text-gold transition-colors group-hover:bg-foreground/[0.12]">
-        {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
+        {isSwap ? (
+          <Repeat2 className="h-5 w-5" />
+        ) : isInvoice ? (
+          <FileText className="h-5 w-5" />
+        ) : (
+          <ArrowUpRight className="h-5 w-5" />
+        )}
       </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-foreground truncate inline-flex items-center gap-1.5">
-            <TokenGlyph symbol={request.token} size={16} />
-            {request.amount} {request.token}
-          </span>
-          <span className="text-muted-foreground/60">{isInvoice ? "←" : "→"}</span>
-          <span className="text-sm text-muted-foreground truncate">
-            {request.billedFrom?.name || truncateAddress(request.to)}
-          </span>
+          {isSwap && request.fromToken && request.toToken ? (
+            /* Swap: sell → buy pair, mirroring the activity trade row */
+            <>
+              <span className="text-sm font-medium text-foreground truncate inline-flex items-center gap-1.5">
+                <TokenGlyph symbol={request.fromToken} size={16} />
+                {formatTokenAmount(request.amount)} {tokenSymbolLabel(request.fromToken)}
+              </span>
+              <span className="text-muted-foreground/60">→</span>
+              <span className="text-sm text-muted-foreground truncate inline-flex items-center gap-1.5">
+                <TokenGlyph symbol={request.toToken} size={16} />
+                {tokenSymbolLabel(request.toToken)}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-sm font-medium text-foreground truncate inline-flex items-center gap-1.5">
+                <TokenGlyph symbol={request.token} size={16} />
+                {formatTokenAmount(request.amount)} {request.token}
+              </span>
+              <span className="text-muted-foreground/60">{isInvoice ? "←" : "→"}</span>
+              <span className="text-sm text-muted-foreground truncate">
+                {request.billedFrom?.name || truncateAddress(request.to)}
+              </span>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground/80 mt-0.5">
           {isInvoice ? (
@@ -93,7 +127,9 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
               <span className="truncate max-w-[220px]">{request.description}</span>
             )
           )}
-          {request.riskScore != null && <RiskBadge score={request.riskScore} />}
+          {request.riskScore != null && (
+            <RiskBadge score={request.riskScore} verdict={request.riskVerdict} />
+          )}
         </div>
       </div>
 

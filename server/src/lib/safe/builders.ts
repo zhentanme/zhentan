@@ -5,8 +5,10 @@
  * The shared buildSafeTx below (server port of the client builder in
  * client/src/lib/safe/safeTx.ts — keep the encodings in lockstep) turns the
  * calls into a standard SafeTx: single call → plain CALL, several calls →
- * MultiSendCallOnly batch. Adding a new agent-initiable kind = one entry
- * here + a decoder case in kind.ts + a risk strategy in risk.ts.
+ * MultiSendCallOnly batch. This module holds the low-level encoders only —
+ * the pipeline-facing surface per kind (validation, scoring inputs, draft
+ * gating, preview) is the KINDS registry in kinds.ts (#142); add new kinds
+ * there.
  */
 import {
   encodeFunctionData,
@@ -26,7 +28,7 @@ import {
   NATIVE_TOKEN_ADDRESS,
 } from "../constants.js";
 import { fetchTokenPositions } from "../zerion.js";
-import { findFallbackAddressBySymbol } from "../token-fallbacks.js";
+import { findFallbackAddressBySymbol, getTokenFallback } from "../token-fallbacks.js";
 import type { SafeTxData } from "../../types.js";
 
 export interface SafeCall {
@@ -65,9 +67,13 @@ export interface SwapBuildParams {
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
-interface ServerSwapQuote {
+export interface ServerSwapQuote {
   transaction: { to: string; value: string; data: string };
   approvalAddress: string;
+  buyAmount: string;
+  buyAmountUSD: string;
+  sellAmountUSD: string;
+  tool?: { key: string; name: string };
 }
 
 /**
@@ -78,13 +84,13 @@ interface ServerSwapQuote {
  * slippage builds calldata that reverts on exactly the pairs users actually
  * trade (fee-on-transfer / low-liquidity tokens).
  */
-async function fetchServerSwapQuote(params: {
+export async function fetchServerSwapQuote(params: {
   fromTokenAddress: string;
   toTokenAddress: string;
   amountWei: bigint;
   safeAddress: string;
   slippage?: number;
-}): Promise<ServerSwapQuote | null> {
+}): Promise<{ quote: ServerSwapQuote; slippage: number } | null> {
   const port = Number(process.env.PORT) || 3001;
   const qs = new URLSearchParams({
     fromToken: params.fromTokenAddress,
@@ -99,31 +105,66 @@ async function fetchServerSwapQuote(params: {
       headers: { ...(agentSecret && { Authorization: `Bearer ${agentSecret}` }) },
     });
     if (!res.ok) return null;
-    const body = (await res.json()) as { quote?: ServerSwapQuote };
-    return body.quote ?? null;
+    const body = (await res.json()) as { quote?: ServerSwapQuote; slippage?: number };
+    if (!body.quote) return null;
+    return { quote: body.quote, slippage: body.slippage ?? params.slippage ?? 0.05 };
   } catch {
     return null;
   }
 }
 
-/** Resolve a token symbol → { address, decimals } from the Safe's holdings. */
+export const TOKEN_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+
+/**
+ * Resolve a token (symbol, or 0x contract address) → { address, decimals,
+ * symbol } from the Safe's holdings. Accepting an address matters for the
+ * agent flow: search_token hands back addresses precisely so unfamiliar
+ * symbols can be disambiguated — the resolved address must then be usable.
+ */
 export async function resolveTokenBySymbol(
   safeAddress: string,
-  symbol: string
-): Promise<{ address: string; decimals: number } | null> {
-  if (symbol.toUpperCase() === "BNB") {
-    return { address: NATIVE_TOKEN_ADDRESS, decimals: 18 };
+  symbolOrAddress: string
+): Promise<{ address: string; decimals: number; symbol: string } | null> {
+  const input = symbolOrAddress.trim();
+  if (input.toUpperCase() === "BNB") {
+    return { address: NATIVE_TOKEN_ADDRESS, decimals: 18, symbol: "BNB" };
   }
+  const isAddress = TOKEN_ADDRESS_RE.test(input);
   try {
     const { tokens } = await fetchTokenPositions(safeAddress);
-    const t = tokens.find(
-      (x) => x.address && x.symbol?.toUpperCase() === symbol.toUpperCase()
+    const t = tokens.find((x) =>
+      isAddress
+        ? x.address?.toLowerCase() === input.toLowerCase()
+        : x.address && x.symbol?.toUpperCase() === input.toUpperCase()
     );
-    if (t?.address) return { address: t.address, decimals: t.decimals };
+    if (t?.address) return { address: t.address, decimals: t.decimals, symbol: t.symbol };
   } catch {
     /* fall through */
   }
   return null;
+}
+
+/**
+ * Resolve the BUY side of a swap to an address + display label. The buy
+ * token usually isn't held: a raw 0x address passes through as-is (labelled
+ * by the fallback table when known, else shortened), a symbol resolves via
+ * holdings then the known-token table. Null → unresolvable.
+ */
+export async function resolveBuyToken(
+  safeAddress: string,
+  symbolOrAddress: string
+): Promise<{ address: string; label: string; decimals?: number } | null> {
+  const input = symbolOrAddress.trim();
+  const held = await resolveTokenBySymbol(safeAddress, input);
+  if (TOKEN_ADDRESS_RE.test(input)) {
+    const label =
+      held?.symbol ??
+      getTokenFallback(input)?.symbol ??
+      `${input.slice(0, 6)}…${input.slice(-4)}`;
+    return { address: input, label, decimals: held?.decimals };
+  }
+  const address = held?.address ?? findFallbackAddressBySymbol(input);
+  return address ? { address, label: input.toUpperCase(), decimals: held?.decimals } : null;
 }
 
 async function buildTransferCalls(params: TransferBuildParams): Promise<BuiltCalls | null> {
@@ -154,25 +195,25 @@ async function buildSwapCalls(params: SwapBuildParams): Promise<BuiltCalls | nul
   const { safeAddress, fromToken, toToken, sellAmount } = params;
   // Sell token must come from the Safe's holdings (you can't sell what you
   // don't hold, and parseUnits needs its trusted decimals). The BUY token
-  // usually isn't held yet — fall back to the known-token table; only its
-  // ADDRESS is needed here (the quoter reads decimals/symbol on-chain).
-  const [from, toHeld] = await Promise.all([
+  // usually isn't held yet — a 0x address (e.g. from search_token) passes
+  // through directly, a symbol falls back to the known-token table; only
+  // its ADDRESS is needed here (the quoter reads decimals/symbol on-chain).
+  const [from, to] = await Promise.all([
     resolveTokenBySymbol(safeAddress, fromToken),
-    resolveTokenBySymbol(safeAddress, toToken),
+    resolveBuyToken(safeAddress, toToken),
   ]);
-  const toAddress = toHeld?.address ?? findFallbackAddressBySymbol(toToken);
-  if (!from || !toAddress) return null;
-  const to = { address: toAddress };
+  if (!from || !to) return null;
 
   const sellAmountWei = parseUnits(sellAmount, from.decimals);
-  const quote = await fetchServerSwapQuote({
+  const quoted = await fetchServerSwapQuote({
     fromTokenAddress: from.address,
     toTokenAddress: to.address,
     amountWei: sellAmountWei,
     safeAddress,
     slippage: params.slippage,
   });
-  if (!quote) return null;
+  if (!quoted) return null;
+  const { quote } = quoted;
 
   const isNativeSell =
     from.address.toLowerCase() === NATIVE_TOKEN_ADDRESS.toLowerCase();
@@ -201,7 +242,7 @@ async function buildSwapCalls(params: SwapBuildParams): Promise<BuiltCalls | nul
     display: {
       to: quote.transaction.to,
       amount: sellAmount,
-      token: `${fromToken.toUpperCase()} → ${toToken.toUpperCase()}`,
+      token: `${from.symbol.toUpperCase()} → ${to.label}`,
       tokenAddress: from.address,
       toTokenAddress: to.address,
     },

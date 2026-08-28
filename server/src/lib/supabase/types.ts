@@ -121,6 +121,8 @@ export interface RequestRow {
   services: unknown[] | null;
   risk_score: number | null;
   risk_notes: string | null;
+  risk_verdict: string | null;
+  risk_reasons: string[] | null;
   source_channel: string | null;
   queued_at: string;
   status: "queued" | "approved" | "executed" | "rejected";

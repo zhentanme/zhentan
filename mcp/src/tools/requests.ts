@@ -43,7 +43,13 @@ export function registerRequestTools(server: McpServer) {
         amount: z.string().regex(/^\d+(\.\d+)?$/, "amount must be a positive decimal string").describe("Transfer amount, or the SELL amount for swaps"),
         token: z.string().min(1).optional().describe('Token symbol, e.g. "USDC" (required unless kind is swap)'),
         fromToken: z.string().min(1).optional().describe('Swaps only: sell-token symbol, e.g. "USDC"'),
-        toToken: z.string().min(1).optional().describe('Swaps only: buy-token symbol, e.g. "WBNB"'),
+        toToken: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            'Swaps only: buy-token symbol (e.g. "WBNB") or its 0x contract address — pass the address from search_token for unfamiliar/ambiguous tokens so the swap targets exactly the token the user confirmed',
+          ),
         slippage: z
           .number()
           .min(0.0001)
@@ -51,7 +57,16 @@ export function registerRequestTools(server: McpServer) {
           .optional()
           .describe("Swaps only: slippage as a fraction (0.005 = 0.5%). Default 0.005."),
         callerId: CALLER_ID.describe("Required — resolves which user's Safe owns this request"),
-        description: z.string().max(500).optional().describe("For transfers: the user's instruction in one sentence"),
+        description: z
+          .string()
+          .min(1)
+          .max(500)
+          .describe(
+            "REQUIRED for every kind (transfer, swap, invoice): the user's instruction in their own " +
+              'words, as close to verbatim as possible — e.g. "send all my USDC to alice.eth", ' +
+              '"swap 10 USDC for WBNB", "pay this invoice from Acme". Shown to the user as the ' +
+              "Instruction on the request.",
+          ),
         invoiceNumber: z.string().optional(),
         issueDate: z.string().optional(),
         dueDate: z.string().optional(),

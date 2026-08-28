@@ -195,7 +195,12 @@ export interface QueuedRequest {
   billedTo?: InvoiceParty;
   services?: InvoiceService[];
   riskScore?: number;
+  /** Flattened notes ("VERDICT: reason1; reason2 | Agent: …") — kept for back-compat. */
   riskNotes?: string;
+  /** Structured verdict, same enum transactions carry (#142). */
+  riskVerdict?: "APPROVE" | "REVIEW" | "BLOCK";
+  /** Structured engine signals (+ agent note when it raised the score). */
+  riskReasons?: string[];
   sourceChannel: string;
   queuedAt: string;
   status: RequestStatus;

@@ -21,6 +21,7 @@ import { useToast } from "@/components/ui/Toast";
 import { useApiClient } from "@/lib/api/client";
 import { useAutoRefresh } from "@/hooks/useAutoRefresh";
 import { padTokensWithFallbacks } from "@/lib/tokenFallbacks";
+import { registerTokenIcons } from "@/components/TokenGlyph";
 import type { TransactionWithStatus, StatusResponse, TokenPosition, PortfolioResponse } from "@/types";
 
 function Dashboard() {
@@ -48,6 +49,7 @@ function Dashboard() {
     if (!safeAddress) return;
     try {
       const data: PortfolioResponse = await api.portfolio.get(safeAddress);
+      registerTokenIcons(data.tokens ?? []);
       setPortfolioTotalUsd(data.totalUsd);
       setPortfolioPercentChange24h(data.percentChange24h ?? null);
       setTokens(padTokensWithFallbacks(data.tokens ?? []));

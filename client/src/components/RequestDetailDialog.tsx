@@ -4,22 +4,21 @@ import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import type { QueuedRequest } from "@/types";
-import { truncateAddress, formatDate, riskSeverity } from "@/lib/format";
+import { truncateAddress, formatDate, formatTokenAmount, tokenSymbolLabel } from "@/lib/format";
 import { useApiClient } from "@/lib/api/client";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
-import { SEVERITY_CLASSES, LINK_BUTTON_NEUTRAL } from "./txPresentation";
+import { LINK_BUTTON_NEUTRAL } from "./txPresentation";
+import { RiskSection } from "./RiskSection";
 import { TokenGlyph } from "./TokenGlyph";
 import {
   FileText,
   ArrowUpRight,
+  Repeat2,
   Send,
   ShieldCheck,
-  ShieldAlert,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
 } from "lucide-react";
 import { clsx } from "clsx";
@@ -61,112 +60,6 @@ function StatusAnimation({ status }: { status: QueuedRequest["status"] }) {
   }
 }
 
-const SEVERITY_LABEL = { safe: "Low", watch: "Medium", danger: "High" } as const;
-
-/**
- * Expandable screening panel — same treatment as the activity dialog,
- * adapted to request fields (riskScore + free-text riskNotes, plus the
- * rejection reason for blocked requests).
- */
-function RequestAnalysisSection({
-  riskScore,
-  riskNotes,
-  rejectReason,
-}: {
-  riskScore?: number;
-  riskNotes?: string;
-  rejectReason?: string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const sevTone = riskSeverity(riskScore);
-  const sev = sevTone ? { ...SEVERITY_CLASSES[sevTone], label: SEVERITY_LABEL[sevTone] } : null;
-
-  return (
-    <div className="rounded-md bg-foreground/6 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setExpanded((e) => !e)}
-        aria-expanded={expanded}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-foreground/6 transition-colors cursor-pointer"
-      >
-        <ShieldAlert className="h-4 w-4 text-watch/90 shrink-0" />
-        <span className="text-sm font-medium text-foreground flex-1">Screening details</span>
-        {sev && (
-          <span className={`font-mono text-xs font-semibold ${sev.text}`}>
-            {riskScore}
-            <span className="text-muted-foreground/60">/100</span>
-          </span>
-        )}
-        {expanded ? (
-          <ChevronUp className="h-4 w-4 text-muted-foreground/80 shrink-0" />
-        ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground/80 shrink-0" />
-        )}
-      </button>
-      <AnimatePresence initial={false}>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="border-t border-foreground/10"
-          >
-            <div className="px-4 py-3.5 space-y-3.5 text-sm">
-              {/* Risk score + bar */}
-              {riskScore != null && sev && (
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-muted-foreground/80">Risk score</span>
-                    <span className={`font-mono font-semibold ${sev.text}`}>
-                      {riskScore}
-                      <span className="text-muted-foreground/60">/100</span>
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-foreground/10 overflow-hidden">
-                    <motion.span
-                      className={`block h-full rounded-full ${sev.bg}`}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, Math.max(0, riskScore))}%` }}
-                      transition={{ duration: 0.5, ease: "easeOut" }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Verdict / level */}
-              {sev && (
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground/80">Verdict</span>
-                  <span className={`font-mono uppercase tracking-wide text-xs font-semibold ${sev.text}`}>
-                    {sev.label}
-                  </span>
-                </div>
-              )}
-
-              {/* Agent notes */}
-              {riskNotes && (
-                <div>
-                  <span className="text-muted-foreground/80 block mb-1">Message</span>
-                  <p className="text-foreground/85 leading-relaxed">{riskNotes}</p>
-                </div>
-              )}
-
-              {/* Rejection reason */}
-              {rejectReason && (
-                <div>
-                  <span className="text-muted-foreground/80 block mb-1">Rejection reason</span>
-                  <p className="text-danger leading-relaxed">{rejectReason}</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 const statusLabels: Record<QueuedRequest["status"], string> = {
   queued: "Queued for review",
   approved: "Approved",
@@ -196,6 +89,7 @@ export function RequestDetailDialog({
   if (!request) return null;
 
   const isInvoice = request.type === "invoice";
+  const isSwap = request.kind === "swap";
 
   const resetScreening = () => {
     cancelledRef.current = true;
@@ -305,7 +199,7 @@ export function RequestDetailDialog({
     <Dialog
       open={open}
       onClose={handleClose}
-      title={isInvoice ? "Invoice details" : "Payment request"}
+      title={isSwap ? "Swap request" : isInvoice ? "Invoice details" : "Payment request"}
       className="max-w-md"
     >
       <div className="space-y-6">
@@ -335,18 +229,43 @@ export function RequestDetailDialog({
           </motion.div>
         </AnimatePresence>
 
-        {/* Hero amount — op icon + token avatar + amount (mirrors activity dialog) */}
-        <div className="rounded-md bg-foreground/6 p-4 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-md bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
-            {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
+        {/* Hero amount — mirrors the activity dialog: swaps get the dual-token
+            trade layout, everything else the op icon + token + amount row. */}
+        {isSwap && request.fromToken && request.toToken ? (
+          <div className="rounded-md bg-foreground/6 p-4">
+            <div className="flex items-center gap-1.5 mb-3 text-muted-foreground">
+              <Repeat2 className="h-4 w-4" />
+              <span className="text-xs font-semibold uppercase tracking-wide">Swap</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <TokenGlyph symbol={request.fromToken} size={36} />
+                <p className="text-sm font-semibold text-foreground truncate">
+                  -{formatTokenAmount(request.amount)} {tokenSymbolLabel(request.fromToken)}
+                </p>
+              </div>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground/80 shrink-0 rotate-45" />
+              <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                <p className="text-sm font-semibold text-safe truncate">
+                  {tokenSymbolLabel(request.toToken)}
+                </p>
+                <TokenGlyph symbol={request.toToken} size={36} />
+              </div>
+            </div>
           </div>
-          <TokenGlyph symbol={request.token} size={36} />
-          <div className="flex-1 min-w-0">
-            <p className="text-base font-semibold text-foreground">
-              {request.amount} {request.token}
-            </p>
+        ) : (
+          <div className="rounded-md bg-foreground/6 p-4 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-md bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
+              {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
+            </div>
+            <TokenGlyph symbol={request.token} size={36} />
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-semibold text-foreground">
+                {formatTokenAmount(request.amount)} {request.token}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Instruction from the agent (transfer requests) */}
         {request.description && (
@@ -387,20 +306,32 @@ export function RequestDetailDialog({
               <dd className="text-foreground/80 truncate min-w-0">{formatDate(request.executedAt)}</dd>
             </div>
           )}
-          <div className="flex justify-between gap-2 sm:gap-4">
-            <dt className="text-muted-foreground/80 shrink-0">{isInvoice ? "Pay to" : "To"}</dt>
-            <dd className="min-w-0 max-w-[50%] sm:max-w-[200px] truncate" title={request.to}>
-              <a
-                href={`${BSC_EXPLORER_URL}/address/${request.to}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group inline-flex items-center gap-2 font-mono text-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline truncate"
-              >
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-foreground" />
-                <span className="truncate">{truncateAddress(request.to)}</span>
-              </a>
-            </dd>
-          </div>
+          {isSwap && request.slippage != null && (
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground/80">Max slippage</dt>
+              <dd className="text-foreground/80">{(request.slippage * 100).toFixed(2).replace(/\.?0+$/, "")}%</dd>
+            </div>
+          )}
+          {/* Counterparty — hidden for draft-less swaps (no recipient exists);
+              a drafted swap's target is the DEX router, labeled as such. */}
+          {request.to && (
+            <div className="flex justify-between gap-2 sm:gap-4">
+              <dt className="text-muted-foreground/80 shrink-0">
+                {isSwap ? "Router" : isInvoice ? "Pay to" : "To"}
+              </dt>
+              <dd className="min-w-0 max-w-[50%] sm:max-w-[200px] truncate" title={request.to}>
+                <a
+                  href={`${BSC_EXPLORER_URL}/address/${request.to}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group inline-flex items-center gap-2 font-mono text-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline truncate"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-foreground" />
+                  <span className="truncate">{truncateAddress(request.to)}</span>
+                </a>
+              </dd>
+            </div>
+          )}
         </dl>
 
         {/* Services table (invoices) */}
@@ -443,13 +374,19 @@ export function RequestDetailDialog({
           </div>
         )}
 
-        {/* Agent analysis — expandable: score, verdict, notes, rejection reason */}
+        {/* Agent analysis — same shared panel as the activity dialog (#142):
+            structured verdict + signals when present; legacy rows fall back
+            to the flattened riskNotes as the message. */}
         {(request.riskScore != null ||
           request.riskNotes ||
           (request.status === "rejected" && request.rejectReason)) && (
-          <RequestAnalysisSection
+          <RiskSection
             riskScore={request.riskScore}
-            riskNotes={request.riskNotes}
+            riskVerdict={request.riskVerdict}
+            riskReasons={request.riskReasons}
+            message={
+              request.riskVerdict || request.riskReasons?.length ? undefined : request.riskNotes
+            }
             rejectReason={request.status === "rejected" ? request.rejectReason : undefined}
           />
         )}
@@ -594,25 +531,27 @@ function ScreeningView({
       {/* Amount */}
       <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
         <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
-          <Send className="h-5 w-5" />
+          {request.kind === "swap" ? <Repeat2 className="h-5 w-5" /> : <Send className="h-5 w-5" />}
         </div>
-        <TokenGlyph symbol={request.token} size={24} />
+        <TokenGlyph symbol={request.kind === "swap" && request.fromToken ? request.fromToken : request.token} size={24} />
         <span className="text-lg font-semibold text-foreground">
-          {request.amount} {request.token}
+          {formatTokenAmount(request.amount)} {request.token}
         </span>
       </div>
 
-      <dl className="space-y-3 text-sm">
-        <div className="flex justify-between gap-4">
-          <dt className="text-muted-foreground/80">To</dt>
-          <dd
-            className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
-            title={request.to}
-          >
-            {truncateAddress(request.to)}
-          </dd>
-        </div>
-      </dl>
+      {request.to && (
+        <dl className="space-y-3 text-sm">
+          <div className="flex justify-between gap-4">
+            <dt className="text-muted-foreground/80">{request.kind === "swap" ? "Router" : "To"}</dt>
+            <dd
+              className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
+              title={request.to}
+            >
+              {truncateAddress(request.to)}
+            </dd>
+          </div>
+        </dl>
+      )}
 
       {phase === "rejected" && resultReason && (
         <div className="rounded-md bg-danger/10 p-3">

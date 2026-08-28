@@ -32,6 +32,12 @@ export function truncateAddress(addr: string, lead = 6, tail = 4): string {
   return `${addr.slice(0, lead)}…${addr.slice(-tail)}`;
 }
 
+/** Swap-pair side label: symbols uppercase, raw 0x addresses shorten (#142). */
+export function tokenSymbolLabel(symbolOrAddress: string): string {
+  const s = symbolOrAddress.trim();
+  return /^0x[a-fA-F0-9]{40}$/.test(s) ? truncateAddress(s) : s.toUpperCase();
+}
+
 /** Truncate a long hex blob (calldata, hashes) to `0xabcdef12…deadbeef`. */
 export function truncateHex(hex: string, lead = 10, tail = 8): string {
   if (hex.length <= lead + tail + 1) return hex;

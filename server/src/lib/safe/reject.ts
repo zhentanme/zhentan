@@ -30,6 +30,7 @@ import { requestAgentSignature } from "../runtime/signing.js";
 import { encodeExecTransaction } from "../execution/assemble.js";
 import { updateTransaction, getUserDetails } from "../supabase/index.js";
 import { notify } from "../../notifications/index.js";
+import { settlementKind } from "../../notifications/events.js";
 import { MAX_CANCEL_ATTEMPTS, nextRetryAt } from "./rejectionState.js";
 
 export interface RejectionResult {
@@ -79,6 +80,7 @@ async function confirmRejected(tx: PendingTransaction, cancelTxHash: string): Pr
         txId: tx.id,
         amount: tx.amount,
         token: tx.token || "USDC",
+        kind: settlementKind(tx),
         tokenLogoUrl: tx.tokenIconUrl ?? undefined,
         amountUsd: tx.amountUSD ? `$${tx.amountUSD}` : undefined,
         toAddress: tx.to,
