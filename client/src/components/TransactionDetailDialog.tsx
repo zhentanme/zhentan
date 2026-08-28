@@ -229,8 +229,23 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
 
   if (!txProp) return null;
 
-  // Freshest record wins; fall back to the passed-in copy before the first poll.
-  const tx = live ?? txProp;
+  // Freshest record wins for LIFECYCLE fields (status, hash, signatures,
+  // risk) — but the polled server row carries no Zerion enrichment, so a
+  // wholesale replacement made trade amounts/icons render for a split second
+  // and vanish on the first poll. Merge instead: live over the opened copy,
+  // with the enrichment-only fields kept whenever the poll lacks them.
+  const tx = live
+    ? {
+        ...txProp,
+        ...live,
+        operationType: live.operationType ?? txProp.operationType,
+        tradeReceived: live.tradeReceived ?? txProp.tradeReceived,
+        valueUSD: live.valueUSD ?? txProp.valueUSD,
+        dappMetadata: live.dappMetadata ?? txProp.dappMetadata,
+        tokenIconUrl: live.tokenIconUrl ?? txProp.tokenIconUrl,
+        toTokenIconUrl: live.toTokenIconUrl ?? txProp.toTokenIconUrl,
+      }
+    : txProp;
 
   const config = getOpConfig(tx);
   const op = getOp(tx);
