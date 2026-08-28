@@ -239,7 +239,7 @@ export function RequestDetailDialog({
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 flex-1 min-w-0">
-                <TokenGlyph symbol={request.fromToken} iconUrl={request.tokenIconUrl} size={36} />
+                <TokenGlyph symbol={request.fromToken} size={36} />
                 <p className="text-sm font-semibold text-foreground truncate">
                   -{formatTokenAmount(request.amount)} {request.fromToken.toUpperCase()}
                 </p>
@@ -249,7 +249,7 @@ export function RequestDetailDialog({
                 <p className="text-sm font-semibold text-safe truncate">
                   {request.toToken.toUpperCase()}
                 </p>
-                <TokenGlyph symbol={request.toToken} iconUrl={request.toTokenIconUrl} size={36} />
+                <TokenGlyph symbol={request.toToken} size={36} />
               </div>
             </div>
           </div>
@@ -258,7 +258,7 @@ export function RequestDetailDialog({
             <div className="w-10 h-10 rounded-md bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
               {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
             </div>
-            <TokenGlyph symbol={request.token} iconUrl={request.tokenIconUrl} size={36} />
+            <TokenGlyph symbol={request.token} size={36} />
             <div className="flex-1 min-w-0">
               <p className="text-base font-semibold text-foreground">
                 {formatTokenAmount(request.amount)} {request.token}
@@ -533,11 +533,7 @@ function ScreeningView({
         <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
           {request.kind === "swap" ? <Repeat2 className="h-5 w-5" /> : <Send className="h-5 w-5" />}
         </div>
-        <TokenGlyph
-          symbol={request.kind === "swap" && request.fromToken ? request.fromToken : request.token}
-          iconUrl={request.tokenIconUrl}
-          size={24}
-        />
+        <TokenGlyph symbol={request.kind === "swap" && request.fromToken ? request.fromToken : request.token} size={24} />
         <span className="text-lg font-semibold text-foreground">
           {formatTokenAmount(request.amount)} {request.token}
         </span>

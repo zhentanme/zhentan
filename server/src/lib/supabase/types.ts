@@ -56,7 +56,6 @@ export interface TransactionRow {
   confirmations: unknown[] | null;
   /** Swap rows: the token being bought (analysis target). */
   to_token_address: string | null;
-  to_token_icon_url: string | null;
 }
 
 export interface UserDetailsRow {
@@ -120,8 +119,6 @@ export interface RequestRow {
   billed_from: Record<string, unknown> | null;
   billed_to: Record<string, unknown> | null;
   services: unknown[] | null;
-  token_icon_url: string | null;
-  to_token_icon_url: string | null;
   risk_score: number | null;
   risk_notes: string | null;
   risk_verdict: string | null;

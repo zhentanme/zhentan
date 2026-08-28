@@ -59,7 +59,6 @@ export function rowToTx(row: TransactionRow): PendingTransaction {
     // the nonce + hash) is exactly what ends draft-ness.
     draft: row.tx_type === "safetx" && !row.safe_tx_hash ? true : undefined,
     toTokenAddress: row.to_token_address ?? undefined,
-    toTokenIconUrl: row.to_token_icon_url ?? undefined,
     userSignature: row.user_signature ?? undefined,
     userSignatures: row.user_signatures ?? undefined,
     rejectionSignature: row.rejection_signature ?? undefined,
@@ -136,7 +135,6 @@ function txToRow(tx: PendingTransaction): TransactionRow {
     success: tx.success ?? null,
     screening_disabled: tx.screeningDisabled ?? false,
     to_token_address: tx.toTokenAddress ?? null,
-    to_token_icon_url: tx.toTokenIconUrl ?? null,
   };
 }
 
@@ -159,8 +157,6 @@ function rowToRequest(row: RequestRow): QueuedRequest {
     billedFrom: (row.billed_from as unknown as QueuedRequest["billedFrom"]) ?? undefined,
     billedTo: (row.billed_to as unknown as QueuedRequest["billedTo"]) ?? undefined,
     services: (row.services as QueuedRequest["services"]) ?? undefined,
-    tokenIconUrl: row.token_icon_url ?? undefined,
-    toTokenIconUrl: row.to_token_icon_url ?? undefined,
     riskScore: row.risk_score ?? undefined,
     riskNotes: row.risk_notes ?? undefined,
     riskVerdict: (row.risk_verdict as QueuedRequest["riskVerdict"]) ?? undefined,
@@ -195,8 +191,6 @@ function requestToRow(req: QueuedRequest): RequestRow {
     billed_from: (req.billedFrom as unknown as Record<string, unknown>) ?? null,
     billed_to: (req.billedTo as unknown as Record<string, unknown>) ?? null,
     services: req.services ?? null,
-    token_icon_url: req.tokenIconUrl ?? null,
-    to_token_icon_url: req.toTokenIconUrl ?? null,
     risk_score: req.riskScore ?? null,
     risk_notes: req.riskNotes ?? null,
     risk_verdict: req.riskVerdict ?? null,
@@ -282,7 +276,6 @@ export async function updateTransaction(
     screeningDisabled: "screening_disabled",
     amountUSD: "amount_usd",
     toTokenAddress: "to_token_address",
-    toTokenIconUrl: "to_token_icon_url",
   };
 
   const row: Partial<TransactionRow> = {};

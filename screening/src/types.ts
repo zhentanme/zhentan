@@ -92,8 +92,6 @@ export interface PendingTransaction {
   draft?: boolean;
   /** Swap rows: the token being bought (the actual risk surface for analysis). */
   toTokenAddress?: string;
-  /** Swap rows: buy-token icon, stamped at build time (#142). */
-  toTokenIconUrl?: string | null;
   proposedAt: string;
   executedAt?: string;
   executedBy?: string;
@@ -196,10 +194,6 @@ export interface QueuedRequest {
   billedFrom?: InvoiceParty;
   billedTo?: InvoiceParty;
   services?: InvoiceService[];
-  /** Sell/settlement token icon, stamped from the draft build (#142). */
-  tokenIconUrl?: string | null;
-  /** Swap requests: buy-token icon, stamped from the draft build (#142). */
-  toTokenIconUrl?: string | null;
   riskScore?: number;
   /** Flattened notes ("VERDICT: reason1; reason2 | Agent: …") — kept for back-compat. */
   riskNotes?: string;

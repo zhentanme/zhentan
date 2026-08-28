@@ -103,11 +103,7 @@ function HeroAmount({
               )}
             </div>
             <div className="w-10 h-10 rounded-full bg-foreground/8 flex items-center justify-center shrink-0 overflow-hidden">
-              <TokenAvatar
-                iconUrl={tx.tradeReceived?.iconUrl || tx.toTokenIconUrl}
-                symbol={buySymbol}
-                size={40}
-              />
+              <TokenAvatar iconUrl={tx.tradeReceived?.iconUrl} symbol={buySymbol} size={40} />
             </div>
           </div>
         </div>
@@ -243,7 +239,6 @@ export function TransactionDetailDialog({ tx: txProp, open, onClose }: Transacti
         valueUSD: live.valueUSD ?? txProp.valueUSD,
         dappMetadata: live.dappMetadata ?? txProp.dappMetadata,
         tokenIconUrl: live.tokenIconUrl ?? txProp.tokenIconUrl,
-        toTokenIconUrl: live.toTokenIconUrl ?? txProp.toTokenIconUrl,
       }
     : txProp;
 
