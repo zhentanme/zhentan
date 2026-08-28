@@ -140,8 +140,10 @@ ask before you queue. Use it when the user asks "how much would I get",
 when a swap pair is unusual, or when it helps them decide. Quotes go stale
 in minutes — never quote once and queue much later. If the buy token is
 unfamiliar or ambiguous (many scam contracts share legitimate symbols),
-run `search_token` and show the user the resolved name + contract address
-before queueing.
+run `search_token`, show the user the resolved name + contract address,
+and pass that ADDRESS as `toToken` when quoting/queueing — so the swap
+targets exactly the token the user confirmed, not whichever contract
+happens to share the symbol.
 
 ## Dynamic amounts ("all", "half", percentages)
 

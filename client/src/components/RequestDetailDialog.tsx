@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import type { QueuedRequest } from "@/types";
-import { truncateAddress, formatDate, formatTokenAmount } from "@/lib/format";
+import { truncateAddress, formatDate, formatTokenAmount, tokenSymbolLabel } from "@/lib/format";
 import { useApiClient } from "@/lib/api/client";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
 import { Dialog } from "./ui/Dialog";
@@ -241,13 +241,13 @@ export function RequestDetailDialog({
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <TokenGlyph symbol={request.fromToken} size={36} />
                 <p className="text-sm font-semibold text-foreground truncate">
-                  -{formatTokenAmount(request.amount)} {request.fromToken.toUpperCase()}
+                  -{formatTokenAmount(request.amount)} {tokenSymbolLabel(request.fromToken)}
                 </p>
               </div>
               <ArrowUpRight className="h-4 w-4 text-muted-foreground/80 shrink-0 rotate-45" />
               <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
                 <p className="text-sm font-semibold text-safe truncate">
-                  {request.toToken.toUpperCase()}
+                  {tokenSymbolLabel(request.toToken)}
                 </p>
                 <TokenGlyph symbol={request.toToken} size={36} />
               </div>

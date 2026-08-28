@@ -17,12 +17,12 @@ import { parseUnits, formatUnits } from "viem";
 import {
   KIND_BUILDERS,
   resolveTokenBySymbol,
+  resolveBuyToken,
   fetchServerSwapQuote,
   type BuiltCalls,
 } from "./builders.js";
 import { NATIVE_TOKEN_ADDRESS } from "../constants.js";
 import { fetchTokenPositions } from "../zerion.js";
-import { findFallbackAddressBySymbol } from "../token-fallbacks.js";
 import type { DecodedKind } from "./kind.js";
 import type { QueuedRequest, RequestKind } from "../../types.js";
 
@@ -85,6 +85,12 @@ export interface KindDefinition<P> {
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 const AMOUNT_RE = /^\d+(\.\d+)?$/;
+
+/** Pair-label side: symbols uppercase, raw 0x addresses shorten. */
+function tokenLabel(symbolOrAddress: string): string {
+  const s = symbolOrAddress.trim();
+  return ADDRESS_RE.test(s) ? `${s.slice(0, 6)}…${s.slice(-4)}` : s.toUpperCase();
+}
 
 function asAmount(value: unknown): string | null {
   const s = String(value ?? "").trim();
@@ -264,7 +270,7 @@ const swapKind: KindDefinition<SwapParams> = {
 
   displayFallback: (p) => ({
     to: "",
-    token: `${p.fromToken.toUpperCase()} → ${p.toToken.toUpperCase()}`,
+    token: `${tokenLabel(p.fromToken)} → ${tokenLabel(p.toToken)}`,
   }),
 
   paramsFromRequest: (row) =>
@@ -273,9 +279,12 @@ const swapKind: KindDefinition<SwapParams> = {
       : null,
 
   async quote(p, ctx) {
-    const [from, toHeld] = await Promise.all([
+    // Both sides accept a symbol OR a 0x contract address — search_token
+    // hands back addresses precisely so unfamiliar symbols can be
+    // disambiguated, and the resolved address must then be usable here.
+    const [from, buy] = await Promise.all([
       resolveTokenBySymbol(ctx.safeAddress, p.fromToken),
-      resolveTokenBySymbol(ctx.safeAddress, p.toToken),
+      resolveBuyToken(ctx.safeAddress, p.toToken),
     ]);
     if (!from) {
       return {
@@ -285,8 +294,7 @@ const swapKind: KindDefinition<SwapParams> = {
         detail: { fromToken: p.fromToken, held: false },
       };
     }
-    const toAddress = toHeld?.address ?? findFallbackAddressBySymbol(p.toToken);
-    if (!toAddress) {
+    if (!buy) {
       return {
         ok: false,
         summary: `Cannot resolve "${p.toToken}" to a known BNB Chain token — provide its contract address or use token search.`,
@@ -294,21 +302,22 @@ const swapKind: KindDefinition<SwapParams> = {
         detail: { toToken: p.toToken, resolved: false },
       };
     }
+    const sellLabel = from.symbol.toUpperCase();
 
     const warnings: string[] = [];
-    const holding = await findHolding(ctx.safeAddress, p.fromToken);
+    const holding = await findHolding(ctx.safeAddress, from.symbol);
     const sufficient = holding
       ? hasSufficientBalance(p.sellAmount, holding.balance, holding.decimals)
       : false;
     if (!sufficient) {
       warnings.push(
-        `Insufficient balance: holds ${holding?.balance ?? "0"} ${p.fromToken}, selling ${p.sellAmount}.`
+        `Insufficient balance: holds ${holding?.balance ?? "0"} ${sellLabel}, selling ${p.sellAmount}.`
       );
     }
 
     const result = await fetchServerSwapQuote({
       fromTokenAddress: from.address,
-      toTokenAddress: toAddress,
+      toTokenAddress: buy.address,
       amountWei: parseUnits(p.sellAmount, from.decimals),
       safeAddress: ctx.safeAddress,
       slippage: p.slippage,
@@ -325,8 +334,8 @@ const swapKind: KindDefinition<SwapParams> = {
     // Buy-side decimals are only trusted when the token is already held —
     // otherwise report the USD value and leave the raw amount unformatted.
     const buyAmount =
-      toHeld != null && result.quote.buyAmount
-        ? formatUnits(BigInt(result.quote.buyAmount), toHeld.decimals)
+      buy.decimals != null && result.quote.buyAmount
+        ? formatUnits(BigInt(result.quote.buyAmount), buy.decimals)
         : null;
     if (result.slippage > 0.05) {
       warnings.push(
@@ -334,18 +343,19 @@ const swapKind: KindDefinition<SwapParams> = {
       );
     }
     const buyLabel = buyAmount
-      ? `~${buyAmount} ${p.toToken.toUpperCase()}`
-      : `~$${result.quote.buyAmountUSD} of ${p.toToken.toUpperCase()}`;
+      ? `~${buyAmount} ${buy.label}`
+      : `~$${result.quote.buyAmountUSD} of ${buy.label}`;
     return {
       ok: sufficient,
       summary:
-        `Swap ${p.sellAmount} ${p.fromToken.toUpperCase()} (~$${result.quote.sellAmountUSD})` +
+        `Swap ${p.sellAmount} ${sellLabel} (~$${result.quote.sellAmountUSD})` +
         ` → ${buyLabel} (~$${result.quote.buyAmountUSD}) via ${result.quote.tool?.name ?? "DEX"}` +
         `${sufficient ? "" : " — INSUFFICIENT BALANCE"}.`,
       warnings,
       detail: {
-        fromToken: p.fromToken,
-        toToken: p.toToken,
+        fromToken: sellLabel,
+        toToken: buy.label,
+        toTokenAddress: buy.address,
         sellAmount: p.sellAmount,
         sellAmountUSD: result.quote.sellAmountUSD,
         buyAmount,

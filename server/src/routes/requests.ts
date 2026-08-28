@@ -128,12 +128,14 @@ export function createRequestsRouter(): IRouter {
         // when the agent raised, its note joins the signal list.
         const agentRaised = agentScore != null && agentScore > engine.riskScore;
         const { riskThresholdApprove, riskThresholdBlock } = patterns.globalLimits;
+        // Mirror the engine's boundary semantics exactly (risk.ts): a score
+        // AT the block threshold is BLOCK, not REVIEW.
         finalRiskVerdict =
           finalRiskScore < riskThresholdApprove
             ? "APPROVE"
-            : finalRiskScore > riskThresholdBlock
-              ? "BLOCK"
-              : "REVIEW";
+            : finalRiskScore < riskThresholdBlock
+              ? "REVIEW"
+              : "BLOCK";
         finalRiskReasons =
           agentRaised && riskNotes ? [...engine.reasons, `Agent: ${riskNotes}`] : engine.reasons;
         const engineNotes = `${engine.verdict}: ${engine.reasons.join("; ")}`;

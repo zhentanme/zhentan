@@ -43,7 +43,13 @@ export function registerRequestTools(server: McpServer) {
         amount: z.string().regex(/^\d+(\.\d+)?$/, "amount must be a positive decimal string").describe("Transfer amount, or the SELL amount for swaps"),
         token: z.string().min(1).optional().describe('Token symbol, e.g. "USDC" (required unless kind is swap)'),
         fromToken: z.string().min(1).optional().describe('Swaps only: sell-token symbol, e.g. "USDC"'),
-        toToken: z.string().min(1).optional().describe('Swaps only: buy-token symbol, e.g. "WBNB"'),
+        toToken: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            'Swaps only: buy-token symbol (e.g. "WBNB") or its 0x contract address — pass the address from search_token for unfamiliar/ambiguous tokens so the swap targets exactly the token the user confirmed',
+          ),
         slippage: z
           .number()
           .min(0.0001)

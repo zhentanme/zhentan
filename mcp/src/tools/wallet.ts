@@ -95,7 +95,13 @@ export function registerWalletTools(server: McpServer) {
           .describe("Transfer amount, or the SELL amount for swaps"),
         token: z.string().min(1).optional().describe('Transfers: token symbol, e.g. "USDC"'),
         fromToken: z.string().min(1).optional().describe('Swaps only: sell-token symbol, e.g. "USDC"'),
-        toToken: z.string().min(1).optional().describe('Swaps only: buy-token symbol, e.g. "USDT"'),
+        toToken: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            'Swaps only: buy-token symbol (e.g. "USDT") or its 0x contract address — pass the address from search_token for unfamiliar/ambiguous tokens',
+          ),
         slippage: z
           .number()
           .min(0.0001)

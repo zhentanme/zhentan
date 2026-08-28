@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { QueuedRequest } from "@/types";
-import { truncateAddress, riskSeverity, formatTokenAmount } from "@/lib/format";
+import { truncateAddress, riskSeverity, formatTokenAmount, tokenSymbolLabel } from "@/lib/format";
 import { TokenGlyph } from "./TokenGlyph";
 import { Pill, type PillTone } from "./ui/Pill";
 import { FileText, ArrowUpRight, Repeat2 } from "lucide-react";
@@ -95,12 +95,12 @@ export function RequestRow({ request, index = 0, onClick }: RequestRowProps) {
             <>
               <span className="text-sm font-medium text-foreground truncate inline-flex items-center gap-1.5">
                 <TokenGlyph symbol={request.fromToken} size={16} />
-                {formatTokenAmount(request.amount)} {request.fromToken.toUpperCase()}
+                {formatTokenAmount(request.amount)} {tokenSymbolLabel(request.fromToken)}
               </span>
               <span className="text-muted-foreground/60">→</span>
               <span className="text-sm text-muted-foreground truncate inline-flex items-center gap-1.5">
                 <TokenGlyph symbol={request.toToken} size={16} />
-                {request.toToken.toUpperCase()}
+                {tokenSymbolLabel(request.toToken)}
               </span>
             </>
           ) : (
