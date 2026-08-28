@@ -114,15 +114,31 @@ export function createRequestsRouter(): IRouter {
 
       let finalRiskScore: number | undefined = agentScore;
       let finalRiskNotes: string | undefined = riskNotes ?? undefined;
+      let finalRiskVerdict: QueuedRequest["riskVerdict"];
+      let finalRiskReasons: string[] | undefined;
 
       try {
         const patterns = await loadPolicySnapshot(safeAddress);
         const synthTx = view as unknown as PendingTransaction;
         const engine = evaluateRequest(synthTx, patterns, def.syntheticDecoded(params));
         finalRiskScore = Math.max(engine.riskScore, agentScore ?? 0);
+        // Structured verdict/reasons (#142) — same shape transactions carry,
+        // so request surfaces render the same screening panel. The verdict is
+        // recomputed from the FINAL score (an agent raise can move the band);
+        // when the agent raised, its note joins the signal list.
+        const agentRaised = agentScore != null && agentScore > engine.riskScore;
+        const { riskThresholdApprove, riskThresholdBlock } = patterns.globalLimits;
+        finalRiskVerdict =
+          finalRiskScore < riskThresholdApprove
+            ? "APPROVE"
+            : finalRiskScore > riskThresholdBlock
+              ? "BLOCK"
+              : "REVIEW";
+        finalRiskReasons =
+          agentRaised && riskNotes ? [...engine.reasons, `Agent: ${riskNotes}`] : engine.reasons;
         const engineNotes = `${engine.verdict}: ${engine.reasons.join("; ")}`;
         finalRiskNotes =
-          agentScore != null && agentScore > engine.riskScore && riskNotes
+          agentRaised && riskNotes
             ? `${engineNotes} | Agent: ${riskNotes}`
             : engineNotes;
       } catch (err) {
@@ -190,6 +206,8 @@ export function createRequestsRouter(): IRouter {
         services: services ?? [],
         riskScore: finalRiskScore,
         riskNotes: finalRiskNotes,
+        riskVerdict: finalRiskVerdict,
+        riskReasons: finalRiskReasons,
         sourceChannel: sourceChannel ?? "unknown",
         queuedAt: new Date().toISOString(),
         // A draft tx id on a still-queued request signals the client to show

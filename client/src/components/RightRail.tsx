@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   ArrowUpRight,
   ArrowRight,
+  Repeat2,
 } from "lucide-react";
 import { useScreeningStatus } from "@/app/context/ScreeningStatusContext";
 import { useActivityData } from "@/app/context/ActivityDataContext";
@@ -294,19 +295,40 @@ export function RightRail() {
 
   const hasPending = lastQueued !== null || lastReview !== null;
 
-  // Screened terminal decisions
-  const decisions = useMemo(
-    () =>
-      transactions
-        .filter(
-          (x) =>
-            (x.status === "executed" || x.status === "rejected") &&
-            x.screeningDisabled !== true &&
-            (x.riskVerdict != null || x.riskScore != null)
-        )
-        .slice(0, 6),
-    [transactions]
-  );
+  // Screened terminal decisions — transactions AND requests (#142). A request
+  // whose linked draft tx already appears would double-count; those are
+  // skipped, so what remains is e.g. a request rejected before a draft existed.
+  const decisions = useMemo(() => {
+    const txDecisions = transactions.filter(
+      (x) =>
+        (x.status === "executed" || x.status === "rejected") &&
+        x.screeningDisabled !== true &&
+        (x.riskVerdict != null || x.riskScore != null)
+    );
+    const txIds = new Set(txDecisions.map((t) => t.id));
+    const requestDecisions = requests.filter(
+      (r) =>
+        (r.status === "rejected" || r.status === "executed") &&
+        (r.riskVerdict != null || r.riskScore != null) &&
+        !(r.txId && txIds.has(r.txId))
+    );
+    const items: (
+      | { source: "tx"; time: number; tx: TransactionWithStatus }
+      | { source: "request"; time: number; request: QueuedRequest }
+    )[] = [
+      ...txDecisions.map((tx) => ({
+        source: "tx" as const,
+        time: new Date(tx.executedAt ?? tx.proposedAt).getTime(),
+        tx,
+      })),
+      ...requestDecisions.map((request) => ({
+        source: "request" as const,
+        time: new Date(request.executedAt ?? request.rejectedAt ?? request.queuedAt).getTime(),
+        request,
+      })),
+    ];
+    return items.sort((a, b) => b.time - a.time).slice(0, 6);
+  }, [transactions, requests]);
 
   return (
     <aside
@@ -405,8 +427,9 @@ export function RightRail() {
                 token={lastQueued.token}
                 time={lastQueued.queuedAt}
                 party={
-                  lastQueued.billedFrom?.name ||
-                  truncateAddress(lastQueued.to)
+                  lastQueued.kind === "swap"
+                    ? "Token swap"
+                    : lastQueued.billedFrom?.name || truncateAddress(lastQueued.to)
                 }
                 meta={
                   lastQueued.invoiceNumber ||
@@ -466,13 +489,22 @@ export function RightRail() {
               hasPending && "flex-1 min-h-0 overflow-y-auto"
             )}
           >
-            {decisions.map((tx, i) => {
-              const rejected = tx.status === "rejected";
+            {decisions.map((item, i) => {
+              const row = item.source === "tx" ? item.tx : item.request;
+              const rejected = row.status === "rejected";
+              const isSwapRequest = item.source === "request" && item.request.kind === "swap";
+              const line2 =
+                item.source === "request"
+                  ? item.request.billedFrom?.name ||
+                    (item.request.to ? truncateAddress(item.request.to) : "")
+                  : truncateAddress(item.tx.to);
               return (
                 <motion.button
-                  key={`${tx.id}-${i}`}
+                  key={`${row.id}-${i}`}
                   type="button"
-                  onClick={() => setSelectedTx(tx)}
+                  onClick={() =>
+                    item.source === "tx" ? setSelectedTx(item.tx) : setSelectedRequest(item.request)
+                  }
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05, duration: 0.3 }}
@@ -489,12 +521,18 @@ export function RightRail() {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="flex items-center gap-1 font-mono text-xs font-medium text-foreground/90 tabular-nums">
-                      <ArrowUpRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                      {formatTokenAmount(tx.amount)} {tx.token}
+                      {isSwapRequest ? (
+                        <Repeat2 className="h-3 w-3 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ArrowUpRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                      )}
+                      {formatTokenAmount(row.amount)} {row.token}
                     </p>
-                    <p className="font-mono text-[11px] text-muted-foreground truncate mt-0.5">
-                      {truncateAddress(tx.to)}
-                    </p>
+                    {line2 && (
+                      <p className="font-mono text-[11px] text-muted-foreground truncate mt-0.5">
+                        {line2}
+                      </p>
+                    )}
                   </div>
                   <Pill tone={rejected ? "danger" : "safe"} size="sm" strong={rejected} className="shrink-0">
                     {rejected ? "Blocked" : "Approved"}
