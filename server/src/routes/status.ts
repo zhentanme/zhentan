@@ -131,16 +131,17 @@ export function createStatusRouter(): IRouter {
       const safe = assertOwnsSafe(req, res, claimedSafe);
       if (!safe) return;
 
-      // ── Agent-only writes (#144) ─────────────────────────────
-      // The policy plane must not be writable by the single-factor client
-      // session. ONE carve-out: {screeningMode: true} alone — enabling
-      // screening is strictly tightening (the same direction the guarded
-      // self-heal already forces), and the settings page depends on it.
+      // ── Agent-only limits (#144) ─────────────────────────────
+      // Limits and thresholds are the policy the agent enforces; they must not
+      // be writable by the single-factor client session. The screeningMode
+      // toggle itself stays client-controllable: in protected wallets
+      // screening-off reroutes execution to the user's own backup
+      // co-signature (the embedded key alone still can't reach threshold),
+      // and guarded wallets keep the structural server-side guard below.
       const touchesLimits = LIMITS_API_FIELDS.some(
         (field) => (req.body ?? {})[field] !== undefined
       );
-      const isEnableScreeningOnly = screeningMode === true && !touchesLimits;
-      if (!isEnableScreeningOnly && !requireAgentPrincipal(req, res)) return;
+      if (touchesLimits && !requireAgentPrincipal(req, res)) return;
 
       // ── Validate user settings ───────────────────────────────
       const settingsPatch: Parameters<typeof upsertUserSettings>[1] = {};
