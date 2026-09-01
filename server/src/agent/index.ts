@@ -49,6 +49,7 @@ export {
   upsertUserSettings,
   getGlobalLimits,
   upsertGlobalLimits,
+  DEFAULT_LIMITS,
   getRecipientProfile,
   getBehavioralEvents,
 } from "../lib/supabase/agentData.js";

@@ -6,7 +6,12 @@ import {
   updateUserRule,
   deleteUserRule,
 } from "../agent/index.js";
-import { assertOwnsSafe, requireCallerSafe, sameAddress } from "../lib/authz.js";
+import {
+  assertOwnsSafe,
+  requireAgentPrincipal,
+  requireCallerSafe,
+  sameAddress,
+} from "../lib/authz.js";
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 
@@ -69,8 +74,12 @@ export function createRulesRouter(): IRouter {
   // Creates a new custom rule for the CALLER's Safe. `safe` in the body is
   // accepted only as an assertion to cross-check — it never selects the target.
   // Body: { safe?, name, ruleType, conditions, action, riskScoreDelta?, priority?, description? }
+  //
+  // Agent-only (#144): rules carry arbitrary (incl. negative) riskScoreDelta —
+  // a client-session rule write is the same policy-plane hole as a limits write.
   router.post("/", async (req: Request, res: Response) => {
     try {
+      if (!requireAgentPrincipal(req, res)) return;
       const {
         safe: claimedSafe,
         name,
@@ -120,9 +129,10 @@ export function createRulesRouter(): IRouter {
   });
 
   // PATCH /rules/:id
-  // Updates a rule (any field except id/safe_address).
+  // Updates a rule (any field except id/safe_address). Agent-only (#144).
   router.patch("/:id", async (req: Request, res: Response) => {
     try {
+      if (!requireAgentPrincipal(req, res)) return;
       const { id } = req.params;
       const { name, ruleType, conditions, action, riskScoreDelta, priority, description, isActive } =
         req.body ?? {};
@@ -171,9 +181,10 @@ export function createRulesRouter(): IRouter {
   });
 
   // DELETE /rules/:id
-  // Soft-deletes a rule (sets is_active = false).
+  // Soft-deletes a rule (sets is_active = false). Agent-only (#144).
   router.delete("/:id", async (req: Request, res: Response) => {
     try {
+      if (!requireAgentPrincipal(req, res)) return;
       const { id } = req.params;
       if (!id) {
         res.status(400).json({ error: "Missing rule id" });

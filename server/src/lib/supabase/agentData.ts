@@ -29,7 +29,9 @@ const DEFAULT_USER_SETTINGS: Omit<UserSettingsRow, "safe_address" | "updated_at"
   decisions: [],
 };
 
-const DEFAULT_LIMITS: Omit<GlobalLimitsRow, "safe_address" | "updated_at"> = {
+/** Exported for the GET /status defaults contract (#144) — the client renders
+ * defaults from this single source of truth instead of duplicating values. */
+export const DEFAULT_LIMITS: Omit<GlobalLimitsRow, "safe_address" | "updated_at"> = {
   max_single_tx: "5000",
   max_hourly_volume: "10000",
   max_daily_volume: "20000",

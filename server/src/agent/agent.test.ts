@@ -150,3 +150,82 @@ describe("agent domain — Tier 1 evaluation", () => {
     expect(req.riskScore).toBeGreaterThanOrEqual(0);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// #144 verdict floors — outcomes user-writable policy can NEVER
+// relax. Thresholds and rule deltas are attacker-reachable through
+// the settings plane; these tests pin the invariants that survive
+// any policy the settings plane can produce.
+// ─────────────────────────────────────────────────────────────
+
+describe("verdict floors (#144)", () => {
+  const BLOCKED_RECIPIENT = "0x2222222222222222222222222222222222222222";
+
+  function snapshotWithBlockedRecipient(): PatternsFile {
+    const snapshot = structuredClone(SNAPSHOT);
+    snapshot.recipients[BLOCKED_RECIPIENT] = {
+      ...snapshot.recipients["0x1111111111111111111111111111111111111111"],
+      label: "blocked recipient",
+      trustLevel: "blocked",
+    };
+    return snapshot;
+  }
+
+  const txToBlocked = { ...TX, to: BLOCKED_RECIPIENT } as PendingTransaction;
+  const decodedToBlocked: DecodedKind = {
+    kind: "transfer",
+    recipient: BLOCKED_RECIPIENT,
+    tokenAddress: "0x55d398326f99059ff775485246999027b3197955",
+    amountWei: 50_000000000000000000n,
+  };
+
+  it("blocked recipient BLOCKs even at thresholds 100/100", () => {
+    const snapshot = snapshotWithBlockedRecipient();
+    snapshot.globalLimits.riskThresholdApprove = 100;
+    snapshot.globalLimits.riskThresholdBlock = 100;
+    const result = evaluateTransaction(txToBlocked, snapshot, decodedToBlocked, AT);
+    expect(result.verdict).toBe("BLOCK");
+  });
+
+  it("blocked recipient BLOCKs even when a whitelist rule drags the score to 0", () => {
+    // The laundering vector: a recipient_whitelist rule with a −100 delta
+    // cancels the +100 blocked-trust penalty in score arithmetic. The floor
+    // acts on the VERDICT, after all arithmetic, so it survives.
+    const snapshot = snapshotWithBlockedRecipient();
+    snapshot.rules = [
+      {
+        id: "rule-whitelist-launder",
+        name: "whitelist the blocked address",
+        ruleType: "recipient_whitelist",
+        conditions: { address: BLOCKED_RECIPIENT },
+        action: "approve",
+        riskScoreDelta: -100,
+        priority: 1,
+      },
+    ];
+    const result = evaluateTransaction(txToBlocked, snapshot, decodedToBlocked, AT);
+    expect(result.riskScore).toBe(0); // arithmetic was laundered…
+    expect(result.verdict).toBe("BLOCK"); // …the verdict was not
+  });
+
+  it("unvalidated config self-call never APPROVEs, at any threshold pair", () => {
+    const configTx = { ...TX, to: TX.safeAddress } as PendingTransaction;
+    for (const [approve, block] of [[100, 100], [41, 70], [100, 41]] as const) {
+      const snapshot = structuredClone(SNAPSHOT);
+      snapshot.globalLimits.riskThresholdApprove = approve;
+      snapshot.globalLimits.riskThresholdBlock = block;
+      const result = evaluateTransaction(configTx, snapshot, { kind: "config" }, AT);
+      expect(result.verdict).not.toBe("APPROVE");
+    }
+  });
+
+  it("VALIDATED transitions still auto-approve — the floor is for unvalidated config only", () => {
+    const transitionTx = { ...TX, to: TX.safeAddress } as PendingTransaction;
+    const decoded: DecodedKind = {
+      kind: "config",
+      transition: { endState: "protected", validated: true },
+    };
+    const result = evaluateTransaction(transitionTx, SNAPSHOT, decoded, AT);
+    expect(result.verdict).toBe("APPROVE");
+  });
+});

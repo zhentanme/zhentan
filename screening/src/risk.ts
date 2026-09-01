@@ -151,8 +151,9 @@ export function analyzeRisk(
   // (scoring them made every profile transition a REVIEW-40 "unknown
   // recipient"). A transition the backend VALIDATED (whitelisted calls,
   // managed end state) auto-approves deterministically; any other config
-  // self-call scores a fixed 40 with an honest reason and maps through the
-  // user's own thresholds.
+  // self-call scores a fixed 40 and NEVER auto-approves — thresholds are
+  // user-writable policy, and an unvalidated owner change is the one
+  // transaction that permanently rewrites who controls the Safe (#144).
   if (decoded?.kind === "config") {
     if (decoded.transition?.validated) {
       return {
@@ -167,12 +168,7 @@ export function analyzeRisk(
     const configScore = 40;
     return {
       riskScore: configScore,
-      verdict:
-        configScore < limits.riskThresholdApprove
-          ? "APPROVE"
-          : configScore < limits.riskThresholdBlock
-            ? "REVIEW"
-            : "BLOCK",
+      verdict: configScore < limits.riskThresholdBlock ? "REVIEW" : "BLOCK",
       reasons: ["Owner/configuration change on this Safe — not a recognized profile transition"],
       triggeredRules: [],
     };
@@ -361,12 +357,21 @@ export function analyzeRisk(
     reasons.push("Known recipient, normal amount, within allowed hours — no anomalies detected");
   }
 
-  const verdict: RiskResult["verdict"] =
+  let verdict: RiskResult["verdict"] =
     riskScore < limits.riskThresholdApprove
       ? "APPROVE"
       : riskScore < limits.riskThresholdBlock
       ? "REVIEW"
       : "BLOCK";
+
+  // ── Floors — verdicts user-writable policy can never relax (#144) ──
+  // Applied AFTER all score arithmetic: thresholds and negative rule deltas
+  // (recipient_whitelist) are attacker-reachable through the settings plane,
+  // so an explicitly blocked recipient must block on the verdict, not by
+  // hoping +100 survives the math.
+  if (recipient?.trustLevel === "blocked") {
+    verdict = "BLOCK";
+  }
 
   return { riskScore, verdict, reasons, triggeredRules };
 }

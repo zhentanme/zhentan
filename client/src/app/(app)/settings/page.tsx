@@ -331,9 +331,16 @@ function SettingsPageContent() {
       setActivationOpen(true);
       return;
     }
+    // Turning screening OFF is a loosening change and is agent-only (#144):
+    // the server 403s client-principal writes except {screeningMode: true}.
+    // Until the proposal flow ships, direct the user to their agent chat.
+    if (screeningMode) {
+      toast("Ask your Zhentan agent in Telegram to turn screening off", "neutral");
+      return;
+    }
     setToggling(true);
     try {
-      const data = await api.status.update({ safe: safeAddress!, screeningMode: !screeningMode });
+      const data = await api.status.update({ safe: safeAddress!, screeningMode: true });
       if (typeof (data as { screeningMode?: boolean }).screeningMode === "boolean") {
         setScreeningMode((data as { screeningMode: boolean }).screeningMode);
       }
