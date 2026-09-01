@@ -186,6 +186,21 @@ export function ScreeningLimitsCard({ safeAddress }: { safeAddress: string }) {
           d?.riskThresholdBlock === limits.riskThresholdBlock,
       },
       { label: "Unknown recipient", value: limits.unknownRecipientAction, def: d?.unknownRecipientAction === limits.unknownRecipientAction },
+      {
+        // Hour/day windows are display-only here — editing arrays is a chat
+        // ask ("only allow weekday business hours"); the agent applies it.
+        label: "Allowed hours (UTC)",
+        value: limits.allowedHoursUTC.length === 0 ? "any" : `${Math.min(...limits.allowedHoursUTC)}:00–${Math.max(...limits.allowedHoursUTC)}:00`,
+        def: JSON.stringify(d?.allowedHoursUTC) === JSON.stringify(limits.allowedHoursUTC),
+      },
+      {
+        label: "Allowed days",
+        value:
+          limits.allowedDaysUTC.length === 0
+            ? "any"
+            : limits.allowedDaysUTC.map((day) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day]).join(", "),
+        def: JSON.stringify(d?.allowedDaysUTC) === JSON.stringify(limits.allowedDaysUTC),
+      },
       { label: "Pattern learning", value: limits.learningEnabled ? "on" : "off", def: d?.learningEnabled === limits.learningEnabled },
     ];
   }, [limits, defaults]);
