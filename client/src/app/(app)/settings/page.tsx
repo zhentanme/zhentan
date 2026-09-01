@@ -333,11 +333,9 @@ function SettingsPageContent() {
     }
     // Turning screening OFF is a loosening change and is agent-only (#144):
     // the server 403s client-principal writes except {screeningMode: true}.
-    // Until the proposal flow ships, direct the user to their agent chat.
-    if (screeningMode) {
-      toast("Ask your Zhentan agent in Telegram to turn screening off", "neutral");
-      return;
-    }
+    // The switch renders disabled while screening is on; this guard is the
+    // belt-and-braces for a stale render.
+    if (screeningMode) return;
     setToggling(true);
     try {
       const data = await api.status.update({ safe: safeAddress!, screeningMode: true });
@@ -447,7 +445,7 @@ function SettingsPageContent() {
                       profile === "guarded"
                         ? legacyV1Guarded
                           ? isScreeningActive
-                            ? "Screening every signature — paused, the agent still co-signs"
+                            ? "Screening every signature — ask your agent in Telegram to pause it"
                             : "Screening off — the agent co-signs without screening"
                           : telegramLinked
                             ? "Screening is always on — add a backup key to control it"
@@ -455,7 +453,7 @@ function SettingsPageContent() {
                         : profile === "starter" || profile === "detached"
                           ? "No agent on this wallet — activate protection to enable screening"
                           : isScreeningActive
-                            ? "Screening every signature against your patterns"
+                            ? "Screening every signature — ask your agent in Telegram to turn it off"
                             : !fullyActivated
                               ? "Finish setup to enable screening"
                               : "Screening off — your backup key co-signs instead of the agent"
@@ -465,10 +463,15 @@ function SettingsPageContent() {
                         checked={isScreeningActive}
                         onChange={handleToggle}
                         loading={toggling}
-                        disabled={!screeningTogglable}
+                        // Turning screening OFF is agent-only (#144): the off
+                        // direction is locked, mirroring the guarded pattern.
+                        // Phase 1 re-enables it as a proposal-creating tap.
+                        disabled={!screeningTogglable || isScreeningActive}
                         label={
                           screeningTogglable
-                            ? "Toggle screening"
+                            ? isScreeningActive
+                              ? "Screening is on — ask your agent in Telegram to turn it off"
+                              : "Turn on screening"
                             : profile === "guarded"
                               ? "Screening is locked on — add a backup key to control it"
                               : "Screening unavailable — no agent on this wallet"
