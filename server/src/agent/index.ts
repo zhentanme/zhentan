@@ -50,6 +50,7 @@ export {
   getGlobalLimits,
   upsertGlobalLimits,
   DEFAULT_LIMITS,
+  recordPolicyChange,
   getRecipientProfile,
   getBehavioralEvents,
 } from "../lib/supabase/agentData.js";

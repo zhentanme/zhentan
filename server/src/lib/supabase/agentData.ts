@@ -424,6 +424,31 @@ export async function recordBehavioralEvent(
   if (error) throw error;
 }
 
+/**
+ * Audit entry for an applied/rejected policy-change proposal (#144) — the
+ * old→new diff, the proposing surface, and the confirmation channel live in
+ * `metadata`. Not a tx event: every tx-shaped column is null by design.
+ */
+export async function recordPolicyChange(
+  safeAddress: string,
+  metadata: Record<string, unknown>
+): Promise<void> {
+  await recordBehavioralEvent({
+    safe_address: safeAddress.toLowerCase(),
+    tx_id: null,
+    event_type: "policy_change",
+    recipient_address: null,
+    amount: null,
+    token_address: null,
+    token_symbol: null,
+    risk_score: null,
+    risk_verdict: null,
+    risk_reasons: null,
+    triggered_rules: null,
+    metadata,
+  });
+}
+
 export async function getBehavioralEvents(
   safeAddress: string,
   limit = 100

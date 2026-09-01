@@ -7,6 +7,7 @@ import { describe, it, expect } from "vitest";
 import {
   parseLimitsPatch,
   validateMergedLimits,
+  describeLimitsChanges,
   RISK_THRESHOLD_APPROVE_CAP,
 } from "./limits.js";
 
@@ -120,5 +121,42 @@ describe("validateMergedLimits — cross-field on the merged state", () => {
     expect(
       validateMergedLimits(stored, { risk_threshold_approve: 40, risk_threshold_block: 40 })
     ).toBeNull();
+  });
+});
+
+describe("describeLimitsChanges — the Telegram confirmation diff", () => {
+  const current = {
+    max_single_tx: "5000",
+    max_hourly_volume: "10000",
+    max_daily_volume: "20000",
+    max_weekly_volume: "100000",
+    max_daily_tx_count: 50,
+    allowed_hours_utc: [9, 10],
+    allowed_days_utc: [1, 2],
+    unknown_recipient_action: "review" as const,
+    risk_threshold_approve: 40,
+    risk_threshold_block: 70,
+    learning_enabled: true,
+  };
+
+  it("renders one old → new line per changed field, skipping no-ops", () => {
+    const lines = describeLimitsChanges(current, {
+      max_single_tx: "2500",
+      max_daily_volume: "20000", // unchanged — must be skipped
+      learning_enabled: false,
+    });
+    expect(lines).toEqual([
+      "Single-tx limit: $5000 → $2500",
+      "Learning: on → off",
+    ]);
+  });
+
+  it("formats arrays and empty-array 'any'", () => {
+    const lines = describeLimitsChanges(current, { allowed_hours_utc: [] });
+    expect(lines).toEqual(["Allowed hours (UTC): 9, 10 → any"]);
+  });
+
+  it("returns [] for an all-no-op patch — creation rejects those", () => {
+    expect(describeLimitsChanges(current, { risk_threshold_block: 70 })).toEqual([]);
   });
 });

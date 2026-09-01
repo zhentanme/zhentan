@@ -164,14 +164,25 @@ export interface RecipientPattern {
   category: string;
 }
 
+/** Per-Safe screening limits, camelCase API shape (#144). */
+export interface ScreeningLimits {
+  maxSingleTx: string;
+  maxHourlyVolume: string;
+  maxDailyVolume: string;
+  maxWeeklyVolume: string;
+  maxDailyTxCount: number;
+  allowedHoursUTC: number[];
+  allowedDaysUTC: number[];
+  unknownRecipientAction: "approve" | "review" | "block";
+  riskThresholdApprove: number;
+  riskThresholdBlock: number;
+  learningEnabled: boolean;
+}
+
 export interface PatternsFile {
   recipients: Record<string, RecipientPattern>;
   dailyStats: Record<string, { txCount: number; totalVolume: string }>;
-  globalLimits: {
-    maxSingleTx: string;
-    maxDailyVolume: string;
-    allowedHoursUTC: number[];
-  };
+  globalLimits: ScreeningLimits;
 }
 
 export interface StatusResponse {
@@ -186,6 +197,8 @@ export interface StatusResponse {
   totalDecisions: number;
   telegramLinked?: boolean;
   telegram?: { userId: string; username: string | null; name: string | null } | null;
+  /** Defaults contract (#144) — render "default vs customized" from this. */
+  defaultLimits?: ScreeningLimits;
   patterns: PatternsFile;
 }
 

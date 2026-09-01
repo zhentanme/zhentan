@@ -173,3 +173,47 @@ export function validateMergedLimits(
   }
   return null;
 }
+
+const FIELD_LABELS: Record<keyof LimitsPatch, { label: string; money?: boolean }> = {
+  max_single_tx: { label: "Single-tx limit", money: true },
+  max_hourly_volume: { label: "Hourly volume", money: true },
+  max_daily_volume: { label: "Daily volume", money: true },
+  max_weekly_volume: { label: "Weekly volume", money: true },
+  max_daily_tx_count: { label: "Daily tx count" },
+  allowed_hours_utc: { label: "Allowed hours (UTC)" },
+  allowed_days_utc: { label: "Allowed days (UTC)" },
+  unknown_recipient_action: { label: "Unknown recipient" },
+  risk_threshold_approve: { label: "Auto-approve below" },
+  risk_threshold_block: { label: "Block above" },
+  learning_enabled: { label: "Learning" },
+};
+
+function formatValue(value: unknown, money: boolean | undefined): string {
+  if (value === undefined || value === null) return "—";
+  if (Array.isArray(value)) return value.length === 0 ? "any" : value.join(", ");
+  if (typeof value === "boolean") return value ? "on" : "off";
+  return money ? `$${value}` : String(value);
+}
+
+/**
+ * "Old → new" lines for a proposal, one per changed field — the body of the
+ * Telegram confirmation message. Unchanged-value patches are skipped so the
+ * user confirms exactly what will change.
+ */
+export function describeLimitsChanges(
+  current: Omit<GlobalLimitsRow, "safe_address" | "updated_at">,
+  patch: LimitsPatch
+): string[] {
+  const lines: string[] = [];
+  for (const key of Object.keys(patch) as Array<keyof LimitsPatch>) {
+    const meta = FIELD_LABELS[key];
+    if (!meta) continue;
+    const before = current[key];
+    const after = patch[key];
+    if (JSON.stringify(before) === JSON.stringify(after)) continue;
+    lines.push(
+      `${meta.label}: ${formatValue(before, meta.money)} → ${formatValue(after, meta.money)}`
+    );
+  }
+  return lines;
+}

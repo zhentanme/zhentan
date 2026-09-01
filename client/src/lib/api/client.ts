@@ -14,6 +14,7 @@ import { campaignsApi } from "./campaigns";
 import { tokensApi } from "./tokens";
 import { swapApi } from "./swap";
 import { safeApi } from "./safe";
+import { settingsApi } from "./settings";
 import { telegramApi } from "./telegram";
 
 /** A bound fetch function with BASE prepended — passed to each API module. */
@@ -108,6 +109,7 @@ export function useApiClient() {
       tokens: tokensApi(req),
       swap: swapApi(req),
       safe: safeApi(req),
+      settings: settingsApi(req),
       telegram: telegramApi(req),
     }),
     [req]

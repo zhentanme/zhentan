@@ -78,4 +78,89 @@ export function registerScreeningTools(server: McpServer) {
       }
     },
   );
+
+  // ── #144 policy-change proposals ──────────────────────────────
+  // The client app can only PROPOSE a limits change; the user confirms or
+  // rejects it in THIS chat, and these tools resolve it. The Telegram
+  // conversation is the independent second channel — never confirm without
+  // an explicit instruction from the user in chat.
+
+  server.registerTool(
+    "list_policy_proposals",
+    {
+      title: "List pending policy-change proposal",
+      description:
+        "Fetch the pending screening-settings change proposed from the app (if any), with its " +
+        "old → new diff and expiry. Use when the user asks about a settings-change request, or " +
+        "before confirming/rejecting one.",
+      inputSchema: { callerId: CALLER_ID },
+    },
+    async ({ callerId }) => {
+      try {
+        return ok(await callApi("GET", "/settings/proposals", undefined, 30_000, callerId));
+      } catch (err) {
+        return failFrom(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "confirm_policy_change",
+    {
+      title: "Confirm a policy-change proposal",
+      description:
+        "Apply a pending settings-change proposal after the user EXPLICITLY confirms it in this " +
+        "chat. Applies the limits atomically; fails if the proposal expired or was already " +
+        "resolved. Never call this without a direct user instruction.",
+      inputSchema: {
+        callerId: CALLER_ID,
+        proposalId: z.string().uuid().describe("The pending proposal id from list_policy_proposals"),
+      },
+    },
+    async ({ callerId, proposalId }) => {
+      try {
+        return ok(
+          await callApi(
+            "POST",
+            `/settings/proposals/${proposalId}/confirm`,
+            { callerId },
+            30_000,
+            callerId,
+          ),
+        );
+      } catch (err) {
+        return failFrom(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "reject_policy_change",
+    {
+      title: "Reject a policy-change proposal",
+      description:
+        "Reject a pending settings-change proposal (user said no, or didn't request it — " +
+        "treat an unrequested proposal as a possible compromised web session and tell the user).",
+      inputSchema: {
+        callerId: CALLER_ID,
+        proposalId: z.string().uuid().describe("The pending proposal id from list_policy_proposals"),
+        reason: z.string().max(300).optional().describe("Why it was rejected"),
+      },
+    },
+    async ({ callerId, proposalId, reason }) => {
+      try {
+        return ok(
+          await callApi(
+            "POST",
+            `/settings/proposals/${proposalId}/reject`,
+            { callerId, reason },
+            30_000,
+            callerId,
+          ),
+        );
+      } catch (err) {
+        return failFrom(err);
+      }
+    },
+  );
 }

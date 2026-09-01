@@ -39,6 +39,7 @@ import { useForceExecuteSetting } from "@/lib/useForceExecute";
 import { useTour } from "@/components/tour/TourProvider";
 import { mainTour, upgradeTour } from "@/lib/tours";
 import { MaoAvatar } from "@/components/MaoAvatar";
+import { ScreeningLimitsCard } from "@/components/ScreeningLimitsCard";
 
 /** Section label + hairline rule, per the grouped settings design. */
 function SectionHeader({ label, danger }: { label: string; danger?: boolean }) {
@@ -528,6 +529,16 @@ function SettingsPageContent() {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* LIMITS (#144) — propose-only; the agent confirms on Telegram.
+                  Shown wherever an agent screens (guarded + protected) — not
+                  on starter/detached, which have no screening at all. */}
+              {safeAddress && (profile === "guarded" || profile === "protected") && (
+                <motion.div variants={staggerItem}>
+                  <SectionHeader label="Screening limits" />
+                  <ScreeningLimitsCard safeAddress={safeAddress} />
+                </motion.div>
+              )}
 
               {/* APP — wallet, network, force-execute, explorer, tour: one card */}
               <motion.div variants={staggerItem}>
