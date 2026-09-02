@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { clsx } from "clsx";
-import { SlidersHorizontal, Clock3 } from "lucide-react";
+import { SlidersHorizontal, Clock3, X } from "lucide-react";
 import { useApiClient } from "@/lib/api/client";
 import type { PolicyProposal, LimitsProposalPatch } from "@/lib/api/settings";
 import type { ScreeningLimits } from "@/types/index";
@@ -72,6 +72,61 @@ function trackPointer(apply: (clientX: number) => void, e: React.PointerEvent) {
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", up);
   apply(e.clientX);
+}
+
+/* ── Hour windows ──────────────────────────────────────────────────────────
+   The API stores allowed UTC hours as a flat list; the dialog edits them as
+   contiguous [start, end) windows over 0–24 per the design. A single [0, 24]
+   window round-trips to an empty list (= no restriction), as does all seven
+   days being selected. */
+type HourWindow = [number, number];
+
+const WINDOW_NAMES = ["First", "Second", "Third", "Fourth", "Fifth", "Sixth"];
+const MAX_WINDOWS = 6;
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+const WEEKDAYS = [1, 2, 3, 4, 5];
+const WEEKEND = [0, 6];
+
+const padHour = (h: number) => String(h).padStart(2, "0");
+
+/** Minutes east of UTC on the viewer's clock (IST = +330). 0 = viewer is on UTC. */
+function localOffsetMin(): number {
+  return -new Date().getTimezoneOffset();
+}
+
+/** A UTC hour boundary (0–24) on the viewer's clock — offsets can be fractional (e.g. 8 → "13:30" in IST). */
+function localHourLabel(h: number): string {
+  const m = (((h * 60 + localOffsetMin()) % 1440) + 1440) % 1440;
+  return `${padHour(Math.floor(m / 60))}:${padHour(m % 60)}`;
+}
+
+function hoursToWins(hours: number[]): HourWindow[] {
+  if (hours.length === 0) return [[0, 24]];
+  const hs = [...new Set(hours)].sort((a, b) => a - b);
+  const wins: HourWindow[] = [];
+  let start = hs[0];
+  let prev = hs[0];
+  for (const h of hs.slice(1)) {
+    if (h !== prev + 1) {
+      wins.push([start, prev + 1]);
+      start = h;
+    }
+    prev = h;
+  }
+  wins.push([start, prev + 1]);
+  return wins;
+}
+
+function winsToHours(wins: HourWindow[]): number[] {
+  if (isAllDay(wins)) return [];
+  const hours: number[] = [];
+  for (const [s, e] of wins) for (let h = s; h < e; h++) hours.push(h);
+  return hours;
+}
+
+function isAllDay(wins: HourWindow[]): boolean {
+  return wins.length === 1 && wins[0][0] === 0 && wins[0][1] === 24;
 }
 
 function SectionRule({ label }: { label: string }) {
@@ -254,6 +309,261 @@ function RiskBand({
   );
 }
 
+/**
+ * Draggable multi-window hours track over 0–24. A press grabs the nearest
+ * window edge; clamps keep every window ≥1h wide with ≥1h gaps between
+ * neighbours, so windows can never overlap or swap.
+ */
+function HoursTrack({ wins, onChange }: { wins: HourWindow[]; onChange: (wins: HourWindow[]) => void }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  // Latest windows for the drag closure — state is stale inside listeners.
+  const live = useRef(wins);
+  live.current = wins;
+
+  const setEdge = (wi: number, hj: 0 | 1, v: number) => {
+    const ws = live.current.map((w) => [...w] as HourWindow);
+    const lo = hj === 0 ? (wi === 0 ? 0 : ws[wi - 1][1] + 1) : ws[wi][0] + 1;
+    const hi = hj === 1 ? (wi === ws.length - 1 ? 24 : ws[wi + 1][0] - 1) : ws[wi][1] - 1;
+    ws[wi][hj] = clamp(v, lo, hi);
+    onChange(ws);
+  };
+
+  const onDown = (e: React.PointerEvent) => {
+    if (!trackRef.current) return;
+    const hourAt = (clientX: number) => Math.round(pctFrom(trackRef.current!, clientX) * 24);
+    const first = hourAt(e.clientX);
+    let wi = 0;
+    let hj: 0 | 1 = 0;
+    let bestD = Infinity;
+    live.current.forEach((w, i) =>
+      w.forEach((v, j) => {
+        const d = Math.abs(first - v);
+        if (d < bestD) {
+          bestD = d;
+          wi = i;
+          hj = j as 0 | 1;
+        }
+      })
+    );
+    trackPointer((clientX) => setEdge(wi, hj, hourAt(clientX)), e);
+  };
+
+  return (
+    <>
+      <div ref={trackRef} onPointerDown={onDown} className="relative h-11 mt-2 cursor-ew-resize touch-none select-none">
+        <div className="absolute left-0 right-0 top-3.5 h-4 rounded-lg bg-foreground/[0.05]" />
+        {wins.map(([s, e], i) => (
+          <div
+            key={`fill-${i}`}
+            className="absolute top-3.5 h-4 rounded-lg bg-gradient-to-r from-gold/50 to-gold-300/50"
+            style={{ left: `${(s / 24) * 100}%`, width: `${((e - s) / 24) * 100}%` }}
+          />
+        ))}
+        {wins.flatMap((w, wi) =>
+          w.map((v, j) => {
+            const hj = j as 0 | 1;
+            return (
+              <div
+                key={`handle-${wi}-${hj}`}
+                role="slider"
+                tabIndex={0}
+                aria-label={`${wins.length === 1 ? "Window" : `${WINDOW_NAMES[wi] ?? wi + 1} window`} ${hj === 0 ? "start" : "end"}`}
+                aria-valuemin={hj === 0 ? (wi === 0 ? 0 : wins[wi - 1][1] + 1) : w[0] + 1}
+                aria-valuemax={hj === 1 ? (wi === wins.length - 1 ? 24 : wins[wi + 1][0] - 1) : w[1] - 1}
+                aria-valuenow={v}
+                aria-valuetext={`${padHour(v)}:00 UTC`}
+                onKeyDown={(e) => {
+                  const delta =
+                    e.key === "ArrowLeft" || e.key === "ArrowDown"
+                      ? -1
+                      : e.key === "ArrowRight" || e.key === "ArrowUp"
+                        ? 1
+                        : 0;
+                  if (!delta) return;
+                  e.preventDefault();
+                  setEdge(wi, hj, v + delta);
+                }}
+                className="absolute top-1.5 -ml-2 w-4 h-8 rounded-lg bg-gold-400 shadow-[0_3px_10px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/40"
+                style={{ left: `${(v / 24) * 100}%` }}
+              />
+            );
+          })
+        )}
+      </div>
+      <div className="flex justify-between font-mono text-[9.5px] text-muted-foreground/55 -mt-0.5" aria-hidden>
+        <span>00</span>
+        <span>06</span>
+        <span>12</span>
+        <span>18</span>
+        <span>24</span>
+      </div>
+    </>
+  );
+}
+
+/**
+ * "When you normally trade" — day pills, quick presets, and hour windows,
+ * per the design. Off-window transactions only score extra risk (+20 in the
+ * engine); the note copy reflects that.
+ */
+function TradingWindow({
+  days,
+  wins,
+  onPatch,
+}: {
+  days: number[];
+  wins: HourWindow[];
+  onPatch: (p: { days?: number[]; wins?: HourWindow[] }) => void;
+}) {
+  const allDays = days.length === 7;
+  const allDay = isAllDay(wins);
+  const anyTime = allDays && allDay;
+  const total = wins.reduce((t, [s, e]) => t + (e - s), 0);
+
+  const hourLabel =
+    wins.length > 1
+      ? `${total}h across ${wins.length} windows`
+      : allDay
+        ? "All day"
+        : `${padHour(wins[0][0])}:00 – ${padHour(wins[0][1])}:00 UTC`;
+
+  // At least one day stays selected — an empty selection would read as
+  // "no days", but the API treats an empty array as "any day".
+  const toggleDay = (d: number) => {
+    const next = toggleIn(days, d);
+    if (next.length > 0) onPatch({ days: next });
+  };
+
+  // Widest ≥1h gap (leaving 1h margins to neighbours) hosts a new window.
+  const gaps: HourWindow[] = [];
+  for (let i = 0; i <= wins.length; i++) {
+    const lo = i === 0 ? 0 : wins[i - 1][1] + 1;
+    const hi = i === wins.length ? 24 : wins[i][0] - 1;
+    if (hi - lo >= 1) gaps.push([lo, hi]);
+  }
+  gaps.sort((a, b) => b[1] - b[0] - (a[1] - a[0]));
+  const widest = gaps[0];
+  const canAdd = wins.length < MAX_WINDOWS && Boolean(widest);
+
+  const addWindow = () => {
+    if (!canAdd) return;
+    const [lo, hi] = widest;
+    const span = Math.min(2, hi - lo);
+    const s = Math.min(lo + Math.floor((hi - lo - span) / 2), hi - span);
+    onPatch({ wins: [...wins, [s, s + span] as HourWindow].sort((a, b) => a[0] - b[0]) });
+  };
+
+  const presetChip = (on: boolean) =>
+    clsx(
+      "px-2.5 py-1.5 rounded-md font-mono text-[10px] uppercase tracking-[0.08em] transition-colors cursor-pointer",
+      on ? "bg-gold/15 text-gold-300" : "bg-foreground/[0.05] text-muted-foreground hover:bg-foreground/10"
+    );
+
+  const scope =
+    !allDays && !allDay ? `these ${days.length} days or these hours` : !allDays ? `these ${days.length} days` : "these hours";
+
+  return (
+    <div className="mt-5 pt-5 border-t border-border">
+      <div className="flex items-center gap-3">
+        <span className="eyebrow text-muted-foreground/70 shrink-0">When you normally trade</span>
+        <span className="h-px flex-1 bg-border" aria-hidden />
+        <button
+          type="button"
+          onClick={() => onPatch({ days: [...ALL_DAYS], wins: [[0, 24] as HourWindow] })}
+          className={presetChip(anyTime)}
+        >
+          Any time
+        </button>
+      </div>
+
+      <div className="flex gap-1.5 mt-3.5">
+        {DAY_NAMES.map((name, day) => (
+          <button
+            key={name}
+            type="button"
+            aria-pressed={days.includes(day)}
+            onClick={() => toggleDay(day)}
+            className={clsx(
+              "flex-1 py-2 rounded-md border text-xs font-medium transition-colors cursor-pointer",
+              days.includes(day)
+                ? "border-gold/40 bg-gold/15 text-gold-400"
+                : "border-border bg-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-1.5 mt-1.5">
+        <button type="button" onClick={() => onPatch({ days: [...WEEKDAYS] })} className={presetChip(sameField(days, WEEKDAYS))}>
+          Weekdays
+        </button>
+        <button type="button" onClick={() => onPatch({ days: [...WEEKEND] })} className={presetChip(sameField(days, WEEKEND))}>
+          Weekend
+        </button>
+        <button type="button" onClick={() => onPatch({ days: [...ALL_DAYS] })} className={presetChip(allDays)}>
+          Every day
+        </button>
+      </div>
+
+      <div className="flex items-baseline justify-between gap-3 mt-5">
+        <span className="text-[13.5px] font-medium text-foreground">Hours</span>
+        <span className="font-mono text-sm text-gold-300">{hourLabel}</span>
+      </div>
+      <HoursTrack wins={wins} onChange={(w) => onPatch({ wins: w })} />
+
+      <div className="flex flex-wrap gap-1.5 mt-3">
+        {wins.map(([s, e], i) => (
+          <div key={i} className="flex items-center gap-2.5 pl-3 pr-2 py-2 rounded-md bg-gold/[0.07] border border-gold/15">
+            <div>
+              <div className="font-mono text-[9.5px] uppercase tracking-[0.1em] text-muted-foreground/75">
+                {wins.length === 1 ? "Window" : `${WINDOW_NAMES[i] ?? i + 1} window`}
+              </div>
+              <div className="font-mono text-[13px] text-foreground/80 mt-0.5">
+                {padHour(s)}:00 – {padHour(e)}:00
+              </div>
+              {localOffsetMin() !== 0 && !(s === 0 && e === 24) && (
+                <div className="font-mono text-[10px] text-muted-foreground/60 mt-0.5">
+                  {localHourLabel(s)} – {localHourLabel(e)} local
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              aria-label="Remove window"
+              disabled={wins.length === 1}
+              onClick={() => onPatch({ wins: wins.filter((_, j) => j !== i) })}
+              className={clsx(
+                "w-[22px] h-[22px] shrink-0 flex items-center justify-center rounded-md bg-foreground/[0.05] text-muted-foreground",
+                wins.length > 1 ? "cursor-pointer hover:text-foreground" : "opacity-25 cursor-default"
+              )}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          disabled={!canAdd}
+          onClick={addWindow}
+          className={clsx(
+            "self-stretch px-3.5 py-2 rounded-md border border-dashed font-mono text-[10.5px] uppercase tracking-[0.08em] transition-colors",
+            canAdd ? "border-gold/35 text-gold cursor-pointer hover:bg-gold/[0.06]" : "border-border text-muted-foreground/40 cursor-default"
+          )}
+        >
+          + Add window
+        </button>
+      </div>
+
+      <p className="text-[11.5px] text-muted-foreground/70 leading-relaxed mt-3">
+        {anyTime
+          ? "No window set — any day, any hour is treated as normal."
+          : `${wins.length > 1 ? "Gaps between windows count as off-hours. " : ""}Transactions outside ${scope} score extra risk. They’re never blocked outright, only pushed up a band.`}
+      </p>
+    </div>
+  );
+}
+
 /** Compact mono value chip for the summary row ("tx $2.5k"). */
 function ValueChip({ prefix, children, className }: { prefix?: string; children: React.ReactNode; className?: string }) {
   return (
@@ -286,9 +596,10 @@ interface LimitsForm {
   block: number;
   unknown: ScreeningLimits["unknownRecipientAction"];
   learning: boolean;
-  /** Allowed UTC hours/days — empty means "any". */
-  hours: number[];
+  /** Selected UTC days — all seven means "any day". */
   days: number[];
+  /** Allowed UTC hour windows — a single [0, 24] means "all day". */
+  wins: HourWindow[];
 }
 
 function toForm(l: ScreeningLimits): LimitsForm {
@@ -302,8 +613,8 @@ function toForm(l: ScreeningLimits): LimitsForm {
     block: l.riskThresholdBlock,
     unknown: l.unknownRecipientAction,
     learning: l.learningEnabled,
-    hours: [...l.allowedHoursUTC].sort((a, b) => a - b),
-    days: [...l.allowedDaysUTC].sort((a, b) => a - b),
+    days: l.allowedDaysUTC.length ? [...l.allowedDaysUTC].sort((a, b) => a - b) : [...ALL_DAYS],
+    wins: hoursToWins(l.allowedHoursUTC),
   };
 }
 
@@ -402,8 +713,8 @@ export function ScreeningLimitsCard({ safeAddress }: { safeAddress: string }) {
     if (form.block !== baseline.block) body.riskThresholdBlock = form.block;
     if (form.unknown !== baseline.unknown) body.unknownRecipientAction = form.unknown;
     if (form.learning !== baseline.learning) body.learningEnabled = form.learning;
-    if (!sameField(form.hours, baseline.hours)) body.allowedHoursUTC = form.hours;
-    if (!sameField(form.days, baseline.days)) body.allowedDaysUTC = form.days;
+    if (!sameField(form.wins, baseline.wins)) body.allowedHoursUTC = winsToHours(form.wins);
+    if (!sameField(form.days, baseline.days)) body.allowedDaysUTC = form.days.length === 7 ? [] : form.days;
 
     setSaving(true);
     setError(null);
@@ -436,7 +747,8 @@ export function ScreeningLimitsCard({ safeAddress }: { safeAddress: string }) {
       (k) => JSON.stringify(limits[k]) === JSON.stringify(defaults[k])
     );
 
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const savedWins = hoursToWins(limits.allowedHoursUTC);
+  const savedDays = [...limits.allowedDaysUTC].sort((a, b) => a - b);
 
   return (
     <div className="rounded-md bg-card overflow-hidden shadow-[0_20px_50px_-38px_rgba(0,0,0,0.7)]">
@@ -464,13 +776,26 @@ export function ScreeningLimitsCard({ safeAddress }: { safeAddress: string }) {
             <ValueChip prefix="tx">{money(baseline.single)}</ValueChip>
             <ValueChip prefix="day">{money(baseline.daily)}</ValueChip>
             <ValueChip className={modeChipClass}>{mode}</ValueChip>
-            {limits.allowedHoursUTC.length > 0 && (
+            {!isAllDay(savedWins) && (
               <ValueChip prefix="hrs">
-                {Math.min(...limits.allowedHoursUTC)}:00–{Math.max(...limits.allowedHoursUTC)}:00 UTC
+                {savedWins.length > 1
+                  ? `${savedWins.length} windows`
+                  : `${padHour(savedWins[0][0])}–${padHour(savedWins[0][1])} UTC`}
               </ValueChip>
             )}
-            {limits.allowedDaysUTC.length > 0 && (
-              <ValueChip prefix="days">{limits.allowedDaysUTC.map((d) => dayNames[d]).join(" ")}</ValueChip>
+            {!isAllDay(savedWins) && savedWins.length === 1 && localOffsetMin() !== 0 && (
+              <ValueChip prefix="local">
+                {localHourLabel(savedWins[0][0])}–{localHourLabel(savedWins[0][1])}
+              </ValueChip>
+            )}
+            {savedDays.length > 0 && savedDays.length < 7 && (
+              <ValueChip prefix="days">
+                {sameField(savedDays, WEEKDAYS)
+                  ? "Weekdays"
+                  : sameField(savedDays, WEEKEND)
+                    ? "Weekend"
+                    : savedDays.map((d) => DAY_NAMES[d]).join(" ")}
+              </ValueChip>
             )}
           </div>
         </div>
@@ -601,51 +926,8 @@ export function ScreeningLimitsCard({ safeAddress }: { safeAddress: string }) {
               </div>
             </div>
 
-            {/* Active hours/days — empty selection = no restriction */}
-            <div className="mt-5 pt-5 border-t border-border">
-              <SectionRule label="Active hours" />
-              <div className="flex gap-1.5 mt-3.5">
-                {dayNames.map((name, day) => (
-                  <button
-                    key={name}
-                    type="button"
-                    aria-pressed={form.days.includes(day)}
-                    onClick={() => patch({ days: toggleIn(form.days, day) })}
-                    className={clsx(
-                      "flex-1 py-1.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer",
-                      form.days.includes(day)
-                        ? "bg-gold/[0.18] text-gold-400"
-                        : "bg-foreground/[0.05] text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-8 gap-1 mt-2">
-                {Array.from({ length: 24 }, (_, hour) => (
-                  <button
-                    key={hour}
-                    type="button"
-                    aria-pressed={form.hours.includes(hour)}
-                    aria-label={`${hour}:00 UTC`}
-                    onClick={() => patch({ hours: toggleIn(form.hours, hour) })}
-                    className={clsx(
-                      "py-1 rounded-md font-mono text-[10.5px] transition-colors cursor-pointer",
-                      form.hours.includes(hour)
-                        ? "bg-gold/[0.18] text-gold-400"
-                        : "bg-foreground/[0.05] text-muted-foreground/80 hover:text-foreground"
-                    )}
-                  >
-                    {hour}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[11.5px] text-muted-foreground/70 leading-relaxed mt-2.5">
-                Transactions outside these UTC hours and days score extra risk.
-                Nothing selected means any time is fine.
-              </p>
-            </div>
+            {/* When you normally trade — day pills + hour windows */}
+            <TradingWindow days={form.days} wins={form.wins} onPatch={(p) => patch(p)} />
 
             {/* Unknown recipient + learning */}
             <div className="mt-5 pt-5 border-t border-border">

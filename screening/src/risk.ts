@@ -124,6 +124,49 @@ export interface RiskResult {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Reason formatting — reasons surface verbatim in the app and in
+// Telegram, so they speak the UI's language: hour/day WINDOWS
+// ("6:00–20:00 UTC", "Mon–Fri") instead of raw unsorted lists, and
+// thousands-separated amounts. Hand-rolled (no toLocaleString) so
+// identical inputs replay to byte-identical reasons on any runtime.
+// ─────────────────────────────────────────────────────────────
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** "$100,252.61" / "$100,000" — trailing ".00" dropped. */
+function fmtUsd(n: number): string {
+  const [int, frac] = Math.abs(n).toFixed(2).split(".");
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${n < 0 ? "-" : ""}$${grouped}${frac === "00" ? "" : `.${frac}`}`;
+}
+
+/** Collapse sorted-deduped values into contiguous runs: [[6,20],[23,23]]. */
+function runsOf(values: number[]): Array<[number, number]> {
+  const sorted = [...new Set(values)].sort((a, b) => a - b);
+  const runs: Array<[number, number]> = [];
+  for (const v of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && v === last[1] + 1) last[1] = v;
+    else runs.push([v, v]);
+  }
+  return runs;
+}
+
+/** [11,7,6,8,…] → "3:00–9:00, 11:00–19:00". */
+function fmtHourWindows(hours: number[]): string {
+  return runsOf(hours)
+    .map(([a, b]) => (a === b ? `${a}:00` : `${a}:00–${b}:00`))
+    .join(", ");
+}
+
+/** [1,2,3,4,5] → "Mon–Fri"; [0,6] → "Sun, Sat". */
+function fmtDayWindows(days: number[]): string {
+  return runsOf(days)
+    .map(([a, b]) => (a === b ? DAY_NAMES[a] : `${DAY_NAMES[a]}–${DAY_NAMES[b]}`))
+    .join(", ");
+}
+
+// ─────────────────────────────────────────────────────────────
 // analyzeRisk — stateless, pure function
 // Evaluates all pattern dimensions and returns a scored verdict.
 // ─────────────────────────────────────────────────────────────
@@ -224,7 +267,7 @@ export function analyzeRisk(
       riskScore += 40;
     }
     // "approve" = no extra score
-    reasons.push(`Unknown recipient (first time seen) — policy: ${action}`);
+    reasons.push(`Unknown recipient — first payment to this address (your policy: ${action})`);
   } else {
     if (recipient.trustLevel === "blocked") {
       riskScore += 100;
@@ -243,12 +286,12 @@ export function analyzeRisk(
     if (avg > 0 && amount > avg + stddev * 3) {
       riskScore += 25;
       reasons.push(
-        `Amount $${amount.toFixed(2)} is far above the usual range for this recipient (avg $${avg}, σ ${stddev.toFixed(2)})`
+        `Amount ${fmtUsd(amount)} is far above the usual range for this recipient (average ${fmtUsd(avg)})`
       );
     } else if (avg > 0 && amount > avg * 3) {
       riskScore += 15;
       reasons.push(
-        `Amount $${amount.toFixed(2)} is ${(amount / avg).toFixed(1)}× the average ($${avg})`
+        `Amount ${fmtUsd(amount)} is ${(amount / avg).toFixed(1)}× this recipient's average of ${fmtUsd(avg)}`
       );
     }
 
@@ -256,7 +299,7 @@ export function analyzeRisk(
     if (recipient.typicalHoursUtc.length > 0 && !recipient.typicalHoursUtc.includes(hourUtc)) {
       riskScore += 10;
       reasons.push(
-        `This recipient is not typically paid at ${hourUtc}:00 UTC (usual hours: ${recipient.typicalHoursUtc.join(", ")})`
+        `Unusual time for this recipient — payments usually go out ${fmtHourWindows(recipient.typicalHoursUtc)} UTC, not at ${hourUtc}:00`
       );
     }
   }
@@ -268,46 +311,57 @@ export function analyzeRisk(
   if (timeSlot?.isAllowed === false) {
     // Explicitly blocked slot
     riskScore += 30;
-    reasons.push(`Time slot ${hourUtc}:00 UTC on day ${dayOfWeek} is explicitly blocked`);
+    reasons.push(`${DAY_NAMES[dayOfWeek]} ${hourUtc}:00 UTC is a blocked time slot in your schedule`);
   } else if (limits.allowedHoursUTC.length > 0 && !limits.allowedHoursUTC.includes(hourUtc)) {
     riskScore += 20;
-    reasons.push(`Current time ${hourUtc}:00 UTC is outside allowed business hours`);
+    reasons.push(
+      `Outside your active hours — it's ${hourUtc}:00 UTC, allowed window is ${fmtHourWindows(limits.allowedHoursUTC)} UTC`
+    );
   } else if (limits.allowedDaysUTC.length > 0 && !limits.allowedDaysUTC.includes(dayOfWeek)) {
     riskScore += 20;
-    reasons.push(`Today (day ${dayOfWeek}) is outside allowed business days`);
+    reasons.push(
+      `Outside your active days — today is ${DAY_NAMES[dayOfWeek]}, allowed days are ${fmtDayWindows(limits.allowedDaysUTC)}`
+    );
   }
 
   // ── 3. Single-tx amount limit ─────────────────────────────
-  if (amount > parseFloat(limits.maxSingleTx)) {
+  const maxSingleTx = parseFloat(limits.maxSingleTx);
+  if (amount > maxSingleTx) {
     riskScore += 30;
-    reasons.push(`Amount $${amount.toFixed(2)} exceeds single-tx limit of $${limits.maxSingleTx}`);
+    reasons.push(
+      `Amount ${fmtUsd(amount)} is over your ${fmtUsd(maxSingleTx)} single-transaction limit`
+    );
   }
+
+  // Velocity limits: "already over" reads honestly when the window is spent
+  // before this transaction adds anything (the +$0.00 case).
+  const velocityReason = (window: string, used: number, limit: number): string =>
+    used >= limit
+      ? `${window} volume is already over the limit — ${fmtUsd(used)} sent against ${fmtUsd(limit)}`
+      : `Would exceed the ${window.toLowerCase()} volume limit — ${fmtUsd(used)} already sent, this adds ${fmtUsd(amount)} (limit ${fmtUsd(limit)})`;
 
   // ── 4. Velocity: daily volume ─────────────────────────────
   const dailyVolumeUsed = parseFloat(patterns.velocity.daily?.totalVolume ?? "0");
-  if (dailyVolumeUsed + amount > parseFloat(limits.maxDailyVolume)) {
+  const maxDailyVolume = parseFloat(limits.maxDailyVolume);
+  if (dailyVolumeUsed + amount > maxDailyVolume) {
     riskScore += 20;
-    reasons.push(
-      `Would exceed daily volume limit ($${dailyVolumeUsed.toFixed(2)} + $${amount.toFixed(2)} > $${limits.maxDailyVolume})`
-    );
+    reasons.push(velocityReason("Today's", dailyVolumeUsed, maxDailyVolume));
   }
 
   // ── 5. Velocity: hourly volume ────────────────────────────
   const hourlyVolumeUsed = parseFloat(patterns.velocity.hourly?.totalVolume ?? "0");
-  if (hourlyVolumeUsed + amount > parseFloat(limits.maxHourlyVolume)) {
+  const maxHourlyVolume = parseFloat(limits.maxHourlyVolume);
+  if (hourlyVolumeUsed + amount > maxHourlyVolume) {
     riskScore += 15;
-    reasons.push(
-      `Would exceed hourly volume limit ($${hourlyVolumeUsed.toFixed(2)} + $${amount.toFixed(2)} > $${limits.maxHourlyVolume})`
-    );
+    reasons.push(velocityReason("This hour's", hourlyVolumeUsed, maxHourlyVolume));
   }
 
   // ── 6. Velocity: weekly volume ────────────────────────────
   const weeklyVolumeUsed = parseFloat(patterns.velocity.weekly?.totalVolume ?? "0");
-  if (weeklyVolumeUsed + amount > parseFloat(limits.maxWeeklyVolume)) {
+  const maxWeeklyVolume = parseFloat(limits.maxWeeklyVolume);
+  if (weeklyVolumeUsed + amount > maxWeeklyVolume) {
     riskScore += 10;
-    reasons.push(
-      `Would exceed weekly volume limit ($${weeklyVolumeUsed.toFixed(2)} + $${amount.toFixed(2)} > $${limits.maxWeeklyVolume})`
-    );
+    reasons.push(velocityReason("This week's", weeklyVolumeUsed, maxWeeklyVolume));
   }
 
   // ── 7. Daily tx count limit ───────────────────────────────
@@ -315,7 +369,7 @@ export function analyzeRisk(
   if (dailyTxCount >= limits.maxDailyTxCount) {
     riskScore += 15;
     reasons.push(
-      `Daily transaction count limit reached (${dailyTxCount} / ${limits.maxDailyTxCount})`
+      `Daily transaction limit reached — ${dailyTxCount} of ${limits.maxDailyTxCount} today`
     );
   }
 

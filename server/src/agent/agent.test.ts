@@ -105,6 +105,24 @@ describe("agent domain — Tier 1 evaluation", () => {
     expect(outOfHours.riskScore).toBeGreaterThan(inHours.riskScore);
   });
 
+  it("reasons speak in windows and formatted amounts, not raw lists (#144 UI)", () => {
+    const snapshot: PatternsFile = structuredClone(SNAPSHOT);
+    // Unsorted learned hours collapse into sorted contiguous windows.
+    snapshot.recipients["0x1111111111111111111111111111111111111111"].typicalHoursUtc =
+      [11, 7, 6, 8, 14, 13, 15, 16, 17, 4, 3, 5, 18, 9, 12, 19];
+    snapshot.globalLimits.allowedHoursUTC = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+    // Weekly window already spent before this tx adds anything.
+    snapshot.velocity.weekly = { txCount: 3, totalVolume: "100252.61" };
+    snapshot.globalLimits.maxWeeklyVolume = "100000";
+
+    const result = evaluateTransaction(TX, snapshot, REAL_DECODED, new Date("2026-08-06T22:30:00Z"));
+    const text = result.reasons.join("\n");
+    // The screenshot's unsorted list omits hour 10 — two windows, not one.
+    expect(text).toContain("payments usually go out 3:00–9:00, 11:00–19:00 UTC, not at 22:00");
+    expect(text).toContain("allowed window is 6:00–20:00 UTC");
+    expect(text).toContain("This week's volume is already over the limit — $100,252.61 sent against $100,000");
+  });
+
   it("does not mutate the policy snapshot or the transaction", () => {
     const snapshotCopy = structuredClone(SNAPSHOT);
     const txCopy = structuredClone(TX);
