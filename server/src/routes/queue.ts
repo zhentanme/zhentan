@@ -204,20 +204,24 @@ export function createQueueRouter(): IRouter {
 
       // Server-side canonical pricing (#144 follow-up): the engine scores in
       // dollars, and the client's amountUSD is a single-factor claim — a
-      // compromised session could label a drain "$0.01". Price from the
-      // Safe's own portfolio BEFORE the row is stored (the screen job
-      // payload carries it); when the server can price, its value WINS.
-      // Unpriceable + no client value ⇒ the engine's unknown-value signal
-      // forces at least REVIEW.
+      // compromised session could label a drain "$0.01". ONLY a
+      // server-derived value may reach screening: the client's claim is
+      // discarded unconditionally, and when the server can't price (outage,
+      // missing position, unsupported token) amountUSD stays unset so the
+      // engine's unknown-value floor forces at least REVIEW — otherwise the
+      // pricing-gap window would be exactly where an understated claim
+      // slips through. Priced BEFORE the row is stored so the screen-job
+      // payload carries it.
       try {
         const serverUsd = await priceTransferUsd(
           pendingTx.safeAddress,
           pendingTx.tokenAddress ?? null,
           pendingTx.amount
         );
-        if (serverUsd !== null) pendingTx.amountUSD = serverUsd;
+        pendingTx.amountUSD = serverUsd ?? undefined;
       } catch (err) {
-        console.error("Proposal pricing failed (screening will treat value per stored amountUSD):", err);
+        pendingTx.amountUSD = undefined;
+        console.error("Proposal pricing failed — screening treats the value as unknown:", err);
       }
 
       try {
