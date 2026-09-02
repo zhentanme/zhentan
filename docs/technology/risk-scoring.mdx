@@ -1,50 +1,150 @@
 ---
 title: Risk Scoring
-description: How every transaction is scored 0–100 against learned behavioral patterns.
+description: How every transaction is scored 0–100, every signal and weight, the limits you control, and how configuration changes are confirmed.
 ---
 
 ## Overview
 
-Every transaction is scored against your behavioral profile by a deterministic risk engine — no LLM in the verdict path. The engine lives in a shared package (`zhentan-screening`) and **runs inside the [agent runtime](/technology/architecture#agent-runtime)**: the server assembles your behavioral snapshot and sends it with the transaction as a screening job; the runtime computes the verdict, records it in its own decision log (the record its signing authority later verifies against), and returns it. With the runtime co-located this completes in milliseconds — the propose response is still synchronous.
+Every transaction is scored by a **deterministic risk engine** — no LLM in the verdict path. The engine is a pure function: the same transaction, the same behavioral snapshot, and the same timestamp always produce the same score, verdict, and reasons, on any machine. It lives in a shared package (`zhentan-screening`) and **runs inside the [agent runtime](/technology/architecture#agent-runtime)** — the same service that holds the signing key, which is why an unscreened transaction can never be signed.
 
-## Scoring Factors
+The flow: the server assembles your behavioral snapshot (learned patterns + your limits + your rules), attaches it to the transaction as a screening job, and the runtime computes the verdict. With the runtime co-located this completes in milliseconds — the propose response is still synchronous.
 
-| Factor | Weight |
-|--------|--------|
-| Unknown recipient (not in patterns) | +40 |
-| Exceeds single-tx limit (default 5,000 USDC) | +30 |
-| Amount > 3× average for known recipient | +25 |
-| Would exceed daily volume limit (default 20,000 USDC) | +20 |
-| Outside business hours (UTC 06:00–20:00) | +20 |
+## How a score is built
 
-## Score Thresholds
+A score starts at **0** and signals add (or subtract) points. The total is clamped to 0–100 and mapped through your thresholds:
 
 | Score | Verdict | What happens |
 |-------|---------|--------------|
-| **< 40** | APPROVE | The runtime signs, the sponsor EOA relays the SafeTx on-chain immediately. Patterns recorded asynchronously. |
-| **40–70** | REVIEW | Agent runs deep analysis (GoPlus + Honeypot.is), sends Telegram notification with [Approve] [Reject] buttons. |
-| **> 70** | BLOCK | Transaction rejected. User receives a Telegram alert. |
+| below your **approve threshold** (default 40) | **APPROVE** | The runtime signs, the sponsor relays the SafeTx on-chain immediately. |
+| below your **block threshold** (default 70) | **REVIEW** | The agent runs deep analysis and asks you on Telegram with the full signal list. |
+| at or above the block threshold | **BLOCK** | Rejected outright, with a Telegram alert explaining why. |
 
-## Deep Analysis
+Both thresholds are yours to tune per wallet — with one guardrail: the approve threshold is **capped at 40** server-side, so the signals below that carry 40+ points can never be configured into auto-approving.
 
-For REVIEW-tier transactions, the agent automatically calls:
+## Every scoring signal
 
-- **GoPlus Security API** — recipient address reputation, sanctions lists, phishing and known scam detection
-- **Honeypot.is** — token security: honeypot detection, mintable supply, buy/sell tax rates
+### Recipient
 
-The full report is delivered to Telegram before the user decides.
+| Signal | Points |
+|--------|--------|
+| Recipient is explicitly **blocked** | +100 (and a hard BLOCK — see [floors](#hard-floors)) |
+| Recipient is flagged **suspicious** | +30 |
+| Recipient is **trusted** | −15 |
+| **Unknown recipient** (first payment to this address) | your policy: `approve` +0 · `review` +40 (default) · `block` +70 |
+| Amount is **3+ standard deviations** above this recipient's average | +25 |
+| Amount is **3× or more** this recipient's average | +15 |
+| Unusual hour for this recipient (outside their learned payment windows) | +10 |
 
-## Learned Patterns
+### Time windows
 
-Patterns are stored in the database and updated after every confirmed transaction:
+| Signal | Points |
+|--------|--------|
+| The exact hour+day slot is explicitly blocked in your schedule | +30 |
+| Outside your **active hours** (default 6:00–20:00 UTC) | +20 |
+| Outside your **active days** (default Mon–Fri) | +20 |
 
-- Known recipient addresses and their typical amounts
-- Time-of-day activity windows
-- Per-transaction and daily volume limits
-- Token categories
+Hour and day checks are independent — a Sunday 3 AM transaction collects both.
 
-The profile improves continuously — no manual configuration needed.
+### Limits and velocity
 
-## Auditability
+| Signal | Points |
+|--------|--------|
+| Over your **single-transaction limit** (default $5,000) | +30 |
+| Would exceed **today's volume limit** (default $20,000) | +20 |
+| Would exceed **this hour's volume limit** (default $10,000) | +15 |
+| Would exceed **this week's volume limit** (default $100,000) | +10 |
+| **Daily transaction count** reached (default 50/day) | +15 |
 
-Risk scores, verdicts, and reasons are stored on each `PendingTransaction` object. Every decision is traceable.
+### Token and behavior
+
+| Signal | Points |
+|--------|--------|
+| Token never used before (fewer than 3 past transactions) | +10 |
+| Over half of today's transactions were rejected (3+ so far) | +10 |
+| **Transfer value unknown** — no trustworthy USD price for the token | +40 (and never auto-approves — see [floors](#hard-floors)) |
+
+### Swaps, approvals, and wallet changes
+
+Swaps and token approvals have no payment recipient (the target is a router or token contract), so recipient signals are skipped and kind-specific ones apply instead:
+
+| Signal | Points |
+|--------|--------|
+| Swap routed through an **unrecognized router** | +50 |
+| Swap grants an **unlimited approval** to the router | +30 |
+| Swap approves more than the sell amount | +15 |
+| Standalone **unlimited token approval** | +40 |
+| Standalone limited token approval | +15 |
+| **Validated wallet-profile transition** (add backup key, activate protection…) | 0 — auto-approves; the server hard-validated the owner change |
+| Any **other owner/configuration change** | fixed 40 — and never auto-approves |
+
+### Your custom rules
+
+Rules you set with the agent (amount caps per token, address blocks/allows, time restrictions) each add their own configured delta — positive or negative — when they match.
+
+## Hard floors
+
+Scores are arithmetic, and arithmetic can be gamed — a generous rule delta or a loose threshold could otherwise cancel a serious signal. Three outcomes are therefore enforced on the **verdict itself**, after all math, and no configuration can relax them:
+
+1. **A blocked recipient always BLOCKs** — even if rule deltas drag the score to 0.
+2. **An unvalidated owner/configuration change never auto-approves** — rewriting who controls the wallet always gets a human look.
+3. **A transfer with unknown USD value never auto-approves** — if the dollar checks couldn't run, a human (or your Telegram confirmation) must.
+
+## Dollars, not tokens
+
+The engine scores **USD value, never raw token amounts** — 0.5 BNB is not "$0.50". The server prices every transaction at intake from your wallet's own portfolio data, before screening runs; a value claimed by the app is never trusted. If no reliable price exists (unsupported token, pricing outage), the value is treated as *unknown* and the transaction lands in at least REVIEW — pricing gaps degrade to over-review, never under-review.
+
+## Deep analysis on REVIEW
+
+For REVIEW-tier transactions the conversational agent adds context the engine can't see:
+
+- **GoPlus Security** — recipient reputation, sanctions, phishing and scam detection
+- **Honeypot.is** — token security: honeypot detection, mintable supply, buy/sell taxes
+
+The agent's assessment can **raise** the engine's score, never lower or replace it — the deterministic engine always wins on its own turf.
+
+## Your configuration
+
+All limits are **per wallet**, with sensible defaults until you change them:
+
+| Setting | Default | What it does |
+|---------|---------|--------------|
+| Single-transaction limit | $5,000 | +30 above this |
+| Hourly volume | $10,000 | +15 when the hour's total would exceed it |
+| Daily volume | $20,000 | +20 when today's total would exceed it |
+| Weekly volume | $100,000 | +10 when the week's total would exceed it |
+| Daily transaction count | 50 | +15 at the cap |
+| Active hours | 6:00–20:00 UTC | +20 outside; empty = any time |
+| Active days | Mon–Fri | +20 outside; empty = any day |
+| Unknown recipient | review | +0 / +40 / +70 for approve / review / block |
+| Approve threshold | 40 (max 40) | below = auto-approve |
+| Block threshold | 70 | at or above = block |
+| Pattern learning | on | pause behavioral learning |
+
+## Changing configuration — the proposal flow
+
+Your screening policy is what the agent enforces, so **the app alone can never loosen it** — a compromised browser session must not be able to raise your limits and then drain past them. Configuration writes are agent-only, and the app's role is to *propose*:
+
+1. **Edit in the app** — Settings → Screening limits: sliders for the ceilings, a two-handle risk band for the thresholds, chips for active hours/days, plus a reset-to-defaults.
+2. **Saving files a proposal** — nothing applies yet. One proposal can be pending per wallet, and it **expires in 15 minutes** if unconfirmed.
+3. **Confirm on Telegram** — your agent shows the exact old → new diff and asks. Telegram is a different device and session from the web login: that's the second factor. There is no email fallback and nothing auto-applies on a timer — no positive confirmation, no change.
+4. **Applied atomically** — confirmation, the settings write, and the audit record commit together; you get an "applied" message with the diff, and any transaction mid-screening is automatically re-scored under the new policy.
+
+Two shortcuts that skip the proposal, safely:
+
+- **Asking the agent directly in Telegram** ("raise my daily limit to $50k") applies immediately — the chat itself is the trusted channel.
+- **The screening on/off toggle** stays directly controllable in the app: turning screening *off* doesn't weaken the agent — it removes the agent's signature entirely, so your own two keys are required instead.
+
+<Note>
+A proposal you didn't make is a red flag. The agent will refuse to confirm anything you didn't ask for — if one appears, reject it and treat your web session as possibly compromised.
+</Note>
+
+## Learning over time
+
+After every executed transaction the engine's baselines update: recipient averages and typical payment hours, per-token familiarity, hour×day activity windows, and the rolling volume counters. Two properties keep this trustworthy:
+
+- **Only USD-priced amounts enter the dollar baselines** — an unpriced execution still counts, but can't distort your averages with token units.
+- Learning is **pausable** (the `learning` setting) and rejections never teach the profile that a pattern is normal.
+
+## Auditability and replay
+
+Every verdict is stored on the transaction with its score and full reason list, every applied configuration change lands in the behavioral event log with its old → new diff, and the runtime keeps its own append-only decision record. Because the engine is deterministic and the evaluation timestamp is an explicit input, any historical decision can be replayed bit-for-bit from its stored inputs. Decisions are also **version-bound**: if anything that influenced a verdict changes — the payload, a signature, your limits, even the USD price — the transaction's version bumps and any in-flight decision is invalidated and recomputed.
