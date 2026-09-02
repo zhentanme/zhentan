@@ -31,6 +31,7 @@ import { finalizeDraft } from "./finalizeDraft.js";
 import { isSafeDeployed } from "./deploy.js";
 import { getAgentAddress } from "./relayer.js";
 import { getUserDetails, createTransaction } from "../supabase/index.js";
+import { priceTransferUsd } from "../screening/pricing.js";
 import type { PendingTransaction, RequestKind } from "../../types.js";
 
 export interface AgentProposeInput {
@@ -72,6 +73,17 @@ export async function agentProposeFromRequest(
         ? record.safe_owners
         : [embedded, getAgentAddress()];
 
+    // Server-side canonical pricing (#144 follow-up): agent-built drafts
+    // never carried a USD value, so downstream screening fell back to token
+    // units. Price from the Safe's portfolio; unpriceable stays undefined
+    // and the engine treats the value as unknown (≥ REVIEW).
+    const amountUSD =
+      (await priceTransferUsd(
+        safeAddress,
+        built.display.tokenAddress ?? null,
+        built.display.amount
+      ).catch(() => null)) ?? undefined;
+
     const txId = `tx-${randomUUID().slice(0, 8)}`;
     const tx: PendingTransaction = {
       id: txId,
@@ -79,6 +91,7 @@ export async function agentProposeFromRequest(
       draft: true,
       to: built.display.to,
       amount: built.display.amount,
+      amountUSD,
       token: built.display.token,
       tokenAddress: built.display.tokenAddress,
       ...(built.display.toTokenAddress && { toTokenAddress: built.display.toTokenAddress }),

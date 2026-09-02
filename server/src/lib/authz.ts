@@ -34,6 +34,23 @@ export function sameAddress(a: string | null | undefined, b: string | null | und
 }
 
 /**
+ * Screening policy is agent-only (#144): the signing path is two-factor, so
+ * the policy the agent enforces must not be writable by the single-factor
+ * client session — a compromised Privy session could otherwise loosen
+ * thresholds or plant negative-delta rules and turn the co-signer into a
+ * rubber stamp. Mutations to settings/limits/rules pass through here; the
+ * client proposes via the (#144 Phase 1) proposal flow instead.
+ */
+export function requireAgentPrincipal(req: Request, res: Response): boolean {
+  if (req.principalKind === "agent") return true;
+  res.status(403).json({
+    error:
+      "Screening settings are managed by your Zhentan agent — ask it in chat to make this change.",
+  });
+  return false;
+}
+
+/**
  * The caller's Safe, or 403. Use on any route that reads or writes Safe-scoped
  * state without naming a target (the target IS the caller's Safe).
  */

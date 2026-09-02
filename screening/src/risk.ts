@@ -124,6 +124,49 @@ export interface RiskResult {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Reason formatting — reasons surface verbatim in the app and in
+// Telegram, so they speak the UI's language: hour/day WINDOWS
+// ("6:00–20:00 UTC", "Mon–Fri") instead of raw unsorted lists, and
+// thousands-separated amounts. Hand-rolled (no toLocaleString) so
+// identical inputs replay to byte-identical reasons on any runtime.
+// ─────────────────────────────────────────────────────────────
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** "$100,252.61" / "$100,000" — trailing ".00" dropped. */
+function fmtUsd(n: number): string {
+  const [int, frac] = Math.abs(n).toFixed(2).split(".");
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return `${n < 0 ? "-" : ""}$${grouped}${frac === "00" ? "" : `.${frac}`}`;
+}
+
+/** Collapse sorted-deduped values into contiguous runs: [[6,20],[23,23]]. */
+function runsOf(values: number[]): Array<[number, number]> {
+  const sorted = [...new Set(values)].sort((a, b) => a - b);
+  const runs: Array<[number, number]> = [];
+  for (const v of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && v === last[1] + 1) last[1] = v;
+    else runs.push([v, v]);
+  }
+  return runs;
+}
+
+/** [11,7,6,8,…] → "3:00–9:00, 11:00–19:00". */
+function fmtHourWindows(hours: number[]): string {
+  return runsOf(hours)
+    .map(([a, b]) => (a === b ? `${a}:00` : `${a}:00–${b}:00`))
+    .join(", ");
+}
+
+/** [1,2,3,4,5] → "Mon–Fri"; [0,6] → "Sun, Sat". */
+function fmtDayWindows(days: number[]): string {
+  return runsOf(days)
+    .map(([a, b]) => (a === b ? DAY_NAMES[a] : `${DAY_NAMES[a]}–${DAY_NAMES[b]}`))
+    .join(", ");
+}
+
+// ─────────────────────────────────────────────────────────────
 // analyzeRisk — stateless, pure function
 // Evaluates all pattern dimensions and returns a scored verdict.
 // ─────────────────────────────────────────────────────────────
@@ -138,7 +181,12 @@ export function analyzeRisk(
   const reasons: string[] = [];
   const triggeredRules: string[] = [];
 
-  const amount = parseFloat(tx.amountUSD ?? tx.amount);
+  // The engine scores in DOLLARS. amountUSD is priced server-side at intake;
+  // when it's absent the value is UNKNOWN — never fall back to raw token
+  // units (0.5 BNB is not $0.50): dollar-denominated checks are skipped and
+  // an explicit unknown-value signal scores instead (below).
+  const hasUsdValue = tx.amountUSD != null && Number.isFinite(parseFloat(tx.amountUSD));
+  const amount = hasUsdValue ? parseFloat(tx.amountUSD as string) : NaN;
   const limits = patterns.globalLimits;
   const now = evaluatedAt;
   const hourUtc = now.getUTCHours();
@@ -151,8 +199,9 @@ export function analyzeRisk(
   // (scoring them made every profile transition a REVIEW-40 "unknown
   // recipient"). A transition the backend VALIDATED (whitelisted calls,
   // managed end state) auto-approves deterministically; any other config
-  // self-call scores a fixed 40 with an honest reason and maps through the
-  // user's own thresholds.
+  // self-call scores a fixed 40 and NEVER auto-approves — thresholds are
+  // user-writable policy, and an unvalidated owner change is the one
+  // transaction that permanently rewrites who controls the Safe (#144).
   if (decoded?.kind === "config") {
     if (decoded.transition?.validated) {
       return {
@@ -167,12 +216,7 @@ export function analyzeRisk(
     const configScore = 40;
     return {
       riskScore: configScore,
-      verdict:
-        configScore < limits.riskThresholdApprove
-          ? "APPROVE"
-          : configScore < limits.riskThresholdBlock
-            ? "REVIEW"
-            : "BLOCK",
+      verdict: configScore < limits.riskThresholdBlock ? "REVIEW" : "BLOCK",
       reasons: ["Owner/configuration change on this Safe — not a recognized profile transition"],
       triggeredRules: [],
     };
@@ -184,6 +228,21 @@ export function analyzeRisk(
   // the verdict). Amount limits, velocity and time checks below still apply.
   const isSwap = decoded?.kind === "swap";
   const isApproval = decoded?.kind === "approval";
+
+  // ── Unknown value (#144 follow-up) ────────────────────────
+  // Value-bearing kinds with no USD price can't be held against ANY dollar
+  // limit — the exact false-negative an agent-queued 0.5 BNB "$0.50" hid.
+  // +40 makes the gap visible in the score; the GUARANTEE (never
+  // auto-approve) is a verdict floor below, because trusted-recipient −15
+  // or a negative rule delta could otherwise launder the penalty back
+  // under the approve threshold. Approvals move no value; config never
+  // reaches here.
+  if (!hasUsdValue && !isApproval) {
+    riskScore += 40;
+    reasons.push(
+      `Transfer value unknown — no USD price for ${tx.token || "this token"}, so your dollar ceilings can't be checked`
+    );
+  }
 
   if (decoded?.kind === "swap") {
     if (decoded.routerName === null) {
@@ -228,7 +287,7 @@ export function analyzeRisk(
       riskScore += 40;
     }
     // "approve" = no extra score
-    reasons.push(`Unknown recipient (first time seen) — policy: ${action}`);
+    reasons.push(`Unknown recipient — first payment to this address (your policy: ${action})`);
   } else {
     if (recipient.trustLevel === "blocked") {
       riskScore += 100;
@@ -241,18 +300,19 @@ export function analyzeRisk(
       reasons.push("Recipient is trusted");
     }
 
-    // Amount anomaly: more than 3 standard deviations above average
+    // Amount anomaly: more than 3 standard deviations above average.
+    // Skipped when the value is unknown (the +40 signal covers it).
     const avg = parseFloat(recipient.avgAmount || "0");
     const stddev = parseFloat(recipient.stddevAmount || "0");
-    if (avg > 0 && amount > avg + stddev * 3) {
+    if (hasUsdValue && avg > 0 && amount > avg + stddev * 3) {
       riskScore += 25;
       reasons.push(
-        `Amount $${amount.toFixed(2)} is far above the usual range for this recipient (avg $${avg}, σ ${stddev.toFixed(2)})`
+        `Amount ${fmtUsd(amount)} is far above the usual range for this recipient (average ${fmtUsd(avg)})`
       );
-    } else if (avg > 0 && amount > avg * 3) {
+    } else if (hasUsdValue && avg > 0 && amount > avg * 3) {
       riskScore += 15;
       reasons.push(
-        `Amount $${amount.toFixed(2)} is ${(amount / avg).toFixed(1)}× the average ($${avg})`
+        `Amount ${fmtUsd(amount)} is ${(amount / avg).toFixed(1)}× this recipient's average of ${fmtUsd(avg)}`
       );
     }
 
@@ -260,7 +320,7 @@ export function analyzeRisk(
     if (recipient.typicalHoursUtc.length > 0 && !recipient.typicalHoursUtc.includes(hourUtc)) {
       riskScore += 10;
       reasons.push(
-        `This recipient is not typically paid at ${hourUtc}:00 UTC (usual hours: ${recipient.typicalHoursUtc.join(", ")})`
+        `Unusual time for this recipient — payments usually go out ${fmtHourWindows(recipient.typicalHoursUtc)} UTC, not at ${hourUtc}:00`
       );
     }
   }
@@ -269,49 +329,65 @@ export function analyzeRisk(
   const timeKey = `${hourUtc}:${dayOfWeek}`;
   const timeSlot = patterns.timePatterns[timeKey];
 
+  // Time-of-day: an explicitly blocked slot overrides the generic hour check.
   if (timeSlot?.isAllowed === false) {
-    // Explicitly blocked slot
     riskScore += 30;
-    reasons.push(`Time slot ${hourUtc}:00 UTC on day ${dayOfWeek} is explicitly blocked`);
+    reasons.push(`${DAY_NAMES[dayOfWeek]} ${hourUtc}:00 UTC is a blocked time slot in your schedule`);
   } else if (limits.allowedHoursUTC.length > 0 && !limits.allowedHoursUTC.includes(hourUtc)) {
     riskScore += 20;
-    reasons.push(`Current time ${hourUtc}:00 UTC is outside allowed business hours`);
-  } else if (limits.allowedDaysUTC.length > 0 && !limits.allowedDaysUTC.includes(dayOfWeek)) {
+    reasons.push(
+      `Outside your active hours — it's ${hourUtc}:00 UTC, allowed window is ${fmtHourWindows(limits.allowedHoursUTC)} UTC`
+    );
+  }
+
+  // Day-of-week: INDEPENDENT of the hour check. This used to be the tail of
+  // the else-if chain, so a disabled day was silently swallowed whenever the
+  // hour was also outside the window — no reason, no score.
+  if (limits.allowedDaysUTC.length > 0 && !limits.allowedDaysUTC.includes(dayOfWeek)) {
     riskScore += 20;
-    reasons.push(`Today (day ${dayOfWeek}) is outside allowed business days`);
+    reasons.push(
+      `Outside your active days — today is ${DAY_NAMES[dayOfWeek]}, allowed days are ${fmtDayWindows(limits.allowedDaysUTC)}`
+    );
   }
 
   // ── 3. Single-tx amount limit ─────────────────────────────
-  if (amount > parseFloat(limits.maxSingleTx)) {
+  const maxSingleTx = parseFloat(limits.maxSingleTx);
+  if (hasUsdValue && amount > maxSingleTx) {
     riskScore += 30;
-    reasons.push(`Amount $${amount.toFixed(2)} exceeds single-tx limit of $${limits.maxSingleTx}`);
+    reasons.push(
+      `Amount ${fmtUsd(amount)} is over your ${fmtUsd(maxSingleTx)} single-transaction limit`
+    );
   }
+
+  // Velocity limits: "already over" reads honestly when the window is spent
+  // before this transaction adds anything (the +$0.00 case).
+  const velocityReason = (window: string, used: number, limit: number): string =>
+    used >= limit
+      ? `${window} volume is already over the limit — ${fmtUsd(used)} sent against ${fmtUsd(limit)}`
+      : `Would exceed the ${window.toLowerCase()} volume limit — ${fmtUsd(used)} already sent, this adds ${fmtUsd(amount)} (limit ${fmtUsd(limit)})`;
 
   // ── 4. Velocity: daily volume ─────────────────────────────
   const dailyVolumeUsed = parseFloat(patterns.velocity.daily?.totalVolume ?? "0");
-  if (dailyVolumeUsed + amount > parseFloat(limits.maxDailyVolume)) {
+  const maxDailyVolume = parseFloat(limits.maxDailyVolume);
+  if (hasUsdValue && dailyVolumeUsed + amount > maxDailyVolume) {
     riskScore += 20;
-    reasons.push(
-      `Would exceed daily volume limit ($${dailyVolumeUsed.toFixed(2)} + $${amount.toFixed(2)} > $${limits.maxDailyVolume})`
-    );
+    reasons.push(velocityReason("Today's", dailyVolumeUsed, maxDailyVolume));
   }
 
   // ── 5. Velocity: hourly volume ────────────────────────────
   const hourlyVolumeUsed = parseFloat(patterns.velocity.hourly?.totalVolume ?? "0");
-  if (hourlyVolumeUsed + amount > parseFloat(limits.maxHourlyVolume)) {
+  const maxHourlyVolume = parseFloat(limits.maxHourlyVolume);
+  if (hasUsdValue && hourlyVolumeUsed + amount > maxHourlyVolume) {
     riskScore += 15;
-    reasons.push(
-      `Would exceed hourly volume limit ($${hourlyVolumeUsed.toFixed(2)} + $${amount.toFixed(2)} > $${limits.maxHourlyVolume})`
-    );
+    reasons.push(velocityReason("This hour's", hourlyVolumeUsed, maxHourlyVolume));
   }
 
   // ── 6. Velocity: weekly volume ────────────────────────────
   const weeklyVolumeUsed = parseFloat(patterns.velocity.weekly?.totalVolume ?? "0");
-  if (weeklyVolumeUsed + amount > parseFloat(limits.maxWeeklyVolume)) {
+  const maxWeeklyVolume = parseFloat(limits.maxWeeklyVolume);
+  if (hasUsdValue && weeklyVolumeUsed + amount > maxWeeklyVolume) {
     riskScore += 10;
-    reasons.push(
-      `Would exceed weekly volume limit ($${weeklyVolumeUsed.toFixed(2)} + $${amount.toFixed(2)} > $${limits.maxWeeklyVolume})`
-    );
+    reasons.push(velocityReason("This week's", weeklyVolumeUsed, maxWeeklyVolume));
   }
 
   // ── 7. Daily tx count limit ───────────────────────────────
@@ -319,7 +395,7 @@ export function analyzeRisk(
   if (dailyTxCount >= limits.maxDailyTxCount) {
     riskScore += 15;
     reasons.push(
-      `Daily transaction count limit reached (${dailyTxCount} / ${limits.maxDailyTxCount})`
+      `Daily transaction limit reached — ${dailyTxCount} of ${limits.maxDailyTxCount} today`
     );
   }
 
@@ -361,12 +437,27 @@ export function analyzeRisk(
     reasons.push("Known recipient, normal amount, within allowed hours — no anomalies detected");
   }
 
-  const verdict: RiskResult["verdict"] =
+  let verdict: RiskResult["verdict"] =
     riskScore < limits.riskThresholdApprove
       ? "APPROVE"
       : riskScore < limits.riskThresholdBlock
       ? "REVIEW"
       : "BLOCK";
+
+  // ── Floors — verdicts user-writable policy can never relax (#144) ──
+  // Applied AFTER all score arithmetic: thresholds and negative rule deltas
+  // (recipient_whitelist) are attacker-reachable through the settings plane,
+  // so an explicitly blocked recipient must block on the verdict, not by
+  // hoping +100 survives the math.
+  if (recipient?.trustLevel === "blocked") {
+    verdict = "BLOCK";
+  }
+  // A value-bearing transfer with no USD price never auto-approves: none of
+  // the dollar limits were enforceable, so a human (or the agent channel)
+  // must look at it.
+  if (!hasUsdValue && !isApproval && verdict === "APPROVE") {
+    verdict = "REVIEW";
+  }
 
   return { riskScore, verdict, reasons, triggeredRules };
 }

@@ -6,6 +6,7 @@ import {
   upsertUserDetails,
 } from "../lib/supabase/index.js";
 import { upsertUserSettings } from "../agent/index.js";
+import { priceTransferUsd } from "../lib/screening/pricing.js";
 import {
   validateTransitionTx,
   finishTransition,
@@ -199,6 +200,28 @@ export function createQueueRouter(): IRouter {
           res.status(400).json({ error: msg });
           return;
         }
+      }
+
+      // Server-side canonical pricing (#144 follow-up): the engine scores in
+      // dollars, and the client's amountUSD is a single-factor claim — a
+      // compromised session could label a drain "$0.01". ONLY a
+      // server-derived value may reach screening: the client's claim is
+      // discarded unconditionally, and when the server can't price (outage,
+      // missing position, unsupported token) amountUSD stays unset so the
+      // engine's unknown-value floor forces at least REVIEW — otherwise the
+      // pricing-gap window would be exactly where an understated claim
+      // slips through. Priced BEFORE the row is stored so the screen-job
+      // payload carries it.
+      try {
+        const serverUsd = await priceTransferUsd(
+          pendingTx.safeAddress,
+          pendingTx.tokenAddress ?? null,
+          pendingTx.amount
+        );
+        pendingTx.amountUSD = serverUsd ?? undefined;
+      } catch (err) {
+        pendingTx.amountUSD = undefined;
+        console.error("Proposal pricing failed — screening treats the value as unknown:", err);
       }
 
       try {

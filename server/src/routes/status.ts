@@ -4,10 +4,33 @@ import {
   upsertUserSettings,
   getGlobalLimits,
   upsertGlobalLimits,
+  DEFAULT_LIMITS,
   loadPolicySnapshot,
 } from "../agent/index.js";
 import type { GlobalLimitsRow } from "../lib/supabase/types.js";
-import { assertOwnsSafe } from "../lib/authz.js";
+import { assertOwnsSafe, requireAgentPrincipal } from "../lib/authz.js";
+import {
+  parseLimitsPatch,
+  validateMergedLimits,
+  LIMITS_API_FIELDS,
+} from "../lib/screening/limits.js";
+
+/** Row → API shape, shared by the PATCH response and the GET defaults contract. */
+function limitsToJson(row: Omit<GlobalLimitsRow, "safe_address" | "updated_at">) {
+  return {
+    maxSingleTx: row.max_single_tx,
+    maxHourlyVolume: row.max_hourly_volume,
+    maxDailyVolume: row.max_daily_volume,
+    maxWeeklyVolume: row.max_weekly_volume,
+    maxDailyTxCount: row.max_daily_tx_count,
+    allowedHoursUTC: row.allowed_hours_utc,
+    allowedDaysUTC: row.allowed_days_utc,
+    unknownRecipientAction: row.unknown_recipient_action,
+    riskThresholdApprove: row.risk_threshold_approve,
+    riskThresholdBlock: row.risk_threshold_block,
+    learningEnabled: row.learning_enabled,
+  };
+}
 import { ensureLinkMeta, getLinkBySafe } from "../lib/telegram/binding.js";
 import { getUserDetails } from "../lib/supabase/index.js";
 import { classifyProfile, type WalletState } from "../lib/safe/profiles.js";
@@ -78,6 +101,9 @@ export function createStatusRouter(): IRouter {
               name: link.telegram_name,
             }
           : null,
+        /** Defaults contract (#144): the UI renders "default vs customized"
+         *  from this instead of duplicating DEFAULT_LIMITS values. */
+        defaultLimits: limitsToJson(DEFAULT_LIMITS),
         patterns,
       });
     } catch (err) {
@@ -97,23 +123,7 @@ export function createStatusRouter(): IRouter {
   //     learningEnabled
   router.patch("/", async (req: Request, res: Response) => {
     try {
-      const {
-        safe: claimedSafe,
-        // User settings fields
-        screeningMode,
-        // Global limits fields
-        maxSingleTx,
-        maxHourlyVolume,
-        maxDailyVolume,
-        maxWeeklyVolume,
-        maxDailyTxCount,
-        allowedHoursUTC,
-        allowedDaysUTC,
-        unknownRecipientAction,
-        riskThresholdApprove,
-        riskThresholdBlock,
-        learningEnabled,
-      } = req.body;
+      const { safe: claimedSafe, screeningMode } = req.body ?? {};
 
       // Screening mode is the control this whole product rests on — turning it
       // off for someone else must be impossible, so the target Safe comes from
@@ -121,7 +131,19 @@ export function createStatusRouter(): IRouter {
       const safe = assertOwnsSafe(req, res, claimedSafe);
       if (!safe) return;
 
-      // ── Validate and persist user settings ──────────────────
+      // ── Agent-only limits (#144) ─────────────────────────────
+      // Limits and thresholds are the policy the agent enforces; they must not
+      // be writable by the single-factor client session. The screeningMode
+      // toggle itself stays client-controllable: in protected wallets
+      // screening-off reroutes execution to the user's own backup
+      // co-signature (the embedded key alone still can't reach threshold),
+      // and guarded wallets keep the structural server-side guard below.
+      const touchesLimits = LIMITS_API_FIELDS.some(
+        (field) => (req.body ?? {})[field] !== undefined
+      );
+      if (touchesLimits && !requireAgentPrincipal(req, res)) return;
+
+      // ── Validate user settings ───────────────────────────────
       const settingsPatch: Parameters<typeof upsertUserSettings>[1] = {};
       let hasSettingsUpdate = false;
 
@@ -145,72 +167,42 @@ export function createStatusRouter(): IRouter {
         hasSettingsUpdate = true;
       }
 
-      // ── Validate and persist global limits ───────────────────
-      const limitsPatch: Partial<Omit<GlobalLimitsRow, "safe_address" | "updated_at">> = {};
-      let hasLimitsUpdate = false;
-
-      if (maxSingleTx !== undefined)        { limitsPatch.max_single_tx        = String(maxSingleTx); hasLimitsUpdate = true; }
-      if (maxHourlyVolume !== undefined)     { limitsPatch.max_hourly_volume    = String(maxHourlyVolume); hasLimitsUpdate = true; }
-      if (maxDailyVolume !== undefined)      { limitsPatch.max_daily_volume     = String(maxDailyVolume); hasLimitsUpdate = true; }
-      if (maxWeeklyVolume !== undefined)     { limitsPatch.max_weekly_volume    = String(maxWeeklyVolume); hasLimitsUpdate = true; }
-      if (maxDailyTxCount !== undefined)     { limitsPatch.max_daily_tx_count   = Number(maxDailyTxCount); hasLimitsUpdate = true; }
-      if (allowedHoursUTC !== undefined)     { limitsPatch.allowed_hours_utc    = allowedHoursUTC; hasLimitsUpdate = true; }
-      if (allowedDaysUTC !== undefined)      { limitsPatch.allowed_days_utc     = allowedDaysUTC; hasLimitsUpdate = true; }
-      if (learningEnabled !== undefined)     { limitsPatch.learning_enabled     = Boolean(learningEnabled); hasLimitsUpdate = true; }
-
-      if (unknownRecipientAction !== undefined) {
-        if (!["approve", "review", "block"].includes(unknownRecipientAction)) {
-          res.status(400).json({ error: "unknownRecipientAction must be 'approve', 'review', or 'block'" });
-          return;
-        }
-        limitsPatch.unknown_recipient_action = unknownRecipientAction;
-        hasLimitsUpdate = true;
+      // ── Validate global limits: per-field shape, then cross-field on the
+      // MERGED candidate state — updates are partial, so e.g. patching only
+      // the block threshold must be checked against the stored approve. ──
+      const parsed = parseLimitsPatch(req.body ?? {});
+      if ("error" in parsed) {
+        res.status(400).json({ error: parsed.error });
+        return;
       }
-      if (riskThresholdApprove !== undefined) {
-        const val = Number(riskThresholdApprove);
-        if (isNaN(val) || val < 0 || val > 100) {
-          res.status(400).json({ error: "riskThresholdApprove must be 0–100" });
-          return;
-        }
-        limitsPatch.risk_threshold_approve = val;
-        hasLimitsUpdate = true;
-      }
-      if (riskThresholdBlock !== undefined) {
-        const val = Number(riskThresholdBlock);
-        if (isNaN(val) || val < 0 || val > 100) {
-          res.status(400).json({ error: "riskThresholdBlock must be 0–100" });
-          return;
-        }
-        limitsPatch.risk_threshold_block = val;
-        hasLimitsUpdate = true;
-      }
+      const limitsPatch = parsed.patch;
+      const hasLimitsUpdate = Object.keys(limitsPatch).length > 0;
 
       if (!hasSettingsUpdate && !hasLimitsUpdate) {
         res.status(400).json({ error: "No valid fields to update" });
         return;
       }
 
-      // Run updates in parallel
-      const [updatedSettings, updatedLimits] = await Promise.all([
-        hasSettingsUpdate ? upsertUserSettings(safe, settingsPatch) : getUserSettings(safe),
-        hasLimitsUpdate ? upsertGlobalLimits(safe, limitsPatch) : getGlobalLimits(safe),
-      ]);
+      let updatedLimits: GlobalLimitsRow;
+      if (hasLimitsUpdate) {
+        const current = await getGlobalLimits(safe);
+        const mergedError = validateMergedLimits(current, limitsPatch);
+        if (mergedError) {
+          res.status(400).json({ error: mergedError });
+          return;
+        }
+        updatedLimits = await upsertGlobalLimits(safe, limitsPatch);
+      } else {
+        updatedLimits = await getGlobalLimits(safe);
+      }
+
+      const updatedSettings = hasSettingsUpdate
+        ? await upsertUserSettings(safe, settingsPatch)
+        : await getUserSettings(safe);
 
       res.json({
         screeningMode: updatedSettings.screening_mode,
-        limits: {
-          maxSingleTx:             updatedLimits.max_single_tx,
-          maxHourlyVolume:         updatedLimits.max_hourly_volume,
-          maxDailyVolume:          updatedLimits.max_daily_volume,
-          maxWeeklyVolume:         updatedLimits.max_weekly_volume,
-          maxDailyTxCount:         updatedLimits.max_daily_tx_count,
-          allowedHoursUTC:         updatedLimits.allowed_hours_utc,
-          allowedDaysUTC:          updatedLimits.allowed_days_utc,
-          unknownRecipientAction:  updatedLimits.unknown_recipient_action,
-          riskThresholdApprove:    updatedLimits.risk_threshold_approve,
-          riskThresholdBlock:      updatedLimits.risk_threshold_block,
-          learningEnabled:         updatedLimits.learning_enabled,
-        },
+        limits: limitsToJson(updatedLimits),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";

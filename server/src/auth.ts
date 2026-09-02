@@ -46,6 +46,13 @@ declare global {
        * Undefined for agent calls or when the user hasn't completed onboarding.
        */
       user?: UserDetailsRow;
+      /**
+       * WHICH path authenticated this request (#144): the agent shared secret
+       * or a verified Privy token. Set by the resolvers, never inferred —
+       * `req.user` is also undefined for Privy callers mid-onboarding, so it
+       * cannot stand in for this. Settings/rule mutations authorize on it.
+       */
+      principalKind?: "agent" | "client";
     }
   }
 }
@@ -74,6 +81,7 @@ export function secretEquals(a: string, b: string): boolean {
  */
 async function resolveAgentPrincipal(req: Request) {
   const callerId = req.body?.callerId ?? (req.query.callerId as string) ?? undefined;
+  req.principalKind = "agent";
   req.callerId = callerId;
   req.callerSafe = (await getSafeAddressFromCallerId(callerId)) ?? undefined;
 }
@@ -81,6 +89,7 @@ async function resolveAgentPrincipal(req: Request) {
 /** Resolves a Privy caller's principal from a verified identity token. */
 async function resolvePrivyPrincipal(req: Request, bearer: string) {
   const { userId, walletAddress } = await verifyPrivyToken(bearer);
+  req.principalKind = "client";
   req.callerId = `privy:${userId}`;
   req.signerAddress = walletAddress ?? undefined;
 

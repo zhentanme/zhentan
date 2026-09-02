@@ -8,6 +8,7 @@ import { createExecuteRouter } from "./routes/execute.js";
 import { createRequestsRouter } from "./routes/requests.js";
 import { createPortfolioRouter } from "./routes/portfolio.js";
 import { createStatusRouter } from "./routes/status.js";
+import { createSettingsRouter } from "./routes/settings.js";
 import { createResolveRouter } from "./routes/resolve.js";
 import { createRulesRouter } from "./routes/rules.js";
 import { createEventsRouter } from "./routes/events.js";
@@ -89,6 +90,7 @@ const requestsRouter = createRequestsRouter();
 app.use("/requests", auth, requestsRouter);
 app.use("/invoices", auth, requestsRouter); // legacy alias — deployed agent skill still calls /invoices
 app.use("/status", auth, createStatusRouter());
+app.use("/settings", auth, createSettingsRouter()); // #144 policy-change proposals
 app.use("/rules", auth, createRulesRouter());
 app.use("/resolve", auth, createResolveRouter());
 app.use("/analyze", auth, createAnalyzeRouter());
