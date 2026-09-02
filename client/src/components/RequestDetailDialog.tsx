@@ -3,21 +3,20 @@
 import { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import type { QueuedRequest } from "@/types";
+import type { QueuedRequest, TransactionWithStatus } from "@/types";
 import { truncateAddress, formatDate, formatTokenAmount, tokenSymbolLabel } from "@/lib/format";
 import { useApiClient } from "@/lib/api/client";
 import { BSC_EXPLORER_URL } from "@/lib/constants";
 import { Dialog } from "./ui/Dialog";
 import { Button } from "./ui/Button";
 import { Input } from "./ui/Input";
-import { LINK_BUTTON_NEUTRAL } from "./txPresentation";
+import { LINK_BUTTON_NEUTRAL, formatUsd } from "./txPresentation";
 import { RiskSection } from "./RiskSection";
 import { TokenGlyph } from "./TokenGlyph";
 import {
   FileText,
   ArrowUpRight,
   Repeat2,
-  Send,
   ShieldCheck,
   ExternalLink,
 } from "lucide-react";
@@ -67,6 +66,61 @@ const statusLabels: Record<QueuedRequest["status"], string> = {
   rejected: "Rejected",
 };
 
+/**
+ * Hero amount card — the same layouts the activity (transaction) dialog
+ * renders: swaps get the dual-token trade row, everything else the op icon +
+ * token + amount row. Shared by the idle view and the approval lifecycle so
+ * the confirmation screen reads identically to a normal transaction.
+ */
+function RequestHero({ request, usd }: { request: QueuedRequest; usd?: string | null }) {
+  const isInvoice = request.type === "invoice";
+  const isSwap = request.kind === "swap";
+
+  if (isSwap && request.fromToken && request.toToken) {
+    return (
+      <div className="rounded-md bg-foreground/6 p-4">
+        <div className="flex items-center gap-1.5 mb-3 text-muted-foreground">
+          <Repeat2 className="h-4 w-4" />
+          <span className="text-xs font-semibold uppercase tracking-wide">Swap</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <TokenGlyph symbol={request.fromToken} size={36} />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground truncate">
+                -{formatTokenAmount(request.amount)} {tokenSymbolLabel(request.fromToken)}
+              </p>
+              {usd && <p className="text-xs text-muted-foreground/80 mt-0.5">{usd}</p>}
+            </div>
+          </div>
+          <ArrowUpRight className="h-4 w-4 text-muted-foreground/80 shrink-0 rotate-45" />
+          <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+            <p className="text-sm font-semibold text-safe truncate">
+              {tokenSymbolLabel(request.toToken)}
+            </p>
+            <TokenGlyph symbol={request.toToken} size={36} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md bg-foreground/6 p-4 flex items-center gap-3">
+      <div className="w-10 h-10 rounded-md bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
+        {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
+      </div>
+      <TokenGlyph symbol={request.token} size={36} />
+      <div className="flex-1 min-w-0">
+        <p className="text-base font-semibold text-foreground">
+          {formatTokenAmount(request.amount)} {request.token}
+        </p>
+        {usd && <p className="text-xs text-muted-foreground/80 mt-0.5">{usd}</p>}
+      </div>
+    </div>
+  );
+}
+
 export function RequestDetailDialog({
   request,
   open,
@@ -84,6 +138,10 @@ export function RequestDetailDialog({
   const [txHash, setTxHash] = useState<string | null>(null);
   const [resultReason, setResultReason] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // The proposed transaction as the server sees it — captured on every poll
+  // so the confirmation screen shows the SAME data (risk analysis,
+  // signatures, USD value) a normal transaction dialog would.
+  const [liveTx, setLiveTx] = useState<TransactionWithStatus | null>(null);
   const cancelledRef = useRef(false);
 
   if (!request) return null;
@@ -97,6 +155,7 @@ export function RequestDetailDialog({
     setTxHash(null);
     setResultReason(null);
     setErrorMsg(null);
+    setLiveTx(null);
   };
 
   const handleClose = () => {
@@ -121,6 +180,7 @@ export function RequestDetailDialog({
         continue;
       }
       if (cancelledRef.current) return;
+      setLiveTx(tx);
 
       if (tx.txHash) {
         setTxHash(tx.txHash);
@@ -186,6 +246,7 @@ export function RequestDetailDialog({
           request={request}
           phase={phase}
           txHash={txHash}
+          liveTx={liveTx}
           resultReason={resultReason}
           errorMsg={errorMsg}
           onDone={handleClose}
@@ -231,41 +292,7 @@ export function RequestDetailDialog({
 
         {/* Hero amount — mirrors the activity dialog: swaps get the dual-token
             trade layout, everything else the op icon + token + amount row. */}
-        {isSwap && request.fromToken && request.toToken ? (
-          <div className="rounded-md bg-foreground/6 p-4">
-            <div className="flex items-center gap-1.5 mb-3 text-muted-foreground">
-              <Repeat2 className="h-4 w-4" />
-              <span className="text-xs font-semibold uppercase tracking-wide">Swap</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <TokenGlyph symbol={request.fromToken} size={36} />
-                <p className="text-sm font-semibold text-foreground truncate">
-                  -{formatTokenAmount(request.amount)} {tokenSymbolLabel(request.fromToken)}
-                </p>
-              </div>
-              <ArrowUpRight className="h-4 w-4 text-muted-foreground/80 shrink-0 rotate-45" />
-              <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
-                <p className="text-sm font-semibold text-safe truncate">
-                  {tokenSymbolLabel(request.toToken)}
-                </p>
-                <TokenGlyph symbol={request.toToken} size={36} />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="rounded-md bg-foreground/6 p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-md bg-foreground/[0.08] flex items-center justify-center shrink-0 text-gold">
-              {isInvoice ? <FileText className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
-            </div>
-            <TokenGlyph symbol={request.token} size={36} />
-            <div className="flex-1 min-w-0">
-              <p className="text-base font-semibold text-foreground">
-                {formatTokenAmount(request.amount)} {request.token}
-              </p>
-            </div>
-          </div>
-        )}
+        <RequestHero request={request} />
 
         {/* Instruction from the agent (transfer requests) */}
         {request.description && (
@@ -451,11 +478,18 @@ export function RequestDetailDialog({
   );
 }
 
-/** Renders the active approval lifecycle with clear, phase-specific messaging. */
+/**
+ * Renders the active approval lifecycle with clear, phase-specific messaging.
+ * Mirrors the normal transaction dialog: same hero card, linked counterparty,
+ * signature count, agent analysis, and the standard BscScan button — the
+ * polled transaction (`liveTx`) supplies the same fields the activity dialog
+ * renders.
+ */
 function ScreeningView({
   request,
   phase,
   txHash,
+  liveTx,
   resultReason,
   errorMsg,
   onDone,
@@ -464,6 +498,7 @@ function ScreeningView({
   request: QueuedRequest;
   phase: Exclude<ScreeningPhase, "idle">;
   txHash: string | null;
+  liveTx: TransactionWithStatus | null;
   resultReason: string | null;
   errorMsg: string | null;
   onDone: () => void;
@@ -528,36 +563,77 @@ function ScreeningView({
         </div>
       </div>
 
-      {/* Amount */}
-      <div className="flex items-center gap-3 rounded-md bg-foreground/6 p-4">
-        <div className="w-10 h-10 rounded-md bg-foreground/8 flex items-center justify-center text-gold">
-          {request.kind === "swap" ? <Repeat2 className="h-5 w-5" /> : <Send className="h-5 w-5" />}
-        </div>
-        <TokenGlyph symbol={request.kind === "swap" && request.fromToken ? request.fromToken : request.token} size={24} />
-        <span className="text-lg font-semibold text-foreground">
-          {formatTokenAmount(request.amount)} {request.token}
-        </span>
-      </div>
+      {/* Hero amount — the same card the idle view and the activity dialog
+          render; the polled tx supplies the server-priced USD value. */}
+      <RequestHero
+        request={request}
+        usd={liveTx?.amountUSD ? formatUsd(Number(liveTx.amountUSD)) : null}
+      />
 
-      {request.to && (
-        <dl className="space-y-3 text-sm">
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground/80">{request.kind === "swap" ? "Router" : "To"}</dt>
+      {/* Details — same rows as the transaction dialog */}
+      <dl className="space-y-3 text-sm min-w-0">
+        {(liveTx?.to || request.to) && (
+          <div className="flex justify-between gap-2 sm:gap-4">
+            <dt className="text-muted-foreground/80 shrink-0">
+              {request.kind === "swap" ? "Router" : "To"}
+            </dt>
             <dd
-              className="font-mono text-foreground truncate min-w-0 max-w-[50%] sm:max-w-[200px]"
-              title={request.to}
+              className="min-w-0 max-w-[50%] sm:max-w-[200px] truncate"
+              title={liveTx?.to ?? request.to}
             >
-              {truncateAddress(request.to)}
+              <a
+                href={`${BSC_EXPLORER_URL}/address/${liveTx?.to ?? request.to}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-2 font-mono text-foreground hover:text-foreground transition-colors underline-offset-4 hover:underline truncate"
+              >
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground/80 group-hover:text-foreground" />
+                <span className="truncate">{truncateAddress(liveTx?.to ?? request.to ?? "")}</span>
+              </a>
             </dd>
           </div>
-        </dl>
-      )}
+        )}
 
-      {phase === "rejected" && resultReason && (
-        <div className="rounded-md bg-danger/10 p-3">
-          <p className="text-xs text-danger/70 mb-1">Reason</p>
-          <p className="text-sm text-danger">{resultReason}</p>
-        </div>
+        {liveTx?.proposedAt && (
+          <div className="flex justify-between gap-2 sm:gap-4">
+            <dt className="text-muted-foreground/80 shrink-0">Proposed</dt>
+            <dd className="text-foreground/80 truncate min-w-0">{formatDate(liveTx.proposedAt)}</dd>
+          </div>
+        )}
+
+        {liveTx && (
+          <div className="flex justify-between gap-2 sm:gap-4">
+            <dt className="text-muted-foreground/80 shrink-0">Signatures</dt>
+            <dd className="text-foreground/80">
+              {liveTx.txHash ? liveTx.threshold : 1} of {liveTx.threshold}
+            </dd>
+          </div>
+        )}
+      </dl>
+
+      {/* Agent analysis — the same shared panel a normal transaction shows,
+          fed by the polled tx. The rejected fallback keeps legacy reasons. */}
+      {liveTx &&
+      (liveTx.riskScore != null ||
+        liveTx.riskVerdict != null ||
+        (liveTx.riskReasons?.length ?? 0) > 0 ||
+        liveTx.reviewReason ||
+        liveTx.rejectReason) ? (
+        <RiskSection
+          riskScore={liveTx.riskScore}
+          riskVerdict={liveTx.riskVerdict}
+          riskReasons={liveTx.riskReasons}
+          message={liveTx.reviewReason}
+          rejectReason={phase === "rejected" ? liveTx.rejectReason ?? resultReason ?? undefined : undefined}
+        />
+      ) : (
+        phase === "rejected" &&
+        resultReason && (
+          <div className="rounded-md bg-danger/10 p-3">
+            <p className="text-xs text-danger/70 mb-1">Reason</p>
+            <p className="text-sm text-danger">{resultReason}</p>
+          </div>
+        )
       )}
 
       {phase === "error" && errorMsg && (
@@ -566,14 +642,19 @@ function ScreeningView({
         </div>
       )}
 
+      {/* BscScan explorer link — the standard logo button, as on transactions */}
       {explorerUrl && (
         <a
           href={explorerUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-1.5 text-xs text-gold hover:text-gold/80"
+          className={LINK_BUTTON_NEUTRAL}
         >
-          View on BscScan <ExternalLink className="h-3 w-3" />
+          <span className="relative w-[18px] h-[18px] shrink-0">
+            <Image src="/bscscan.png" alt="" fill className="object-contain rounded" sizes="18px" />
+          </span>
+          View on BscScan
+          <ExternalLink className="h-3.5 w-3.5 opacity-50" />
         </a>
       )}
 
