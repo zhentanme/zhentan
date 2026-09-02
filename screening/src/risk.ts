@@ -302,20 +302,6 @@ export function analyzeRisk(
         `Unusual time for this recipient — payments usually go out ${fmtHourWindows(recipient.typicalHoursUtc)} UTC, not at ${hourUtc}:00`
       );
     }
-
-    // Unusual day for this recipient — the day-of-week twin of the hour
-    // check (learning has always recorded typicalDaysOfWeek; it scored
-    // nothing before this). Same append-only caveat as hours: once all 7
-    // days have been seen the signal goes silent.
-    if (
-      recipient.typicalDaysOfWeek.length > 0 &&
-      !recipient.typicalDaysOfWeek.includes(dayOfWeek)
-    ) {
-      riskScore += 10;
-      reasons.push(
-        `Unusual day for this recipient — usually paid ${fmtDayWindows(recipient.typicalDaysOfWeek)}, today is ${DAY_NAMES[dayOfWeek]}`
-      );
-    }
   }
 
   // ── 2. Time-of-day / day-of-week ─────────────────────────
