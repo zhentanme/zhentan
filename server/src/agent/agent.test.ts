@@ -105,6 +105,26 @@ describe("agent domain — Tier 1 evaluation", () => {
     expect(outOfHours.riskScore).toBeGreaterThan(inHours.riskScore);
   });
 
+  it("a disabled day scores even when the hour is ALSO outside the window", () => {
+    // The day check used to be the tail of an else-if chain behind the hour
+    // check — a disabled Wednesday was silently swallowed whenever the hour
+    // violated too: no reason, no score.
+    const snapshot: PatternsFile = structuredClone(SNAPSHOT);
+    snapshot.globalLimits.allowedHoursUTC = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+    snapshot.globalLimits.allowedDaysUTC = [1, 2, 4, 5]; // Wednesday (3) disabled
+
+    // 2026-08-05 is a Wednesday. In-hours: only the day signal.
+    const inHours = evaluateTransaction(TX, snapshot, REAL_DECODED, new Date("2026-08-05T12:30:00Z"));
+    expect(inHours.reasons.join("\n")).toContain("today is Wed, allowed days are Mon–Tue, Thu–Fri");
+
+    // Out-of-hours on the same Wednesday: BOTH signals, additive score.
+    const outOfHours = evaluateTransaction(TX, snapshot, REAL_DECODED, new Date("2026-08-05T22:30:00Z"));
+    const text = outOfHours.reasons.join("\n");
+    expect(text).toContain("Outside your active hours");
+    expect(text).toContain("today is Wed");
+    expect(outOfHours.riskScore).toBe(inHours.riskScore + 20);
+  });
+
   it("reasons speak in windows and formatted amounts, not raw lists (#144 UI)", () => {
     const snapshot: PatternsFile = structuredClone(SNAPSHOT);
     // Unsorted learned hours collapse into sorted contiguous windows.

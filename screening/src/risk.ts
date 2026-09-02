@@ -308,8 +308,8 @@ export function analyzeRisk(
   const timeKey = `${hourUtc}:${dayOfWeek}`;
   const timeSlot = patterns.timePatterns[timeKey];
 
+  // Time-of-day: an explicitly blocked slot overrides the generic hour check.
   if (timeSlot?.isAllowed === false) {
-    // Explicitly blocked slot
     riskScore += 30;
     reasons.push(`${DAY_NAMES[dayOfWeek]} ${hourUtc}:00 UTC is a blocked time slot in your schedule`);
   } else if (limits.allowedHoursUTC.length > 0 && !limits.allowedHoursUTC.includes(hourUtc)) {
@@ -317,7 +317,12 @@ export function analyzeRisk(
     reasons.push(
       `Outside your active hours — it's ${hourUtc}:00 UTC, allowed window is ${fmtHourWindows(limits.allowedHoursUTC)} UTC`
     );
-  } else if (limits.allowedDaysUTC.length > 0 && !limits.allowedDaysUTC.includes(dayOfWeek)) {
+  }
+
+  // Day-of-week: INDEPENDENT of the hour check. This used to be the tail of
+  // the else-if chain, so a disabled day was silently swallowed whenever the
+  // hour was also outside the window — no reason, no score.
+  if (limits.allowedDaysUTC.length > 0 && !limits.allowedDaysUTC.includes(dayOfWeek)) {
     riskScore += 20;
     reasons.push(
       `Outside your active days — today is ${DAY_NAMES[dayOfWeek]}, allowed days are ${fmtDayWindows(limits.allowedDaysUTC)}`
