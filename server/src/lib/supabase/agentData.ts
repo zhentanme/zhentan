@@ -626,7 +626,8 @@ export async function recordTxOutcome(
     tx_id: tx.id,
     event_type: outcome,
     recipient_address: tx.to.toLowerCase(),
-    amount: tx.amountUSD ?? tx.amount,
+    // USD or nothing — token units must never masquerade as dollars (#144).
+    amount: tx.amountUSD ?? null,
     token_address: tx.tokenAddress?.toLowerCase() ?? null,
     token_symbol: tx.token ?? null,
     risk_score: opts?.riskScore ?? tx.riskScore ?? null,
@@ -649,7 +650,15 @@ export async function updatePatternsAfterExecution(
   tx: PendingTransaction
 ): Promise<void> {
   const safe = tx.safeAddress.toLowerCase();
-  const amount = parseFloat(tx.amountUSD ?? tx.amount);
+  // USD-only learning (#144 follow-up): token units must never enter the
+  // dollar-denominated baselines the engine compares against. An unpriced
+  // execution still counts (tx counts, hours/days, familiarity) but adds
+  // zero volume and skips amount statistics entirely.
+  const pricedAmount =
+    tx.amountUSD != null && Number.isFinite(parseFloat(tx.amountUSD))
+      ? parseFloat(tx.amountUSD)
+      : null;
+  const amount = pricedAmount ?? 0;
   const now = new Date();
   const hourUtc = now.getUTCHours();
   const dayOfWeek = now.getUTCDay();
@@ -664,7 +673,7 @@ export async function updatePatternsAfterExecution(
 
   await Promise.all([
     ...(hasRecipient
-      ? [_updateRecipientProfile(safe, tx.to.toLowerCase(), amount, hourUtc, dayOfWeek, now)]
+      ? [_updateRecipientProfile(safe, tx.to.toLowerCase(), pricedAmount, hourUtc, dayOfWeek, now)]
       : []),
     _updateTimePattern(safe, hourUtc, dayOfWeek, amount),
     _updateTokenPattern(safe, tx),
@@ -679,7 +688,10 @@ export async function updatePatternsAfterExecution(
 async function _updateRecipientProfile(
   safe: string,
   address: string,
-  amount: number,
+  /** USD amount, or null when the execution was unpriced — amount statistics
+   * are then left untouched (a token-unit number in the average is worse
+   * than a slightly under-weighted one; see #144 follow-up). */
+  amount: number | null,
   hourUtc: number,
   dayOfWeek: number,
   now: Date
@@ -687,19 +699,7 @@ async function _updateRecipientProfile(
   const existing = await getRecipientProfile(address, safe);
 
   const n = existing?.total_tx_count ?? 0;
-  const oldAvg = parseFloat(existing?.avg_amount ?? "0");
-  const oldStddev = parseFloat(existing?.stddev_amount ?? "0");
   const newN = n + 1;
-
-  // Online mean update
-  const newAvg = (oldAvg * n + amount) / newN;
-
-  // Online variance update (population stddev approximation)
-  const newVariance =
-    newN <= 1
-      ? 0
-      : (oldStddev ** 2 * n + (amount - newAvg) ** 2) / newN;
-  const newStddev = Math.sqrt(newVariance);
 
   // Merge this hour/day into typical arrays (keep unique, max 24 entries)
   const typicalHours = Array.from(
@@ -719,6 +719,31 @@ async function _updateRecipientProfile(
         ? String(daysSinceLast.toFixed(2))
         : String(((parseFloat(avgDaysBetween) * (n - 1) + daysSinceLast) / n).toFixed(2));
   }
+
+  if (amount === null) {
+    await upsertRecipientProfile(address, safe, {
+      total_tx_count: newN,
+      typical_hours_utc: typicalHours,
+      typical_days_of_week: typicalDays,
+      avg_days_between_txs: avgDaysBetween,
+      first_seen: existing?.first_seen ?? now.toISOString(),
+      last_seen: now.toISOString(),
+    });
+    return;
+  }
+
+  const oldAvg = parseFloat(existing?.avg_amount ?? "0");
+  const oldStddev = parseFloat(existing?.stddev_amount ?? "0");
+
+  // Online mean update
+  const newAvg = (oldAvg * n + amount) / newN;
+
+  // Online variance update (population stddev approximation)
+  const newVariance =
+    newN <= 1
+      ? 0
+      : (oldStddev ** 2 * n + (amount - newAvg) ** 2) / newN;
+  const newStddev = Math.sqrt(newVariance);
 
   await upsertRecipientProfile(address, safe, {
     total_tx_count: newN,
@@ -763,19 +788,29 @@ async function _updateTokenPattern(
 ): Promise<void> {
   if (!tx.tokenAddress) return;
   const tokenAddress = tx.tokenAddress.toLowerCase();
-  const amount = parseFloat(tx.amountUSD ?? tx.amount);
   const existing = await getTokenPattern(safe, tokenAddress);
   const n = existing?.total_tx_count ?? 0;
   const newN = n + 1;
-  const oldAvg = parseFloat(existing?.avg_amount ?? "0");
-  const newAvg = (oldAvg * n + amount) / newN;
+
+  // USD-only amount stats (#144 follow-up) — unpriced executions still
+  // advance familiarity/counts but leave the dollar figures untouched.
+  const priced =
+    tx.amountUSD != null && Number.isFinite(parseFloat(tx.amountUSD))
+      ? parseFloat(tx.amountUSD)
+      : null;
+  const amountFields =
+    priced === null
+      ? {}
+      : {
+          total_volume: String((parseFloat(existing?.total_volume ?? "0") + priced).toFixed(2)),
+          avg_amount: String(((parseFloat(existing?.avg_amount ?? "0") * n + priced) / newN).toFixed(2)),
+          max_amount: String(Math.max(parseFloat(existing?.max_amount ?? "0"), priced).toFixed(2)),
+        };
 
   await upsertTokenPattern(safe, tokenAddress, {
     token_symbol: tx.token ?? existing?.token_symbol ?? null,
     total_tx_count: newN,
-    total_volume: String((parseFloat(existing?.total_volume ?? "0") + amount).toFixed(2)),
-    avg_amount: String(newAvg.toFixed(2)),
-    max_amount: String(Math.max(parseFloat(existing?.max_amount ?? "0"), amount).toFixed(2)),
+    ...amountFields,
     // Familiar after 3+ transactions
     is_familiar: newN >= 3,
     first_seen: existing?.first_seen ?? new Date().toISOString(),

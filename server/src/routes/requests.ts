@@ -4,6 +4,7 @@ import { getRequests, getRequest, createRequest, updateRequest, updateTransactio
 import { requireCallerSafe, sameAddress } from "../lib/authz.js";
 import { evaluateRequest, loadPolicySnapshot } from "../agent/index.js";
 import { agentProposeFromRequest } from "../lib/safe/agentPropose.js";
+import { priceTransferUsdBySymbol } from "../lib/screening/pricing.js";
 import { getKind, VALID_KINDS, type KindDefinition } from "../lib/safe/kinds.js";
 import { randomUUID } from "crypto";
 
@@ -120,6 +121,12 @@ export function createRequestsRouter(): IRouter {
       try {
         const patterns = await loadPolicySnapshot(safeAddress);
         const synthTx = view as unknown as PendingTransaction;
+        // Agent-queued requests carry no USD value — price server-side so the
+        // engine screens dollars, not token units (#144 follow-up). Unpriced
+        // ⇒ the engine's unknown-value signal forces at least REVIEW.
+        synthTx.amountUSD =
+          (await priceTransferUsdBySymbol(safeAddress, synthTx.token ?? "", synthTx.amount)) ??
+          undefined;
         const engine = evaluateRequest(synthTx, patterns, def.syntheticDecoded(params));
         finalRiskScore = Math.max(engine.riskScore, agentScore ?? 0);
         // Structured verdict/reasons (#142) — same shape transactions carry,
@@ -260,6 +267,11 @@ export function createRequestsRouter(): IRouter {
       try {
         const patterns = await loadPolicySnapshot(safeAddress);
         const synthTx = def.scoringView(params) as unknown as PendingTransaction;
+        // Same server-side pricing as POST / — the preview must show the
+        // score the real queue would get.
+        synthTx.amountUSD =
+          (await priceTransferUsdBySymbol(safeAddress, synthTx.token ?? "", synthTx.amount)) ??
+          undefined;
         const engine = evaluateRequest(synthTx, patterns, def.syntheticDecoded(params));
         riskPreview = {
           score: engine.riskScore,

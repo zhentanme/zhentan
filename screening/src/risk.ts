@@ -181,7 +181,12 @@ export function analyzeRisk(
   const reasons: string[] = [];
   const triggeredRules: string[] = [];
 
-  const amount = parseFloat(tx.amountUSD ?? tx.amount);
+  // The engine scores in DOLLARS. amountUSD is priced server-side at intake;
+  // when it's absent the value is UNKNOWN — never fall back to raw token
+  // units (0.5 BNB is not $0.50): dollar-denominated checks are skipped and
+  // an explicit unknown-value signal scores instead (below).
+  const hasUsdValue = tx.amountUSD != null && Number.isFinite(parseFloat(tx.amountUSD));
+  const amount = hasUsdValue ? parseFloat(tx.amountUSD as string) : NaN;
   const limits = patterns.globalLimits;
   const now = evaluatedAt;
   const hourUtc = now.getUTCHours();
@@ -223,6 +228,21 @@ export function analyzeRisk(
   // the verdict). Amount limits, velocity and time checks below still apply.
   const isSwap = decoded?.kind === "swap";
   const isApproval = decoded?.kind === "approval";
+
+  // ── Unknown value (#144 follow-up) ────────────────────────
+  // Value-bearing kinds with no USD price can't be held against ANY dollar
+  // limit — the exact false-negative an agent-queued 0.5 BNB "$0.50" hid.
+  // +40 makes the gap visible in the score; the GUARANTEE (never
+  // auto-approve) is a verdict floor below, because trusted-recipient −15
+  // or a negative rule delta could otherwise launder the penalty back
+  // under the approve threshold. Approvals move no value; config never
+  // reaches here.
+  if (!hasUsdValue && !isApproval) {
+    riskScore += 40;
+    reasons.push(
+      `Transfer value unknown — no USD price for ${tx.token || "this token"}, so your dollar ceilings can't be checked`
+    );
+  }
 
   if (decoded?.kind === "swap") {
     if (decoded.routerName === null) {
@@ -280,15 +300,16 @@ export function analyzeRisk(
       reasons.push("Recipient is trusted");
     }
 
-    // Amount anomaly: more than 3 standard deviations above average
+    // Amount anomaly: more than 3 standard deviations above average.
+    // Skipped when the value is unknown (the +40 signal covers it).
     const avg = parseFloat(recipient.avgAmount || "0");
     const stddev = parseFloat(recipient.stddevAmount || "0");
-    if (avg > 0 && amount > avg + stddev * 3) {
+    if (hasUsdValue && avg > 0 && amount > avg + stddev * 3) {
       riskScore += 25;
       reasons.push(
         `Amount ${fmtUsd(amount)} is far above the usual range for this recipient (average ${fmtUsd(avg)})`
       );
-    } else if (avg > 0 && amount > avg * 3) {
+    } else if (hasUsdValue && avg > 0 && amount > avg * 3) {
       riskScore += 15;
       reasons.push(
         `Amount ${fmtUsd(amount)} is ${(amount / avg).toFixed(1)}× this recipient's average of ${fmtUsd(avg)}`
@@ -331,7 +352,7 @@ export function analyzeRisk(
 
   // ── 3. Single-tx amount limit ─────────────────────────────
   const maxSingleTx = parseFloat(limits.maxSingleTx);
-  if (amount > maxSingleTx) {
+  if (hasUsdValue && amount > maxSingleTx) {
     riskScore += 30;
     reasons.push(
       `Amount ${fmtUsd(amount)} is over your ${fmtUsd(maxSingleTx)} single-transaction limit`
@@ -348,7 +369,7 @@ export function analyzeRisk(
   // ── 4. Velocity: daily volume ─────────────────────────────
   const dailyVolumeUsed = parseFloat(patterns.velocity.daily?.totalVolume ?? "0");
   const maxDailyVolume = parseFloat(limits.maxDailyVolume);
-  if (dailyVolumeUsed + amount > maxDailyVolume) {
+  if (hasUsdValue && dailyVolumeUsed + amount > maxDailyVolume) {
     riskScore += 20;
     reasons.push(velocityReason("Today's", dailyVolumeUsed, maxDailyVolume));
   }
@@ -356,7 +377,7 @@ export function analyzeRisk(
   // ── 5. Velocity: hourly volume ────────────────────────────
   const hourlyVolumeUsed = parseFloat(patterns.velocity.hourly?.totalVolume ?? "0");
   const maxHourlyVolume = parseFloat(limits.maxHourlyVolume);
-  if (hourlyVolumeUsed + amount > maxHourlyVolume) {
+  if (hasUsdValue && hourlyVolumeUsed + amount > maxHourlyVolume) {
     riskScore += 15;
     reasons.push(velocityReason("This hour's", hourlyVolumeUsed, maxHourlyVolume));
   }
@@ -364,7 +385,7 @@ export function analyzeRisk(
   // ── 6. Velocity: weekly volume ────────────────────────────
   const weeklyVolumeUsed = parseFloat(patterns.velocity.weekly?.totalVolume ?? "0");
   const maxWeeklyVolume = parseFloat(limits.maxWeeklyVolume);
-  if (weeklyVolumeUsed + amount > maxWeeklyVolume) {
+  if (hasUsdValue && weeklyVolumeUsed + amount > maxWeeklyVolume) {
     riskScore += 10;
     reasons.push(velocityReason("This week's", weeklyVolumeUsed, maxWeeklyVolume));
   }
@@ -430,6 +451,12 @@ export function analyzeRisk(
   // hoping +100 survives the math.
   if (recipient?.trustLevel === "blocked") {
     verdict = "BLOCK";
+  }
+  // A value-bearing transfer with no USD price never auto-approves: none of
+  // the dollar limits were enforceable, so a human (or the agent channel)
+  // must look at it.
+  if (!hasUsdValue && !isApproval && verdict === "APPROVE") {
+    verdict = "REVIEW";
   }
 
   return { riskScore, verdict, reasons, triggeredRules };

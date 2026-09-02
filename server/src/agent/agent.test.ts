@@ -267,3 +267,41 @@ describe("verdict floors (#144)", () => {
     expect(result.verdict).toBe("APPROVE");
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// Unknown USD value (#144 follow-up) — token units must never be
+// screened as dollars, and an unpriced transfer never auto-approves.
+// ─────────────────────────────────────────────────────────────
+
+describe("unknown USD value", () => {
+  const unpricedTx = { ...TX, amount: "0.5", amountUSD: undefined } as PendingTransaction;
+
+  it("an unpriced transfer never auto-approves — even to a TRUSTED recipient", () => {
+    // The old `amountUSD ?? amount` fallback screened 0.5 BNB as "$0.50":
+    // under every limit, trusted recipient −15 → APPROVE → auto-signed.
+    // Now: +40 signal, dollar checks skipped, and a verdict floor that the
+    // trusted −15 (or a negative rule delta) cannot launder away.
+    const result = evaluateTransaction(unpricedTx, SNAPSHOT, REAL_DECODED, AT);
+    expect(result.verdict).not.toBe("APPROVE");
+    expect(result.reasons.join("\n")).toContain("Transfer value unknown");
+  });
+
+  it("dollar-denominated checks stay silent instead of comparing token units", () => {
+    // Tight limits + spent velocity: a token-unit fallback would trip them
+    // all with nonsense numbers; unknown value must trip NONE.
+    const snapshot: PatternsFile = structuredClone(SNAPSHOT);
+    snapshot.globalLimits.maxSingleTx = "0.1";
+    snapshot.velocity.daily = { txCount: 1, totalVolume: "999999" };
+    const result = evaluateTransaction(unpricedTx, snapshot, REAL_DECODED, AT);
+    const text = result.reasons.join("\n");
+    expect(text).not.toContain("single-transaction limit");
+    expect(text).not.toContain("volume limit");
+    expect(text).not.toContain("already over");
+    expect(text).not.toContain("NaN");
+  });
+
+  it("a priced transaction is unaffected", () => {
+    const result = evaluateTransaction(TX, SNAPSHOT, REAL_DECODED, AT);
+    expect(result.reasons.join("\n")).not.toContain("Transfer value unknown");
+  });
+});

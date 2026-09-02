@@ -6,6 +6,7 @@ import {
   upsertUserDetails,
 } from "../lib/supabase/index.js";
 import { upsertUserSettings } from "../agent/index.js";
+import { priceTransferUsd } from "../lib/screening/pricing.js";
 import {
   validateTransitionTx,
   finishTransition,
@@ -199,6 +200,24 @@ export function createQueueRouter(): IRouter {
           res.status(400).json({ error: msg });
           return;
         }
+      }
+
+      // Server-side canonical pricing (#144 follow-up): the engine scores in
+      // dollars, and the client's amountUSD is a single-factor claim — a
+      // compromised session could label a drain "$0.01". Price from the
+      // Safe's own portfolio BEFORE the row is stored (the screen job
+      // payload carries it); when the server can price, its value WINS.
+      // Unpriceable + no client value ⇒ the engine's unknown-value signal
+      // forces at least REVIEW.
+      try {
+        const serverUsd = await priceTransferUsd(
+          pendingTx.safeAddress,
+          pendingTx.tokenAddress ?? null,
+          pendingTx.amount
+        );
+        if (serverUsd !== null) pendingTx.amountUSD = serverUsd;
+      } catch (err) {
+        console.error("Proposal pricing failed (screening will treat value per stored amountUSD):", err);
       }
 
       try {
