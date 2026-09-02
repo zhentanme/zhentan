@@ -105,6 +105,24 @@ describe("agent domain — Tier 1 evaluation", () => {
     expect(outOfHours.riskScore).toBeGreaterThan(inHours.riskScore);
   });
 
+  it("scores an unusual DAY for a recipient, not just an unusual hour", () => {
+    const snapshot: PatternsFile = structuredClone(SNAPSHOT);
+    const recipient = snapshot.recipients["0x1111111111111111111111111111111111111111"];
+    recipient.typicalHoursUtc = [12]; // matches AT (12:30) — hour check stays quiet
+    recipient.typicalDaysOfWeek = [1, 2, 3, 4, 5]; // weekdays only
+
+    // 2026-08-06 is a Thursday — typical day, no signal.
+    const weekday = evaluateTransaction(TX, snapshot, REAL_DECODED, new Date("2026-08-06T12:30:00Z"));
+    expect(weekday.reasons.join("\n")).not.toContain("Unusual day");
+
+    // 2026-08-09 is a Sunday — same hour, unusual day.
+    const sunday = evaluateTransaction(TX, snapshot, REAL_DECODED, new Date("2026-08-09T12:30:00Z"));
+    expect(sunday.reasons.join("\n")).toContain(
+      "Unusual day for this recipient — usually paid Mon–Fri, today is Sun"
+    );
+    expect(sunday.riskScore).toBe(weekday.riskScore + 10);
+  });
+
   it("reasons speak in windows and formatted amounts, not raw lists (#144 UI)", () => {
     const snapshot: PatternsFile = structuredClone(SNAPSHOT);
     // Unsorted learned hours collapse into sorted contiguous windows.
