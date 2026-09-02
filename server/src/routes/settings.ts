@@ -1,5 +1,5 @@
 import { Router, Request, Response, type IRouter } from "express";
-import { getGlobalLimits, upsertGlobalLimits, recordPolicyChange } from "../agent/index.js";
+import { getGlobalLimits, recordPolicyChange } from "../agent/index.js";
 import { assertOwnsSafe, requireAgentPrincipal, requireCallerSafe } from "../lib/authz.js";
 import {
   parseLimitsPatch,
@@ -8,10 +8,10 @@ import {
 } from "../lib/screening/limits.js";
 import {
   createProposal,
-  claimProposal,
+  claimProposalRejected,
+  applyPolicyChangeProposal,
   expireStaleProposals,
   getPendingProposal,
-  markClaimedProposalRejected,
   type PolicyChangeProposalRow,
 } from "../lib/supabase/proposals.js";
 import { getTelegramChatId } from "../lib/supabase/index.js";
@@ -137,9 +137,10 @@ export function createSettingsRouter(): IRouter {
     }
   });
 
-  // POST /settings/proposals/:id/confirm — AGENT-only. Atomically claims the
-  // pending proposal (concurrent confirm/reject can't both act), re-validates
-  // against the LIVE row, applies, and audits.
+  // POST /settings/proposals/:id/confirm — AGENT-only. Claim + apply + audit
+  // run in ONE database transaction (apply_policy_change_proposal RPC): a
+  // transient failure rolls everything back and the proposal stays pending
+  // (retryable); success cannot exist without its behavioral_events record.
   router.post("/proposals/:id/confirm", async (req: Request, res: Response) => {
     try {
       if (!requireAgentPrincipal(req, res)) return;
@@ -147,47 +148,47 @@ export function createSettingsRouter(): IRouter {
       if (!safe) return;
 
       await expireStaleProposals(safe);
-      const claimed = await claimProposal(req.params.id, safe, "confirmed", {
-        confirmedVia: "telegram",
-      });
-      if (!claimed) {
+      const result = await applyPolicyChangeProposal(req.params.id, safe);
+
+      if (!result.ok) {
         res.status(409).json({
-          error: "Proposal is not pending — it was already resolved or has expired.",
+          error:
+            result.error === "validation"
+              ? `Settings changed since this was proposed — rejected: ${result.reason}`
+              : "Proposal is not pending — it was already resolved or has expired.",
         });
         return;
       }
 
-      // The stored row may have changed between creation and apply.
-      const current = await getGlobalLimits(safe);
-      const mergedError = validateMergedLimits(current, claimed.patch);
-      if (mergedError) {
-        await markClaimedProposalRejected(claimed.id, mergedError);
-        res.status(409).json({
-          error: `Settings changed since this was proposed — rejected: ${mergedError}`,
-        });
-        return;
-      }
+      const changes = describeLimitsChanges(
+        result.previous as Parameters<typeof describeLimitsChanges>[0],
+        result.patch
+      );
 
-      const changes = describeLimitsChanges(current, claimed.patch);
-      const updated = await upsertGlobalLimits(safe, claimed.patch);
+      // #144: notify on every APPLIED change — with the diff computed against
+      // the row the transaction actually replaced. Best-effort like every
+      // other Telegram notification.
+      getTelegramChatId(safe)
+        .then((chatId) => {
+          if (!chatId) return;
+          notifyTelegram(
+            ["✅ *Settings change applied*", "", ...changes.map((line) => `• ${line}`)].join("\n"),
+            undefined,
+            undefined,
+            chatId
+          );
+        })
+        .catch((err) => console.error("policy_change apply notification failed:", err));
 
-      recordPolicyChange(safe, {
-        event: "policy_change_applied",
-        proposalId: claimed.id,
-        proposedVia: claimed.proposed_via,
-        confirmedVia: "telegram",
-        changes,
-        patch: claimed.patch,
-      }).catch((err) => console.error("policy_change audit failed:", err));
-
-      res.json({ ok: true, applied: changes, limits: updated });
+      res.json({ ok: true, applied: changes, limits: result.limits });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       res.status(500).json({ error: message });
     }
   });
 
-  // POST /settings/proposals/:id/reject — AGENT-only.
+  // POST /settings/proposals/:id/reject — AGENT-only. The audit write is
+  // awaited: a rejection isn't reported successful until it's recorded.
   router.post("/proposals/:id/reject", async (req: Request, res: Response) => {
     try {
       if (!requireAgentPrincipal(req, res)) return;
@@ -196,9 +197,7 @@ export function createSettingsRouter(): IRouter {
 
       const reason =
         typeof req.body?.reason === "string" ? req.body.reason.slice(0, 300) : "rejected by user";
-      const claimed = await claimProposal(req.params.id, safe, "rejected", {
-        rejectReason: reason,
-      });
+      const claimed = await claimProposalRejected(req.params.id, safe, reason);
       if (!claimed) {
         res.status(409).json({
           error: "Proposal is not pending — it was already resolved or has expired.",
@@ -206,13 +205,13 @@ export function createSettingsRouter(): IRouter {
         return;
       }
 
-      recordPolicyChange(safe, {
+      await recordPolicyChange(safe, {
         event: "policy_change_rejected",
         proposalId: claimed.id,
         proposedVia: claimed.proposed_via,
         reason,
         patch: claimed.patch,
-      }).catch((err) => console.error("policy_change audit failed:", err));
+      });
 
       res.json({ ok: true });
     } catch (err) {

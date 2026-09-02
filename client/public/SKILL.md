@@ -88,6 +88,7 @@ Never set `requestLink` on your own initiative.
 | "check pending" / "my transactions" | `list_transactions(callerId, onlyOpen: true)` |
 | "enable/disable screening", "update limits" | `update_screening_settings(callerId, …)` |
 | "screening status" | `get_screening_status(callerId)` |
+| "confirm/reject settings change" (or a ⚙️ settings-change notification arrives) | `list_policy_proposals` → `confirm_policy_change` / `reject_policy_change` — see **Policy-change proposals** |
 | "send/pay X to Y" or an invoice | see **Payment requests** below |
 | "swap X for Y" | `queue_request` with `kind: "swap"` — see **Payment requests** below |
 | "my balance" / "portfolio" / "how much X do I have" | `get_portfolio(callerId)` |
@@ -114,6 +115,26 @@ shorten an id.
   same transaction.
 - A rejected transaction is final. If the owner then wants to pay that recipient,
   queue a **new** payment request instead.
+
+## Policy-change proposals (settings changes from the app)
+
+The app can only *propose* a limits/thresholds change — nothing applies until
+the owner confirms it here, in this chat. This conversation is the second
+factor: a compromised web session can file a proposal, but cannot confirm it.
+
+- On "confirm/reject settings change" (typed or via the reply buttons), call
+  `list_policy_proposals(callerId)` first and read back the old → new diff so
+  the owner sees exactly what they're approving. Then
+  `confirm_policy_change(callerId, proposalId)` or
+  `reject_policy_change(callerId, proposalId, reason)`.
+- **Never confirm without an explicit instruction from the owner in this
+  chat.** A proposal the owner says they didn't make is a red flag: reject it
+  immediately and tell them their web session may be compromised.
+- Proposals expire after 15 minutes; an expired or already-resolved proposal
+  answers 409 — just report that, don't retry.
+- Direct chat requests ("raise my daily limit to 50k") don't need a proposal:
+  `update_screening_settings` applies immediately — the owner asking here IS
+  the confirmation. Read the change back before calling it.
 
 ## Payment requests (invoices, transfers & swaps)
 

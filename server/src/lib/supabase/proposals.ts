@@ -87,24 +87,21 @@ export async function createProposal(
 }
 
 /**
- * Atomically resolves a pending proposal. Returns the claimed row, or null
+ * Atomically rejects a pending proposal. Returns the claimed row, or null
  * when the proposal is not pending anymore (resolved concurrently) or has
- * expired — confirmation past the TTL is refused even before the lazy
- * expiry sweep has run.
+ * expired.
  */
-export async function claimProposal(
+export async function claimProposalRejected(
   id: string,
   safeAddress: string,
-  resolution: "confirmed" | "rejected",
-  opts?: { confirmedVia?: string; rejectReason?: string }
+  rejectReason: string
 ): Promise<PolicyChangeProposalRow | null> {
   const { data, error } = await supabase
     .from("policy_change_proposals")
     .update({
-      status: resolution,
+      status: "rejected",
       resolved_at: new Date().toISOString(),
-      confirmed_via: opts?.confirmedVia ?? null,
-      reject_reason: opts?.rejectReason ?? null,
+      reject_reason: rejectReason,
     })
     .eq("id", id)
     .eq("safe_address", safeAddress.toLowerCase())
@@ -116,19 +113,31 @@ export async function claimProposal(
   return data ?? null;
 }
 
+export type ApplyProposalResult =
+  | {
+      ok: true;
+      patch: LimitsPatch;
+      previous: Record<string, unknown>;
+      limits: Record<string, unknown>;
+    }
+  | { ok: false; error: "not_pending" | "validation"; reason?: string };
+
 /**
- * Post-claim safety valve: a confirmed proposal whose patch fails
- * re-validation against the live row (the row changed between creation and
- * apply) is flipped to rejected with the validation error as the reason.
+ * Confirms + applies + audits in ONE database transaction
+ * (`apply_policy_change_proposal` RPC): the claim, the global_limits
+ * update, and the behavioral_events record commit together — a transient
+ * failure rolls all three back, leaving the proposal pending and the
+ * confirm retryable. A merged-state validation failure against the live
+ * row resolves the proposal to 'rejected' instead of applying.
  */
-export async function markClaimedProposalRejected(
+export async function applyPolicyChangeProposal(
   id: string,
-  reason: string
-): Promise<void> {
-  const { error } = await supabase
-    .from("policy_change_proposals")
-    .update({ status: "rejected", reject_reason: reason })
-    .eq("id", id)
-    .eq("status", "confirmed");
+  safeAddress: string
+): Promise<ApplyProposalResult> {
+  const { data, error } = await supabase.rpc("apply_policy_change_proposal", {
+    p_id: id,
+    p_safe: safeAddress.toLowerCase(),
+  });
   if (error) throw error;
+  return data as ApplyProposalResult;
 }

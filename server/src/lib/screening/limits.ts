@@ -210,10 +210,13 @@ export function describeLimitsChanges(
     if (!meta) continue;
     const before = current[key];
     const after = patch[key];
-    if (JSON.stringify(before) === JSON.stringify(after)) continue;
-    lines.push(
-      `${meta.label}: ${formatValue(before, meta.money)} → ${formatValue(after, meta.money)}`
-    );
+    // Compare FORMATTED values: `current` may come from to_jsonb (numerics
+    // as numbers) while patches store money as strings — "5000" vs 5000 is
+    // a no-op, not a change.
+    const beforeText = formatValue(before, meta.money);
+    const afterText = formatValue(after, meta.money);
+    if (beforeText === afterText) continue;
+    lines.push(`${meta.label}: ${beforeText} → ${afterText}`);
   }
   return lines;
 }
