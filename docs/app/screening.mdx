@@ -29,10 +29,19 @@ Every transaction you initiate is scored 0–100 against your behavioral profile
 
 Your profile is built from your past transactions. Each new transaction is checked against:
 
-- **Recipient** — is this address in your known contacts?
-- **Amount** — is this within your typical range for this recipient?
-- **Daily volume** — would this push you over your daily limit?
-- **Time of day** — is this happening during your normal activity window?
+- **Recipient** — is this address in your known contacts? Trusted, suspicious, or blocked?
+- **Amount** — is this within your typical range for this recipient? Always in **dollars**, priced server-side.
+- **Volume** — would this push you over your hourly, daily, or weekly limit?
+- **Time** — is this happening during your active hours and days?
+- **Token & kind** — unfamiliar tokens, unlimited approvals, unknown swap routers, and owner changes all score.
+
+The full signal list with every weight, default limit, and hard guarantee is on the [Risk Scoring](/technology/risk-scoring) page.
+
+## Adjusting Your Limits
+
+Open **Settings → Screening limits** to see every limit with its default. Editing files a **proposal** — nothing applies from the app alone. Your agent shows you the exact old → new change on Telegram, and the change takes effect only when you confirm it there (proposals expire after 15 minutes). This is deliberate: Telegram is a different device from your browser, so a compromised web session can't quietly loosen your own protection.
+
+Prefer chat? Asking the agent directly — *"raise my daily limit to $50k"* — applies immediately; the conversation is the confirmation.
 
 ## Deep Analysis on REVIEW
 
